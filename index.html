@@ -339,7 +339,7 @@ function loginScreen(msg){
       if(!j.ok){ $('#lmsg').textContent=errJP(j.err); b.disabled=false; b.textContent='ログイン'; return }
       afterLogin(j);
     }catch(err){
-      $('#lmsg').textContent='通信できませんでした。電波の良い場所でお試しください。';
+      $('#lmsg').textContent='ログインできませんでした。IDとパスワードを確かめて、もう一度お試しください。（電波が弱いときもこの表示になります）';
       b.disabled=false; b.textContent='ログイン';
     }
   };
@@ -378,7 +378,7 @@ function registerScreen(msg){
       if(!j.ok){ $('#rmsg').textContent=errJP(j.err); b.disabled=false; b.textContent='この内容で設定する'; return }
       afterLogin(j);
     }catch(err){
-      $('#rmsg').textContent='通信できませんでした。電波の良い場所でお試しください。';
+      $('#rmsg').textContent='設定できませんでした。IDを確かめて、もう一度お試しください。すでに設定済みなら「ログイン画面へ戻る」からログインしてください。（電波が弱いときもこの表示になります）';
       b.disabled=false; b.textContent='この内容で設定する';
     }
   };
@@ -427,15 +427,21 @@ function home(){
   if(!ST.token){nav=[];loginScreen();return}
   if(!QUESTIONS.length){nav=[];loginScreen('問題データを読み込めませんでした。もう一度ログインしてください。');return}
   flush();
-  head('清酒学習帳','進級試験・酒造技能士 対策');
+  head('清酒学習帳','逆引き辞典・問題集');
   const all=QUESTIONS, done=all.filter(q=>lvl(q.id)>0).length;
-  let h=`<div class="card" style="display:flex;align-items:center;gap:14px">
+  let h=`<h2>逆引き辞典</h2>
+  <a class="crs" href="seishu-jiten.html" style="text-decoration:none;color:inherit;box-sizing:border-box">
+    <div style="width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto">📖</div>
+    <div style="flex:1"><div class="nm">逆引き辞典</div>
+    <div class="ds">資材・酵母・炭・製品から引く</div></div>
+    <div class="go">›</div></a>
+  <h2>問題集</h2>
+  <div class="card" style="display:flex;align-items:center;gap:14px">
     ${ring(mastery(all))}
     <div style="flex:1">
       <div style="font-weight:600;font-size:14px">全体の習熟度</div>
       <div class="muted">${done} / ${all.length} 問に着手</div>
-    </div></div>
-  <h2>コースを選ぶ</h2>`;
+    </div></div>`;
   COURSES.forEach(c=>{
     const qs=QUESTIONS.filter(q=>q.course===c.id);
     const dis=qs.length?'':'disabled';
@@ -446,7 +452,6 @@ function home(){
       <div class="go">›</div></button>`;
   });
   h+=`<h2>そのほか</h2>
-  <a class="btn o" href="seishu-jiten.html" style="text-align:center;text-decoration:none;box-sizing:border-box">📖 逆引き辞典（資材・酵母・炭・製品）</a>
   <a class="btn o" href="voice.html" style="text-align:center;text-decoration:none;box-sizing:border-box">🎙 蔵見学 英語ボイス練習（声で答える）</a>
   <button class="btn o" id="bWeak">苦手な問題だけ復習（全コース）</button>
   <button class="btn o" id="bProg">学習の記録を見る</button>
@@ -455,7 +460,7 @@ function home(){
   if(!CANSAVE){h+=`<div id="boot" style="margin-top:14px"><b>ご注意：この開き方では進捗が保存されません。</b><br>
     Safari や Chrome で開き直してください。</div>`}
   app.innerHTML=h;
-  document.querySelectorAll('.crs').forEach(b=>b.onclick=()=>go(()=>course(b.dataset.c)));
+  document.querySelectorAll('.crs[data-c]').forEach(b=>b.onclick=()=>go(()=>course(b.dataset.c)));
   $('#bWeak').onclick=()=>{
     const w=QUESTIONS.filter(q=>lvl(q.id)===1);
     if(!w.length){alert('まだ間違えたままの問題はありません。');return}
