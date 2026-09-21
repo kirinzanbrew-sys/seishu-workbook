@@ -427,21 +427,44 @@ function home(){
   if(!ST.token){nav=[];loginScreen();return}
   if(!QUESTIONS.length){nav=[];loginScreen('問題データを読み込めませんでした。もう一度ログインしてください。');return}
   flush();
-  head('清酒学習帳','逆引き辞典・問題集');
+  head('清酒学習帳','逆引き検索・問題集');
   const all=QUESTIONS, done=all.filter(q=>lvl(q.id)>0).length;
-  let h=`<h2>逆引き辞典</h2>
+  const icon=t=>`<div style="width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto">${t}</div>`;
+  let h=`<h2>逆引き検索</h2>
   <a class="crs" href="seishu-jiten.html" style="text-decoration:none;color:inherit;box-sizing:border-box">
-    <div style="width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto">📖</div>
-    <div style="flex:1"><div class="nm">逆引き辞典</div>
+    ${icon('📖')}
+    <div style="flex:1"><div class="nm">逆引き検索</div>
     <div class="ds">資材・酵母・炭・製品から引く</div></div>
     <div class="go">›</div></a>
   <h2>問題集</h2>
-  <div class="card" style="display:flex;align-items:center;gap:14px">
+  <button class="crs" id="bQuiz">
+    ${ring(mastery(all))}
+    <div style="flex:1"><div class="nm">問題集</div>
+    <div class="ds">進級試験・酒造技能士・研修講習会／${done} / ${all.length} 問に着手</div></div>
+    <div class="go">›</div></button>`;
+  h+=`<h2>そのほか</h2>
+  <a class="btn o" href="voice.html" style="text-align:center;text-decoration:none;box-sizing:border-box">🎙 蔵見学 英語ボイス練習（声で答える）</a>
+  <button class="btn o" id="bSet">設定（${esc(ST.name)}／ID：${esc(ST.id)}）</button>`;
+  if(ONLINE_OK&&ST.q.length){h+=`<div class="muted" style="text-align:center;margin-top:4px">未送信の記録が${ST.q.length}件あります（電波が入ると自動で送られます）</div>`}
+  if(!CANSAVE){h+=`<div id="boot" style="margin-top:14px"><b>ご注意：この開き方では進捗が保存されません。</b><br>
+    Safari や Chrome で開き直してください。</div>`}
+  app.innerHTML=h;
+  $('#bQuiz').onclick=()=>go(quizHome);
+  $('#bSet').onclick=()=>go(settings);
+}
+
+/* ========== 問題集（習熟度・コース・復習） ========== */
+function quizHome(){
+  if(!ST.token){nav=[];loginScreen();return}
+  head('問題集','進級試験・酒造技能士・研修講習会');
+  const all=QUESTIONS, done=all.filter(q=>lvl(q.id)>0).length;
+  let h=`<div class="card" style="display:flex;align-items:center;gap:14px">
     ${ring(mastery(all))}
     <div style="flex:1">
       <div style="font-weight:600;font-size:14px">全体の習熟度</div>
       <div class="muted">${done} / ${all.length} 問に着手</div>
-    </div></div>`;
+    </div></div>
+  <h2>コースを選ぶ</h2>`;
   COURSES.forEach(c=>{
     const qs=QUESTIONS.filter(q=>q.course===c.id);
     const dis=qs.length?'':'disabled';
@@ -451,14 +474,9 @@ function home(){
       <div class="ds">${esc(c.desc)}／${qs.length?qs.length+'問':'問題は準備中'}</div></div>
       <div class="go">›</div></button>`;
   });
-  h+=`<h2>そのほか</h2>
-  <a class="btn o" href="voice.html" style="text-align:center;text-decoration:none;box-sizing:border-box">🎙 蔵見学 英語ボイス練習（声で答える）</a>
+  h+=`<h2>復習と記録</h2>
   <button class="btn o" id="bWeak">苦手な問題だけ復習（全コース）</button>
-  <button class="btn o" id="bProg">学習の記録を見る</button>
-  <button class="btn o" id="bSet">設定（${esc(ST.name)}／ID：${esc(ST.id)}）</button>`;
-  if(ONLINE_OK&&ST.q.length){h+=`<div class="muted" style="text-align:center;margin-top:4px">未送信の記録が${ST.q.length}件あります（電波が入ると自動で送られます）</div>`}
-  if(!CANSAVE){h+=`<div id="boot" style="margin-top:14px"><b>ご注意：この開き方では進捗が保存されません。</b><br>
-    Safari や Chrome で開き直してください。</div>`}
+  <button class="btn o" id="bProg">学習の記録を見る</button>`;
   app.innerHTML=h;
   document.querySelectorAll('.crs[data-c]').forEach(b=>b.onclick=()=>go(()=>course(b.dataset.c)));
   $('#bWeak').onclick=()=>{
@@ -467,7 +485,6 @@ function home(){
     go(()=>quiz(shuffle(w),'苦手復習'));
   };
   $('#bProg').onclick=()=>go(progress);
-  $('#bSet').onclick=()=>go(settings);
 }
 
 /* ========== コース画面 ========== */
