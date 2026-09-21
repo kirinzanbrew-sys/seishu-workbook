@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1b2a41">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="清酒学習帳">
+<title>清酒学習帳｜進級試験・酒造技能士</title>
+<style>
+:root{
+  --navy:#1b2a41; --navy2:#263c5a; --gold:#b08d3f; --gold-l:#d8b96a;
+  --paper:#f7f4ec; --card:#ffffff; --ink:#22262b; --sub:#6b7280;
+  --ok:#2f7d5d; --ng:#b23b3b; --line:#e4ded1;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+  background:var(--paper); color:var(--ink); line-height:1.7;
+  font-size:16px; padding-bottom:env(safe-area-inset-bottom);
+}
+.wrap{max-width:680px;margin:0 auto;padding:0 14px 40px}
+header{
+  background:var(--navy); color:#fff;
+  padding:12px 14px; padding-top:calc(12px + min(env(safe-area-inset-top),48px));
+  position:sticky; top:0; z-index:20; box-shadow:0 1px 6px rgba(0,0,0,.15);
+}
+#boot{background:#fff8e6;border:1px solid #e8d9a8;border-radius:12px;padding:14px;margin-top:16px;
+  font-size:14px;line-height:1.8}
+#boot b{color:#8a6d1f}
+#boot code{font-size:11px;color:#b23b3b;word-break:break-all;display:block;margin-top:8px}
+header .hin{max-width:680px;margin:0 auto;display:flex;align-items:center;gap:10px}
+header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.04em;flex:1}
+header .sm{font-size:11px;color:#b9c4d4;font-weight:400;display:block;letter-spacing:.02em}
+.btn-back{background:none;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;
+  padding:5px 10px;font-size:13px;cursor:pointer;font-family:inherit}
+.btn-back:active{background:rgba(255,255,255,.12)}
+
+h2{font-size:15px;margin:22px 0 10px;font-weight:600;color:var(--navy);
+   border-left:3px solid var(--gold);padding-left:9px}
+.muted{color:var(--sub);font-size:13px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
+.crs{display:flex;align-items:center;gap:12px;cursor:pointer;width:100%;text-align:left;
+  font-family:inherit;font-size:16px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:14px;margin-bottom:10px;color:inherit}
+.crs:active{background:#fbf9f4}
+.crs .nm{font-weight:600;font-size:15px}
+.crs .ds{font-size:12px;color:var(--sub)}
+.crs .go{color:var(--gold);font-size:18px}
+.crs[disabled]{opacity:.5;cursor:default}
+
+.ring{width:46px;height:46px;flex:0 0 46px;position:relative}
+.ring svg{transform:rotate(-90deg)}
+.ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:var(--navy)}
+
+.bar{height:7px;background:#eae4d7;border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-l));border-radius:99px}
+
+.tabs{display:flex;gap:6px;margin:14px 0 4px;flex-wrap:wrap}
+.tab{flex:1;min-width:90px;padding:9px 6px;border:1px solid var(--line);background:#fff;border-radius:9px;
+  font-size:13px;font-family:inherit;cursor:pointer;color:var(--sub)}
+.tab.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}
+
+.sub{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);
+  background:#fff;border-radius:10px;margin-bottom:7px;cursor:pointer;font-family:inherit;
+  font-size:14px;width:100%;text-align:left;color:inherit}
+.sub:active{background:#fbf9f4}
+.sub .nm{flex:1;font-size:14px}
+.sub .pct{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;min-width:38px;text-align:right}
+.sub .mini{width:52px;flex:0 0 52px}
+
+.btn{display:block;width:100%;padding:13px;border:none;border-radius:11px;font-size:15px;
+  font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:9px;letter-spacing:.02em}
+.btn.p{background:var(--navy);color:#fff}
+.btn.g{background:var(--gold);color:#fff}
+.btn.o{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+.btn:active{opacity:.85}
+.btn[disabled]{opacity:.4;cursor:default}
+
+/* quiz */
+.qhead{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--sub);margin:14px 0 6px}
+.chip{display:inline-block;background:#efe9dc;color:#6b5c34;border-radius:99px;padding:2px 10px;font-size:11px;margin-right:6px}
+.qtext{font-size:16px;line-height:1.85;margin:14px 0 18px;font-weight:500}
+.opt{display:block;width:100%;text-align:left;padding:13px 14px;border:1.5px solid var(--line);
+  background:#fff;border-radius:11px;margin-bottom:8px;font-size:15px;font-family:inherit;cursor:pointer;
+  color:inherit;line-height:1.6}
+.opt:active{background:#fbf9f4}
+.opt.sel-ok{border-color:var(--ok);background:#effaf4}
+.opt.sel-ng{border-color:var(--ng);background:#fdf0f0}
+.opt.ans{border-color:var(--ok);background:#effaf4}
+.opt.dim{opacity:.5}
+.ox{display:flex;gap:10px}
+.ox .opt{flex:1;text-align:center;font-size:26px;padding:16px 0;font-weight:700}
+
+.res{border-radius:11px;padding:13px 14px;margin:14px 0;font-size:14px;line-height:1.8}
+.res.ok{background:#effaf4;border:1px solid #bfe3d1}
+.res.ng{background:#fdf0f0;border:1px solid #f0cccc}
+.res .jd{font-weight:700;margin-bottom:6px;font-size:15px}
+.res .jd.ok{color:var(--ok)} .res .jd.ng{color:var(--ng)}
+.res .sc{font-size:12px;color:var(--sub);margin-top:8px}
+
+.score{text-align:center;padding:22px 0 8px}
+.score .big{font-size:44px;font-weight:700;color:var(--navy);line-height:1.1;font-variant-numeric:tabular-nums}
+.score .lbl{font-size:13px;color:var(--sub)}
+.rrow{display:flex;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13px;align-items:flex-start}
+.rrow .mk{flex:0 0 20px;font-weight:700}
+.rrow .mk.ok{color:var(--ok)} .rrow .mk.ng{color:var(--ng)}
+
+.stat{display:flex;gap:8px;margin:12px 0}
+.stat div{flex:1;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 6px;text-align:center}
+.stat b{display:block;font-size:20px;color:var(--navy);font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--sub)}
+
+/* 添付資料の表 */
+details.tbl{border:1px solid var(--line);background:#fff;border-radius:11px;margin:0 0 16px;overflow:hidden}
+details.tbl>summary{padding:12px 14px;font-size:14px;font-weight:600;color:var(--navy);cursor:pointer;
+  list-style:none;display:flex;align-items:center;gap:8px}
+details.tbl>summary::-webkit-details-marker{display:none}
+details.tbl>summary::before{content:'▸';color:var(--gold);font-size:13px}
+details.tbl[open]>summary::before{content:'▾'}
+.tblbody{padding:0 14px 14px}
+.tblmeta{font-size:11px;color:var(--sub);line-height:1.7;margin-bottom:8px}
+.tblwrap{max-height:46vh;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:8px}
+table.dat{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+table.dat th{position:sticky;top:0;background:var(--navy);color:#fff;font-size:11px;font-weight:600;
+  padding:7px 8px;text-align:right;white-space:nowrap}
+table.dat td{padding:6px 8px;text-align:right;border-top:1px solid #eee;white-space:nowrap}
+table.dat tr:nth-child(even) td{background:#fbf9f4}
+table.dat tr.hl td{background:#efe9dc;font-weight:700}
+.nocopy{font-size:10px;color:#b23b3b;margin-top:6px;text-align:right}
+.btn.skip{background:none;color:var(--sub);border:1px dashed var(--line);font-weight:400;font-size:14px;
+  padding:11px;margin-top:4px}
+.btn.skip:active{background:#f2eee5}
+.skipnote{font-size:11px;text-align:center;margin-top:-4px}
+.legend{font-size:11px;color:var(--sub);margin:6px 0 12px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:99px;margin:0 3px 0 9px;vertical-align:middle}
+.hide{display:none}
+footer{text-align:center;font-size:11px;color:#a29c8e;margin-top:26px;padding-bottom:10px}
+textarea{width:100%;height:150px;font-family:ui-monospace,monospace;font-size:12px;
+  border:1px solid var(--line);border-radius:8px;padding:8px}
+</style>
+</head>
+<body>
+<header><div class="hin">
+  <button class="btn-back hide" id="back">‹ 戻る</button>
+  <h1 id="ttl">清酒学習帳<span class="sm" id="sub">進級試験・酒造技能士 対策</span></h1>
+</div></header>
+<div class="wrap" id="app">
+  <div id="boot">
+    <b>アプリを起動できませんでした。</b><br>
+    このまま何も表示されない場合は、JavaScript が動かない画面で開かれています。<br><br>
+    右下の <b>共有ボタン → 「Safariで開く」</b>、または「ファイル」アプリに保存してから開き直してください。
+    <code id="bootErr"></code>
+  </div>
+</div>
+<noscript><div class="wrap"><div id="boot"><b>JavaScriptが無効です。</b><br>ブラウザの設定でJavaScriptを有効にしてください。</div></div></noscript>
+<footer>清酒学習帳 v2.1 ／ 社内限定・IDとパスワードが必要です</footer>
+
+<script>
+window.onerror=function(m,s,l,c){
+  var e=document.getElementById('bootErr');
+  if(e)e.textContent='['+l+':'+c+'] '+m;
+  return false;
+};
+</script>
+<script>
+/* 問題データはサーバーから配信されます（ログイン成功時） */
+let COURSES=[], TABLES={}, QUESTIONS=[];
+const OX=["○","×"];
+function applyData(d){
+  COURSES=(d&&d.courses)||[]; TABLES=(d&&d.tables)||{}; QUESTIONS=(d&&d.questions)||[];
+}
+
+/* ===== サーバー（Apps Script ウェブアプリ）===== */
+const API_URL = "https://script.google.com/macros/s/AKfycbwVyR-kBMHw8V2Co258MK6u9XCTWb4vQMGF20an9BXNGeH-H_4Fe_5JD_2JG8cmiXNX/exec";
+/* ============================================== */
+
+/* ========== 端末に保存する内容 ========== */
+const KEY='sakeWB2';
+let MEM=null, CANSAVE=true;
+(function(){ try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); }
+  catch(e){ CANSAVE=false; } })();
+function fresh(){return{stats:{},logs:[],name:'',id:'',token:'',q:[],data:null}}
+function load(){try{return Object.assign(fresh(),JSON.parse(localStorage.getItem(KEY))||{})}catch(e){return MEM||fresh()}}
+function save(){ MEM=ST; try{localStorage.setItem(KEY,JSON.stringify(ST))}catch(e){CANSAVE=false} }
+let ST=load();
+function st(id){return ST.stats[id]||{c:0,w:0,k:0,t:0}}
+function record(id,ok){
+  const s=st(id);
+  if(ok){s.c++;s.k++}else{s.w++;s.k=0}
+  s.t=Date.now(); ST.stats[id]=s; save();
+}
+
+/* ========== サーバーとのやりとり ========== */
+const ONLINE_OK=!!API_URL;
+async function api(body){
+  const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(body),redirect:'follow'});
+  return await r.json();
+}
+const ERRJP={
+  no_id:'そのIDは登録されていません。杜氏に確認してください。',
+  bad_pw:'パスワードが違います。',
+  not_registered:'このIDはまだパスワードが設定されていません。「初めての方」から設定してください。',
+  already:'このIDはすでにパスワードが設定されています。「ログイン」からお進みください。',
+  weak_pw:'パスワードは4文字以上にしてください。',
+  suspended:'このIDは現在使えません。杜氏に確認してください。',
+  bad_token:'ログインし直してください。（別の端末でログインすると、前の端末は自動でログアウトされます）',
+  busy:'混み合っています。少し待ってからお試しください。'
+};
+const errJP=e=>ERRJP[e]||('うまくいきませんでした（'+(e||'原因不明')+'）');
+
+function newSid(){return 's'+Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+
+/* 未送信の記録をためて、順に送る */
+function enqueue(p){ ST.q.push(p); if(ST.q.length>100)ST.q=ST.q.slice(-100); save(); flush() }
+let flushing=false;
+function flush(cb){
+  if(!ONLINE_OK||!ST.token||flushing||!ST.q.length){if(cb)cb();return}
+  flushing=true;
+  const item=Object.assign({action:'sync',token:ST.token},ST.q[0]);
+  let settled=false;
+  const done=(ok)=>{ if(settled)return; settled=true;
+    if(ok){ ST.q.shift(); save(); flushing=false; flush(cb) } else { flushing=false; if(cb)cb() } };
+  const t=setTimeout(()=>done(false),15000);
+  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(item),redirect:'follow'})
+    .then(r=>r.json()).then(j=>{clearTimeout(t);
+      if(j&&j.err==='bad_token'){ logout(true); done(false); return }
+      done(!!(j&&j.ok));})
+    .catch(()=>{clearTimeout(t);done(false)});
+}
+
+function buildPayload(course,range,ansList){
+  const bySub={};
+  ansList.forEach(a=>{const k=a.q.sub;bySub[k]=bySub[k]||{sub:k,c:0,t:0};bySub[k].t++;if(a.ok)bySub[k].c++});
+  const sum=COURSES.map(c=>{
+    const qs=QUESTIONS.filter(q=>q.course===c.id); if(!qs.length)return null;
+    const cnt=[0,0,0,0]; qs.forEach(q=>cnt[lvl(q.id)]++);
+    const tries=qs.reduce((n,q)=>n+st(q.id).c+st(q.id).w,0);
+    return {course:c.name,pct:mastery(qs),m3:cnt[3],m2:cnt[2],m1:cnt[1],m0:cnt[0],tries:tries};
+  }).filter(Boolean);
+  return {sid:newSid(),course:course,range:range,
+    subs:Object.keys(bySub).map(k=>bySub[k]), sum:sum,
+    st:ST.stats, lg:ST.logs.slice(-30), ts:new Date().toISOString()};
+}
+
+/* ===== 1問ごとの自動保管 ===== */
+let snapTimer=null, snapBusy=false;
+function snapBody(){
+  const p=buildPayload('','',[]);
+  p.action='sync'; p.token=ST.token; p.mode='snap'; p.sid='snap-'+p.sid;
+  return JSON.stringify(p);
+}
+function scheduleSnap(){
+  if(!ONLINE_OK||!ST.token)return;
+  clearTimeout(snapTimer);
+  snapTimer=setTimeout(sendSnap,2500);
+}
+function sendSnap(){
+  if(!ONLINE_OK||!ST.token||snapBusy)return;
+  if(!Object.keys(ST.stats).length)return;
+  snapBusy=true;
+  const body=snapBody();
+  const done=()=>{snapBusy=false};
+  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:body,redirect:'follow'}).then(done).catch(()=>{
+      fetch(API_URL,{method:'POST',mode:'no-cors',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},body:body}).then(done).catch(done);
+    });
+}
+function snapOnLeave(){
+  if(!ONLINE_OK||!ST.token||!Object.keys(ST.stats).length)return;
+  clearTimeout(snapTimer);
+  try{
+    const b=new Blob([snapBody()],{type:'text/plain;charset=utf-8'});
+    if(navigator.sendBeacon&&navigator.sendBeacon(API_URL,b))return;
+  }catch(e){}
+  sendSnap();
+}
+window.addEventListener('pagehide',snapOnLeave);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')snapOnLeave()});
+
+/* 習熟度 0:未着手 1:要復習 2:学習中 3:習得 */
+function lvl(id){const s=ST.stats[id];if(!s||s.c+s.w===0)return 0;if(s.k>=2)return 3;if(s.k>=1)return 2;return 1}
+const LVC=['#e0dbd0','#b23b3b','#d8a838','#2f7d5d'];
+const LVN=['未着手','要復習','学習中','習得'];
+
+/* ========== 便利関数 ========== */
+const $=s=>document.querySelector(s);
+const app=$('#app'), hTtl=$('#ttl'), hSub=$('#sub'), hBack=$('#back');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const qsOf=(course,grade,sub)=>QUESTIONS.filter(q=>q.course===course&&(!grade||q.grade===grade)&&(!sub||q.sub===sub));
+const subsOf=(course,grade)=>[...new Set(qsOf(course,grade).map(q=>q.sub))];
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function mastery(list){ if(!list.length)return 0; return Math.round(list.reduce((s,q)=>s+(lvl(q.id)===3?1:lvl(q.id)===2?.5:0),0)/list.length*100) }
+function ring(p){
+  const r=19,c=2*Math.PI*r,o=c*(1-p/100);
+  return `<div class="ring"><svg width="46" height="46"><circle cx="23" cy="23" r="${r}" fill="none" stroke="#eae4d7" stroke-width="5"/>
+  <circle cx="23" cy="23" r="${r}" fill="none" stroke="#b08d3f" stroke-width="5" stroke-linecap="round"
+  stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${o.toFixed(1)}"/></svg><b>${p}%</b></div>`;
+}
+let nav=[]; // 画面履歴
+function go(fn,push=true){ if(push)nav.push(fn); fn(); window.scrollTo(0,0);
+  hBack.classList.toggle('hide',nav.length<=1) }
+hBack.onclick=()=>{ nav.pop(); const f=nav[nav.length-1]; if(f){f();window.scrollTo(0,0)}
+  hBack.classList.toggle('hide',nav.length<=1) };
+function head(t,s){hTtl.childNodes[0].nodeValue=t;hSub.textContent=s||''}
+
+/* ========== ログイン ========== */
+const inputCSS="width:100%;padding:13px;font-size:16px;border:1px solid var(--line);border-radius:10px;font-family:inherit";
+
+function loginScreen(msg){
+  head('清酒学習帳','ログイン');
+  hBack.classList.add('hide');
+  app.innerHTML=`
+    <div class="card" style="margin-top:16px">
+      <div style="font-weight:600;margin-bottom:10px">IDとパスワードを入れてください</div>
+      <label class="muted">ID（社員番号）</label>
+      <input id="li" type="text" autocapitalize="none" autocorrect="off" spellcheck="false"
+        value="${esc(ST.id||'')}" placeholder="ID（社員番号）" style="${inputCSS};margin:4px 0 12px">
+      <label class="muted">パスワード</label>
+      <input id="lp" type="password" placeholder="ご自身で決めたパスワード" style="${inputCSS};margin-top:4px">
+    </div>
+    <div id="lmsg" class="muted" style="color:var(--ng);text-align:center;min-height:22px">${msg?esc(msg):''}</div>
+    <button class="btn p" id="lgo">ログイン</button>
+    <button class="btn o" id="lnew">初めての方（パスワードを設定する）</button>`;
+  const go=async()=>{
+    const id=$('#li').value.trim(), pw=$('#lp').value;
+    if(!id||!pw){ $('#lmsg').textContent='IDとパスワードの両方を入れてください。'; return }
+    const b=$('#lgo'); b.disabled=true; b.textContent='確認しています…';
+    try{
+      const j=await api({action:'login',id:id,pw:pw});
+      if(!j.ok){ $('#lmsg').textContent=errJP(j.err); b.disabled=false; b.textContent='ログイン'; return }
+      afterLogin(j);
+    }catch(err){
+      $('#lmsg').textContent='通信できませんでした。電波の良い場所でお試しください。';
+      b.disabled=false; b.textContent='ログイン';
+    }
+  };
+  $('#lgo').onclick=go;
+  $('#lp').onkeydown=ev=>{if(ev.key==='Enter')go()};
+  $('#lnew').onclick=()=>registerScreen();
+}
+
+function registerScreen(msg){
+  head('清酒学習帳','初回のパスワード設定');
+  hBack.classList.add('hide');
+  app.innerHTML=`
+    <div class="card" style="margin-top:16px">
+      <div style="font-weight:600;margin-bottom:6px">初めてお使いの方</div>
+      <div class="muted" style="margin-bottom:10px">ID（社員番号）を入れ、ご自身でパスワードを決めてください。<br>
+      パスワードは杜氏にも見えません。忘れた場合は杜氏に再設定を依頼してください。</div>
+      <label class="muted">ID（社員番号）</label>
+      <input id="ri" type="text" autocapitalize="none" autocorrect="off" spellcheck="false"
+        placeholder="社員番号" style="${inputCSS};margin:4px 0 12px">
+      <label class="muted">パスワード（4文字以上）</label>
+      <input id="rp" type="password" style="${inputCSS};margin:4px 0 12px">
+      <label class="muted">パスワード（確認のためもう一度）</label>
+      <input id="rp2" type="password" style="${inputCSS};margin-top:4px">
+    </div>
+    <div id="rmsg" class="muted" style="color:var(--ng);text-align:center;min-height:22px">${msg?esc(msg):''}</div>
+    <button class="btn p" id="rgo">この内容で設定する</button>
+    <button class="btn o" id="rback">ログイン画面へ戻る</button>`;
+  $('#rgo').onclick=async()=>{
+    const id=$('#ri').value.trim(), pw=$('#rp').value, pw2=$('#rp2').value;
+    if(!id){ $('#rmsg').textContent='IDを入れてください。'; return }
+    if(pw.length<4){ $('#rmsg').textContent='パスワードは4文字以上にしてください。'; return }
+    if(pw!==pw2){ $('#rmsg').textContent='パスワードが一致しません。'; return }
+    const b=$('#rgo'); b.disabled=true; b.textContent='設定しています…';
+    try{
+      const j=await api({action:'register',id:id,pw:pw});
+      if(!j.ok){ $('#rmsg').textContent=errJP(j.err); b.disabled=false; b.textContent='この内容で設定する'; return }
+      afterLogin(j);
+    }catch(err){
+      $('#rmsg').textContent='通信できませんでした。電波の良い場所でお試しください。';
+      b.disabled=false; b.textContent='この内容で設定する';
+    }
+  };
+  $('#rback').onclick=()=>loginScreen();
+}
+
+/** ログイン成功後の共通処理 */
+function afterLogin(j){
+  ST.token=j.token; ST.id=j.id; ST.name=j.name;
+  if(j.data&&j.data.questions&&j.data.questions.length){ ST.data=j.data; }
+  save();
+  applyData(ST.data);
+  const r=j.restore;
+  const hasLocal=Object.keys(ST.stats).length>0;
+  if(!hasLocal && r && r.stats && Object.keys(r.stats).length){
+    nav=[]; go(()=>restoreScreen(ST.name,r)); return;
+  }
+  nav=[]; go(home);
+}
+
+function logout(expired){
+  ST.token=''; save();
+  nav=[]; loginScreen(expired?'ログインの有効期限が切れました。もう一度ログインしてください。':'');
+}
+
+/* ========== 記録の引き継ぎ ========== */
+function restoreScreen(name,d){
+  const n=Object.keys(d.stats||{}).length;
+  const done=Object.values(d.stats||{}).reduce((s,x)=>s+x.c+x.w,0);
+  head('前の記録が見つかりました','');
+  hBack.classList.add('hide');
+  app.innerHTML=`
+    <div class="card" style="margin-top:16px">
+      <div style="font-weight:600;margin-bottom:8px">${esc(name)}さんの学習記録が残っています</div>
+      <div class="muted">${n}問ぶん・通算${done}回の解答記録が見つかりました。<br>
+      この端末に取り込むと、続きから学習できます。</div>
+    </div>
+    <button class="btn p" id="rOk">この記録を引き継ぐ</button>
+    <button class="btn o" id="rNo">引き継がず、最初から始める</button>`;
+  $('#rOk').onclick=()=>{ST.stats=d.stats||{};ST.logs=d.logs||[];save();nav=[];go(home)};
+  $('#rNo').onclick=()=>{nav=[];go(home)};
+}
+
+/* ========== ホーム ========== */
+function home(){
+  if(!ST.token){nav=[];loginScreen();return}
+  if(!QUESTIONS.length){nav=[];loginScreen('問題データを読み込めませんでした。もう一度ログインしてください。');return}
+  flush();
+  head('清酒学習帳','進級試験・酒造技能士 対策');
+  const all=QUESTIONS, done=all.filter(q=>lvl(q.id)>0).length;
+  let h=`<div class="card" style="display:flex;align-items:center;gap:14px">
+    ${ring(mastery(all))}
+    <div style="flex:1">
+      <div style="font-weight:600;font-size:14px">全体の習熟度</div>
+      <div class="muted">${done} / ${all.length} 問に着手</div>
+    </div></div>
+  <h2>コースを選ぶ</h2>`;
+  COURSES.forEach(c=>{
+    const qs=QUESTIONS.filter(q=>q.course===c.id);
+    const dis=qs.length?'':'disabled';
+    h+=`<button class="crs" ${dis} data-c="${c.id}">
+      ${ring(mastery(qs))}
+      <div style="flex:1"><div class="nm">${esc(c.name)}</div>
+      <div class="ds">${esc(c.desc)}／${qs.length?qs.length+'問':'問題は準備中'}</div></div>
+      <div class="go">›</div></button>`;
+  });
+  h+=`<h2>そのほか</h2>
+  <a class="btn o" href="seishu-jiten.html" style="text-align:center;text-decoration:none;box-sizing:border-box">📖 逆引き辞典（資材・酵母・炭・製品）</a>
+  <a class="btn o" href="voice.html" style="text-align:center;text-decoration:none;box-sizing:border-box">🎙 蔵見学 英語ボイス練習（声で答える）</a>
+  <button class="btn o" id="bWeak">苦手な問題だけ復習（全コース）</button>
+  <button class="btn o" id="bProg">学習の記録を見る</button>
+  <button class="btn o" id="bSet">設定（${esc(ST.name)}／ID：${esc(ST.id)}）</button>`;
+  if(ONLINE_OK&&ST.q.length){h+=`<div class="muted" style="text-align:center;margin-top:4px">未送信の記録が${ST.q.length}件あります（電波が入ると自動で送られます）</div>`}
+  if(!CANSAVE){h+=`<div id="boot" style="margin-top:14px"><b>ご注意：この開き方では進捗が保存されません。</b><br>
+    Safari や Chrome で開き直してください。</div>`}
+  app.innerHTML=h;
+  document.querySelectorAll('.crs').forEach(b=>b.onclick=()=>go(()=>course(b.dataset.c)));
+  $('#bWeak').onclick=()=>{
+    const w=QUESTIONS.filter(q=>lvl(q.id)===1);
+    if(!w.length){alert('まだ間違えたままの問題はありません。');return}
+    go(()=>quiz(shuffle(w),'苦手復習'));
+  };
+  $('#bProg').onclick=()=>go(progress);
+  $('#bSet').onclick=()=>go(settings);
+}
+
+/* ========== コース画面 ========== */
+let curCourse=null,curGrade=null;
+function course(cid){
+  const c=COURSES.find(x=>x.id===cid); curCourse=cid;
+  const grades=[...new Set(QUESTIONS.filter(q=>q.course===cid).map(q=>q.grade))];
+  if(!grades.includes(curGrade))curGrade=grades[0];
+  head(c.name,c.desc);
+  render();
+  function render(){
+    const qs=qsOf(cid,curGrade);
+    let h='';
+    if(grades.length>1){h+=`<div class="tabs">`+grades.map(g=>`<button class="tab ${g===curGrade?'on':''}" data-g="${g}">${g}</button>`).join('')+`</div>`}
+    const fresh=qs.filter(q=>lvl(q.id)===0);
+    const weak=qs.filter(q=>lvl(q.id)===1);
+    h+=`<h2>まとめて解く</h2>`;
+    if(fresh.length)h+=`<button class="btn p" id="mNew">続きから（まだ解いていない${fresh.length}問）</button>`;
+    else h+=`<div class="card" style="text-align:center;color:var(--ok);font-weight:600;margin-bottom:10px">${curGrade}の全${qs.length}問に着手済みです</div>`;
+    h+=`<button class="btn g" id="mWeak">苦手だけ復習${weak.length?`（${weak.length}問）`:''}</button>
+      <button class="btn o" id="mRnd">ランダム10問</button>
+      <button class="btn o" id="mAll">全${qs.length}問に挑戦</button>
+      <h2>科目べつに解く</h2>
+      <div class="legend">習熟度
+        <span class="dot" style="background:${LVC[0]}"></span>未着手
+        <span class="dot" style="background:${LVC[1]}"></span>要復習
+        <span class="dot" style="background:${LVC[2]}"></span>学習中
+        <span class="dot" style="background:${LVC[3]}"></span>習得</div>`;
+    subsOf(cid,curGrade).forEach(s=>{
+      const list=qsOf(cid,curGrade,s), m=mastery(list);
+      const dots=list.map(q=>`<span style="display:inline-block;width:6px;height:6px;border-radius:99px;background:${LVC[lvl(q.id)]};margin-right:2px"></span>`).join('');
+      h+=`<button class="sub" data-s="${esc(s)}">
+        <div style="flex:1"><div class="nm">${esc(s)}</div><div style="margin-top:3px">${dots}</div></div>
+        <div class="mini bar"><i style="width:${m}%"></i></div>
+        <div class="pct">${m}%</div></button>`;
+    });
+    app.innerHTML=h;
+    document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{curGrade=b.dataset.g;render();});
+    $('#mAll').onclick=()=>go(()=>quiz(qs,`${curGrade} 全科目`));
+    $('#mRnd').onclick=()=>go(()=>quiz(shuffle(qs).slice(0,10),`${curGrade} ランダム`));
+    if($('#mNew'))$('#mNew').onclick=()=>go(()=>quiz(fresh,`${curGrade} 続きから`));
+    $('#mWeak').onclick=()=>{
+      if(!weak.length){alert('この範囲に間違えたままの問題はありません。');return}
+      go(()=>quiz(shuffle(weak),`${curGrade} 苦手復習`))};
+    document.querySelectorAll('.sub').forEach(b=>b.onclick=()=>{
+      const s=b.dataset.s; go(()=>quiz(qsOf(cid,curGrade,s),`${curGrade} ${s}`))});
+  }
+}
+
+/* 添付資料の表を描く（初回は開いた状態で出す） */
+function tableHTML(key){
+  const t=(typeof TABLES!=='undefined')&&TABLES[key];
+  if(!t)return '';
+  return `<details class="tbl" open>
+    <summary>${esc(t.title)}</summary>
+    <div class="tblbody">
+      <div class="tblmeta">${esc(t.meta)}<br>${esc(t.note)}</div>
+      <div class="tblwrap"><table class="dat">
+        <thead><tr>${t.head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead>
+        <tbody>${t.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>
+      <div class="nocopy">禁複写／社外への持ち出し・転載はしないでください</div>
+    </div></details>`;
+}
+
+/* ========== 出題 ========== */
+let Q=[],idx=0,ans=[],skipped=[],title='';
+function quiz(list,t){
+  Q=list;idx=0;ans=[];skipped=[];title=t;
+  if(!Q.length){alert('問題がありません');nav.pop();return}
+  head(t,'');
+  step();
+}
+function step(){
+  if(idx>=Q.length){result();return}
+  const q=Q[idx];
+  hSub.textContent=`${idx+1} / ${Q.length}問`;
+  let opts='';
+  if(q.type==='ox'){
+    opts=`<div class="ox">${OX.map((o,i)=>`<button class="opt" data-v="${o}">${o}</button>`).join('')}</div>`;
+  }else{
+    opts=q.c.map((o,i)=>`<button class="opt" data-v="${i}">${esc(o)}</button>`).join('');
+  }
+  app.innerHTML=`
+    <div class="bar" style="margin-top:14px"><i style="width:${idx/Q.length*100}%"></i></div>
+    <div class="qhead"><div><span class="chip">${esc(q.sub)}</span><span class="chip">${esc(q.grade)}</span></div>
+      <div>${idx+1}/${Q.length}</div></div>
+    <div class="qtext">${esc(q.q)}</div>
+    ${q.tbl?tableHTML(q.tbl):''}
+    <div id="opts">${opts}</div>
+    <div id="skipwrap"><button class="btn skip" id="skip">この問題を飛ばす</button>
+      <div class="muted skipnote">飛ばした問題は記録に残らず、最後にまとめて解き直せます。</div></div>
+    <div id="fb"></div>`;
+  document.querySelectorAll('#opts .opt').forEach(b=>b.onclick=()=>pick(b.dataset.v));
+  $('#skip').onclick=()=>{ skipped.push(q); idx++; step(); };
+}
+function pick(v){
+  const q=Q[idx];
+  const val=q.type==='ox'?v:parseInt(v,10);
+  const ok=(val===q.a)||(q.type==='ox'&&val===q.a);
+  record(q.id,ok);
+  scheduleSnap();
+  ans.push({q,val,ok});
+  document.querySelectorAll('#opts .opt').forEach(b=>{
+    const bv=q.type==='ox'?b.dataset.v:parseInt(b.dataset.v,10);
+    b.disabled=true; b.style.cursor='default';
+    if(bv===q.a)b.classList.add('ans');
+    else if(bv===val)b.classList.add('sel-ng');
+    else b.classList.add('dim');
+  });
+  const sw=$('#skipwrap'); if(sw)sw.remove();
+  const shown=q.type==='ox'?q.a:esc(q.c[q.a]);
+  const s=st(q.id);
+  $('#fb').innerHTML=`
+    <div class="res ${ok?'ok':'ng'}">
+      <div class="jd ${ok?'ok':'ng'}">${ok?'正解':'不正解'}　<span style="font-weight:400;font-size:13px;color:var(--sub)">正答：${shown}</span></div>
+      <div style="white-space:pre-line">${esc(q.e)}</div>
+      <div class="sc">出典：${esc(q.src||'—')}　／　この問題 ${s.c}○ ${s.w}× ・${LVN[lvl(q.id)]}</div>
+    </div>
+    <button class="btn p" id="nx">${idx+1<Q.length?'次の問題へ':'結果を見る'}</button>`;
+  $('#nx').onclick=()=>{idx++;step()};
+  $('#fb').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* ========== 結果 ========== */
+function result(){
+  const ok=ans.filter(a=>a.ok).length, tot=ans.length;
+  if(!tot){                       // 全問飛ばした場合
+    head('結果',title);
+    app.innerHTML=`<div class="card" style="margin-top:16px;text-align:center">
+        <div style="font-weight:600">解答した問題はありませんでした</div>
+        <div class="muted">${skipped.length}問を飛ばしました。</div></div>
+      ${skipped.length?'<button class="btn p" id="sk">飛ばした'+skipped.length+'問を解く</button>':''}
+      <button class="btn o" id="hm">ホームへ戻る</button>`;
+    if(skipped.length){const s=skipped.slice();$('#sk').onclick=()=>{nav.pop();go(()=>quiz(s,title))}}
+    $('#hm').onclick=()=>{nav=[];go(home)};
+    return;
+  }
+  const pt=ans.filter(a=>a.ok).reduce((s,a)=>s+(a.q.pt||1),0);
+  const ptAll=ans.reduce((s,a)=>s+(a.q.pt||1),0);
+  ST.logs.push({d:Date.now(),t:title,ok,tot}); if(ST.logs.length>200)ST.logs=ST.logs.slice(-200); save();
+  if(ONLINE_OK&&ST.token){
+    const cs=[...new Set(ans.map(a=>a.q.course))].map(id=>(COURSES.find(c=>c.id===id)||{}).name||id);
+    enqueue(buildPayload(cs.join('／'),title,ans));
+  }
+  head('結果',title);
+  const bySub={};
+  ans.forEach(a=>{const k=a.q.sub;bySub[k]=bySub[k]||[0,0];bySub[k][1]++;if(a.ok)bySub[k][0]++});
+  let h=`<div class="score"><div class="big">${ok}<span style="font-size:20px;color:var(--sub)"> / ${tot}</span></div>
+    <div class="lbl">正答率 ${Math.round(ok/tot*100)}%　／　配点換算 ${pt} / ${ptAll}点</div></div>
+    <div class="bar" style="margin:10px 0 18px"><i style="width:${ok/tot*100}%"></i></div>
+    <h2>科目べつ</h2>`;
+  Object.keys(bySub).forEach(k=>{const[c,t]=bySub[k];
+    h+=`<div class="sub" style="cursor:default"><div class="nm">${esc(k)}</div>
+      <div class="mini bar"><i style="width:${c/t*100}%"></i></div><div class="pct">${c}/${t}</div></div>`});
+  const ngs=ans.filter(a=>!a.ok);
+  if(ngs.length){
+    h+=`<h2>間違えた問題（${ngs.length}）</h2><div class="card">`;
+    ngs.forEach(a=>{h+=`<div class="rrow"><div class="mk ng">×</div><div><div>${esc(a.q.q)}</div>
+      <div class="muted" style="margin-top:3px">正答：${a.q.type==='ox'?a.q.a:esc(a.q.c[a.q.a])}</div></div></div>`});
+    h+=`</div><button class="btn g" id="again">間違えた${ngs.length}問をもう一度</button>`;
+  }else{ h+=`<div class="card" style="text-align:center;color:var(--ok);font-weight:600">全問正解です。お見事。</div>` }
+  if(skipped.length){
+    h+=`<h2>飛ばした問題（${skipped.length}）</h2><div class="card">`;
+    skipped.forEach(q=>{h+=`<div class="rrow"><div class="mk" style="color:var(--sub)">–</div>
+      <div><div>${esc(q.q)}</div><div class="muted" style="margin-top:3px">${esc(q.sub)}</div></div></div>`});
+    h+=`</div><button class="btn p" id="skgo">飛ばした${skipped.length}問を解く</button>`;
+  }
+  if(ONLINE_OK&&ST.token)h+=`<div class="muted" style="text-align:center;margin:10px 0" id="sndMsg">記録を送信しています…</div>`;
+  h+=`<button class="btn o" id="hm">ホームへ戻る</button>`;
+  app.innerHTML=h;
+  if(ONLINE_OK&&ST.token){
+    let tries=0;
+    const tick=()=>{
+      const m=$('#sndMsg'); if(!m)return;
+      if(!ST.q.length){m.textContent='記録を送信しました';return}
+      if(++tries>30){m.textContent=`未送信 ${ST.q.length}件（電波が入ると自動で送られます）`;return}
+      m.textContent='記録を送信しています…'; setTimeout(tick,800);
+    };
+    setTimeout(tick,800);
+  }
+  if(ngs.length)$('#again').onclick=()=>{nav.pop();go(()=>quiz(shuffle(ngs.map(a=>a.q)),title+'（復習）'))};
+  if(skipped.length){const s=skipped.slice();$('#skgo').onclick=()=>{nav.pop();go(()=>quiz(s,title+'（飛ばした分）'))}}
+  $('#hm').onclick=()=>{nav=[];go(home)};
+}
+
+/* ========== 学習の記録 ========== */
+function progress(){
+  head('学習の記録','');
+  const all=QUESTIONS;
+  const cnt=[0,0,0,0]; all.forEach(q=>cnt[lvl(q.id)]++);
+  const tries=Object.values(ST.stats).reduce((s,x)=>s+x.c+x.w,0);
+  const corr=Object.values(ST.stats).reduce((s,x)=>s+x.c,0);
+  let h=`<div class="card" style="display:flex;align-items:center;gap:14px">
+    ${ring(mastery(all))}<div style="flex:1"><div style="font-weight:600">全体の習熟度</div>
+    <div class="muted">通算 ${tries}回解答／正答率 ${tries?Math.round(corr/tries*100):0}%</div></div></div>
+  <div class="stat">
+    <div><b>${cnt[3]}</b><span>習得</span></div>
+    <div><b>${cnt[2]}</b><span>学習中</span></div>
+    <div><b>${cnt[1]}</b><span>要復習</span></div>
+    <div><b>${cnt[0]}</b><span>未着手</span></div>
+  </div>`;
+  COURSES.forEach(c=>{
+    const qs=QUESTIONS.filter(q=>q.course===c.id); if(!qs.length)return;
+    h+=`<h2>${esc(c.name)}</h2>`;
+    [...new Set(qs.map(q=>q.grade))].forEach(g=>{
+      h+=`<div class="muted" style="margin:8px 0 4px">${esc(g)}</div>`;
+      subsOf(c.id,g).forEach(s=>{
+        const list=qsOf(c.id,g,s),m=mastery(list);
+        const t=list.reduce((n,q)=>n+st(q.id).c+st(q.id).w,0);
+        h+=`<div class="sub" style="cursor:default"><div style="flex:1"><div class="nm">${esc(s)}</div>
+          <div class="muted" style="font-size:11px">${list.length}問／解答${t}回</div></div>
+          <div class="mini bar"><i style="width:${m}%"></i></div><div class="pct">${m}%</div></div>`;
+      });
+    });
+  });
+  const lg=ST.logs.slice(-12).reverse();
+  if(lg.length){
+    h+=`<h2>直近の学習</h2><div class="card">`;
+    lg.forEach(l=>{const d=new Date(l.d);
+      h+=`<div class="rrow"><div class="mk">・</div><div style="flex:1">
+        <div>${esc(l.t)}　<b>${l.ok}/${l.tot}</b></div>
+        <div class="muted" style="font-size:11px">${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${('0'+d.getHours()).slice(-2)}:${('0'+d.getMinutes()).slice(-2)}</div>
+      </div></div>`});
+    h+=`</div>`;
+  }
+  h+=`<h2>記録の書き出し</h2>
+    <div class="card"><div class="muted" style="margin-bottom:8px">下のテキストをコピーすれば、そのまま報告に使えます。学習の記録はサーバーにも自動で保管されています。</div>
+    <textarea id="ex" readonly></textarea>
+    <button class="btn o" id="cp" style="margin-top:8px">コピーする</button></div>`;
+  app.innerHTML=h;
+  $('#ex').value=exportText();
+  $('#cp').onclick=()=>{const t=$('#ex');t.select();try{document.execCommand('copy');$('#cp').textContent='コピーしました'}catch(e){}};
+}
+
+/* ========== 設定 ========== */
+function settings(){
+  head('設定','');
+  app.innerHTML=`
+    <div class="card" style="margin-top:16px">
+      <div class="muted">ログイン中</div>
+      <div style="font-weight:600;font-size:16px">${esc(ST.name)}</div>
+      <div class="muted">ID：${esc(ST.id)}</div>
+    </div>
+    <h2>パスワードの変更</h2>
+    <div class="card">
+      <label class="muted">今のパスワード</label>
+      <input id="p0" type="password" style="${inputCSS};margin:4px 0 12px">
+      <label class="muted">新しいパスワード（4文字以上）</label>
+      <input id="p1" type="password" style="${inputCSS};margin:4px 0 12px">
+      <label class="muted">新しいパスワード（確認）</label>
+      <input id="p2" type="password" style="${inputCSS};margin-top:4px">
+      <div id="pmsg" class="muted" style="min-height:22px;margin-top:8px"></div>
+      <button class="btn p" id="pgo">変更する</button>
+    </div>
+    <h2>そのほか</h2>
+    <button class="btn o" id="lo">ログアウト</button>
+    <div class="muted" style="font-size:12px;text-align:center">
+      ログアウトしても学習の記録は残ります。次にログインすれば続きから使えます。
+    </div>`;
+  $('#pgo').onclick=async()=>{
+    const o=$('#p0').value, a=$('#p1').value, b2=$('#p2').value, m=$('#pmsg');
+    m.style.color='var(--ng)';
+    if(a.length<4){m.textContent='新しいパスワードは4文字以上にしてください。';return}
+    if(a!==b2){m.textContent='新しいパスワードが一致しません。';return}
+    const btn=$('#pgo'); btn.disabled=true; btn.textContent='変更しています…';
+    try{
+      const j=await api({action:'passwd',token:ST.token,old:o,pw:a});
+      if(j.ok){ m.style.color='var(--ok)'; m.textContent='変更しました。'; $('#p0').value=$('#p1').value=$('#p2').value=''; }
+      else m.textContent=errJP(j.err);
+    }catch(e){ m.textContent='通信できませんでした。'; }
+    btn.disabled=false; btn.textContent='変更する';
+  };
+  $('#lo').onclick=()=>{ snapOnLeave(); logout(false) };
+}
+
+function exportText(){
+  const d=new Date(), p=n=>('0'+n).slice(-2);
+  let s=`【清酒学習帳 進捗】${ST.name||'（未設定）'}　${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())}\n`;
+  COURSES.forEach(c=>{
+    const qs=QUESTIONS.filter(q=>q.course===c.id); if(!qs.length)return;
+    s+=`\n■${c.name}　習熟度${mastery(qs)}%\n`;
+    [...new Set(qs.map(q=>q.grade))].forEach(g=>{
+      let yet=[];
+      subsOf(c.id,g).forEach(sub=>{
+        const l=qsOf(c.id,g,sub);
+        const t=l.reduce((n,q)=>n+st(q.id).c+st(q.id).w,0);
+        const cc=l.reduce((n,q)=>n+st(q.id).c,0);
+        if(!t){yet.push(sub);return}
+        s+=` ${g}／${sub}：習熟度${mastery(l)}%（${t}回中${cc}回正解）\n`;
+      });
+      if(yet.length)s+=` ${g}／未着手：${yet.join('、')}\n`;
+    });
+  });
+  const tries=Object.values(ST.stats).reduce((n,x)=>n+x.c+x.w,0);
+  s+=`\n通算解答 ${tries}回／学習セッション ${ST.logs.length}回`;
+  return s;
+}
+
+window.onerror=function(m,s,l,c){
+  var e=document.getElementById('bootErr');
+  if(e)e.textContent='['+l+':'+c+'] '+m;
+  return false;
+};
+(async function boot(){
+  try{
+    if(ST.token && ST.data){ applyData(ST.data); go(home); refreshData(); }
+    else if(ST.token){ 
+      head('清酒学習帳','読み込んでいます…');
+      app.innerHTML='<div class="card" style="margin-top:16px;text-align:center" class="muted">問題を読み込んでいます…</div>';
+      const j=await api({action:'login',token:ST.token});
+      if(j.ok) afterLogin(j); else logout(j.err==='bad_token');
+    }
+    else { nav=[]; loginScreen(); }
+  }catch(err){
+    if(ST.token&&ST.data){ applyData(ST.data); go(home); }
+    else { nav=[]; loginScreen('通信できませんでした。電波の良い場所でお試しください。'); }
+  }
+})();
+
+/* 裏で最新の問題データを取り直す */
+async function refreshData(){
+  if(!ONLINE_OK||!ST.token)return;
+  try{
+    const j=await api({action:'login',token:ST.token});
+    if(j&&j.ok&&j.data&&j.data.questions&&j.data.questions.length){
+      const before=QUESTIONS.length;
+      ST.token=j.token||ST.token; ST.data=j.data; save(); applyData(ST.data);
+      if(QUESTIONS.length!==before && nav.length<=1) go(home,false);
+    }else if(j&&j.err==='bad_token'){ logout(true) }
+  }catch(e){}
+}
+</script>
+</body>
+</html>

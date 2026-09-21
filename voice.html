@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="英語ボイス練習">
+<link rel="icon" href="data:,">
+<title>英語ボイス練習</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#F3F5F2; --panel:#FFFFFF; --panel2:#E9EDE8; --ink:#1A2230; --muted:#65707E; --line:#D5DAD3;
+  --accent:#2C4C82; --accent-ink:#FFFFFF; --gold:#B8891F; --good:#2F7A4E; --miss:#B23F3A;
+  --good-bg:#DFF0E4; --miss-bg:#F7DEDC; --shadow:0 10px 30px rgba(26,34,48,.10);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#12171F; --panel:#1B222D; --panel2:#242D3A; --ink:#E8ECF1; --muted:#98A3B3; --line:#33404F;
+  --accent:#7FA3E0; --accent-ink:#0F1622; --gold:#D9AE4A; --good:#6FCB8F; --miss:#F09088;
+  --good-bg:#1E3A2B; --miss-bg:#452527; --shadow:0 10px 30px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --bg:#12171F; --panel:#1B222D; --panel2:#242D3A; --ink:#E8ECF1; --muted:#98A3B3; --line:#33404F;
+  --accent:#7FA3E0; --accent-ink:#0F1622; --gold:#D9AE4A; --good:#6FCB8F; --miss:#F09088;
+  --good-bg:#1E3A2B; --miss-bg:#452527; --shadow:0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans","Hiragino Sans","Yu Gothic UI","Noto Sans JP",system-ui,sans-serif;font-size:15px;line-height:1.55;padding-inline:16px;padding-block:12px 40px}
+.wrap{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font-family:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;font-weight:700;font-size:22px;margin:0;letter-spacing:.02em;text-wrap:balance}
+.sub{color:var(--muted);font-size:12.5px;margin:2px 0 0}
+.tabs{display:flex;gap:6px;background:var(--panel2);padding:4px;border-radius:12px}
+.tab{flex:1;border:0;background:transparent;color:var(--muted);font:inherit;font-weight:600;padding:9px 6px;border-radius:9px;cursor:pointer;font-size:13.5px}
+.tab.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,.btn{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:8px 12px}
+.btn{cursor:pointer;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{background:transparent}
+.tools{gap:8px}
+.btn.tool{flex:1;min-width:110px;text-align:center;border-color:var(--accent);color:var(--accent);background:transparent}
+.btn.tool.on{background:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,.tab:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.card{background:var(--panel);border-radius:16px;box-shadow:var(--shadow);padding:20px 20px 18px}
+.eyebrow{font-family:"Shippori Mincho",serif;font-size:12px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;display:flex;justify-content:space-between;gap:8px}
+.prompt{font-size:22px;line-height:1.4;margin:10px 0 4px;font-weight:500;text-wrap:balance}
+.prompt.jp{font-family:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;font-size:21px}
+.hint{color:var(--muted);font-size:13.5px;margin:0}
+.mic{display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0 2px}
+.micbtn{width:96px;height:96px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer;display:grid;place-items:center;box-shadow:0 8px 22px rgba(44,76,130,.35);transition:transform .15s}
+.micbtn:active{transform:scale(.96)}
+.micbtn.listening{background:var(--miss);box-shadow:0 0 0 10px var(--miss-bg);animation:pulse 1.2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 6px var(--miss-bg)}50%{box-shadow:0 0 0 16px transparent}100%{box-shadow:0 0 0 6px var(--miss-bg)}}
+@media (prefers-reduced-motion: reduce){.micbtn.listening{animation:none}}
+.micbtn svg{width:40px;height:40px;fill:currentColor}
+.status{font-size:13px;color:var(--muted);min-height:1.4em;text-align:center}
+.heard{background:var(--panel2);border-radius:10px;padding:12px 14px;font-size:16px;min-height:52px}
+.heard .lbl{font-size:11px;letter-spacing:.12em;color:var(--muted);display:block;margin-bottom:4px}
+.score{display:flex;align-items:center;gap:12px;margin-top:12px}
+.bar{flex:1;height:10px;background:var(--panel2);border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--gold);width:0;transition:width .4s}
+.pct{font-family:"Shippori Mincho",serif;font-size:22px;font-weight:700;min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
+.model{margin-top:12px;font-size:16.5px;line-height:1.6}
+.model .lbl{font-size:11px;letter-spacing:.12em;color:var(--muted);display:block;margin-bottom:4px}
+.w.ok{background:var(--good-bg);color:var(--good);border-radius:4px;padding:0 3px}
+.w.ng{background:var(--miss-bg);color:var(--miss);border-radius:4px;padding:0 3px;font-weight:600}
+.mjp{margin-top:6px;font-size:14px;color:var(--muted);border-left:3px solid var(--line);padding-left:10px}
+.verdict{margin-top:8px;font-size:14px;color:var(--muted)}
+.foot{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12.5px;flex-wrap:wrap;gap:8px}
+.stat{font-variant-numeric:tabular-nums}
+.warn{background:var(--miss-bg);color:var(--miss);border-radius:10px;padding:10px 12px;font-size:13.5px}
+label.small{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+input[type=range]{width:110px}
+.sr{position:absolute;left:-9999px}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <div>
+    <a href="./" style="font-size:12.5px;color:var(--muted);text-decoration:none">← 清酒学習帳へ戻る</a>
+    <h1>英語ボイス練習</h1>
+    <p class="sub">蔵見学の英語台本 v2 から出題。「▶ 質問を聞く」→ マイクで答える → 採点。困ったら「日本語訳」「模範解答」。</p>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab on" data-m="qa" role="tab">質問に答える</button>
+    <button class="tab" data-m="say" role="tab">日本語→英語で言う</button>
+    <button class="tab" data-m="shadow" role="tab">★を復唱する</button>
+  </div>
+
+  <div class="row">
+    <select id="sec" aria-label="範囲"></select>
+    <select id="order" aria-label="出題順"><option value="weak">苦手から</option><option value="seq">順番に</option><option value="rand">ランダム</option></select>
+    <label class="small">読み上げ速度 <input type="range" id="rate" min="0.6" max="1.2" step="0.1" value="0.9"></label>
+  </div>
+
+  <div id="warn" class="warn" hidden></div>
+
+  <div class="card">
+    <div class="eyebrow"><span id="eyeL">VISITOR ASKS</span><span id="eyeR"></span></div>
+    <p class="prompt" id="prompt"></p>
+    <p class="hint" id="hint" hidden></p>
+    <div class="row tools" style="margin-top:10px">
+      <button class="btn tool" id="bHear">▶ 質問を聞く</button>
+      <button class="btn tool" id="bJp">日本語訳</button>
+      <button class="btn tool" id="bShow">模範解答</button>
+    </div>
+
+    <div class="mic">
+      <button class="micbtn" id="mic" aria-label="話す（押して話し、もう一度押して止める）">
+        <svg viewBox="0 0 24 24"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 0 0-8 0v5a4 4 0 0 0 4 4zm6-4a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.94V22h2v-3.06A8 8 0 0 0 20 11h-2z"/></svg>
+      </button>
+      <div class="status" id="status">マイクを押して、英語で答えてください</div>
+    </div>
+
+    <div class="heard" id="heard"><span class="lbl">YOU SAID</span><span id="heardTxt">…</span></div>
+
+    <div id="result" hidden>
+      <div class="score"><div class="bar"><i id="barFill"></i></div><div class="pct" id="pct">0%</div></div>
+      <div class="model"><span class="lbl">MODEL ANSWER</span><span id="modelTxt"></span><div class="mjp" id="modelJp"></div></div>
+      <div class="verdict" id="verdict"></div>
+    </div>
+
+    <div class="row" style="margin-top:16px;justify-content:space-between">
+      <button class="btn" id="bRetry">もう一度</button>
+      <div class="row">
+        <button class="btn" id="bSkip">飛ばす</button>
+        <button class="btn primary" id="bNext">次へ →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span class="stat" id="stat"></span>
+    <button class="btn ghost" id="bReset" style="font-size:12px">記録を消す</button>
+  </div>
+</div>
+
+<script>
+const DATA = {"stars": [{"sec": "0. 蔵の紹介", "en": "Kirinzan was founded in 1843. We make dry, clean sake for local people to drink every day. About 80 percent of our sake is drunk here in Niigata.", "jp": "麒麟山は1843年創業。地元の人が毎日飲む、辛口で綺麗な酒を造っています。うちの酒の約8割はここ新潟で飲まれています。"}, {"sec": "1-1. 導入", "en": "All of our rice is grown within ten kilometers of this brewery. There are three reasons.", "jp": "使う米はすべて蔵から10km以内で育ったものです。理由は3つあります。"}, {"sec": "1-2. 理由①：米づくりに最適な環境", "en": "First, the environment. Aga is a basin surrounded by mountains, with big temperature differences between day and night. Great rice grows here.", "jp": "1つ目は環境。阿賀町は山に囲まれた盆地で、昼夜の寒暖差が大きい。良い米が育ちます。"}, {"sec": "1-3. 理由②：同じ産地なら品質がそろう", "en": "Second, same area, same quality. If all the rice comes from one place, the fermentation in the tank is stable.", "jp": "2つ目は「同じ産地、同じ品質」。米が全部同じ場所から来れば、タンクの発酵が安定します。"}, {"sec": "1-4. 理由③：農業を次の世代につなぐ", "en": "Third, the farmers are getting older. If we sell more sake, we need more rice, and young people can take over the farms.", "jp": "3つ目は農家の高齢化。酒が売れれば米が要り、若い人が農業を継げます。"}, {"sec": "1-5. 奥阿賀酒米研究会と農業部門", "en": "In 1995 we started a sake-rice group with local farmers. Since 2018, all of our sake is brewed with 100 percent Aga rice.", "jp": "1995年に地元農家と酒米の研究会を始めました。2018年からは全量阿賀町産の米で仕込んでいます。"}, {"sec": "1-6. 使っている酒米と使い分け", "en": "We use three kinds of rice: Gohyakumangoku for Classic, Takane Nishiki for Extra Dry, and Koshi Tanrei for ginjo.", "jp": "米は3種類。伝統辛口には五百万石、超辛口には高嶺錦、吟醸には越淡麗です。"}, {"sec": "1-7. 酒粕の比率で味を設計する", "en": "How much lees we leave is part of the recipe. Classic: 25 percent lees. Daiginjo: up to 45 percent. It is about the balance of aroma and taste.", "jp": "どれだけ酒粕を残すかも設計の一部です。伝統辛口は25%、大吟醸は最大45%。香りと味のバランスです。"}, {"sec": "2. 水— 超軟水と森づくり", "en": "Our water is very soft — hardness 23, compared to about 100 in Hyogo. Soft water makes light, clean sake. Since 2010 we have planted 5,000 trees to protect the water source.", "jp": "水は超軟水で硬度23（兵庫は約100）。軟水は軽くて綺麗な酒になります。2010年から水源を守るために5,000本植樹しました。"}, {"sec": "3-1. 洗米", "en": "We wash up to three tons of rice a day. For special sake we wash by hand with a stopwatch, because ten seconds changes the water in the rice by one percent.", "jp": "1日最大3トンの米を洗います。特別な酒はストップウォッチで手洗い。10秒で米の水分が1%変わるからです。"}, {"sec": "3-2. 浸漬と蒸し", "en": "The rice soaks in water — usually only five to ten minutes — and absorbs about 30 percent. Rice for koji absorbs a little more, 33 to 35 percent. We control it to within one percent, and we check the firmness by hand.", "jp": "米は通常5〜10分だけ浸漬し、約30%吸水します。麹用は少し多めの33〜35%。1%以内で管理し、硬さは手で確かめます。"}, {"sec": "3-3. 麹室", "en": "This is the koji room — the heart of the brewery. Koji is a good mold that turns the starch in rice into sugar. Room one keeps the moisture in so the spores sprout. Room two takes the moisture out so the mold grows into the rice. Sake koji is made at 40 to 42 degrees.", "jp": "ここが麹室、蔵の心臓です。麹は米のデンプンを糖に変える良いカビ。1室目は水分を保って発芽させ、2室目は水分を飛ばして菌を米の中へ。酒の麹は40〜42℃で造ります。"}, {"sec": "3-4. 酒母室", "en": "Here we make the yeast starter. It takes twelve days. For Classic and Extra Dry we use old-style foaming yeast on purpose — it gives a crisper finish. Only two or three breweries in Niigata still do this.", "jp": "ここで酒母を造ります。12日かかります。伝統辛口と超辛口はあえて昔ながらの泡あり酵母。キレが良くなります。新潟で今もやっているのは2〜3蔵だけです。"}, {"sec": "3-5. 仕込み", "en": "This is the main mash. We add rice, koji and water in three steps, doubling each time. For Classic, the temperature never goes above 15.5 degrees, and it is brewed in exactly 21 days. We taste every tank every day.", "jp": "ここが醪です。米・麹・水を3段階、倍々で加えます。伝統辛口は15.5℃以上に上げず、ちょうど21日で造ります。毎日全タンクを味見します。"}, {"sec": "3-6. 上槽", "en": "This is the press, called a Yabuta. 150 plates with filter cloth. Air pushes the plates together and the clear sake comes out. What stays is the sake lees.", "jp": "これが搾り機、ヤブタです。濾布をかけた板が150枚。空気で板を押し合わせ、透明な酒が出てきます。残るのが酒粕です。"}, {"sec": "3-7. 貯蔵", "en": "We store the sake for about six months in temperature-controlled tanks before shipping. That makes the taste round and stable.", "jp": "出荷前に温度管理したタンクで約6ヶ月貯蔵します。味がまろやかで安定します。"}, {"sec": "3-8. 出荷・輸出・雪", "en": "80 percent of our sake is drunk in Niigata, but exports are growing — the US, including Disney in Florida, and Vietnam.", "jp": "うちの酒の8割は新潟で飲まれますが、輸出も伸びています。アメリカ（フロリダのディズニーも）、ベトナムなど。"}, {"sec": "7. 研究者向けQ&A：乾田直播の米で酒を造ったら？", "en": "Nobody knows yet. Dry-seeded rice may be harder and dissolve less. Please analyze the rice, and we will adjust the koji and the brewing.", "jp": "まだ誰にも分かりません。乾田直播の米は硬くて溶けにくいかもしれない。米を分析してもらえれば、麹と仕込みを調整します。"}], "qa": [{"sec": "実際に出た質問", "jp": "ここの酒米は五百万石？", "q": "Is your rice Gohyakumangoku?", "a": "Yes — Gohyakumangoku, Takane Nishiki and Koshi Tanrei.", "ajp": "はい。五百万石、高嶺錦、越淡麗です。"}, {"sec": "実際に出た質問", "jp": "自然乾燥は酒米でもやる？", "q": "Do you sun-dry the sake rice too?", "a": "No, that is for the harvest event. Sake rice is dried by machine.", "ajp": "いいえ、あれは収穫イベント用です。酒米は機械で乾燥させます。"}, {"sec": "実際に出た質問", "jp": "水は？", "q": "What about the water?", "a": "Extremely soft — hardness 23. Soft water gives light, clean sake.", "ajp": "超軟水で、硬度は23です。軟水だと軽くて綺麗な酒になります。"}, {"sec": "実際に出た質問", "jp": "通常は5分？", "q": "Only five minutes of soaking?", "a": "Yes, normally five to ten minutes. In a cold-damage year it was 10 to 15 hours.", "ajp": "はい、通常は5〜10分です。冷害の年は10〜15時間でした。"}, {"sec": "実際に出た質問", "jp": "ストップウォッチ？肌感覚？", "q": "Stopwatch or feeling?", "a": "Both. A stopwatch to drain the water, then we measure the absorption, and the koji maker also checks by hand.", "ajp": "両方です。ストップウォッチで水を抜き、吸水率を測り、麹担当が手でも確かめます。"}, {"sec": "実際に出た質問", "jp": "1%？（笑）", "q": "Really, one percent?", "a": "Yes — first step 30, second 29, third 28. Within one percent.", "ajp": "はい。初添30、仲添29、留添28。1%以内です。"}, {"sec": "実際に出た質問", "jp": "30〜35度？", "q": "30 to 35 degrees?", "a": "Yes, 30 to 35 Celsius in the room, and up to 40 to 42 when we grow the enzymes for sake.", "ajp": "はい、室内は30〜35℃、酒用の酵素を作るときは40〜42℃まで上げます。"}, {"sec": "実際に出た質問", "jp": "納豆は食べられない？", "q": "You can't eat natto?", "a": "We avoid it in the morning. Natto bacteria are extremely strong, and only koji should grow here.", "ajp": "朝は控えています。納豆菌は非常に強く、この部屋では麹だけを育てたいので。"}, {"sec": "実際に出た質問", "jp": "具体的にどうなる？熱中症？", "q": "What happens to people in here — heatstroke?", "a": "Mostly dehydration. Some people avoid water so they do not sweat — that is the danger.", "ajp": "主に脱水症状です。汗をかきたくないと水を控える人がいて、それが危険です。"}, {"sec": "実際に出た質問", "jp": "伝統辛口にも泡なしがある？", "q": "Does Classic ever use non-foaming yeast?", "a": "No. Classic is always foaming yeast.", "ajp": "いいえ。伝統辛口は常に泡あり酵母です。"}, {"sec": "実際に出た質問", "jp": "泡なしは何に？", "q": "What do you use the non-foaming yeast for?", "a": "Ginjo and non-ginjo, more than ten products, and our competition sake.", "ajp": "吟醸も吟醸以外も、10種類以上の商品と、鑑評会出品酒に使っています。"}, {"sec": "実際に出た質問", "jp": "税務署が来る？", "q": "The tax office comes here?", "a": "Yes, sake is taxed, so the National Tax Agency inspects us — next month, for a whole week.", "ajp": "はい。酒には税金がかかるので国税局の調査があります。来月、丸1週間です。"}, {"sec": "実際に出た質問", "jp": "日数？", "q": "Days?", "a": "Yes — the number of days until pressing. Classic is exactly 21 days.", "ajp": "はい、搾るまでの日数です。伝統辛口はちょうど21日です。"}, {"sec": "実際に出た質問", "jp": "毎日味見して？", "q": "Do you taste it every day?", "a": "Every tank, every day.", "ajp": "全タンク、毎日です。"}, {"sec": "実際に出た質問", "jp": "（粕は）少ない方がいい？", "q": "Is less lees better?", "a": "Not less or more — the right amount for each sake. 25 percent for Classic, up to 45 for daiginjo. It is about the balance of aroma and taste.", "ajp": "少ない多いではなく、その酒に合った量です。伝統辛口は25%、大吟醸は最大45%。香りと味のバランスの問題です。"}, {"sec": "実際に出た質問", "jp": "水は直接引いている？", "q": "Do you take the water directly from the mountain?", "a": "We used to use a well behind the brewery, but it became cloudy when the expressway was built. Now we use the town's tap water — the same very soft water — and filter it.", "ajp": "以前は蔵の裏の井戸水でしたが、高速道路の工事で濁ったので、今は町の水道水（同じ超軟水）を濾過して使っています。"}, {"sec": "実際に出た質問", "jp": "水道水？", "q": "Tap water?", "a": "Yes. The tap water in Aga is extremely soft, hardness 23. We filter it before brewing.", "ajp": "はい。阿賀町の水道水は超軟水で硬度23です。仕込む前に濾過します。"}, {"sec": "実際に出た質問", "jp": "ベトナムには？", "q": "How about Vietnam?", "a": "Yes, we export to Vietnam too. Our biggest market is the US.", "ajp": "はい、ベトナムにも輸出しています。一番大きい市場はアメリカです。"}, {"sec": "実際に出た質問", "jp": "雪は3mくらい？", "q": "Do you get three meters of snow?", "a": "About two meters. Our staff clear it every morning.", "ajp": "2mくらいです。社員が毎朝除雪します。"}, {"sec": "定番の質問", "jp": "麹って結局なんですか？", "q": "What exactly is koji?", "a": "It is steamed rice with a mold grown on it. The mold is called Aspergillus oryzae.", "ajp": "蒸した米にカビを生やしたものです。そのカビはアスペルギルス・オリゼーといいます。"}, {"sec": "定番の質問", "jp": "カビって安全なの？", "q": "Is mold safe to eat?", "a": "Yes. It is a good mold, not a bad one. Japanese people have used it for over a thousand years, for miso, soy sauce and sake.", "ajp": "はい。良いカビで、悪いカビではありません。日本人は千年以上、味噌・醤油・酒に使ってきました。"}, {"sec": "定番の質問", "jp": "ビールは使わないのに、なぜ？", "q": "Why do you need koji? Beer doesn't use it.", "a": "Beer uses malt — sprouted barley — to make sugar. Sake uses koji instead. Same job, different method.", "ajp": "ビールは麦芽（発芽させた大麦）で糖を作ります。日本酒は代わりに麹を使います。役割は同じ、方法が違うだけです。"}, {"sec": "定番の質問", "jp": "約50時間。夜中の2時でも誰かが見ています。", "q": "How long does it take to make koji?", "a": "About fifty hours. Somebody has to check it, even at two in the morning.", "ajp": "約50時間です。夜中の2時でも誰かが見ています。"}, {"sec": "定番の質問", "jp": "はい、乾燥米麹がスーパーで買えます。甘酒や塩麹が家で作れます。", "q": "Can I buy koji?", "a": "Yes, you can buy dried rice koji in Japanese supermarkets. You can make amazake or shio-koji at home.", "ajp": "はい、乾燥米麹が日本のスーパーで買えます。家で甘酒や塩麹が作れます。"}, {"sec": "定番の質問", "jp": "強いお酒ですか？", "q": "Is sake strong?", "a": "Usually about fifteen percent. Stronger than wine, much weaker than whisky.", "ajp": "だいたい15%です。ワインより強く、ウイスキーよりずっと弱いです。"}, {"sec": "定番の質問", "jp": "燗？冷や？", "q": "Should I drink it hot or cold?", "a": "Both are good. Our sake is dry, so it is very nice warm, around forty-five degrees. But cold is refreshing too. Please try both.", "ajp": "どちらも良いです。うちの酒は辛口なので45℃くらいの燗が特に合います。冷やも爽やかです。両方お試しください。"}, {"sec": "定番の質問", "jp": "辛口って？", "q": "What does \"dry\" mean in sake?", "a": "It means \"not sweet\". Not spicy. Sorry, the Japanese word \"karakuchi\" is confusing in English.", "ajp": "「甘くない」という意味です。辛い（スパイシー）ではありません。日本語の「辛口」は英語だと紛らわしいんです。"}, {"sec": "定番の質問", "jp": "魚、天ぷら、焼き鳥、山菜。毎日の食事に合う酒です。", "q": "What food goes with this sake?", "a": "Fish, tempura, grilled chicken, and local mountain vegetables. It is a sake for everyday meals.", "ajp": "魚、天ぷら、焼き鳥、地元の山菜。毎日の食事に合う酒です。"}, {"sec": "定番の質問", "jp": "グルテンフリー？", "q": "Is sake gluten free?", "a": "Yes. Sake is made from rice, water, koji and yeast. There is no wheat and no barley.", "ajp": "はい。日本酒は米・水・麹・酵母から造ります。小麦も大麦も入っていません。"}, {"sec": "定番の質問", "jp": "いいえ、亜硫酸塩は添加していません。", "q": "Does sake have sulfites?", "a": "No, we do not add sulfites.", "ajp": "いいえ、亜硫酸塩は加えていません。"}, {"sec": "定番の質問", "jp": "米・水・麹・酵母のみなので、基本的にはい。", "q": "Is it vegan?", "a": "Our sake is made only from rice, water, koji and yeast, so yes. (※濾過助剤等、実際の製法に合わせて確認)", "ajp": "うちの酒は米・水・麹・酵母だけなので、はい。"}, {"sec": "定番の質問", "jp": "保存方法", "q": "How should I store it?", "a": "Keep it away from light and heat. A refrigerator is best. Please drink it within a year, and within a few days after opening.", "ajp": "光と熱を避けてください。冷蔵庫が一番です。1年以内、開栓後は数日で飲んでください。"}, {"sec": "定番の質問", "jp": "純米は米・水・麹・酵母のみ。本醸造は少量の醸造アルコールを加え、軽快で香り立ちを良くします。", "q": "What is the difference between junmai and honjozo?", "a": "Junmai is rice, water, koji and yeast only. Honjozo has a small amount of distilled alcohol added, to make the taste lighter and the aroma clearer.", "ajp": "純米は米・水・麹・酵母だけ。本醸造は少量の醸造アルコールを加え、味を軽く、香りを立たせます。"}, {"sec": "定番の質問", "jp": "精米歩合50%以下のもの。果実のような香りがすることが多いです。", "q": "What is \"daiginjo\"?", "a": "It means the rice is polished to fifty percent or less. It usually has a fruity aroma.", "ajp": "精米歩合50%以下という意味です。たいてい果実のような香りがします。"}, {"sec": "定番の質問", "jp": "何人働いていますか？", "q": "How many people work here?", "a": "About ○○ people. In the busy winter season, more. ※実数を入れて更新", "ajp": "約○○名です。冬の繁忙期はもっと増えます。"}, {"sec": "定番の質問", "jp": "一年中造っていますか？", "q": "Is sake made all year?", "a": "Mainly from autumn to spring. Cold weather makes clean sake. Summer is for storing and shipping.", "ajp": "主に秋から春です。寒さが綺麗な酒を造ります。夏は貯蔵と出荷の時期です。"}, {"sec": "定番の質問", "jp": "杜氏の仕事は？", "q": "What does a toji do?", "a": "The toji is the head brewer. I decide the recipe, the temperature and the timing, and I lead the team of brewery workers, the kurabito.", "ajp": "杜氏は製造責任者です。配合・温度・タイミングを決め、蔵人のチームを率います。"}, {"sec": "定番の質問", "jp": "この蔵で長年働いてきました。2026年10月に杜氏に就任します。", "q": "How did you become a toji?", "a": "I have worked in this brewery for many years. I will become the toji in October 2026.", "ajp": "この蔵で長年働いてきました。2026年10月に杜氏になります。"}, {"sec": "定番の質問", "jp": "はい、特に冬は大変です。でも良い酒ができると報われます。", "q": "Is it hard work?", "a": "Yes, especially in winter. But when the sake is good, it is worth it.", "ajp": "はい、特に冬は。でも良い酒ができれば報われます。"}, {"sec": "定番の質問", "jp": "年間約○○klです。", "q": "How much sake do you make a year?", "a": "About ○○ kiloliters. ※実数を入れて更新", "ajp": "約○○キロリットルです。"}, {"sec": "定番の質問", "jp": "機械？手作業？", "q": "Do you use machines or hands?", "a": "Both. Machines for washing and pressing. But koji making is still by hand, because the feel and the smell matter.", "ajp": "両方です。洗米と搾りは機械。でも麹造りは今も手作業です。感触と香りが大事なので。"}, {"sec": "定番の質問", "jp": "ここで買えますか？", "q": "Can I buy this here?", "a": "Yes, in the shop over there.", "ajp": "はい、あちらの売店で。"}, {"sec": "定番の質問", "jp": "海外発送できますか？", "q": "Can you ship to my country?", "a": "We have an online store. Please ask the shop staff about overseas shipping.", "ajp": "オンラインストアがあります。海外発送は売店のスタッフにお尋ねください。"}, {"sec": "定番の質問", "jp": "機内持ち込みは不可です。預け荷物に入れて、しっかり包んでください。", "q": "Can I take it on the plane?", "a": "Not in your carry-on bag. Please put it in your checked luggage, and wrap it well.", "ajp": "機内持ち込みはできません。預け荷物に入れて、しっかり包んでください。"}, {"sec": "定番の質問", "jp": "こちらは○○円です。現金・クレジットカード・PayPayが使えます。", "q": "How much is it?", "a": "This one is ○○ hundred yen. We take cash, credit cards and PayPay.", "ajp": "これは○○百円です。現金、クレジットカード、PayPayが使えます。"}, {"sec": "定番の質問", "jp": "ここは撮影OKです。／この部屋は撮影禁止です。", "q": "Can I take photos?", "a": "Photos are fine here. / Sorry, no photos in this room.", "ajp": "ここは写真OKです。／すみません、この部屋は撮影禁止です。"}, {"sec": "定番の質問", "jp": "申し訳ありません、中には入れません。衛生管理のためです。ここからご覧ください。", "q": "Can I go inside the koji room?", "a": "Sorry, not inside. We must keep it very clean. But you can look from here.", "ajp": "すみません、中には入れません。とても清潔に保つ必要があるので。ここから見てください。"}, {"sec": "定番の質問", "jp": "はい、あちらです。こちらへどうぞ。", "q": "Is there a restroom?", "a": "Yes, over there. This way, please.", "ajp": "はい、あちらです。こちらへどうぞ。"}, {"sec": "定番の質問", "jp": "もろみが発酵している匂いです。甘酸っぱい、良い匂いです。", "q": "What is that smell?", "a": "That is the smell of the fermenting mash. Sweet and a little sour. It is a good smell!", "ajp": "発酵している醪の匂いです。甘くて少し酸っぱい。良い匂いですよ！"}], "say": [{"sec": "蔵・米・水の紹介", "jp": "うちの酒の約8割は新潟県内で飲まれています", "en": "Almost 80 percent of our sake is drunk inside Niigata."}, {"sec": "蔵・米・水の紹介", "jp": "真ん中の瓶が主力の伝統辛口です", "en": "Our flagship is the bottle in the middle, Dento Karakuchi — \"Classic\"."}, {"sec": "蔵・米・水の紹介", "jp": "使う米は100%阿賀町産で、蔵から半径10km以内です", "en": "All of our rice is grown within ten kilometers of this brewery."}, {"sec": "蔵・米・水の紹介", "jp": "同じ産地なら品質がそろう", "en": "Same area, same quality."}, {"sec": "蔵・米・水の紹介", "jp": "1本のタンクの発酵を全部安定させたい", "en": "Our ideal is one tank, one stable fermentation."}, {"sec": "蔵・米・水の紹介", "jp": "農家が高齢化しているので、酒が売れれば米が要り、若い人が農業を継げる", "en": "Our farmers are getting older. If we sell more sake, we need more rice, and young people can take over the farms."}, {"sec": "蔵・米・水の紹介", "jp": "1995年に地元の農家と酒米の研究会を作りました", "en": "In 1995 we started a sake-rice study group with local farmers."}, {"sec": "蔵・米・水の紹介", "jp": "昨年は一等米が92%でした", "en": "Last year 92 percent of their rice was graded first class."}, {"sec": "蔵・米・水の紹介", "jp": "全国新酒鑑評会で10年連続入賞、うち金賞7回で県内一番", "en": "Awards at the National New Sake Appraisal for ten years in a row, including seven gold medals — the best record in Niigata."}, {"sec": "蔵・米・水の紹介", "jp": "伝統辛口は五百万石を65%まで精米して使う", "en": "For Classic, we use Gohyakumangoku polished to 65 percent."}, {"sec": "蔵・米・水の紹介", "jp": "超辛口はシャープな味にしたいので高嶺錦、吟醸系は華やかな香りにしたいので越淡麗", "en": "For Extra Dry we want a sharper taste, so we use Takane Nishiki. For ginjo we want a fruity aroma, so we use Koshi Tanrei."}, {"sec": "蔵・米・水の紹介", "jp": "軟水で仕込むと軽やかで綺麗な酒になる", "en": "Soft water gives a gentle, slow fermentation, so the sake becomes light and clean."}, {"sec": "工程の説明", "jp": "多い日は1日3トンの米を洗います", "en": "On a busy day we wash up to three tons of rice."}, {"sec": "工程の説明", "jp": "10〜20秒違うだけで吸水が1%以上変わる", "en": "Just 10 or 20 seconds can change the water absorption by more than one percent."}, {"sec": "工程の説明", "jp": "蒸米が柔らかすぎると溶けすぎて重い酒に、硬すぎると溶けず薄い酒になる", "en": "If the steamed rice is too soft, it dissolves too much and the sake becomes heavy. Too hard, and the sake becomes thin."}, {"sec": "工程の説明", "jp": "麹室は酒の心臓です", "en": "This is the koji room — the heart of the brewery."}, {"sec": "工程の説明", "jp": "冬は外が5℃以下、室内は35〜40℃で、行ったり来たりする", "en": "In winter it is below 5 degrees outside and 35 to 40 in here, and we go in and out all day."}, {"sec": "工程の説明", "jp": "12時間", "en": "We let it ferment for twelve days to grow a large number of healthy yeast cells. After twelve days it is about 10 percent alcohol."}, {"sec": "工程の説明", "jp": "新潟91蔵のうち泡あり酵母を使うのは2〜3社", "en": "Of the 91 breweries in Niigata, only two or three still use foaming yeast."}, {"sec": "工程の説明", "jp": "翌日に氷を入れて冷やし、寒さに強い酵母だけを残す", "en": "The day after we start, we put ice in the tank. Only strong yeast that can work in the cold survives."}, {"sec": "工程の説明", "jp": "泡消し機が止まると2〜3分で泡があふれる。泡には酵母がいっぱい付いている", "en": "If the foam remover stops, the foam overflows in two or three minutes. The foam is full of yeast."}, {"sec": "工程の説明", "jp": "伝統辛口は21日ちょうど。1日延びると酒粕が何百kgも減って米の味が消える", "en": "Classic is brewed in exactly 21 days. One extra day and we lose hundreds of kilograms of sake lees — the taste of the rice disappears."}, {"sec": "工程の説明", "jp": "1週間以内に濾過して透き通った酒にする", "en": "Within one week we filter it, and it becomes clear, clean sake."}, {"sec": "工程の説明", "jp": "100リットル", "en": "It holds one million liters, and one person manages all of it."}, {"sec": "工程の説明", "jp": "平均6ヶ月熟成させると味が落ち着き、角が取れる", "en": "We age the sake for about six months. The taste settles and the rough edges disappear."}, {"sec": "受付・試飲・販売", "jp": "何月何日、何時に何名様ですか？", "en": "What date, what time, and how many people?"}, {"sec": "受付・試飲・販売", "jp": "14時までに蔵の受付にお越しください", "en": "Please come to the reception by 2 p.m."}, {"sec": "受付・試飲・販売", "jp": "お名前をおうかがいできますか？", "en": "May I have your name, please?"}, {"sec": "受付・試飲・販売", "jp": "見学は約40分です。ついてきてください。設備には触らないでください", "en": "The tour takes about 40 minutes. Please follow me, and please do not touch the equipment."}, {"sec": "受付・試飲・販売", "jp": "ここで靴を脱いでください／このキャップをかぶってください", "en": "Please take off your shoes here. Please put on this cap."}, {"sec": "受付・試飲・販売", "jp": "こちらの本醸造をおすすめします。軽くて口当たりが良いです", "en": "I recommend this honjozo. It is light and smooth."}, {"sec": "受付・試飲・販売", "jp": "日本酒はいろいろな温度で楽しめます。これは冷やがおすすめです", "en": "Sake can be enjoyed at a variety of temperatures. I recommend this one chilled."}, {"sec": "受付・試飲・販売", "jp": "お車を運転される方は試飲をご遠慮ください", "en": "If you are driving, please do not drink."}, {"sec": "受付・試飲・販売", "jp": "合計で税込み3,000円です", "en": "The total is 3,000 yen including tax."}, {"sec": "受付・試飲・販売", "jp": "お支払いは現金ですか、クレジットカードですか？", "en": "Would you like to pay in cash or by credit card?"}, {"sec": "受付・試飲・販売", "jp": "配送をご希望ですか？この用紙にご記入ください", "en": "Would you like to have this sake delivered? Please fill out this form."}, {"sec": "蔵・米・水の紹介", "jp": "麒麟", "en": "\"Kirin\" is a mythical creature, a kind of Chinese unicorn. In Japanese the same word also means giraffe!"}, {"sec": "蔵・米・水の紹介", "jp": "12名で年間60万リットル造っています", "en": "Twelve people brew about 600,000 liters a year."}, {"sec": "蔵・米・水の紹介", "jp": "根が深く張れるので猛暑に強い。3年前の食味コンテストで上位10人中8人が阿賀町の水田だった", "en": "The roots grow deep, so the rice is heat-tolerant. Three years ago, eight of the top ten in a rice-taste contest were from Aga."}, {"sec": "蔵・米・水の紹介", "jp": "輸出はこの2年で急増。アメリカ（フロリダのディズニー）とベトナムへ", "en": "Exports have grown quickly in the last two years — to the US, including Disney in Florida, and to Vietnam."}, {"sec": "蔵・米・水の紹介", "jp": "雪は2mくらい積もる。社員が早朝に除雪する", "en": "We get about two meters of snow. Our staff come in early and clear it with the snowplow."}, {"sec": "質問への受け答え", "jp": "米が溶けないと次の工程に進めない。それが一番困る", "en": "If the rice does not dissolve, we cannot move on to the next step. That is our biggest worry."}, {"sec": "質問への受け答え", "jp": "この地域は春の雪解け水が冷たいので、直播の発芽率が低かった", "en": "In this area the snowmelt water in spring is very cold, so direct seeding in flooded paddies had poor germination in the past."}]};
+const KEY = "kirinzan_voice_v1";
+let store = {}; try { store = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch(e) { store = {}; }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(store)); } catch(e){} }
+
+// ---- items per mode ----
+function items(mode){
+  if(mode==="qa") return DATA.qa.map((d,i)=>({id:"qa"+i, sec:d.sec, spoken:d.q, shown:d.q, hint:d.jp, answer:d.a, ajp:d.ajp, lang:"en-US", eye:"VISITOR ASKS"}));
+  if(mode==="say") return DATA.say.map((d,i)=>({id:"say"+i, sec:d.sec, spoken:d.jp, shown:d.jp, hint:"これを英語で", answer:d.en, ajp:d.jp, lang:"ja-JP", eye:"SAY IT IN ENGLISH", jp:true}));
+  return DATA.stars.map((d,i)=>({id:"st"+i, sec:d.sec, spoken:d.en, shown:"（聞いて、そのまま繰り返す）", hint:d.jp, answer:d.en, ajp:d.jp, lang:"en-US", eye:"REPEAT AFTER ME"}));
+}
+let mode="qa", list=[], idx=0, cur=null, recognizing=false, finalTxt="";
+
+const $=id=>document.getElementById(id);
+function build(){
+  const all=items(mode);
+  const secs=[...new Set(all.map(d=>d.sec))];
+  const sel=$("sec"); const keep=sel.value;
+  sel.innerHTML='<option value="">すべて（'+all.length+'）</option>'+secs.map(s=>`<option value="${s}">${s}（${all.filter(d=>d.sec===s).length}）</option>`).join("");
+  if([...sel.options].some(o=>o.value===keep)) sel.value=keep;
+  list=all.filter(d=>!sel.value||d.sec===sel.value);
+  const ord=$("order").value;
+  if(ord==="rand") list.sort(()=>Math.random()-.5);
+  if(ord==="weak") list.sort((a,b)=>(best(a)-best(b))||(a.id<b.id?-1:1));
+  idx=0; show();
+}
+function best(d){ return (store[d.id]&&store[d.id].best)||0; }
+function show(){
+  cur=list[idx]; if(!cur){ $("prompt").textContent="この範囲は終わりました。範囲か順番を変えてください。"; return; }
+  $("eyeL").textContent=cur.eye; $("eyeR").textContent=(idx+1)+" / "+list.length+(best(cur)?"　best "+best(cur)+"%":"");
+  const p=$("prompt"); p.textContent=cur.shown; p.classList.toggle("jp",!!cur.jp);
+  $("hint").textContent=cur.hint||""; $("hint").hidden=true; $("bJp").classList.remove("on");
+  $("bJp").hidden=(mode==="say"); $("bHear").textContent= mode==="say"?"▶ 日本語を聞く":"▶ 質問を聞く";
+  $("heardTxt").textContent="…"; finalTxt=""; $("result").hidden=true; $("status").textContent="マイクを押して、英語で答えてください";
+  speak(cur.spoken, cur.lang);
+  stat();
+}
+function stat(){
+  const all=items(mode); const done=all.filter(d=>best(d)>=70).length;
+  $("stat").textContent=`このモード：70%以上 ${done} / ${all.length}　（採点は単語の一致率。数字と固有名詞が言えていれば合格）`;
+}
+
+// ---- speech ----
+function speak(text, lang){
+  if(!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text); u.lang=lang||"en-US"; u.rate=parseFloat($("rate").value);
+  const vs=speechSynthesis.getVoices(); const v=vs.find(x=>x.lang===u.lang&&/Google|Samantha|Daniel|Kyoko|Natural|Neural/i.test(x.name))||vs.find(x=>x.lang===u.lang)||vs.find(x=>x.lang.startsWith(u.lang.slice(0,2)));
+  if(v) u.voice=v;
+  speechSynthesis.speak(u);
+}
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null;
+if(!SR){ $("warn").hidden=false; $("warn").textContent="この端末のブラウザは音声入力に対応していません。iPhoneはSafari、PC・AndroidはChromeで開いてください。"; }
+else{
+  rec=new SR(); rec.lang="en-US"; rec.interimResults=true; rec.continuous=false; rec.maxAlternatives=1;
+  rec.onresult=e=>{ let interim="", fin=""; for(const r of e.results){ if(r.isFinal) fin+=r[0].transcript+" "; else interim+=r[0].transcript; } finalTxt=(finalTxt+fin).trim(); $("heardTxt").textContent=(finalTxt+" "+interim).trim()||"…"; };
+  rec.onerror=e=>{ $("status").textContent= e.error==="not-allowed"?"マイクの使用を許可してください":"聞き取れませんでした。もう一度どうぞ（"+e.error+"）"; stopUI(); };
+  rec.onend=()=>{ stopUI(); if(finalTxt) grade(); };
+}
+function startRec(){ if(!rec) return; speechSynthesis.cancel(); finalTxt=""; $("heardTxt").textContent="…"; $("result").hidden=true; try{ rec.start(); }catch(e){} recognizing=true; $("mic").classList.add("listening"); $("status").textContent="聞いています… 言い終わったらもう一度押す"; }
+function stopUI(){ recognizing=false; $("mic").classList.remove("listening"); if($("status").textContent.startsWith("聞いています")) $("status").textContent="採点中…"; }
+$("mic").onclick=()=>{ if(recognizing){ rec.stop(); } else startRec(); };
+
+// ---- grading ----
+const STOP=new Set("a an the and or but so of to in on at for from with by is are was were be been it its this that these those we our us you your they their he she his her i my me do does did have has had can could will would please very also about into as than then there here not no yes".split(" "));
+const NUMW={one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9",ten:"10",twelve:"12",fifteen:"15",twenty:"20",thirty:"30",forty:"40",fifty:"50",sixty:"60",eighty:"80",ninety:"90",hundred:"100",thousand:"1000",million:"1000000",percent:"%"};
+function norm(t){ return t.toLowerCase().replace(/[’']/g,"").replace(/[^a-z0-9%\s\-]/g," ").replace(/-/g," ").split(/\s+/).filter(Boolean).map(w=>NUMW[w]||w).map(stem); }
+function stem(w){ return w.replace(/(ies)$/,"y").replace(/(sses|shes|ches|xes)$/,m=>m.slice(0,-2)).replace(/(?<=[a-z]{3})s$/,"").replace(/(?<=[a-z]{3})ed$/,"").replace(/(?<=[a-z]{3})ing$/,""); }
+function grade(){
+  const modelWords=cur.answer.replace(/[—–]/g," ").split(/\s+/).filter(Boolean);
+  const heard=new Set(norm(finalTxt));
+  let key=0, hit=0; const html=modelWords.map(w=>{
+    const n=norm(w)[0]; if(!n||STOP.has(n)) return w;
+    key++; const ok=heard.has(n)||[...heard].some(h=>h.length>3&&(n.startsWith(h)||h.startsWith(n))); if(ok) hit++;
+    return `<span class="w ${ok?"ok":"ng"}">${w}</span>`; }).join(" ");
+  const pct=key?Math.round(hit/key*100):100;
+  $("modelTxt").innerHTML=html; $("modelJp").textContent=cur.ajp||""; $("barFill").style.width=pct+"%"; $("pct").textContent=pct+"%";
+  $("verdict").textContent= pct>=85?"Excellent — そのまま本番で使えます。":pct>=70?"Good — 赤い単語だけ言い足せば完璧。":pct>=40?"赤い単語を聞いて、もう一度。数字と固有名詞を優先。":"まず答えを聞いて、シャドーイングしてから再挑戦。";
+  $("result").hidden=false; $("status").textContent="採点しました";
+  const s=store[cur.id]||{best:0,n:0}; s.n++; s.best=Math.max(s.best,pct); s.last=pct; store[cur.id]=s; save();
+  $("eyeR").textContent=(idx+1)+" / "+list.length+"　best "+s.best+"%";
+  speak(cur.answer,"en-US"); stat();
+}
+
+// ---- controls ----
+$("bHear").onclick=()=>speak(cur.spoken,cur.lang);
+$("bJp").onclick=()=>{ const h=$("hint"); h.hidden=!h.hidden; $("bJp").classList.toggle("on",!h.hidden); };
+$("bShow").onclick=()=>{ $("modelTxt").textContent=cur.answer; $("modelJp").textContent=cur.ajp||""; $("barFill").style.width="0"; $("pct").textContent="—"; $("verdict").textContent="模範解答を聞いて、次はマイクで。"; $("result").hidden=false; speak(cur.answer,"en-US"); };
+$("bRetry").onclick=()=>{ $("result").hidden=true; $("heardTxt").textContent="…"; startRec(); };
+$("bNext").onclick=()=>{ idx=Math.min(idx+1,list.length); show(); };
+$("bSkip").onclick=()=>{ idx=Math.min(idx+1,list.length); show(); };
+$("bReset").onclick=()=>{ if(confirm("練習記録（ベストスコア）を消しますか？")){ store={}; save(); build(); } };
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on")); b.classList.add("on"); mode=b.dataset.m; $("sec").value=""; build(); });
+$("sec").onchange=build; $("order").onchange=build;
+if("speechSynthesis" in window){ speechSynthesis.onvoiceschanged=()=>{}; }
+build();
+</script>
+
+</body>
+</html>

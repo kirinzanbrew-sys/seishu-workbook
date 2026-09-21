@@ -1,0 +1,870 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>清酒学習帳 逆引き辞典</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style>
+:root{
+  --bg:#F1F4F3; --surface:#FFFFFF; --surface-2:#E9EEEC;
+  --ink:#141E1C; --muted:#5D6D69; --faint:#8A9894;
+  --line:#D3DBD8; --line-strong:#B6C2BE;
+  --accent:#1E5A51; --accent-soft:#DDEBE7; --accent-ink:#134039;
+  --warn:#A8501B; --warn-soft:#F6E7DC;
+  --gold:#8E7222; --gold-soft:#F2EBD6;
+  --shadow:0 1px 2px rgba(20,30,28,.06), 0 8px 24px -16px rgba(20,30,28,.35);
+  --mincho:"Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --gothic:"Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --mono:ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101513; --surface:#19201E; --surface-2:#222A27;
+    --ink:#E7EDEB; --muted:#9AAAA6; --faint:#77857F;
+    --line:#2B3532; --line-strong:#3C4844;
+    --accent:#63BFB0; --accent-soft:#1B322E; --accent-ink:#9EDDD1;
+    --warn:#E0925E; --warn-soft:#33241A;
+    --gold:#D0B25E; --gold-soft:#2E2818;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101513; --surface:#19201E; --surface-2:#222A27;
+  --ink:#E7EDEB; --muted:#9AAAA6; --faint:#77857F;
+  --line:#2B3532; --line-strong:#3C4844;
+  --accent:#63BFB0; --accent-soft:#1B322E; --accent-ink:#9EDDD1;
+  --warn:#E0925E; --warn-soft:#33241A;
+  --gold:#D0B25E; --gold-soft:#2E2818;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--gothic); font-size:15px; line-height:1.75;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input{font:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+.bar{
+  position:sticky; top:env(safe-area-inset-top, 0px); z-index:20;
+  background:color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
+}
+.bar-inner{max-width:860px;margin:0 auto;padding:10px 16px 12px;display:flex;flex-direction:column;gap:10px}
+.brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.brand h1{font-family:var(--mincho);font-weight:700;font-size:19px;margin:0;letter-spacing:.04em}
+.brand .sub{font-size:11px;color:var(--faint);letter-spacing:.14em}
+.search{position:relative;display:flex;align-items:center}
+.search svg{position:absolute;left:11px;width:16px;height:16px;stroke:var(--faint);fill:none;stroke-width:1.8}
+.search input{width:100%;padding:10px 34px;border-radius:9px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
+.search input::placeholder{color:var(--faint)}
+.clear{position:absolute;right:6px;padding:4px 8px;color:var(--faint);font-size:16px;line-height:1}
+.tabs{display:flex;gap:2px;background:var(--surface-2);padding:3px;border-radius:9px}
+.tabs button{flex:1;padding:7px 2px;border-radius:7px;font-size:13px;font-weight:500;color:var(--muted);transition:background .15s,color .15s;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow);font-weight:700}
+
+main{max-width:860px;margin:0 auto;padding:18px 16px 64px}
+.lede{font-size:12.5px;color:var(--muted);margin:0 0 16px;line-height:1.7}
+
+.step-label{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.16em;color:var(--faint);margin:0 0 9px}
+.step-label::after{content:"";flex:1;height:1px;background:var(--line)}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:14px;font-size:12.5px}
+.crumbs button{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.crumbs span{color:var(--faint)}
+.choices{display:grid;gap:8px;margin-bottom:26px}
+.choice{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:13px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);transition:border-color .15s,transform .1s}
+.choice:hover{border-color:var(--accent)}
+.choice:active{transform:scale(.995)}
+.choice .txt{flex:1;min-width:0}
+.choice .t{display:block;font-weight:700;font-size:14.5px;line-height:1.5}
+.choice .d{display:block;font-size:12px;color:var(--muted);margin-top:2px;line-height:1.6}
+.choice .arrow{color:var(--faint);font-size:15px;flex-shrink:0}
+.choice .kanji{font-family:var(--mincho);font-size:17px;font-weight:700;width:34px;height:34px;flex-shrink:0;display:grid;place-items:center;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink)}
+
+.cards{display:grid;gap:9px}
+.card{display:block;width:100%;text-align:left;padding:13px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);transition:border-color .15s}
+.card:hover{border-color:var(--accent)}
+.card .ct{font-weight:700;font-size:14.5px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card .cc{display:block;font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.65}
+.chip{font-size:10.5px;letter-spacing:.06em;padding:2px 7px;border-radius:999px;background:var(--surface-2);color:var(--muted);font-weight:500;white-space:nowrap}
+.chip.draft{background:var(--warn-soft);color:var(--warn)}
+.chip.ok{background:var(--accent-soft);color:var(--accent-ink)}
+.chip.empty{background:var(--gold-soft);color:var(--gold)}
+
+/* 絞り込みチップ */
+.filters{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;margin-bottom:12px;scrollbar-width:thin}
+.fchip{flex-shrink:0;font-size:12.5px;padding:6px 13px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--muted);white-space:nowrap}
+.fchip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+:root:not([data-theme="light"]) .fchip[aria-pressed="true"]{color:#0E1614}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .fchip[aria-pressed="true"]{color:#fff}}
+
+/* 特徴で絞り込む（ファセット） */
+.facets{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:12px 13px;margin-bottom:16px;box-shadow:var(--shadow)}
+.fgrp{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.fgrp:first-child{border-top:none;padding-top:0}
+.fgrp > .fl{font-size:11px;letter-spacing:.1em;color:var(--faint);white-space:nowrap;width:52px;flex-shrink:0;padding-top:5px}
+.fgrp > .fv{display:flex;flex-wrap:wrap;gap:5px;flex:1;min-width:0}
+.fgrp .fchip{font-size:12px;padding:4px 11px}
+.fbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:12.5px;color:var(--muted)}
+.fbar .hit{font-family:var(--mono);font-weight:700;color:var(--ink)}
+.fbar button{margin-left:auto;color:var(--accent);text-decoration:underline;text-underline-offset:3px;font-size:12.5px}
+
+/* 酵母・炭カード */
+.spec{padding:13px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);margin-bottom:9px}
+.spec-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+.spec-h .sn{font-family:var(--mincho);font-size:16.5px;font-weight:700}
+.spec-d{font-size:12.5px;color:var(--muted);line-height:1.7;margin-bottom:9px}
+.spec-t{display:flex;flex-wrap:wrap;gap:5px}
+.stag{font-size:11.5px;padding:3px 9px;border-radius:6px;background:var(--surface-2);color:var(--muted)}
+.stag.aroma{background:var(--accent-soft);color:var(--accent-ink);font-weight:500}
+.stag.acid{background:var(--warn-soft);color:var(--warn);font-weight:500}
+.stag.aim{background:var(--gold-soft);color:var(--gold);font-weight:500}
+.spec-link{margin-top:9px;font-size:12.5px}
+.spec-link button{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+
+/* 工程グループ */
+.proc{margin-bottom:22px}
+.proc-h{display:flex;align-items:baseline;gap:9px;margin:0 0 9px;padding-bottom:7px;border-bottom:1px solid var(--line-strong);flex-wrap:wrap}
+.proc-h .pn{font-family:var(--mincho);font-size:15.5px;font-weight:700}
+.proc-h .pt{font-size:11px;color:var(--accent);letter-spacing:.08em}
+.proc-h .count{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+/* 製品カード */
+.prod{padding:14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);margin-bottom:9px}
+.prod-h{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:9px}
+.prod-h .pname{font-family:var(--mincho);font-size:16px;font-weight:700}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:13px;align-items:baseline}
+.kv dt{font-size:11px;color:var(--faint);letter-spacing:.1em;white-space:nowrap;padding-top:2px}
+.kv dd{margin:0;display:flex;flex-wrap:wrap;gap:5px}
+.tag{font-size:12px;padding:3px 10px;border-radius:6px;background:var(--accent-soft);color:var(--accent-ink);font-weight:500}
+.tag.k{background:var(--gold-soft);color:var(--gold)}
+.tag.none{background:transparent;border:1px dashed var(--line-strong);color:var(--faint);font-weight:400}
+button.tag{cursor:pointer}
+
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:13px;margin-bottom:14px}
+.detail h2{font-family:var(--mincho);font-size:22px;font-weight:700;margin:0 0 8px;line-height:1.45;text-wrap:balance}
+.meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.verdict{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 14px;border-radius:0 9px 9px 0;margin-bottom:22px}
+.verdict .lbl{font-size:10.5px;letter-spacing:.16em;color:var(--accent-ink);opacity:.8}
+.verdict p{margin:3px 0 0;font-weight:700;font-size:15px;line-height:1.7;color:var(--accent-ink)}
+.sec{margin-bottom:24px}
+.sec > h3{font-size:11px;letter-spacing:.16em;color:var(--faint);font-weight:500;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.sec > h3::after{content:"";flex:1;height:1px;background:var(--line)}
+.mat{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.mat > div{padding:11px 13px;border-top:1px solid var(--line)}
+.mat > div:first-child{border-top:none}
+.mat .mh{font-weight:700;font-size:13.5px}
+.mat .mb{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.65}
+ol.steps{margin:0;padding-left:0;list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;position:relative;padding-left:30px;margin-bottom:9px;font-size:13.5px;line-height:1.75}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:3px;width:20px;height:20px;border-radius:50%;background:var(--surface-2);color:var(--muted);font-size:11px;font-weight:700;display:grid;place-items:center;font-family:var(--mono)}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:9px 12px;text-align:left;border-top:1px solid var(--line);vertical-align:top}
+thead th{border-top:none;font-size:10.5px;letter-spacing:.1em;color:var(--faint);font-weight:500}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+td.note{color:var(--muted);font-size:12px}
+ul.cau{margin:0;padding:0;list-style:none}
+ul.cau li{position:relative;padding-left:20px;margin-bottom:8px;font-size:13.5px;line-height:1.75}
+ul.cau li::before{content:"";position:absolute;left:4px;top:10px;width:5px;height:5px;border-radius:50%;background:var(--warn)}
+.srcbox{font-size:12px;color:var(--muted);border:1px dashed var(--line-strong);border-radius:9px;padding:11px 13px;line-height:1.7}
+.srcbox code{font-family:var(--mono);font-size:11.5px;color:var(--ink);word-break:break-all}
+.seealso{display:flex;flex-wrap:wrap;gap:6px}
+.seealso button{font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--accent)}
+
+.termlist{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.term{padding:13px 14px;border-top:1px solid var(--line)}
+.term:first-child{border-top:none}
+.term .th{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.term .tn{font-family:var(--mincho);font-weight:700;font-size:16px}
+.term .tr{font-size:11px;color:var(--faint);letter-spacing:.08em}
+.term .td{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.7}
+.term .tl{margin-top:7px;display:flex;flex-wrap:wrap;gap:6px}
+.term .tl button{font-size:11.5px;color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+
+.group{margin-bottom:26px}
+.group > h3{font-family:var(--mincho);font-size:15px;font-weight:700;margin:0 0 10px;padding-bottom:7px;border-bottom:1px solid var(--line-strong)}
+.count{font-size:11px;color:var(--faint);font-weight:400;font-family:var(--mono);margin-left:6px}
+.empty-msg{text-align:center;padding:40px 16px;color:var(--faint);font-size:13px}
+.notice{
+  display:flex;gap:10px;font-size:12.5px;line-height:1.7;color:var(--gold);
+  background:var(--gold-soft);border-radius:9px;padding:11px 13px;margin-bottom:16px;
+}
+.notice b{color:var(--gold)}
+.stale{max-width:860px;margin:10px auto 0;padding:9px 14px;border:1px solid var(--warn);border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:13px;font-weight:500;line-height:1.6}
+.stale[hidden]{display:none}
+.stale small{display:block;font-weight:400;color:var(--muted);font-size:11.5px}
+.loading{padding:40px 0;text-align:center;color:var(--faint);font-size:13px}
+.foot{margin-top:36px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--faint);line-height:1.8}
+</style>
+</head><body>
+
+<div class="bar">
+  <div class="bar-inner">
+    <div class="brand">
+      <h1>清酒学習帳　逆引き辞典</h1>
+      <span class="sub">KIRINZAN / 生産本部製造</span>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      <input id="q" type="search" placeholder="臭い、脱色炭、カプエチ、酸 … で引く" autocomplete="off">
+      <button class="clear" id="clear" hidden aria-label="検索を消す">×</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button id="tab-flow" role="tab" aria-selected="true">症状</button>
+      <button id="tab-mat" role="tab" aria-selected="false">資材</button>
+      <button id="tab-yeast" role="tab" aria-selected="false">酵母</button>
+      <button id="tab-carbon" role="tab" aria-selected="false">炭</button>
+      <button id="tab-prod" role="tab" aria-selected="false">製品</button>
+      <button id="tab-terms" role="tab" aria-selected="false">用語</button>
+    </div>
+  </div>
+</div>
+
+<div id="stale" class="stale" role="status" hidden></div>
+<main id="app"><p class="loading">辞書データを読み込んでいます…</p></main>
+
+<script>
+/* =====================================================================
+   辞書データ — 清酒学習帳のサーバーから、ログインした人にだけ届く。
+   元データは保管庫のノート → build_dictionary.py で dictionary.json を生成
+   → Googleドライブの受け渡しフォルダ → Apps Script「辞書配信.gs」が問題データに取り込む
+   （醸造ナレッジベース/辞書データ更新_作業指示書.md）。ここは直さない。
+   受け取れなかったとき：この端末で前回受け取った版を表示し、画面上部に通知を出す。
+   下の FALLBACK_DICT は画面の組み立て用の見本（2026-09-20 版）で、利用者には表示しない。
+   status: "ok"    = ナレッジベース準拠（確認済み）
+           "draft" = 一般文献・メーカー資料ベースの暫定値
+           "empty" = 枠だけ。実データ未投入（会社PCで流し込む）
+   ===================== */
+const FALLBACK_DICT = {
+  meta:{ version:"2026-09-20", source:"内蔵データ（画面作成時の暫定版）" },
+
+  /* ---- 工程と係 ---- */
+  teams:["釜場","麹屋","酛屋","醪","上槽・濾過","火入れ・貯蔵","製品部","共通"],
+  processes:[
+    {id:"p-seimai", n:"精米",         team:"釜場"},
+    {id:"p-senmai", n:"洗米・浸漬",   team:"釜場"},
+    {id:"p-mushi",  n:"蒸米",         team:"釜場"},
+    {id:"p-koji",   n:"製麹",         team:"麹屋"},
+    {id:"p-moto",   n:"酒母",         team:"酛屋"},
+    {id:"p-moromi", n:"醪",           team:"醪"},
+    {id:"p-joso",   n:"上槽",         team:"上槽・濾過"},
+    {id:"p-roka",   n:"濾過・調合",   team:"上槽・濾過"},
+    {id:"p-hiire",  n:"火入れ・貯蔵", team:"火入れ・貯蔵"},
+    {id:"p-bin",    n:"瓶詰",         team:"製品部"},
+    {id:"p-kyotsu", n:"洗浄・衛生・分析", team:"共通"}
+  ],
+
+  /* ---- 資材マスタ（区分の枠。品名・メーカーは会社PCで流し込む） ---- */
+  materials:[
+    {id:"m-rice",   n:"原料米（麹米・掛米）", cat:"原材料", proc:["p-seimai","p-senmai"], use:"品種・産地・精米歩合ごとに、どの製品に充てるかが決まる。", status:"empty"},
+    {id:"m-water",  n:"醸造用水",           cat:"原材料", proc:["p-kyotsu"], use:"仕込水・洗米水・割水。水質分析値を規格書として持つ。", status:"empty"},
+    {id:"m-tane",   n:"種麹（黄麹菌）",      cat:"微生物", proc:["p-koji"], use:"製品の規格ごとに銘柄を使い分ける。総破精／突破精の狙いで選ぶ。", link:"prod", status:"empty"},
+    {id:"m-sarashi",n:"さらし・布類（麹布・甑布）", cat:"消耗品", proc:["p-koji","p-mushi"], use:"枚数と更新時期を管理。洗浄・殺菌の履歴が衛生に直結する。", status:"empty"},
+    {id:"m-yeast",  n:"清酒酵母（協会・県酵母）", cat:"微生物", proc:["p-moto","p-moromi"], use:"製品の香味設計の主軸。アンプル・乾燥酵母の別と使用期限を管理。", link:"prod", status:"empty"},
+    {id:"m-lactic", n:"乳酸（速醸用）",      cat:"薬品",   proc:["p-moto"], use:"速醸酛の初期pH調整。濃度と添加量を仕込配合で管理。", status:"empty"},
+    {id:"m-medium", n:"酵母培養用培地・試薬", cat:"薬品",   proc:["p-moto"], use:"酵母の拡大培養。ロットと開封日を管理。", status:"empty"},
+    {id:"m-enzyme", n:"酵素剤（糖化・液化）", cat:"薬品",   proc:["p-moromi"], use:"製品により使用可否が変わる。表示基準に関わるので使用記録が要る。", status:"empty"},
+    {id:"m-defoam", n:"泡消し剤",           cat:"薬品",   proc:["p-moromi"], use:"高泡対策。使用量と使用仕込を記録する。", status:"empty"},
+    {id:"m-bukuro", n:"酒袋・濾布",         cat:"消耗品", proc:["p-joso"], use:"槽掛け・袋吊り用。枚数・更新時期・洗浄履歴を管理。", status:"empty"},
+    {id:"m-keiso",  n:"珪藻土（濾過助剤）",  cat:"濾過資材", proc:["p-roka"], use:"プレコートして目詰まりを防ぎ、炭・オリを確実に濾別する。", entry:"e-filteraid", status:"empty"},
+    {id:"m-tan-c",  n:"活性炭（脱色用）",    cat:"濾過資材", proc:["p-roka"], use:"塩化亜鉛賦活。着色成分を落とす。香味への当たりは比較的穏やか。", entry:"e-tan-color", status:"draft"},
+    {id:"m-tan-d",  n:"活性炭（脱臭・香味調整用）", cat:"濾過資材", proc:["p-roka"], use:"水蒸気賦活。老香・異臭・雑味に当てる。入れすぎると味が痩せる。", entry:"e-tan-deodor", status:"draft"},
+    {id:"m-filter", n:"精密濾過フィルター",  cat:"濾過資材", proc:["p-roka","p-hiire"], use:"火入れ前後の除菌・清澄。孔径と交換周期を管理。", status:"empty"},
+    {id:"m-alc",    n:"醸造アルコール",      cat:"原材料", proc:["p-moromi","p-roka"], use:"本醸造・普通酒のアル添。度数と添加量を仕込配合で管理。", status:"empty"},
+    {id:"m-sugar",  n:"糖類・酸味料",        cat:"原材料", proc:["p-roka"], use:"普通酒の一部で使用。使用の有無が表示に直結する。", status:"empty"},
+    {id:"m-bin",    n:"瓶・王冠・キャップ",  cat:"容器包装", proc:["p-bin"], use:"製品ごとに形状・色が決まる。在庫と発注リードタイムを管理。", status:"empty"},
+    {id:"m-label",  n:"ラベル・化粧箱",      cat:"容器包装", proc:["p-bin"], use:"表示内容の変更時は在庫の切り替え時期に注意。", status:"empty"},
+    {id:"m-clean",  n:"洗浄剤（アルカリ・酸）", cat:"洗浄・衛生", proc:["p-kyotsu"], use:"タンク・配管・機器の洗浄。濃度と接触時間を手順書で管理。", status:"empty"},
+    {id:"m-sterile",n:"殺菌剤（次亜塩素酸等）", cat:"洗浄・衛生", proc:["p-kyotsu"], use:"器具・床・手指。濃度管理とすすぎの徹底が火落ち予防に効く。", entry:"e-haze", status:"empty"},
+    {id:"m-reagent",n:"分析用試薬・標準液",  cat:"分析",   proc:["p-kyotsu"], use:"アルコール分・酸度・アミノ酸度・日本酒度。有効期限を管理。", status:"empty"}
+  ],
+
+  /* ---- 製品マスタ（酵母×種麹の組み合わせ。会社PCで流し込む） ---- */
+  products:[
+    {id:"pr-sample", n:"（記入例）純米吟醸 ○○", grade:"純米吟醸", sample:true,
+      rice:["五百万石 50%"], yeast:["協会1801号","新潟G9"], koji:["突破精タイプ 種麹A"],
+      note:"記入例です。実データは会社PCで流し込みます。", status:"draft"},
+    {id:"pr-futsu",  n:"普通酒",       grade:"普通酒",       rice:[], yeast:[], koji:[], status:"empty"},
+    {id:"pr-honjo",  n:"本醸造",       grade:"本醸造",       rice:[], yeast:[], koji:[], status:"empty"},
+    {id:"pr-tokuhon",n:"特別本醸造",   grade:"特別本醸造",   rice:[], yeast:[], koji:[], status:"empty"},
+    {id:"pr-junmai", n:"純米",         grade:"純米",         rice:[], yeast:[], koji:[], status:"empty"},
+    {id:"pr-tokujun",n:"特別純米",     grade:"特別純米",     rice:[], yeast:[], koji:[], status:"empty"},
+    {id:"pr-jungin", n:"純米吟醸",     grade:"純米吟醸",     rice:[], yeast:[], koji:[], status:"empty"},
+    {id:"pr-ginjo",  n:"吟醸",         grade:"吟醸",         rice:[], yeast:[], koji:[], status:"empty"},
+    {id:"pr-daigin", n:"大吟醸・出品酒", grade:"大吟醸",     rice:[], yeast:[], koji:[], status:"empty"}
+  ],
+
+  /* ---- 酵母：特徴で引く ---- */
+  yeastFacets:[
+    {k:"aroma", l:"香り", v:["カプエチ系","酢エチ系","バランス型","穏やか"]},
+    {k:"acid",  l:"酸",   v:["高い","標準","少なめ"]},
+    {k:"ferm",  l:"発酵力", v:["強い","標準","低温向き"]},
+    {k:"foam",  l:"泡",   v:["泡あり","泡なし"]},
+    {k:"use",   l:"用途", v:["吟醸・出品","純米・純吟","普通酒・本醸造","ブレンド・特殊"]}
+  ],
+  yeasts:[
+    {n:"協会6号", aroma:"穏やか", acid:"標準", ferm:"強い", foam:"泡あり", use:["普通酒・本醸造","純米・純吟"],
+     d:"香りは穏やかで、旨味の乗った酒に向く。発酵力が強く安定。601号が泡なし。", status:"draft"},
+    {n:"協会7号", aroma:"穏やか", acid:"標準", ferm:"強い", foam:"泡あり", use:["普通酒・本醸造","純米・純吟"],
+     d:"最も広く使われる万能型。穏やかな吟香と強い発酵力。香気の基準として「7号の何倍」と語られる。701号が泡なし。", status:"draft"},
+    {n:"協会8号", aroma:"穏やか", acid:"高い", ferm:"標準", foam:"泡あり", use:["普通酒・本醸造"],
+     d:"酸が多く、濃醇な味わいに向く。", status:"draft"},
+    {n:"協会9号", aroma:"カプエチ系", acid:"少なめ", ferm:"低温向き", foam:"泡あり", use:["吟醸・出品","純米・純吟"],
+     d:"吟醸酒の基本酵母。華やかな吟醸香で酸は少なめ。901号が泡なし。", status:"draft"},
+    {n:"協会10号", aroma:"カプエチ系", acid:"少なめ", ferm:"低温向き", foam:"泡あり", use:["吟醸・出品"],
+     d:"吟醸香が高く酸が少ない。低温長期の醪に向く。1001号が泡なし。", status:"draft"},
+    {n:"協会14号", aroma:"酢エチ系", acid:"少なめ", ferm:"低温向き", foam:"泡あり", use:["吟醸・出品","純米・純吟"],
+     d:"バナナ様（酢酸イソアミル）の香り。低温でも発酵が良好。1401号が泡なし。", status:"draft"},
+    {n:"協会1501号", aroma:"カプエチ系", acid:"少なめ", ferm:"標準", foam:"泡なし", use:["吟醸・出品"],
+     d:"カプロン酸エチル高生成。高い吟醸香を狙う酒に。", status:"draft"},
+    {n:"協会1601号", aroma:"カプエチ系", acid:"少なめ", ferm:"標準", foam:"泡なし", use:["吟醸・出品","純米・純吟","ブレンド・特殊"],
+     d:"カプロン酸エチルが7号の3〜4倍。酸は少ない。純米・吟醸・ブレンド用。", status:"draft"},
+    {n:"協会1701号", aroma:"バランス型", acid:"標準", ferm:"強い", foam:"泡なし", use:["吟醸・出品","純米・純吟"],
+     d:"酢酸イソアミル・カプロン酸エチルともに7号の2〜3倍。発酵力が強く、酸は7号並み。低濃度酒にも。", status:"draft"},
+    {n:"協会1801号", aroma:"バランス型", acid:"少なめ", ferm:"強い", foam:"泡なし", use:["吟醸・出品"],
+     d:"両香気成分が高いバランス型。ムレ香が出にくく、出品酒の主力。", status:"draft"},
+    {n:"KArg1901号", aroma:"酢エチ系", acid:"標準", ferm:"強い", foam:"泡なし", use:["吟醸・出品","ブレンド・特殊"],
+     d:"カプロン酸エチルは1801号の70〜80%、酢酸イソアミルは130〜170%。酸度は1801号より0.1〜0.2高い。濃醇タイプ・輸出用向き。", status:"draft"},
+    {n:"協会No.28（リンゴ酸高生産）", aroma:"穏やか", acid:"高い", ferm:"標準", foam:"泡あり", use:["ブレンド・特殊"],
+     d:"酸度が7号より1.0〜2.0多く、うちリンゴ酸が80%前後。貴醸酒・長期熟成酒・多産酒に。", status:"draft"},
+    {n:"協会No.77（リンゴ酸高生産・高エステル）", aroma:"カプエチ系", acid:"高い", ferm:"標準", foam:"泡あり", use:["ブレンド・特殊"],
+     d:"リンゴ酸60〜70%で酸度は7号より1.0〜1.5多く、カプロン酸エチルは7号の2〜3倍。芳香の高い多産酒・ブレンド用。", status:"draft"},
+    {n:"新潟県酵母（G系）", aroma:"", acid:"", ferm:"", foam:"", use:[],
+     d:"県醸造試験場の酵母。使用している株と特徴を保管庫の酵母ノートから流し込む。", status:"empty"},
+    {n:"自社保存株・その他", aroma:"", acid:"", ferm:"", foam:"", use:[],
+     d:"蔵で保存している株、特定製品専用の株。保管庫から流し込む。", status:"empty"}
+  ],
+
+  /* ---- 炭：特徴で引く ---- */
+  carbonFacets:[
+    {k:"aim",   l:"目的", v:["色を取る","匂いを取る","味を削る","清澄・精製"]},
+    {k:"act",   l:"賦活", v:["塩化亜鉛（薬品）","水蒸気"]},
+    {k:"raw",   l:"原料", v:["木質","ヤシ殻","石炭"]},
+    {k:"form",  l:"形状", v:["粉末","粒状"]},
+    {k:"hit",   l:"当たり", v:["穏やか","中","強い"]}
+  ],
+  carbons:[
+    {n:"脱色用炭（塩化亜鉛賦活・木質）", aim:["色を取る"], act:"塩化亜鉛（薬品）", raw:"木質", form:"粉末", hit:"穏やか",
+     d:"細孔が大きめで、分子径の大きい着色成分に当たる。香味への当たりが穏やかなので、香りを残して色だけ落としたいときの第一選択。", entry:"e-tan-color", status:"draft"},
+    {n:"脱臭・香味調整用炭（水蒸気賦活・木質）", aim:["匂いを取る","味を削る"], act:"水蒸気", raw:"木質", form:"粉末", hit:"中",
+     d:"ミクロ孔主体。老香・含硫化合物など分子径の小さい成分に当たる。匂いを取る目的の標準。", entry:"e-tan-deodor", status:"draft"},
+    {n:"精製・脱臭用炭（水蒸気賦活・ヤシ殻）", aim:["匂いを取る","清澄・精製"], act:"水蒸気", raw:"ヤシ殻", form:"粉末", hit:"強い",
+     d:"ミクロ孔がよく発達し、当たりが強い。異臭が強い酒に使うが、香味も大きく落ちるので少量から。", entry:"e-tan-deodor", status:"draft"},
+    {n:"精製用炭（水蒸気賦活・石炭系）", aim:["味を削る","清澄・精製"], act:"水蒸気", raw:"石炭", form:"粉末", hit:"強い",
+     d:"雑味・苦味を削る用途。味の厚みも一緒に落ちるため、狙いを明確にしてから使う。", entry:"e-bitter", status:"draft"},
+    {n:"粒状炭", aim:["清澄・精製"], act:"水蒸気", raw:"ヤシ殻", form:"粒状", hit:"中",
+     d:"気相（空気浄化）や浄水が主用途。清酒の仕上げには通常使わない。水処理側で使っているものと混同しないこと。", entry:"e-tan-select", status:"draft"}
+  ],
+
+  flow:[
+    { id:"f-odor", kanji:"香", label:"香り・においがおかしい", desc:"老香、ムレ香、硫黄臭、炭臭など",
+      children:[
+        { id:"f-hine", label:"熟成しすぎた匂い（老香・ひね香）", desc:"たくあん様、カラメル様。貯蔵温度が高かった酒に出やすい", entries:["e-tan-deodor","e-hine"] },
+        { id:"f-mure", label:"焦げ・蒸れた匂い（木香様臭・ムレ香）", desc:"麹や蒸米の蒸れ、醪の高温経過が疑われる", entries:["e-mure","e-tan-deodor"] },
+        { id:"f-tanshu", label:"炭くさい・味が痩せた", desc:"炭の入れすぎ、濾別不足", entries:["e-tan-over"] },
+        { id:"f-sulf", label:"硫黄・ゴム様の匂い", desc:"酵母由来の含硫化合物。火入れ・貯蔵で変化する", entries:["e-tan-deodor"] }
+      ]},
+    { id:"f-color", kanji:"色", label:"色が濃い・着色した", desc:"黄色み、褐色化",
+      children:[
+        { id:"f-yellow", label:"黄色〜褐色が強い（香りは残したい）", desc:"アミノカルボニル反応による着色", entries:["e-tan-color"] },
+        { id:"f-both", label:"色も匂いも取りたい", desc:"脱色炭と脱臭炭の併用設計", entries:["e-tan-color","e-tan-deodor","e-tan-select"] }
+      ]},
+    { id:"f-haze", kanji:"濁", label:"濁り・オリ・沈殿", desc:"白濁、糸状、浮遊物",
+      children:[
+        { id:"f-white", label:"白く濁っている（クレーム照会）", desc:"まず蛋白混濁と火落ちを切り分ける", entries:["e-haze"] },
+        { id:"f-cold", label:"冷やすと濁り、戻すと澄む", desc:"低温混濁。蛋白・多糖類系", entries:["e-haze"] }
+      ]},
+    { id:"f-taste", kanji:"味", label:"味がおかしい", desc:"苦味、渋味、酸味、粗さ",
+      children:[
+        { id:"f-bitter", label:"苦味・渋味・雑味が強い", desc:"炭で取るか、調合で寄せるかの判断", entries:["e-bitter","e-tan-select"] }
+      ]},
+    { id:"f-material", kanji:"材", label:"資材の選び方から引く", desc:"炭・濾過助剤・酵素剤",
+      children:[
+        { id:"f-tan", label:"活性炭をどれにするか", desc:"原料・賦活法・粉末/粒状の選定", entries:["e-tan-select","e-tan-color","e-tan-deodor","e-tan-dose"] },
+        { id:"f-koro", label:"濾過助剤・濾材の選定", desc:"珪藻土、濾過機との組み合わせ", entries:["e-filteraid"] }
+      ]}
+  ],
+
+  entries:[
+    { id:"e-tan-select", title:"活性炭の選び方（総論）", cat:"資材の使い分け", status:"draft",
+      tags:["活性炭","炭","選定","賦活","粉末炭","粒状炭"],
+      verdict:"「色を取るのか、匂いを取るのか」で炭を分ける。色＝塩化亜鉛賦活の脱色炭、匂い・味＝水蒸気賦活の脱臭（香味調整）炭。清酒に使うのは粉末炭で、粒状炭は液相の清酒向けではない。",
+      materials:[
+        {h:"塩化亜鉛賦活炭（薬品賦活・脱色用）", b:"細孔が比較的大きく、分子径の大きい着色成分を吸着しやすい。香味への当たりが穏やかで、香りを残したい酒の脱色に向く。"},
+        {h:"水蒸気賦活炭（脱臭・香味調整用）", b:"ミクロ孔が発達し、分子径の小さい成分（着色前駆物質・香気成分・異臭成分）を捉える。老香や雑味を落とす目的はこちら。"},
+        {h:"木質系", b:"脱色に適した細孔分布を持つものが多く、清酒用として一般的。"},
+        {h:"ヤシ殻系・石炭系", b:"ミクロ孔寄り。脱臭・精製用途で使われる。"},
+        {h:"粉末炭 / 粒状炭", b:"粉末炭は液相用で清酒・精糖などの脱色精製に使う。粒状炭は気相や浄水用途が中心で、清酒の仕上げには通常使わない。"}
+      ],
+      steps:["目的を1つに決める（色／匂い／味）。複数あるときは主目的を先に決め、副目的は少量の別炭で足す。","小仕込み（500mL〜1L）で3水準の添加量を振って官能・色度を確認する。","接触時間・温度を揃えて比較する（条件が違うと炭の差が見えない）。","決めた条件を製造記録に残し、次年度の起点にする。"],
+      numbers:[{l:"試験水準の振り幅",v:"0.5倍 / 1倍 / 2倍",n:"前回実績を1倍として振ると判断しやすい"},{l:"接触時間",v:"30〜60分",n:"撹拌の有無で実効時間が変わる"}],
+      cautions:["炭は狙った成分だけを選んで吸着しない。カプロン酸エチル・酢酸イソアミルなどの吟醸香も同時に落ちる。","メーカー・ロットで効きが変わる。銘柄を替えたら必ず小試験からやり直す。","「前回と同じ量」で通すと、原酒の状態が違うぶん結果がぶれる。色度・官能で毎回決める。"],
+      terms:["活性炭","賦活","細孔"], source:"醸造ナレッジベース／濾過・調合ハブ（未リンク）" },
+
+    { id:"e-tan-deodor", title:"匂いを取る炭の使い方（老香・異臭）", cat:"資材の使い分け", status:"draft",
+      tags:["脱臭","老香","ひね香","臭い","炭","DMTS","水蒸気賦活"],
+      verdict:"匂いを落とすなら水蒸気賦活の脱臭用粉末炭。少量から当てて官能で止める。老香は炭で「薄める」ことはできても、発生源（貯蔵温度・前駆物質）を直さないと再発する。",
+      materials:[
+        {h:"水蒸気賦活の脱臭用粉末炭", b:"ミクロ孔主体。老香・生老香・含硫化合物など分子径の小さい成分に当たる。第一選択。"},
+        {h:"脱色炭との併用", b:"着色も進んでいる酒では、脱色炭を主に、脱臭炭を少量足す。逆順にすると香味が落ちすぎることがある。"},
+        {h:"濾過助剤（珪藻土）", b:"炭を確実に濾別するために併用。炭が抜けると酒が黒く濁る。"}
+      ],
+      steps:["原酒を官能し、老香か・ムレ香か・硫黄系かを切り分ける（対処が変わる）。","脱臭炭を少量水準（前回実績の半分程度）から当て、30〜60分接触。","官能で止め所を決める。「匂いが消えた」ではなく「匂いが気にならない範囲で香味が残っている」点を採る。","珪藻土プレコートで確実に濾別し、濾液の色・濁りを確認する。","当てた量・接触条件・官能所見を記録に残す。"],
+      numbers:[{l:"添加量（一般的な範囲）",v:"200〜2,000 ppm",n:"※文献・メーカー資料の一般値。自蔵の実績値で上書きすること"},{l:"接触温度",v:"低温ほど穏やか",n:"温度が高いと香気も一緒に大きく落ちる"}],
+      cautions:["老香の主因であるDMTSは前駆物質から貯蔵中に生成する。炭で消しても貯蔵条件が同じなら再び出る。","入れすぎると味が痩せ、炭臭が残る。戻せない。","吟醸酒に脱臭炭を当てると吟醸香が先に落ちる。無炭素または極少量が原則。"],
+      terms:["老香","DMTS","賦活","濾過助剤"], source:"醸造ナレッジベース／上槽後品質管理講話（要リンク）" },
+
+    { id:"e-tan-color", title:"色を取る炭の使い方（脱色）", cat:"資材の使い分け", status:"draft",
+      tags:["脱色","着色","色","炭","塩化亜鉛賦活"],
+      verdict:"色だけ落として香りを残したいなら、塩化亜鉛賦活の脱色用粉末炭。分子径の大きい着色成分に当たり、香味への当たりが比較的穏やか。",
+      materials:[
+        {h:"塩化亜鉛賦活の脱色用粉末炭", b:"平板状の細孔構造で、大きい着色成分を捉える。香味調整をあまり必要としない酒の色抜きに向く。"},
+        {h:"水蒸気賦活炭", b:"着色前駆物質そのものを捉えるので、貯蔵中の再着色を抑えたいときに併用する。"}
+      ],
+      steps:["色度（吸光度またはハーゼン相当）を測り、目標値を決める。","脱色炭を段階的に当て、色度で止め所を判断する。","官能で香りの落ち幅を確認する。色が目標に届いても香りが抜けすぎるなら、炭量ではなく調合で寄せる。"],
+      numbers:[{l:"色度の確認波長",v:"430 nm 付近",n:"自蔵の測定条件に合わせて上書き"}],
+      cautions:["着色はアミノカルボニル反応で進む。炭で一度抜いても、前駆物質が残っていれば貯蔵中に戻る。","脱色を強く当てるほど、味の輪郭も一緒に削れる。"],
+      terms:["活性炭","賦活","細孔"], source:"醸造ナレッジベース／濾過・調合ハブ（未リンク）" },
+
+    { id:"e-tan-dose", title:"炭の添加量をどう決めるか", cat:"数値の目安", status:"draft",
+      tags:["添加量","ppm","炭","小試験"],
+      verdict:"数値を先に決めず、小試験の官能で決める。製品タイプごとに「前回実績」を持ち、そこから振るのが最も外さない。",
+      numbers:[{l:"普通酒・淡麗仕上げ",v:"多め",n:"色・雑味の調整幅が大きい"},{l:"本醸造・純米",v:"中程度",n:"味の厚みを残す範囲で"},{l:"吟醸・大吟醸",v:"無炭素〜極少量",n:"吟醸香が先に落ちる"},{l:"一般的な使用範囲",v:"200〜2,000 ppm",n:"※文献値。自蔵実績で上書き"}],
+      cautions:["この欄の数値は一般的な文献・メーカー資料の範囲であり、麒麟山の実績値ではない。造りごとの実績が入ったら差し替える。","kL 当たりの重量で持つより、製品タイプ別の「前回値」で持つほうが実務では使いやすい。"],
+      terms:["活性炭"], source:"（自蔵実績で上書き予定）" },
+
+    { id:"e-tan-over", title:"炭を入れすぎた・炭臭が残った", cat:"トラブル対処", status:"draft",
+      tags:["炭臭","入れすぎ","痩せる","失敗"],
+      verdict:"抜けた香味は戻らない。調合で寄せるのが現実的な対処。炭臭そのものは濾別不足が原因のことが多いので、まず濾過をやり直す。",
+      steps:["濾液に炭が残っていないか確認する（黒み・ざらつき）。残っていれば珪藻土プレコートで濾過し直す。","香味が痩せているだけなら、同タイプの無炭素酒または炭少量の酒と調合して寄せる。","調合比は小試験で決め、表示基準（特定名称・精米歩合）を外さないか確認する。"],
+      cautions:["炭臭と「痩せ」は別物。原因を取り違えると対処も外れる。","調合は表示基準に直結する。ブレンド検討ガイドの判定を必ず通す。"],
+      terms:["濾過助剤"], source:"醸造ナレッジベース／ブレンド検討ガイド（要リンク）" },
+
+    { id:"e-filteraid", title:"濾過助剤（珪藻土）の使い方", cat:"資材の使い分け", status:"draft",
+      tags:["珪藻土","濾過助剤","プレコート","濾過"],
+      verdict:"炭を使ったら必ず濾過助剤で確実に濾別する。プレコートが甘いと炭が抜け、酒が黒く濁る。",
+      materials:[
+        {h:"珪藻土（粗目）", b:"プレコート層の骨格。濾過速度を確保する。"},
+        {h:"珪藻土（細目）", b:"清澄度を上げる。目詰まりしやすいので粗目と組み合わせる。"}
+      ],
+      steps:["濾過機の濾過面に粗目でプレコート層を作る。","炭を打った酒を通し、初期濾液の濁り・色を確認する。","濁りが残るうちは循環させ、澄んでから受けタンクへ切り替える。"],
+      cautions:["プレコート不足は炭漏れに直結する。初期濾液は必ず目視する。","使用済み珪藻土の廃棄区分を確認する。"],
+      terms:["濾過助剤"], source:"醸造ナレッジベース／濾過・調合ハブ（未リンク）" },
+
+    { id:"e-hine", title:"老香（ひね香）が出た", cat:"トラブル対処", status:"draft",
+      tags:["老香","ひね香","DMTS","たくあん様","熟成"],
+      verdict:"貯蔵温度と時間の結果。出てしまった分は脱臭炭と調合で処理し、同時に貯蔵条件を見直さないと次も出る。",
+      steps:["どのタンク・どのロットで出ているかを特定し、貯蔵温度履歴と突き合わせる。","脱臭炭で当てるか、健全な酒と調合するかを、残量と製品規格から決める。","貯蔵温度の設定と、火入れ後の冷却速度を見直す。"],
+      cautions:["DMTSは貯蔵中に前駆物質から生成する。出荷後にも進むので、流通温度まで含めて考える。","「熟成香」として活きる製品もある。一律に欠点と決めない。"],
+      terms:["老香","DMTS"], source:"醸造ナレッジベース／上槽後品質管理講話（要リンク）" },
+
+    { id:"e-mure", title:"木香様臭（ムレ香）が出た", cat:"トラブル対処", status:"draft",
+      tags:["木香様臭","ムレ香","焦げ","麹","蒸米"],
+      verdict:"製麹・蒸米・醪の温度経過に原因があることが多い。炭は対症療法にしかならないので、工程記録に戻って原因を潰す。",
+      steps:["該当仕込の製麹記録（品温・積み替え時刻）と醪経過を確認する。","同じ条件の他仕込にも出ていないか横断で確認する。","製品化が必要なら脱臭炭＋調合で処理する。"],
+      cautions:["原因工程を特定せずに炭で処理し続けると、毎年同じ問題が出る。","製麹記録は仕込別ノートに残っている。横断サマリーで比較する。"],
+      terms:["木香様臭"], source:"醸造ナレッジベース／製麹記録（仕込別ノート）" },
+
+    { id:"e-haze", title:"白く濁っている（クレーム照会）", cat:"トラブル対処", status:"draft",
+      tags:["白濁","混濁","火落ち","蛋白","クレーム"],
+      verdict:"まず火落ちか否かを切り分ける。冷やすと濁り常温で澄むなら低温混濁、常温でも濁ったままで酸臭・にごりが進むなら火落ちを疑う。",
+      steps:["現品の状態を聞き取る（保管温度、開栓の有無、経過日数、匂いの変化）。","冷蔵庫で冷やして濁り、室温に戻して澄むかを確認してもらう（低温混濁の切り分け）。","酸臭・シルク状の濁り・炭酸感があれば火落ちを疑い、現品回収して顕微鏡・培養で確認する。","同ロットの保管品を確認し、単品事象か製造ロット事象かを判定する。"],
+      cautions:["製造に確認する前の一次回答は「切り分けの質問」までにとどめ、原因を断定しない。","火落ちが疑われる場合は現品を確保する。廃棄されると原因究明ができない。"],
+      terms:["火落ち","蛋白混濁"], source:"醸造ナレッジベース／クレーム対応ハブ" },
+
+    { id:"e-bitter", title:"苦味・渋味・雑味が強い", cat:"トラブル対処", status:"draft",
+      tags:["苦味","渋味","雑味","味"],
+      verdict:"炭で削るか、調合で寄せるかの二択。炭は苦味成分だけを選んで取れないので、削りすぎて痩せるリスクを先に見積もる。",
+      steps:["苦味が原料由来か、醪経過由来か、火入れ後の変化かを記録から当たる。","小試験で脱臭炭を少量当て、苦味の落ち幅と味の厚みの落ち幅を同時に見る。","厚みの損失が大きいなら炭をやめ、調合に切り替える。"],
+      cautions:["苦味は温度で感じ方が変わる。官能は出荷時の提供温度に近い条件で行う。"],
+      terms:["活性炭"], source:"醸造ナレッジベース／濾過・調合ハブ（未リンク）" }
+  ],
+
+  terms:[
+    {n:"活性炭",r:"かっせいたん",d:"炭素質原料を賦活して細孔を発達させた吸着材。清酒では粉末炭を用い、着色成分・異臭成分・雑味成分の吸着に使う。",see:["e-tan-select"]},
+    {n:"賦活",r:"ふかつ",d:"原料炭に細孔をつくる工程。薬品賦活（塩化亜鉛など）は比較的大きな細孔、水蒸気賦活はミクロ孔が発達する。この違いが「何に効く炭か」を決める。",see:["e-tan-select"]},
+    {n:"細孔",r:"さいこう",d:"活性炭表面の孔。孔径と吸着したい成分の分子径が合うかで効き方が変わる。大きい着色成分にはメソ孔、小さい香気・異臭成分にはミクロ孔。",see:["e-tan-select"]},
+    {n:"老香",r:"ひねか",d:"貯蔵中に生じる劣化香。たくあん様・カラメル様と表現される。主因のひとつがDMTS。",see:["e-hine","e-tan-deodor"]},
+    {n:"DMTS",r:"ジメチルトリスルフィド",d:"老香の主要原因物質のひとつ。貯蔵中に前駆物質から生成するため、貯蔵温度管理が効く。",see:["e-hine"]},
+    {n:"木香様臭",r:"きがようしゅう",d:"ムレ香。製麹・蒸米・醪の温度経過に起因することが多い焦げ・蒸れ様の異臭。",see:["e-mure"]},
+    {n:"濾過助剤",r:"ろかじょざい",d:"珪藻土など。濾過面にプレコートして目詰まりを防ぎ、炭やオリを確実に濾別する。",see:["e-filteraid"]},
+    {n:"火落ち",r:"ひおち",d:"火落菌による腐敗。白濁・酸臭・炭酸感を伴う。製品事故に直結するため現品確保が最優先。",see:["e-haze"]},
+    {n:"蛋白混濁",r:"たんぱくこんだく",d:"低温で析出し常温で再溶解する濁り。冷却試験で火落ちと切り分けられる。",see:["e-haze"]}
+  ]
+};
+
+let DICT = FALLBACK_DICT;
+/* 辞書データは清酒学習帳のサーバーから、ログインした人にだけ届く（問題データと同じ仕組み）。
+   学習帳と同じ場所（同じURLのフォルダ）に置くことで、学習帳のログイン情報をそのまま使う。 */
+const API_URL = "https://script.google.com/macros/s/AKfycbwVyR-kBMHw8V2Co258MK6u9XCTWb4vQMGF20an9BXNGeH-H_4Fe_5JD_2JG8cmiXNX/exec";
+const WB_KEY = 'sakeWB2';                       // 学習帳が端末に保存している内容
+const CACHE_KEY = 'seishu-jiten:dictionary';
+const verLabel = v => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ''); return m ? `${+m[2]}月${+m[3]}日版` : '日付不明の版'; };
+function normalizeDict(d){
+  const arr = k => Array.isArray(d[k]) ? d[k] : (Array.isArray(FALLBACK_DICT[k]) ? FALLBACK_DICT[k] : []);
+  const out = { ...d, meta: d.meta || { version:'', source:'' } };
+  ['teams','processes','materials','products','yeastFacets','yeasts','carbonFacets','carbons','flow','entries','terms']
+    .forEach(k => out[k] = (k === 'teams' || k === 'processes' || k.endsWith('Facets')) ? arr(k) : (Array.isArray(d[k]) ? d[k] : []));
+  out.materials.forEach(m => { m.proc = m.proc || []; });
+  out.products.forEach(p => { p.rice = p.rice || []; p.yeast = p.yeast || []; p.koji = p.koji || []; });
+  out.yeasts.forEach(y => { y.use = y.use || []; });
+  out.carbons.forEach(c => { c.aim = c.aim || []; });
+  out.entries.forEach(e => { e.tags = e.tags || []; });
+  out.terms.forEach(t => { t.see = t.see || []; });
+  return out;
+}
+function showStale(reason){
+  const el = document.getElementById('stale');
+  el.innerHTML = `辞書データを更新できませんでした（表示中：${verLabel(DICT.meta.version)}）<small>${esc(reason)}</small>`;
+  el.hidden = false;
+}
+function hideStale(){ const el = document.getElementById('stale'); el.hidden = true; el.innerHTML = ''; }
+const validDict = d => !!(d && d.meta && Array.isArray(d.materials));
+function readWB(){ try { return JSON.parse(localStorage.getItem(WB_KEY) || 'null'); } catch (_) { return null; } }
+function writeWB(st){ try { localStorage.setItem(WB_KEY, JSON.stringify(st)); } catch (_) {} }
+function loginWall(msg){
+  document.getElementById('app').innerHTML = `<div class="notice" style="margin-top:18px"><span>🔒</span><span><b>${esc(msg)}</b><br>
+    逆引き辞典は、清酒学習帳にログインした人だけが見られます。<br>
+    <a href="./" style="display:inline-block;margin-top:10px;font-weight:700">清酒学習帳を開いてログインする →</a></span></div>`;
+}
+let firstDone = false;
+function firstView(){ if (firstDone) return; firstDone = true; if (!DICT.entries.length && S.view === 'flow') S.view = 'mat'; }
+async function loadDict(){
+  const wb = readWB();
+  let shown = false;
+  // ① 端末にある最新版をすぐ表示（学習帳が受け取ったもの → 辞典が前回保存したもの の順）
+  let local = wb && wb.data && validDict(wb.data.dictionary) ? wb.data.dictionary : null;
+  if (!local) { try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); if (validDict(c)) local = c; } catch (_) {} }
+  if (local && wb && wb.token) { DICT = normalizeDict(local); firstView(); render(); shown = true; }
+  if (!wb || !wb.token) { loginWall('まだログインしていません'); return; }
+  // ② サーバーから最新を取り直す（学習帳と同じ「ログイン」を使い、受け取った内容は学習帳にも渡す）
+  try {
+    const r = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action:'login', token: wb.token }) });
+    const j = await r.json();
+    if (j && j.err === 'bad_token') { loginWall('ログインの有効期限が切れました'); return; }
+    if (!j || !j.ok) throw new Error((j && j.err) || '応答がありませんでした');
+    const cur = readWB() || wb;                      // 取りに行っている間に学習帳が保存した内容を消さない
+    cur.token = j.token || cur.token;
+    if (j.data && j.data.questions && j.data.questions.length) cur.data = j.data;
+    writeWB(cur);
+    const d = j.data && j.data.dictionary;
+    if (!validDict(d)) {
+      if (!shown) { DICT = normalizeDict({ meta:{ version:'', source:'' } }); render(); }
+      showStale('サーバーにまだ辞書データが入っていません。');
+      return;
+    }
+    DICT = normalizeDict(d);
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(d)); } catch (_) {}
+    hideStale(); firstView(); render();
+  } catch (e) {
+    if (!shown) { loginWall('電波の届く場所で開き直してください'); return; }
+    showStale('この端末で前回受け取った辞書データを表示しています。');
+  }
+}
+
+/* ===================== state & helpers ===================== */
+const app = document.getElementById('app');
+const qEl = document.getElementById('q');
+const clearEl = document.getElementById('clear');
+const TABS = { flow:'tab-flow', mat:'tab-mat', yeast:'tab-yeast', carbon:'tab-carbon', prod:'tab-prod', terms:'tab-terms' };
+let S = { view:'flow', node:null, entry:null, mat:null, team:null, yeast:null, q:'', fy:{}, fc:{} };
+
+const byId = id => DICT.entries.find(e => e.id === id);
+const matById = id => DICT.materials.find(m => m.id === id);
+const procById = id => DICT.processes.find(p => p.id === id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const badge = st => st === 'ok' ? '<span class="chip ok">ナレッジベース準拠</span>'
+  : st === 'empty' ? '<span class="chip empty">データ未投入</span>'
+  : '<span class="chip draft">暫定・要確認</span>';
+const teamsOf = m => [...new Set(m.proc.map(p => procById(p)?.team).filter(Boolean))];
+
+function setView(v){ S.view = v; S.node = S.entry = S.mat = S.yeast = null; window.scrollTo({top:0}); render(); }
+for (const [v, id] of Object.entries(TABS)) document.getElementById(id).addEventListener('click', () => setView(v));
+qEl.addEventListener('input', () => { S.q = qEl.value.trim(); S.entry = S.mat = null; clearEl.hidden = !S.q; render(); });
+clearEl.addEventListener('click', () => { qEl.value=''; S.q=''; clearEl.hidden=true; qEl.focus(); render(); });
+
+/* ===================== renderers ===================== */
+function entryCard(e){
+  return `<button class="card" data-entry="${e.id}">
+    <span class="ct">${esc(e.title)} <span class="chip">${esc(e.cat)}</span>${badge(e.status)}</span>
+    <span class="cc">${esc(e.verdict)}</span></button>`;
+}
+const stNotice = (list, what) => {
+  const c = s => list.filter(x => x.status === s).length;
+  const e = c('empty'), d = c('draft');
+  if (!e && !d) return '';
+  return `<div class="notice"><span>⚑</span><span><b>${what}${list.length}件のうち、データ未投入 ${e}件・暫定 ${d}件。</b>保管庫のマスタノートで空欄を埋め、「確認: 済」にしてから辞書データを更新すると「ナレッジベース準拠」に変わります。</span></div>`;
+};
+function matCard(m){
+  return `<button class="card" data-mat="${m.id}">
+    <span class="ct">${esc(m.n)} <span class="chip">${esc(m.cat)}</span>${badge(m.status)}</span>
+    <span class="cc">${esc(m.use)}</span></button>`;
+}
+
+function renderSearch(){
+  const q = S.q.toLowerCase();
+  const hitE = DICT.entries.filter(e => (e.title+e.verdict+e.cat+e.tags.join(' ')).toLowerCase().includes(q));
+  const hitM = DICT.materials.filter(m => [m.n,m.cat,m.use,m.name,m.maker,m.vendor,teamsOf(m).join(' '),m.proc.map(p=>procById(p)?.n).join(' ')].filter(Boolean).join(' ').toLowerCase().includes(q));
+  const hitP = DICT.products.filter(p => (p.n+p.grade+[...p.yeast,...p.koji,...p.rice].join(' ')).toLowerCase().includes(q));
+  const hitT = DICT.terms.filter(t => (t.n+t.r+t.d).toLowerCase().includes(q));
+  const hitY = DICT.yeasts.filter(y => [y.n,y.d,y.own,y.aroma,y.acid,y.ferm,y.foam,y.use.join(' ')].filter(Boolean).join(' ').toLowerCase().includes(q));
+  const hitC = DICT.carbons.filter(c => [c.n,c.d,c.own,c.maker,c.aim.join(' '),c.act,c.raw,c.form].filter(Boolean).join(' ').toLowerCase().includes(q));
+  if (!hitE.length && !hitM.length && !hitP.length && !hitT.length && !hitY.length && !hitC.length)
+    return `<p class="empty-msg">「${esc(S.q)}」に当たるものはまだ収録されていません。<br>保管庫にノートを足してから、辞書データを更新してください。</p>`;
+  let h = '';
+  if (hitM.length) h += `<div class="group"><h3>資材<span class="count">${hitM.length}</span></h3><div class="cards">${hitM.map(matCard).join('')}</div></div>`;
+  if (hitY.length) h += `<div class="group"><h3>酵母<span class="count">${hitY.length}</span></h3>${hitY.map(yeastCard).join('')}</div>`;
+  if (hitC.length) h += `<div class="group"><h3>炭<span class="count">${hitC.length}</span></h3>${hitC.map(carbonCard).join('')}</div>`;
+  if (hitE.length) h += `<div class="group"><h3>項目<span class="count">${hitE.length}</span></h3><div class="cards">${hitE.map(entryCard).join('')}</div></div>`;
+  if (hitP.length) h += `<div class="group"><h3>製品<span class="count">${hitP.length}</span></h3>${hitP.map(prodCard).join('')}</div>`;
+  if (hitT.length) h += `<div class="group"><h3>用語<span class="count">${hitT.length}</span></h3>${termList(hitT)}</div>`;
+  return h;
+}
+
+function renderFlow(){
+  if (!S.node) {
+    return `<p class="lede">いま起きていることを選んでいくと、対処と使う資材にたどり着きます。検索窓にそのまま症状を打ち込んでも引けます。</p>
+      <p class="step-label">STEP 1 ／ どこの話か</p>
+      <div class="choices">${DICT.flow.map(f => `
+        <button class="choice" data-node="${f.id}"><span class="kanji">${esc(f.kanji)}</span>
+        <span class="txt"><span class="t">${esc(f.label)}</span><span class="d">${esc(f.desc)}</span></span>
+        <span class="arrow">›</span></button>`).join('')}</div>`;
+  }
+  const top = DICT.flow.find(f => f.id === S.node);
+  return `<div class="crumbs"><button data-node="">症状から</button><span>›</span><span>${esc(top.label)}</span></div>
+    <p class="step-label">STEP 2 ／ どの症状か</p>
+    <div class="choices">${top.children.map(c => `
+      <button class="choice" data-entry="${c.entries[0]}">
+      <span class="txt"><span class="t">${esc(c.label)}</span><span class="d">${esc(c.desc)}</span></span>
+      <span class="arrow">›</span></button>`).join('')}</div>
+    <p class="step-label">この区分の項目</p>
+    <div class="cards">${[...new Set(top.children.flatMap(c => c.entries))].map(id => entryCard(byId(id))).join('')}</div>`;
+}
+function renderFlowTab(){
+  if (!DICT.flow.length && !DICT.entries.length)
+    return `<p class="empty-msg">「症状から引く」は準備中です。<br>いまは上の「資材」「酵母」「炭」「製品」から引けます。</p>`;
+  if (S.node) return renderFlow();
+  return renderFlow() + `<p class="step-label">収録項目 ${DICT.entries.length} 件</p>` + renderIndex();
+}
+
+/* ---- 資材：係で絞り、工程ごとに並べる ---- */
+function renderMaterials(){
+  if (S.mat) return renderMatDetail();
+  const list = S.team ? DICT.materials.filter(m => teamsOf(m).includes(S.team)) : DICT.materials;
+  const chips = ['すべて', ...DICT.teams].map(t => {
+    const on = (t === 'すべて') ? !S.team : S.team === t;
+    return `<button class="fchip" data-team="${t === 'すべて' ? '' : esc(t)}" aria-pressed="${on}">${esc(t)}</button>`;
+  }).join('');
+  const body = DICT.processes.map(p => {
+    const ms = list.filter(m => m.proc.includes(p.id));
+    if (!ms.length) return '';
+    return `<section class="proc">
+      <h3 class="proc-h"><span class="pn">${esc(p.n)}</span><span class="pt">${esc(p.team)}</span><span class="count">${ms.length}</span></h3>
+      <div class="cards">${ms.map(matCard).join('')}</div></section>`;
+  }).join('') || `<p class="empty-msg">この係に紐づく資材はまだありません。</p>`;
+
+  return `<p class="lede">係で絞り込み、工程の順に並べています。1つの資材が複数の工程に出るものは、それぞれの工程に出ます。</p>
+    ${stNotice(DICT.materials, '資材')}
+    <div class="filters">${chips}</div>${body}`;
+}
+
+function renderMatDetail(){
+  const m = matById(S.mat);
+  if (!m) return `<p class="empty-msg">資材が見つかりません。</p>`;
+  const rel = m.entry ? (byId(m.entry) || null) : null;
+  const prods = m.link === 'prod' ? DICT.products.filter(p => (m.id === 'm-yeast' ? p.yeast : p.koji).length) : [];
+  const sec = (t, inner) => inner ? `<section class="sec"><h3>${t}</h3>${inner}</section>` : '';
+  return `<button class="back" id="back">‹ 戻る</button>
+    <article class="detail">
+      <h2>${esc(m.n)}</h2>
+      <div class="meta"><span class="chip">${esc(m.cat)}</span>${badge(m.status)}${teamsOf(m).map(t=>`<span class="chip">${esc(t)}</span>`).join('')}</div>
+      <div class="verdict"><div class="lbl">用途</div><p>${esc(m.use)}</p></div>
+      ${sec('使う工程', `<div class="mat">${m.proc.map(p=>{const pr=procById(p);return `<div><div class="mh">${esc(pr.n)}</div><div class="mb">担当：${esc(pr.team)}</div></div>`;}).join('')}</div>`)}
+      ${sec('品名・メーカー・規格書', (m.name || m.maker || m.spec || m.vendor || m.place)
+        ? `<div class="mat">${[['品名',m.name],['メーカー',m.maker],['発注先',m.vendor],['規格書',m.spec],['保管場所',m.place]].filter(x=>x[1]).map(x=>`<div><div class="mh">${x[0]}</div><div class="mb">${x[0]==='規格書' ? `<code>${esc(x[1])}</code>` : esc(x[1])}</div></div>`).join('')}</div>${m.note ? `<div class="srcbox">${esc(m.note)}</div>` : ''}`
+        : `<div class="srcbox">未投入。保管庫の資材マスタノートから流し込むと、ここに品名・メーカー・規格書（<code>AI参照データ／製品規格書／&lt;企業名&gt;</code>）へのリンクが入ります。</div>${m.note ? `<div class="srcbox">${esc(m.note)}</div>` : ''}`)}
+      ${prods.length ? sec('使っている製品', `<div class="seealso">${prods.map(p=>`<button data-prod="${p.id}">${esc(p.n)}</button>`).join('')}</div>`) : ''}
+      ${rel ? sec('関連する辞典項目', `<div class="seealso"><button data-entry="${rel.id}">${esc(rel.title)}</button></div>`) : ''}
+      ${m.id.startsWith('m-tan') ? sec('特徴から探す', `<div class="seealso"><button data-tab="carbon">炭を特徴で絞り込む</button></div>`) : ''}
+      ${m.link === 'prod' ? sec('特徴から探す', `<div class="seealso"><button data-tab="${m.id === 'm-yeast' ? 'yeast' : 'prod'}">${m.id === 'm-yeast' ? '酵母を特徴で絞り込む' : '製品ごとの種麹を見る'}</button></div>`) : ''}
+    </article>`;
+}
+
+/* ---- 製品：酵母×種麹 ---- */
+function prodCard(p){
+  const chipList = (arr, cls, key) => arr.length
+    ? arr.map(v => `<button class="tag ${cls}" data-${key}="${esc(v)}">${esc(v)}</button>`).join('')
+    : `<span class="tag none">未入力</span>`;
+  return `<article class="prod">
+    <div class="prod-h"><span class="pname">${esc(p.n)}</span><span class="chip">${esc(p.grade)}</span>${badge(p.status)}</div>
+    <dl class="kv">
+      <dt>酵母</dt><dd>${chipList(p.yeast,'','yeast')}</dd>
+      <dt>種麹</dt><dd>${chipList(p.koji,'k','koji')}</dd>
+      <dt>原料米</dt><dd>${p.rice.length ? p.rice.map(r=>`<span class="tag none">${esc(r)}</span>`).join('') : '<span class="tag none">未入力</span>'}</dd>
+      ${p.runs && p.runs.length ? `<dt>使用仕込</dt><dd>${p.runs.map(r=>`<span class="tag none">${esc(r)}</span>`).join('')}</dd>` : ''}
+    </dl>${p.note ? `<p class="spec-d">${esc(p.note)}</p>` : ''}</article>`;
+}
+
+function renderProducts(){
+  const list = S.yeast ? DICT.products.filter(p => p.yeast.includes(S.yeast) || p.koji.includes(S.yeast)) : DICT.products;
+  const filt = S.yeast ? `<div class="filters"><button class="fchip" data-yeast="" aria-pressed="false">すべて</button><button class="fchip" data-yeast="${esc(S.yeast)}" aria-pressed="true">${esc(S.yeast)}</button></div>` : '';
+  return `<p class="lede">銘柄・規格ごとに、使っている酵母と種麹の組み合わせを並べます。酵母名や種麹名を押すと、同じものを使っている製品だけに絞れます。</p>
+    ${stNotice(DICT.products, '製品')}
+    ${filt}${list.map(prodCard).join('')}`;
+}
+
+function renderIndex(){
+  const cats = [...new Set(DICT.entries.map(e => e.cat))];
+  return cats.map(c => { const es = DICT.entries.filter(e => e.cat === c);
+      return `<div class="group"><h3>${esc(c)}<span class="count">${es.length}</span></h3><div class="cards">${es.map(entryCard).join('')}</div></div>`;
+    }).join('');
+}
+
+/* ---- 特徴で絞り込む（酵母・炭で共用） ---- */
+function facetPanel(defs, sel, key){
+  return `<div class="facets">${defs.map(g => `
+    <div class="fgrp"><span class="fl">${esc(g.l)}</span><span class="fv">
+      <button class="fchip" data-f="${key}" data-k="${g.k}" data-v="" aria-pressed="${!sel[g.k]}">すべて</button>
+      ${g.v.map(v => `<button class="fchip" data-f="${key}" data-k="${g.k}" data-v="${esc(v)}" aria-pressed="${sel[g.k]===v}">${esc(v)}</button>`).join('')}
+    </span></div>`).join('')}</div>`;
+}
+const matchFacets = (item, sel) => Object.entries(sel).every(([k, v]) => {
+  if (!v) return true;
+  const got = item[k];
+  return Array.isArray(got) ? got.includes(v) : got === v;
+});
+function facetBar(hit, total, key){
+  const any = Object.values(key === 'fy' ? S.fy : S.fc).some(Boolean);
+  return `<div class="fbar"><span><span class="hit">${hit}</span> / ${total} 件</span>${any ? `<button data-reset="${key}">絞り込みを解除</button>` : ''}</div>`;
+}
+
+function yeastCard(y){
+  const tags = [
+    y.aroma ? `<span class="stag aroma">香り：${esc(y.aroma)}</span>` : '',
+    y.acid  ? `<span class="stag acid">酸：${esc(y.acid)}</span>` : '',
+    y.ferm  ? `<span class="stag">発酵力：${esc(y.ferm)}</span>` : '',
+    y.foam  ? `<span class="stag">${esc(y.foam)}</span>` : '',
+    ...y.use.map(u => `<span class="stag">${esc(u)}</span>`)
+  ].join('');
+  const used = DICT.products.filter(p => p.yeast.includes(y.n));
+  return `<article class="spec">
+    <div class="spec-h"><span class="sn">${esc(y.n)}</span>${badge(y.status)}</div>
+    ${y.d ? `<p class="spec-d">${esc(y.d)}</p>` : ''}
+    ${y.own ? `<p class="spec-d"><b>自蔵での傾向：</b>${esc(y.own)}</p>` : ''}
+    <div class="spec-t">${tags || '<span class="stag">特徴 未入力</span>'}</div>
+    ${used.length ? `<div class="spec-link"><button data-yeast="${esc(y.n)}">この酵母を使う製品（${used.length}）</button></div>` : ''}
+  </article>`;
+}
+
+function renderYeasts(){
+  const list = DICT.yeasts.filter(y => matchFacets(y, S.fy));
+  return `<p class="lede">香りのタイプ、酸の高低、泡の有無、用途で絞り込めます。香りは主成分で分けています ── カプエチ系＝カプロン酸エチル（リンゴ・メロン様）、酢エチ系＝酢酸イソアミル（バナナ・洋梨様）。</p>
+    ${stNotice(DICT.yeasts, '酵母')}
+    ${facetPanel(DICT.yeastFacets, S.fy, 'fy')}
+    ${facetBar(list.length, DICT.yeasts.length, 'fy')}
+    ${list.length ? list.map(yeastCard).join('') : '<p class="empty-msg">条件に当たる酵母がありません。絞り込みを緩めてください。</p>'}`;
+}
+
+function carbonCard(c){
+  const tags = [
+    ...c.aim.map(a => `<span class="stag aim">${esc(a)}</span>`),
+    c.act  ? `<span class="stag">賦活：${esc(c.act)}</span>` : '',
+    c.raw  ? `<span class="stag">原料：${esc(c.raw)}</span>` : '',
+    c.form ? `<span class="stag">${esc(c.form)}</span>` : '',
+    c.hit  ? `<span class="stag">当たり：${esc(c.hit)}</span>` : ''
+  ].join('');
+  const ce = c.entry ? byId(c.entry) : null;
+  return `<article class="spec">
+    <div class="spec-h"><span class="sn">${esc(c.n)}</span>${badge(c.status)}</div>
+    ${c.d ? `<p class="spec-d">${esc(c.d)}</p>` : ''}
+    ${c.own ? `<p class="spec-d"><b>自蔵での実績：</b>${esc(c.own)}</p>` : ''}
+    ${c.maker ? `<p class="spec-d">メーカー：${esc(c.maker)}</p>` : ''}
+    ${c.note ? `<p class="spec-d">${esc(c.note)}</p>` : ''}
+    <div class="spec-t">${tags || '<span class="stag">特徴 未入力</span>'}</div>
+    ${ce ? `<div class="spec-link"><button data-entry="${ce.id}">→ ${esc(ce.title)}</button></div>` : ''}
+  </article>`;
+}
+
+function renderCarbons(){
+  const list = DICT.carbons.filter(c => matchFacets(c, S.fc));
+  return `<p class="lede">何を落としたいかで選びます。色なら塩化亜鉛賦活の脱色炭、匂い・味なら水蒸気賦活の脱臭炭。「当たり」は香味の削れ方の強さです。</p>
+    ${stNotice(DICT.carbons, '炭')}
+    ${facetPanel(DICT.carbonFacets, S.fc, 'fc')}
+    ${facetBar(list.length, DICT.carbons.length, 'fc')}
+    ${list.length ? list.map(carbonCard).join('') : '<p class="empty-msg">条件に当たる炭がありません。絞り込みを緩めてください。</p>'}`;
+}
+
+function termList(list){
+  return `<div class="termlist">${list.map(t => `<div class="term">
+    <div class="th"><span class="tn">${esc(t.n)}</span><span class="tr">${esc(t.r)}</span></div>
+    <div class="td">${esc(t.d)}</div>
+    <div class="tl">${t.see.map(id => byId(id) ? `<button data-entry="${id}">→ ${esc(byId(id).title)}</button>` : '').join('')}</div>
+  </div>`).join('')}</div>`;
+}
+function renderTerms(){
+  return `<p class="lede">清酒学校・社内研修で出てくる語を、現場の対処とつないで並べています。</p>` + (DICT.terms.length ? termList(DICT.terms) : `<p class="empty-msg">「用語」は準備中です。</p>`);
+}
+
+function renderDetail(){
+  const e = byId(S.entry);
+  if (!e) return `<p class="empty-msg">項目が見つかりません。</p>`;
+  const sec = (t, inner) => inner ? `<section class="sec"><h3>${t}</h3>${inner}</section>` : '';
+  const rel = DICT.entries.filter(x => x.id !== e.id && x.tags.some(t => e.tags.includes(t))).slice(0,4);
+  const mats = DICT.materials.filter(m => m.entry === e.id);
+  return `<button class="back" id="back">‹ 戻る</button>
+    <article class="detail">
+      <h2>${esc(e.title)}</h2>
+      <div class="meta"><span class="chip">${esc(e.cat)}</span>${badge(e.status)}${e.tags.slice(0,4).map(t=>`<span class="chip">${esc(t)}</span>`).join('')}</div>
+      <div class="verdict"><div class="lbl">結論</div><p>${esc(e.verdict)}</p></div>
+      ${sec('使う資材・選定基準', e.materials ? `<div class="mat">${e.materials.map(m=>`<div><div class="mh">${esc(m.h)}</div><div class="mb">${esc(m.b)}</div></div>`).join('')}</div>` : '')}
+      ${sec('手順', e.steps ? `<ol class="steps">${e.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>` : '')}
+      ${sec('数値の目安', e.numbers ? `<div class="tblwrap"><table><thead><tr><th>項目</th><th>目安</th><th>備考</th></tr></thead><tbody>${e.numbers.map(n=>`<tr><td>${esc(n.l)}</td><td class="num">${esc(n.v)}</td><td class="note">${esc(n.n)}</td></tr>`).join('')}</tbody></table></div>` : '')}
+      ${sec('注意', e.cautions ? `<ul class="cau">${e.cautions.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>` : '')}
+      ${mats.length ? sec('資材台帳', `<div class="seealso">${mats.map(m=>`<button data-mat="${m.id}">${esc(m.n)}</button>`).join('')}</div>`) : ''}
+      ${sec('関連項目', rel.length ? `<div class="seealso">${rel.map(r=>`<button data-entry="${r.id}">${esc(r.title)}</button>`).join('')}</div>` : '')}
+      ${sec('出典', `<div class="srcbox">${esc(e.source)}<br><code>醸造ナレッジベース → 該当ハブ → このノート</code></div>`)}
+    </article>`;
+}
+
+function render(){
+  for (const [v, id] of Object.entries(TABS))
+    document.getElementById(id).setAttribute('aria-selected', String(S.view === v && !S.q));
+
+  if (S.entry)                   app.innerHTML = renderDetail();
+  else if (S.q)                  app.innerHTML = renderSearch();
+  else if (S.view === 'flow')    app.innerHTML = renderFlowTab();
+  else if (S.view === 'mat')     app.innerHTML = renderMaterials();
+  else if (S.view === 'yeast')   app.innerHTML = renderYeasts();
+  else if (S.view === 'carbon')  app.innerHTML = renderCarbons();
+  else if (S.view === 'prod')    app.innerHTML = renderProducts();
+  else                           app.innerHTML = renderTerms();
+
+  app.insertAdjacentHTML('beforeend', `<p class="foot">
+    データ版：${DICT.meta.version}　／　出典：${esc(DICT.meta.source)}<br>
+    「データ未投入」は枠だけの行、「暫定・要確認」は一般文献・メーカー資料に基づく仮の記述です。保管庫から辞書データを更新すると「ナレッジベース準拠」に変わります。</p>`);
+
+  app.querySelectorAll('[data-entry]').forEach(b => b.addEventListener('click', () => { S.entry=b.dataset.entry; S.mat=null; window.scrollTo({top:0}); render(); }));
+  app.querySelectorAll('[data-mat]').forEach(b => b.addEventListener('click', () => { S.view='mat'; S.mat=b.dataset.mat; S.entry=null; window.scrollTo({top:0}); render(); }));
+  app.querySelectorAll('[data-prod]').forEach(b => b.addEventListener('click', () => { S.view='prod'; S.mat=S.entry=null; window.scrollTo({top:0}); render(); }));
+  app.querySelectorAll('[data-node]').forEach(b => b.addEventListener('click', () => { S.node=b.dataset.node||null; window.scrollTo({top:0}); render(); }));
+  app.querySelectorAll('[data-team]').forEach(b => b.addEventListener('click', () => { S.team=b.dataset.team||null; render(); }));
+  app.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => setView(b.dataset.tab)));
+  app.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => {
+    const sel = b.dataset.f === 'fy' ? S.fy : S.fc;
+    sel[b.dataset.k] = b.dataset.v || null; render(); }));
+  app.querySelectorAll('[data-reset]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.reset === 'fy') S.fy = {}; else S.fc = {}; render(); }));
+  app.querySelectorAll('[data-yeast],[data-koji]').forEach(b => b.addEventListener('click', () => {
+    S.view='prod'; S.yeast = b.dataset.yeast || b.dataset.koji || null; S.mat=S.entry=null; window.scrollTo({top:0}); render(); }));
+  const back = document.getElementById('back');
+  if (back) back.addEventListener('click', () => { S.entry=null; S.mat=null; render(); });
+}
+
+loadDict();
+</script>
+</body></html>
