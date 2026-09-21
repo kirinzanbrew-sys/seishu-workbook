@@ -102,6 +102,21 @@ main{max-width:860px;margin:0 auto;padding:18px 16px 64px}
 @media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .fchip[aria-pressed="true"]{color:#fff}}
 
 /* 特徴で絞り込む（ファセット） */
+.ycond{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 12px}
+.ychip{font-size:12.5px;padding:6px 12px;border-radius:999px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-weight:700}
+.ylink{background:none;border:0;color:var(--accent);font-size:13px;padding:4px 6px;text-decoration:underline;text-underline-offset:3px}
+.yaxes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 12px}
+.yax,.yopt{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:14px;border-radius:12px;
+  border:1px solid var(--line-strong);background:var(--surface);color:inherit;box-shadow:var(--shadow);min-height:64px}
+.yax .yl,.yopt .yl{font-size:16px;font-weight:700}
+.yax .ys,.yopt .ys{font-size:12px;color:var(--muted)}
+.yopt .yn{font-size:12px;color:var(--accent);font-weight:700}
+.yax.on,.yopt.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+.yopt[disabled]{opacity:.45}
+.yopts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 12px}
+.ymore{display:flex;flex-wrap:wrap;align-items:center;gap:2px;font-size:12.5px;color:var(--muted);margin:0 0 12px}
+.ystep{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin:0 0 10px}
+.ystep h3{margin:4px 0 0;font-size:17px}
 .facets{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:12px 13px;margin-bottom:16px;box-shadow:var(--shadow)}
 .fgrp{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
 .fgrp:first-child{border-top:none;padding-top:0}
@@ -572,7 +587,7 @@ const app = document.getElementById('app');
 const qEl = document.getElementById('q');
 const clearEl = document.getElementById('clear');
 const TABS = { flow:'tab-flow', mat:'tab-mat', yeast:'tab-yeast', carbon:'tab-carbon', prod:'tab-prod', terms:'tab-terms' };
-let S = { view:'flow', node:null, entry:null, mat:null, team:null, yeast:null, q:'', fy:{}, fc:{} };
+let S = { view:'flow', node:null, entry:null, mat:null, team:null, yeast:null, q:'', fy:{}, fc:{}, yax:null };
 
 const byId = id => DICT.entries.find(e => e.id === id);
 const matById = id => DICT.materials.find(m => m.id === id);
@@ -583,7 +598,7 @@ const badge = st => st === 'ok' ? '<span class="chip ok">ナレッジベース�
   : '<span class="chip draft">暫定・要確認</span>';
 const teamsOf = m => [...new Set(m.proc.map(p => procById(p)?.team).filter(Boolean))];
 
-function setView(v){ S.view = v; S.node = S.entry = S.mat = S.yeast = null; window.scrollTo({top:0}); render(); }
+function setView(v){ S.view = v; S.node = S.entry = S.mat = S.yeast = S.yax = null; window.scrollTo({top:0}); render(); }
 for (const [v, id] of Object.entries(TABS)) document.getElementById(id).addEventListener('click', () => setView(v));
 qEl.addEventListener('input', () => { S.q = qEl.value.trim(); S.entry = S.mat = null; clearEl.hidden = !S.q; render(); });
 clearEl.addEventListener('click', () => { qEl.value=''; S.q=''; clearEl.hidden=true; qEl.focus(); render(); });
@@ -612,7 +627,7 @@ function renderSearch(){
   const hitM = DICT.materials.filter(m => [m.n,m.cat,m.use,m.name,m.maker,m.vendor,teamsOf(m).join(' '),m.proc.map(p=>procById(p)?.n).join(' ')].filter(Boolean).join(' ').toLowerCase().includes(q));
   const hitP = DICT.products.filter(p => (p.n+p.grade+[...p.yeast,...p.koji,...p.rice].join(' ')).toLowerCase().includes(q));
   const hitT = DICT.terms.filter(t => (t.n+t.r+t.d).toLowerCase().includes(q));
-  const hitY = DICT.yeasts.filter(y => [y.n,y.d,y.own,y.aroma,y.acid,y.ferm,y.foam,y.use.join(' ')].filter(Boolean).join(' ').toLowerCase().includes(q));
+  const hitY = DICT.yeasts.filter(y => [y.n,y.d,y.own,...(DICT.yeastFacets||[]).map(g => [].concat(y[g.k]||[]).join(' '))].filter(Boolean).join(' ').toLowerCase().includes(q));
   const hitC = DICT.carbons.filter(c => [c.n,c.d,c.own,c.maker,c.aim.join(' '),c.act,c.raw,c.form].filter(Boolean).join(' ').toLowerCase().includes(q));
   if (!hitE.length && !hitM.length && !hitP.length && !hitT.length && !hitY.length && !hitC.length)
     return `<p class="empty-msg">「${esc(S.q)}」に当たるものはまだ収録されていません。<br>保管庫にノートを足してから、辞書データを更新してください。</p>`;
@@ -744,13 +759,12 @@ function facetBar(hit, total, key){
 }
 
 function yeastCard(y){
-  const tags = [
-    y.aroma ? `<span class="stag aroma">香り：${esc(y.aroma)}</span>` : '',
-    y.acid  ? `<span class="stag acid">酸：${esc(y.acid)}</span>` : '',
-    y.ferm  ? `<span class="stag">発酵力：${esc(y.ferm)}</span>` : '',
-    y.foam  ? `<span class="stag">${esc(y.foam)}</span>` : '',
-    ...y.use.map(u => `<span class="stag">${esc(u)}</span>`)
-  ].join('');
+  const facets = DICT.yeastFacets || [];
+  const tags = facets.map(g => {
+    const v = y[g.k];
+    const vals = Array.isArray(v) ? v : (v ? [v] : []);
+    return vals.map(x => `<span class="stag${g.k === 'aroma' ? ' aroma' : g.k === 'acid' ? ' acid' : ''}">${esc(g.l)}：${esc(x)}</span>`).join('');
+  }).join('');
   const used = DICT.products.filter(p => p.yeast.includes(y.n));
   return `<article class="spec">
     <div class="spec-h"><span class="sn">${esc(y.n)}</span>${badge(y.status)}</div>
@@ -761,13 +775,53 @@ function yeastCard(y){
   </article>`;
 }
 
+/* ---- 酵母：香り・味・キレ・余韻から選んで候補を絞っていく ---- */
+const yHas = (y, k, v) => { const got = y[k]; return Array.isArray(got) ? got.includes(v) : got === v; };
+function yCandidates(except){
+  return DICT.yeasts.filter(y => Object.entries(S.fy).every(([k, v]) => !v || k === except || yHas(y, k, v)));
+}
 function renderYeasts(){
-  const list = DICT.yeasts.filter(y => matchFacets(y, S.fy));
-  return `<p class="lede">香りのタイプ、酸の高低、泡の有無、用途で絞り込めます。香りは主成分で分けています ── カプエチ系＝カプロン酸エチル（リンゴ・メロン様）、酢エチ系＝酢酸イソアミル（バナナ・洋梨様）。</p>
-    ${stNotice(DICT.yeasts, '酵母')}
-    ${facetPanel(DICT.yeastFacets, S.fy, 'fy')}
-    ${facetBar(list.length, DICT.yeasts.length, 'fy')}
-    ${list.length ? list.map(yeastCard).join('') : '<p class="empty-msg">条件に当たる酵母がありません。絞り込みを緩めてください。</p>'}`;
+  const facets = DICT.yeastFacets || [];
+  const main = facets.slice(0, 4), more = facets.slice(4);
+  const list = yCandidates(null);
+  const chosen = facets.filter(g => S.fy[g.k]);
+  let h = `<p class="lede">何で選ぶかを押して、候補を絞っていきます。条件はいくつでも重ねられます。</p>`;
+  // 選んだ条件
+  if (chosen.length) {
+    h += `<div class="ycond">${chosen.map(g => `<button class="ychip" data-yclr="${g.k}">${esc(g.l)}：${esc(S.fy[g.k])} <span aria-hidden="true">×</span></button>`).join('')}
+      <button class="ylink" data-reset="fy">すべて解除</button></div>`;
+  }
+  if (!S.yax) {
+    // 何で選ぶか
+    h += `<div class="yaxes">${main.map(g => {
+      const cur = S.fy[g.k];
+      const filled = yCandidates(g.k).filter(y => g.v.some(v => yHas(y, g.k, v))).length;
+      return `<button class="yax${cur ? ' on' : ''}" data-yax="${g.k}">
+        <span class="yl">${esc(g.l)}</span>
+        <span class="ys">${cur ? esc(cur) : (filled ? `記入あり ${filled}株` : 'まだ記入なし')}</span></button>`;
+    }).join('')}</div>`;
+    if (more.length) {
+      h += `<div class="ymore"><span>そのほかの条件：</span>${more.map(g => `<button class="ylink" data-yax="${g.k}">${esc(g.l)}${S.fy[g.k] ? '（' + esc(S.fy[g.k]) + '）' : ''}</button>`).join('')}</div>`;
+    }
+  } else {
+    // 選んだ項目の中身を選ぶ
+    const g = facets.find(x => x.k === S.yax);
+    const base = yCandidates(g.k);
+    const hint = g.h || {};
+    const opts = g.v.map(v => {
+      const n = base.filter(y => yHas(y, g.k, v)).length;
+      return `<button class="yopt${S.fy[g.k] === v ? ' on' : ''}" data-yopt="${esc(v)}" ${n ? '' : 'disabled'}>
+        <span class="yl">${esc(v)}</span>${hint[v] ? `<span class="ys">${esc(hint[v])}</span>` : ''}<span class="yn">${n}株</span></button>`;
+    }).join('');
+    const none = g.v.every(v => !base.some(y => yHas(y, g.k, v)));
+    h += `<div class="ystep"><button class="ylink" data-yax="">‹ 何で選ぶかに戻る</button><h3>${esc(g.l)}を選ぶ</h3></div>
+      <div class="yopts">${opts}</div>
+      ${none ? `<p class="empty-msg">「${esc(g.l)}」はまだどの酵母にも記入がありません。保管庫の酵母マスタに書くと、ここで選べるようになります。</p>` : ''}`;
+  }
+  h += `<div class="fbar"><span>候補 <span class="hit">${list.length}</span> / ${DICT.yeasts.length} 株</span></div>`;
+  h += list.length ? list.map(yeastCard).join('') : '<p class="empty-msg">条件に当たる酵母がありません。条件を1つ外してください。</p>';
+  h += stNotice(DICT.yeasts, '酵母');
+  return h;
 }
 
 function carbonCard(c){
@@ -858,7 +912,11 @@ function render(){
     const sel = b.dataset.f === 'fy' ? S.fy : S.fc;
     sel[b.dataset.k] = b.dataset.v || null; render(); }));
   app.querySelectorAll('[data-reset]').forEach(b => b.addEventListener('click', () => {
-    if (b.dataset.reset === 'fy') S.fy = {}; else S.fc = {}; render(); }));
+    if (b.dataset.reset === 'fy') { S.fy = {}; S.yax = null; } else S.fc = {}; render(); }));
+  app.querySelectorAll('[data-yax]').forEach(b => b.addEventListener('click', () => { S.yax = b.dataset.yax || null; render(); }));
+  app.querySelectorAll('[data-yopt]').forEach(b => b.addEventListener('click', () => {
+    const v = b.dataset.yopt; S.fy[S.yax] = (S.fy[S.yax] === v) ? null : v; S.yax = null; window.scrollTo({top:0}); render(); }));
+  app.querySelectorAll('[data-yclr]').forEach(b => b.addEventListener('click', () => { S.fy[b.dataset.yclr] = null; render(); }));
   app.querySelectorAll('[data-yeast],[data-koji]').forEach(b => b.addEventListener('click', () => {
     S.view='prod'; S.yeast = b.dataset.yeast || b.dataset.koji || null; S.mat=S.entry=null; window.scrollTo({top:0}); render(); }));
   const back = document.getElementById('back');
