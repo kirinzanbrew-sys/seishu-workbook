@@ -964,7 +964,7 @@ function capacityPanel(k){
       <div class="tl-row"><span>全容量</span><b>${fnum(t.f,0)} ℓ</b></div>
       <div class="tl-row"><span>底板面（中心深での容量）</span><b>${fnum(t.bottom,0)} ℓ</b></div>
       <div class="tl-row"><span>中心深</span><b>${fnum(t.center,0)} mm</b></div>
-      ${t.cut?`<div class="tl-warn" style="margin-top:8px">この容器は早見表の ${fnum(t.cut,0)}mm より深い部分の数字が崩れているため、${fnum(t.cut,0)}mm までで計算します。</div>`:''}</div>`:''}
+      ${t.verify?`<div class="tl-warn" style="margin-top:8px">この容器はPDF早見表の該当ページが取得できなかったため、全容量と底板面容量を直線でつないだ概算値です。実際の形状とは差があります。正確な値が必要なときは造りexで直接確認してください。</div>`:''}</div>`:''}
   </div>`;
 }
 async function capacityScreen(){
