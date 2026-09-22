@@ -934,15 +934,16 @@ function decodeTank(t){
 }
 async function loadTanks(){
   if(TANKS) return TANKS;
+  try{ localStorage.removeItem('tool.tanks'); }catch(e){}   // 照合前の古い早見表（2026-09-22以前）は使わない
   // ① ログイン時に届いたデータ（辞書と一緒に配信する場合）
   const fromLogin = (ST.data && ((ST.data.dictionary&&ST.data.dictionary.tanks) || ST.data.tanks)) || null;
   if(fromLogin){ TANKS=fromLogin; TANKS_INFO='サーバー'; return TANKS; }
   // ② 同じ場所の tanks.json（端末に保存して、電波が無くても使えるようにする）
   try{
-    const r=await fetch('tanks.json',{cache:'no-cache'});
-    if(r.ok){ const d=await r.json(); lsSet('tool.tanks',d); TANKS=d; TANKS_INFO='最新'; return TANKS; }
+    const r=await fetch('tanks.json?v='+Date.now(),{cache:'no-store'});
+    if(r.ok){ const d=await r.json(); lsSet('tool.tanks2',d); TANKS=d; TANKS_INFO='最新'; return TANKS; }
   }catch(e){}
-  const c=lsGet('tool.tanks',null); if(c){ TANKS=c; TANKS_INFO='端末に保存した版'; return TANKS; }
+  const c=lsGet('tool.tanks2',null); if(c){ TANKS=c; TANKS_INFO='端末に保存した版'; return TANKS; }
   return null;
 }
 function tankByNo(no){
@@ -968,14 +969,16 @@ function mmAt(t,L){
   return (v.length-1)*2;
 }
 function capacityPanel(k){
-  const st=Object.assign({no:'',mm:'',L:'',deg:''}, lsGet('tool.cap'+k,{}));
+  const st=Object.assign({no:'',mm:'',L:'',sub:''}, lsGet('tool.cap'+k,{}));
   const t=tankByNo(st.no);
-  const mm=pnum(st.mm), L=pnum(st.L), deg=pnum(st.deg);
+  const mm=pnum(st.mm), L=pnum(st.L), sub=pnum(st.sub);
   let vol=null, mmOut=null;
-  if(t && mm!==null) vol=volAt(t,mm);
-  if(t && L!==null) mmOut=mmAt(t,L);
-  const useVol = vol!==null ? vol : (L!==null && t ? L : null);
-  const pure = (useVol!==null && deg!==null) ? useVol*deg/100 : null;
+  const blocked = !!(t && (t.verify || t.blocked || !t.checked));   // 照合できていない容器は絶対に計算しない
+  if(t && !blocked && mm!==null) vol=volAt(t,mm);
+  if(t && !blocked && L!==null) mmOut=mmAt(t,L);
+  const useVol = vol!==null ? vol : (L!==null && t && !blocked ? L : null);   // 引き算のもとになる量
+  let rest=null, restMM=null;
+  if(useVol!==null && sub!==null){ rest=useVol-sub; if(t && !blocked) restMM=mmAt(t,rest); }
   const noMsg = st.no && !t ? `<div class="tl-warn">容器番号 ${esc(st.no)} は早見表にありません。</div>` : '';
   return `<div class="card">
     <div style="font-weight:700;color:var(--navy);margin-bottom:8px">第${k}選択</div>
@@ -986,14 +989,24 @@ function capacityPanel(k){
       <label>→ 容量</label><div class="tl-out">${vol!==null?fnum(Math.round(vol),0):'—'}<small>ℓ</small></div>
       <label>検索容量（ℓ）</label><input class="tl-in" inputmode="decimal" data-cap="${k}" data-f="L" value="${esc(st.L)}">
       <label>→ 寸法</label><div class="tl-out">${mmOut!==null?fnum(mmOut,0):'—'}<small>mm</small></div>
-      <label>度数（%）</label><input class="tl-in" inputmode="decimal" data-cap="${k}" data-f="deg" value="${esc(st.deg)}">
-      <label>→ 純アルコール</label><div class="tl-out">${pure!==null?fnum(pure,1):'—'}<small>ℓ</small></div>
     </div>
+    ${useVol!==null?`<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px">
+      <div class="tl-grid">
+        <label>いまの量（ℓ）</label><div class="tl-out">${fnum(Math.round(useVol),0)}<small>ℓ</small></div>
+        <label>引く量（ℓ）</label><input class="tl-in key" inputmode="decimal" data-cap="${k}" data-f="sub" value="${esc(st.sub)}" placeholder="例：1500">
+        <label>→ 残り</label><div class="tl-out" style="font-size:21px">${rest!==null?fnum(Math.round(rest),0):'—'}<small>ℓ</small></div>
+        <label>→ 残りの寸法（尺）</label><div class="tl-out" style="font-size:21px">${restMM!==null?fnum(restMM,0):'—'}<small>mm</small></div>
+      </div>
+      ${rest!==null&&rest<0?`<div class="tl-warn" style="margin-top:8px">引く量が今の量より多いため、残りがマイナスになっています。</div>`:''}
+      ${rest!==null&&rest>=0&&restMM===null&&!blocked?`<div class="tl-warn" style="margin-top:8px">残りの量が早見表の範囲外（底板面以下、または全容量より多い）のため、寸法は出せません。</div>`:''}
+    </div>`:''}
     ${t?`<div style="margin-top:10px">
       <div class="tl-row"><span>全容量</span><b>${fnum(t.f,0)} ℓ</b></div>
       <div class="tl-row"><span>底板面（中心深での容量）</span><b>${fnum(t.bottom,0)} ℓ</b></div>
       <div class="tl-row"><span>中心深</span><b>${fnum(t.center,0)} mm</b></div>
-      ${t.verify?`<div class="tl-warn" style="margin-top:8px">この容器はPDF早見表の該当ページが取得できなかったため、全容量と底板面容量を直線でつないだ概算値です。実際の形状とは差があります。正確な値が必要なときは造りexで直接確認してください。</div>`:''}</div>`:''}
+      </div>`:''}
+    ${blocked?`<div class="tl-warn" style="margin-top:8px;background:#fdecec;border-color:#e0a0a0;color:#8a1c1c;font-weight:700">この容器は、早見表の数値の照合がまだ済んでいません。誤った数値を出さないため、アプリでは計算しません。必ず造りexの容量早見表で確認してください。${t.reason?`<div style="font-weight:400;margin-top:4px">理由：${esc(t.reason)}</div>`:''}</div>`:''}
+    ${t&&!blocked?`<div style="margin-top:8px;font-size:12px;color:#1d6b45">✓ 造りexの早見表（PDF・Excel書き出しの2つ）と全点照合済み</div>`:''}
   </div>`;
 }
 async function capacityScreen(){
@@ -1004,12 +1017,10 @@ async function capacityScreen(){
   const draw=()=>{
     const s1=lsGet('tool.cap1',{}), s2=lsGet('tool.cap2',{});
     const t1=tankByNo(s1.no), t2=tankByNo(s2.no);
-    const v=(t,s)=>{ if(!t)return null; const m=pnum(s.mm); if(m!==null){const x=volAt(t,m); return x===null?null:Math.round(x);} return pnum(s.L); };
+    const v=(t,s)=>{ if(!t||t.verify||t.blocked||!t.checked)return null; const m=pnum(s.mm); if(m!==null){const x=volAt(t,m); return x===null?null:Math.round(x);} return pnum(s.L); };
     const a=v(t1,s1), b=v(t2,s2);
-    const pa=(a!==null&&pnum(s1.deg)!==null)?a*pnum(s1.deg)/100:null, pb=(b!==null&&pnum(s2.deg)!==null)?b*pnum(s2.deg)/100:null;
     app.innerHTML=`<div style="height:12px"></div><div class="tl-two">${capacityPanel(1)}${capacityPanel(2)}</div>
-      ${(a!==null&&b!==null)?`<div class="card"><div class="tl-row"><span>2本の合計</span><b class="tl-big">${fnum(a+b,0)} ℓ</b></div>
-        ${(pa!==null&&pb!==null)?`<div class="tl-row"><span>純アルコール合計／合わせた度数</span><b>${fnum(pa+pb,1)} ℓ ／ ${fnum((pa+pb)/(a+b)*100,2)} %</b></div>`:''}</div>`:''}
+      ${(a!==null&&b!==null)?`<div class="card"><div class="tl-row"><span>2本の合計</span><b class="tl-big">${fnum(a+b,0)} ℓ</b></div></div>`:''}
       <p class="tl-note">空寸（上からの寸法）で引く早見表です。表は2mmごとで、間の寸法は前後の値から直線で補っています。${TANKS.version?`早見表：${esc(TANKS.version)}（${TANKS_INFO}）`:''}</p>
       <button class="tl-link" id="capClr">入力を消す</button>`;
     app.querySelectorAll('[data-cap]').forEach(inp=>{
@@ -1368,8 +1379,61 @@ function zaikoScreen(day){
       <p class="tl-note">単位はkg。在庫がマイナス（赤字）のものは、品種受払にまだ受入が入っていないか、払出が受入を上回っています。</p>`;
     if(Z.first && ZAI_DAY<Z.first) h += `<div class="mf-warn">この日は品種受払の期間（${djp(Z.first,true)}〜）より前です。</div>`;
     if(Z.last && ZAI_DAY>Z.last) h += `<div class="mf-warn">この日は品種受払の期間（〜${djp(Z.last,true)}）より後です。最終日の在庫を表示しています。</div>`;
+    // 在庫チェック（誰がいつ確認したか）
+    const me = (MFG&&MFG.me)||{};
+    const zc = ((MFG&&MFG.zchecks)||[]).filter(x=>x.date===ZAI_DAY);
+    const mineChecked = zc.some(x=>x.byId===me.id);
+    h += `<div class="mf-sec">在庫チェック<span>${zc.length?zc.length+'件':'まだ確認されていません'}</span></div>`;
+    for(const c of zc){
+      h += `<div class="mf-req"><span class="st a">✅ 確認</span>
+        <div><b>${esc(nrm(c.by))}</b>　${tjp(c.at)}${c.memo?`<div class="muted" style="font-size:12px">${esc(c.memo)}</div>`:''}</div>
+        <div class="bt">${(c.byId===me.id||me.admin)?`<button data-zx="${esc(c.id)}">取り消す</button>`:''}</div></div>`;
+    }
+    if(!mineChecked){
+      h += `<input class="mf-sel" id="zMemo" maxlength="100" placeholder="メモ（任意）例：実棚と一致" style="margin-bottom:6px">
+        <button class="btn p" id="zChk" style="background:var(--ok);border-color:var(--ok)">確認</button>`;
+    }
+    h += `<button class="tl-link" id="zHist">確認の履歴を見る ›</button>`;
     app.innerHTML = h + mfgSrcInfo('zaiko','造りex 仕込調整 品種受払');
     bindDayNav(zaikoScreen);
+    $('#zHist').onclick=()=>go(zcheckScreen);
+    const zact=async(body,btn,label)=>{
+      btn.disabled=true; btn.textContent='送信しています…';
+      try{
+        const j=await apiT(Object.assign({token:ST.token},body),40000);
+        if(j&&j.ok){ if(j.zchecks){ MFG.zchecks=j.zchecks; lsSet('mfg.cache',MFG); } }
+        else alert(mfgErrJP(j&&j.err));
+      }catch(e){ alert('通信できませんでした。電波の良い場所でもう一度お試しください。'); }
+      btn.disabled=false; btn.textContent=label; render();
+    };
+    const cb=$('#zChk');
+    if(cb) cb.onclick=()=>{
+      const snap = Z.vars.map((v,i)=>st[i]?`${v}:${kgfmt(st[i])}`:'').filter(Boolean).join(' / ');
+      zact({action:'mfg_zcheck', date:ZAI_DAY, memo:($('#zMemo')||{}).value||'', snapshot:snap}, cb, '確認');
+    };
+    app.querySelectorAll('[data-zx]').forEach(b=>b.onclick=()=>{ if(confirm('この確認を取り消しますか？')) zact({action:'mfg_zuncheck', id:b.dataset.zx}, b, '取り消す'); });
+  };
+  mfgOpen(render);
+}
+
+/* ---------- 在庫チェックの履歴 ---------- */
+function zcheckScreen(){
+  const render=function zhRender(){
+    app.dataset.mfg='zhRender';
+    head('在庫チェックの履歴','誰がいつ在庫を確認したか');
+    const list=((MFG&&MFG.zchecks)||[]).slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(a.at<b.at?1:-1));
+    let h=mfgErrView();
+    if(!list.length){ app.innerHTML=h+'<div class="card" style="margin-top:14px">まだ確認の記録がありません。</div>'; return; }
+    let day='';
+    for(const c of list){
+      if(c.date!==day){ day=c.date; h+=`<div class="mf-sec">${djp(day,true)}<span></span></div>`; }
+      h+=`<div class="mf-req"><span class="st a">✅</span>
+        <div><b>${esc(nrm(c.by))}</b>　<span class="muted">${tjp(c.at)} 確認</span>${c.memo?`<div class="muted" style="font-size:12px">${esc(c.memo)}</div>`:''}</div>
+        <div class="bt"><button data-zd="${esc(c.date)}">その日の在庫</button></div></div>`;
+    }
+    h+=`<p class="tl-note">記録はスプレッドシート「在庫チェック」に残ります（対象日・確認者・確認日時・メモ・確認したときの在庫）。</p>`;
+    app.innerHTML=h;
+    app.querySelectorAll('[data-zd]').forEach(b=>b.onclick=()=>{ nav.pop(); go(()=>zaikoScreen(b.dataset.zd)); });
   };
   mfgOpen(render);
 }
