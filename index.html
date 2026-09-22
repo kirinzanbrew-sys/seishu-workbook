@@ -328,6 +328,34 @@ $('#who').onclick=()=>{ if(nav[nav.length-1]===settings)return; go(settings); };
 /* ========== ログイン ========== */
 const inputCSS="width:100%;padding:13px;font-size:16px;border:1px solid var(--line);border-radius:10px;font-family:inherit";
 
+
+/* パスワード欄に「表示」ボタンを付ける（打ったパスワードを目で確かめられる） */
+function pwEye(){
+  app.querySelectorAll('input[type=password]').forEach(inp=>{
+    if(inp.dataset.eye) return; inp.dataset.eye='1';
+    const w=document.createElement('div'); w.style.cssText='position:relative';
+    inp.parentNode.insertBefore(w,inp); w.appendChild(inp); inp.style.paddingRight='64px';
+    const b=document.createElement('button'); b.type='button'; b.textContent='表示';
+    b.style.cssText='position:absolute;right:6px;top:50%;transform:translateY(-50%);margin-top:2px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 9px;font-size:13px;font-family:inherit;color:var(--navy)';
+    b.onclick=()=>{ const show=inp.type==='password'; inp.type=show?'text':'password'; b.textContent=show?'隠す':'表示'; };
+    w.appendChild(b);
+  });
+}
+/* 待ち時間が長いときに、いま何をしているかを出す */
+function waitHint(btn, base){
+  const t1=setTimeout(()=>{ btn.textContent=base+'（サーバーを起こしています…）'; },5000);
+  const t2=setTimeout(()=>{ btn.textContent=base+'（混み合っています。もう少しお待ちください）'; },15000);
+  return ()=>{ clearTimeout(t1); clearTimeout(t2); };
+}
+async function apiT(body, ms){
+  const ctl = typeof AbortController!=='undefined' ? new AbortController() : null;
+  const t = ctl ? setTimeout(()=>ctl.abort(), ms||40000) : null;
+  try{
+    const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(body),redirect:'follow',signal:ctl?ctl.signal:undefined});
+    return await r.json();
+  } finally { if(t) clearTimeout(t); }
+}
 function loginScreen(msg){
   head('生産本部製造ツール','ログイン');
   hBack.classList.add('hide');
@@ -347,18 +375,24 @@ function loginScreen(msg){
     const id=$('#li').value.trim(), pw=$('#lp').value;
     if(!id||!pw){ $('#lmsg').textContent='IDとパスワードの両方を入れてください。'; return }
     const b=$('#lgo'); b.disabled=true; b.textContent='確認しています…';
+    const stop=waitHint(b,'確認しています');
     try{
-      const j=await api({action:'login',id:id,pw:pw});
-      if(!j.ok){ $('#lmsg').textContent=errJP(j.err); b.disabled=false; b.textContent='ログイン'; return }
+      const j=await apiT({action:'login',id:id,pw:pw},40000);
+      stop();
+      if(!j.ok){ $('#lmsg').textContent=errJP(j.err); b.disabled=false; b.textContent='ログイン'; $('#lp').select(); return }
       afterLogin(j);
     }catch(err){
-      $('#lmsg').textContent='ログインできませんでした。IDとパスワードを確かめて、もう一度お試しください。（電波が弱いときもこの表示になります）';
+      stop();
+      $('#lmsg').textContent=(err&&err.name==='AbortError')
+        ? 'サーバーから40秒たっても返事がありません。少し待ってからもう一度お試しください。'
+        : 'ログインできませんでした。IDとパスワードを確かめて、もう一度お試しください。（電波が弱いときもこの表示になります）';
       b.disabled=false; b.textContent='ログイン';
     }
   };
   $('#lgo').onclick=go;
   $('#lp').onkeydown=ev=>{if(ev.key==='Enter')go()};
   $('#lnew').onclick=()=>registerScreen();
+  pwEye();
 }
 
 function registerScreen(msg){
@@ -386,16 +420,18 @@ function registerScreen(msg){
     if(pw.length<4){ $('#rmsg').textContent='パスワードは4文字以上にしてください。'; return }
     if(pw!==pw2){ $('#rmsg').textContent='パスワードが一致しません。'; return }
     const b=$('#rgo'); b.disabled=true; b.textContent='設定しています…';
+    const stop=waitHint(b,'設定しています');
     try{
-      const j=await api({action:'register',id:id,pw:pw});
+      const j=await apiT({action:'register',id:id,pw:pw},40000); stop();
       if(!j.ok){ $('#rmsg').textContent=errJP(j.err); b.disabled=false; b.textContent='この内容で設定する'; return }
       afterLogin(j);
     }catch(err){
-      $('#rmsg').textContent='設定できませんでした。IDを確かめて、もう一度お試しください。すでに設定済みなら「ログイン画面へ戻る」からログインしてください。（電波が弱いときもこの表示になります）';
+      stop(); $('#rmsg').textContent='設定できませんでした。IDを確かめて、もう一度お試しください。すでに設定済みなら「ログイン画面へ戻る」からログインしてください。（電波が弱いときもこの表示になります）';
       b.disabled=false; b.textContent='この内容で設定する';
     }
   };
   $('#rback').onclick=()=>loginScreen();
+  pwEye();
 }
 
 /** ログイン成功後の共通処理 */
@@ -779,6 +815,7 @@ function settings(){
     btn.disabled=false; btn.textContent='変更する';
   };
   $('#lo').onclick=()=>{ snapOnLeave(); logout(false) };
+  pwEye();
 }
 
 function exportText(){
