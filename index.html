@@ -445,7 +445,8 @@ function home(){
   const icon=t=>`<div style="width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto">${t}</div>`;
   const card=(id,ic,nm,ds)=>`<button class="crs" id="${id}">${icon(ic)}<div style="flex:1"><div class="nm">${nm}</div><div class="ds">${ds}</div></div><div class="go">›</div></button>`;
   let h=`<div style="height:16px"></div>
-  ${card('bCal','📅','製造カレンダー','生産本部製造担当の予定・会社休日')}
+  ${card('bCal','📅','製造カレンダー','出勤表・振休依頼／部署の予定・会社休日')}
+  ${card('bRice','🌾','米管理','洗米チェック・在庫管理')}
   <a class="crs" href="seishu-jiten.html" style="text-decoration:none;color:inherit;box-sizing:border-box">
     ${icon('📖')}
     <div style="flex:1"><div class="nm">逆引き検索</div>
@@ -465,7 +466,8 @@ function home(){
     Safari や Chrome で開き直してください。</div>`}
   app.innerHTML=h;
   $('#bQuiz').onclick=()=>go(quizHome);
-  $('#bCal').onclick=()=>go(calendarScreen);
+  $('#bCal').onclick=()=>go(()=>calendarScreen());
+  $('#bRice').onclick=()=>go(riceScreen);
   $('#bCap').onclick=()=>go(capacityScreen);
   $('#bFil').onclick=()=>go(filterScreen);
   $('#bAlc').onclick=()=>go(alcScreen);
@@ -879,17 +881,7 @@ const TOOL_CSS = `
 `;
 (function(){ const s=document.createElement('style'); s.textContent=TOOL_CSS; document.head.appendChild(s); })();
 
-/* ---------- 製造カレンダー ---------- */
-function calendarScreen(){
-  head('製造カレンダー','生産本部製造担当・会社休日');
-  const mode=lsGet('tool.calmode','MONTH');
-  app.innerHTML=`<div style="height:12px"></div>
-    <div class="tl-seg"><button data-m="MONTH" class="${mode==='MONTH'?'on':''}">月</button><button data-m="WEEK" class="${mode==='WEEK'?'on':''}">週</button><button data-m="AGENDA" class="${mode==='AGENDA'?'on':''}">予定の一覧</button></div>
-    <iframe class="cal-frame" src="${CAL_SRC}&mode=${mode}" loading="lazy" title="製造カレンダー"></iframe>
-    <p class="tl-note">青＝生産本部製造担当の予定／赤＝会社休日。予定の登録・変更は、これまでどおり部署共有のGoogleカレンダーで行います。</p>
-    <a class="tl-link" href="${CAL_SRC}&mode=${mode}" target="_blank" rel="noopener">Googleカレンダーの画面で開く ›</a>`;
-  app.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ lsSet('tool.calmode',b.dataset.m); calendarScreen(); });
-}
+/* ---------- 製造カレンダー：下の「米管理／出勤表」モジュールに移動 ---------- */
 
 /* ---------- 容量計算（タンク容量早見表） ---------- */
 let TANKS=null, TANKS_INFO='';
@@ -1083,6 +1075,471 @@ function alcScreen(){
     $('#aDef').onclick=()=>{ s=Object.assign({},def); lsSet('tool.alc',s); draw(); };
   };
   draw();
+}
+
+
+/* ===================================================================
+   米管理（洗米チェック・在庫管理）／出勤表・振休依頼
+   データの元：会社PCの 造りex 洗米予定表・品種受払・出勤表Excel。
+   会社PCの同期スクリプトが5分ごとに更新を見て、Apps Script に送る。
+   ここではログインした人だけが受け取り、端末にも保存する（電波が無くても前回分を表示）。
+   =================================================================== */
+const MFG_CSS = `
+.mf-nav{display:flex;gap:6px;align-items:center;margin:12px 0 8px}
+.mf-nav button{padding:9px 12px;border:1px solid var(--line);background:#fff;border-radius:9px;font-family:inherit;font-size:14px;color:var(--navy);cursor:pointer}
+.mf-nav button.main{flex:1;background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700}
+.mf-nav button:disabled{opacity:.35}
+.mf-date{font-size:21px;font-weight:700;color:var(--navy);text-align:center;margin:2px 0 2px}
+.mf-date small{font-size:12px;font-weight:400;color:var(--sub);margin-left:6px}
+.mf-sec{font-size:14px;font-weight:700;color:var(--navy);margin:16px 0 6px;display:flex;justify-content:space-between;align-items:baseline}
+.mf-sec span{font-size:12px;color:var(--sub);font-weight:400}
+.mf-item{display:grid;grid-template-columns:42px 1fr auto;gap:4px 8px;align-items:center;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:6px}
+.mf-kb{grid-row:span 2;align-self:stretch;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--navy);color:#fff;font-weight:700;font-size:15px}
+.mf-kb.kake{background:var(--gold)}
+.mf-rice{font-size:15px;font-weight:700}
+.mf-bdg{display:inline-block;color:#fff!important;border-radius:5px;padding:0 5px;font-size:12px!important;margin-left:4px;vertical-align:1px}
+.mf-prod{font-size:12.5px;font-weight:700;border-radius:5px;padding:1px 6px;display:inline-block}
+.mf-kg{text-align:right;font-size:18px;font-weight:700;color:var(--navy);white-space:nowrap}
+.mf-bag{text-align:right;font-size:13.5px;color:var(--ink);white-space:nowrap}
+.mf-bag b{font-size:16px}
+.mf-sum{border:2px solid var(--navy);border-radius:12px;padding:10px 12px;background:#fff;margin-top:12px}
+.mf-sum .tl-row b{font-size:15px}
+.mf-neg{color:var(--ng)!important}
+.mf-info{font-size:11.5px;color:var(--sub);margin:14px 0 0;line-height:1.6}
+.mf-warn{background:#fff4e5;border:1px solid #f0c78a;border-radius:10px;padding:9px 11px;font-size:13px;margin:10px 0}
+.mf-tabs{display:flex;gap:6px;margin:12px 0 10px}
+.mf-tabs button{flex:1;padding:10px;border:1px solid var(--line);background:#fff;border-radius:10px;font-family:inherit;font-size:14px;color:var(--sub);cursor:pointer}
+.mf-tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700}
+.kn-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#fff;-webkit-overflow-scrolling:touch}
+.kn{border-collapse:separate;border-spacing:0;font-size:11.5px;min-width:100%}
+.kn th,.kn td{border-bottom:1px solid #eee7d8;border-right:1px solid #f1ece1;padding:0 2px;height:28px;text-align:center;white-space:nowrap}
+.kn thead th{position:sticky;top:0;background:#f7f4ec;color:var(--navy);font-weight:700;z-index:2}
+.kn th.nm{width:32px;min-width:32px;max-width:32px;font-size:10px;line-height:1.15;padding:4px 0;vertical-align:bottom;white-space:normal;word-break:break-all;letter-spacing:-.5px}
+.kn th.nm.me{background:#fbeec9}
+.kn td.dt,.kn th.dt{position:sticky;left:0;background:#fff;z-index:1;text-align:left;padding:0 4px;min-width:40px;font-weight:700;color:var(--ink)}
+.kn thead th.dt{z-index:3;background:#f7f4ec}
+.kn td.c{width:32px;min-width:32px;max-width:32px;padding:0 1px}
+.kn td.c>div{width:30px;max-height:26px;overflow:hidden;font-size:11px;line-height:1.05;white-space:normal;word-break:break-all;margin:0 auto}
+.kn td.c.long>div{font-size:8.5px;letter-spacing:-.3px}
+.kn td.nt{text-align:left;min-width:120px;max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--sub);font-size:11px}
+.kn tr.hol td.dt{color:#c62828}
+.kn tr.hol td{background:#fdf1f0}
+.kn tr.hol td.dt{background:#fdf1f0}
+.kn tr.today td{background:#fff7d6!important}
+.kn tr.sel td{outline:2px solid var(--navy);outline-offset:-2px}
+.kn .red{color:#d11a1a;font-weight:700}
+.kn .pend{outline:1.5px dashed #d11a1a;outline-offset:-3px;border-radius:4px}
+.kn .gone{color:#aaa;text-decoration:line-through}
+.kn td.c.me{background:#fffaf0}
+.mf-day{border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 12px;margin-top:10px;font-size:13.5px}
+.mf-day .g{display:grid;grid-template-columns:auto 1fr;gap:3px 12px}
+.mf-req>div:nth-child(2){flex:1;min-width:0}
+.mf-req{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:6px;font-size:13.5px}
+.mf-req .st{font-size:12px;font-weight:700;border-radius:6px;padding:2px 7px;white-space:nowrap}
+.mf-req .st.p{background:#fde8e8;color:#b21b1b}.mf-req .st.a{background:#e5f3ec;color:#1d6b45}.mf-req .st.x{background:#eee;color:#777}
+.mf-req .bt{margin-left:auto;display:flex;gap:6px}
+.mf-req .bt button{white-space:nowrap;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:#fff;font-family:inherit;font-size:13px;cursor:pointer}
+.mf-req .bt button.ok{background:var(--ok);color:#fff;border-color:var(--ok)}
+.mf-kinds{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mf-kinds button{padding:12px 6px;border:1.5px solid var(--line);background:#fff;border-radius:10px;font-family:inherit;font-size:15px;cursor:pointer}
+.mf-kinds button.on{border-color:#d11a1a;background:#fdeeee;color:#b21b1b;font-weight:700}
+.mf-kinds button:first-child{grid-column:span 2}
+.mf-lbl{font-size:13px;color:var(--sub);margin:14px 0 5px}
+.mf-sel{width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:10px;font-family:inherit;background:#fff;box-sizing:border-box}
+`;
+(function(){ const s=document.createElement('style'); s.textContent=MFG_CSS; document.head.appendChild(s); })();
+
+/* ---------- 共通 ---------- */
+const BAG_KG = 30;
+const WD = ['日','月','火','水','木','金','土'];
+const MFG_PROD_COLORS = { // 洗米予定表と同じ液種の色（背景／文字）
+  '伝辛':['#fdefc0','#276b12'], 'ぽたり五百万':['#d9f0d2','#176a2c'], '金雲母':['#e6cdba','#9c1f16'],
+  'ながれぼし':['#dae7fc','#16428f'], '超辛':['#d9e6e5','#0f4a48']
+};
+const MFG_RATIO_COLORS = {65:'#333',60:'#1b7f3b',55:'#1f5fa8',50:'#6a3fa0',45:'#c62828',40:'#b8570b'};
+let MFG = lsGet('mfg.cache', null), MFG_ERR = '', MFG_LOADING = null;
+
+function dstr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function dparse(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function dadd(s,n){ const d=dparse(s); d.setDate(d.getDate()+n); return dstr(d); }
+function dtoday(){ return dstr(new Date()); }
+function djp(s,withYear){ const d=dparse(s); return (withYear?d.getFullYear()+'年':'')+(d.getMonth()+1)+'月'+d.getDate()+'日（'+WD[d.getDay()]+'）'; }
+function dshort(s){ const d=dparse(s); return (d.getMonth()+1)+'/'+d.getDate()+'('+WD[d.getDay()]+')'; }
+function tjp(iso){ if(!iso) return '—'; const d=new Date(iso); if(isNaN(d)) return String(iso); return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function kgfmt(v){ return (Math.round(v*10)/10).toLocaleString('ja-JP'); }
+function bags(kg){
+  const neg = kg<0, a=Math.abs(kg), n=Math.floor(a/BAG_KG+1e-9), r=Math.round((a-n*BAG_KG)*10)/10;
+  const t = n&&r ? `<b>${n}</b>袋＋<b>${kgfmt(r)}</b>kg` : n ? `<b>${n}</b>袋` : `<b>${kgfmt(r)}</b>kg`;
+  return (neg?'−':'')+t;
+}
+const nrm = s=>String(s||'').replace(/[\s　]/g,'');
+function prodChip(p){ const c=MFG_PROD_COLORS[p]||['#eef0f3','#333']; return `<span class="mf-prod" style="background:${c[0]};color:${c[1]}">${esc(p)}</span>`; }
+function ratioBadge(r){ return `<span class="mf-bdg" style="background:${MFG_RATIO_COLORS[r]||'#555'}">${r}%</span>`; }
+
+async function mfgLoad(force){
+  if(MFG && !force) { mfgRefresh(); return MFG; }
+  return mfgRefresh();
+}
+function mfgRefresh(){
+  if(MFG_LOADING) return MFG_LOADING;
+  MFG_LOADING = (async()=>{
+    try{
+      const j = await api({action:'mfg_get', token:ST.token});
+      if(j && j.ok){ MFG=j; MFG._at=Date.now(); MFG_ERR=''; lsSet('mfg.cache', MFG); }
+      else MFG_ERR = (j&&j.err==='bad_token') ? 'ログイン情報を確認できませんでした。いったんログアウトしてログインし直してください。'
+                   : (j&&j.err&&j.err!=='server') ? 'サーバーの準備がまだ済んでいません（米管理・出勤表の設定手順を実施してください）。'
+                   : 'サーバーでエラーが起きました' + (j&&j.msg?'（'+j.msg+'）':'');
+    }catch(e){ MFG_ERR = '通信できませんでした。前回読み込んだ内容を表示しています。'; }
+    MFG_LOADING=null; return MFG;
+  })();
+  return MFG_LOADING;
+}
+function mfgLoadingView(t){ app.innerHTML=`<div class="card" style="margin-top:16px;text-align:center;color:var(--sub)">${t||'読み込んでいます…'}</div>`; }
+function mfgErrView(){ return MFG_ERR ? `<div class="mf-warn">${esc(MFG_ERR)}</div>` : ''; }
+function mfgSrcInfo(k, label){
+  const m = (MFG&&MFG.meta&&MFG.meta[k])||{};
+  const pc = MFG&&MFG.meta&&MFG.meta.pcSeen;
+  const stale = pc && (Date.now()-new Date(pc).getTime() > 30*60000);
+  return `<p class="mf-info">元データ：${esc(label)}（${esc(m.file||'—')}・保存 ${tjp(m.mtime)}）<br>
+    アプリへの反映：${tjp(m.at)}　／　会社PCの最終確認：${tjp(pc)}${stale?'<br><b style="color:var(--ng)">会社PCと30分以上つながっていません（PCの電源が切れている可能性）。表示は最後に届いた内容です。</b>':''}</p>`;
+}
+/* 画面を開いたら、まず手元の内容を出し、裏で最新を取り直して描き直す */
+async function mfgOpen(render){
+  if(!MFG){ mfgLoadingView(); await mfgRefresh(); render(); return; }
+  render();
+  const before = MFG && MFG._at, myNav = nav[nav.length-1];
+  await mfgRefresh();
+  if(MFG && MFG._at!==before && nav[nav.length-1]===myNav && app.dataset.mfg===render.name) render();
+}
+
+/* ---------- 米管理（入口） ---------- */
+function riceScreen(){
+  head('米管理','洗米チェック・在庫管理');
+  const icon=t=>`<div style="width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto">${t}</div>`;
+  const card=(id,ic,nm,ds)=>`<button class="crs" id="${id}">${icon(ic)}<div style="flex:1"><div class="nm">${nm}</div><div class="ds">${ds}</div></div><div class="go">›</div></button>`;
+  app.innerHTML=`<div style="height:16px"></div>
+    ${card('bSen','🚿','洗米チェック','その日の洗米数量（麹米・掛米）を30kg袋で')}
+    ${card('bZai','📦','在庫管理','品種・精米歩合ごとのその日の在庫')}
+    <p class="tl-note">造りexの洗米予定表・品種受払が更新されると、数分でここに反映されます。</p>`;
+  $('#bSen').onclick=()=>go(()=>senmaiScreen());
+  $('#bZai').onclick=()=>go(()=>zaikoScreen());
+  app.dataset.mfg='riceScreen';
+  mfgRefresh();
+}
+
+/* ---------- 洗米チェック ---------- */
+let SEN_DAY = null;
+function senmaiScreen(day){
+  if(day) SEN_DAY=day; else SEN_DAY=dtoday();
+  const render=function senRender(){
+    app.dataset.mfg='senRender';
+    head('洗米チェック','麹米・掛米の洗米数量');
+    const S = MFG && MFG.senmai;
+    let h = mfgErrView();
+    h += dayNav(SEN_DAY);
+    if(!S){ app.innerHTML = h + '<div class="card">洗米予定表のデータがまだ届いていません。</div>' + mfgSrcInfo('senmai','造りex 洗米予定表'); bindDayNav(senmaiScreen); return; }
+    const x = S.days[SEN_DAY];
+    if(!x){
+      const next = Object.keys(S.days).sort().find(d=>d>SEN_DAY), prev = Object.keys(S.days).sort().reverse().find(d=>d<SEN_DAY);
+      h += `<div class="card" style="text-align:center;margin-top:10px">この日の洗米はありません。</div>`;
+      if(next) h += `<button class="btn p" id="goNext">次の洗米日：${dshort(next)} ›</button>`;
+      if(prev) h += `<button class="btn o" id="goPrev">‹ 前の洗米日：${dshort(prev)}</button>`;
+      app.innerHTML = h + mfgSrcInfo('senmai','造りex 洗米予定表');
+      bindDayNav(senmaiScreen);
+      if(next) $('#goNext').onclick=()=>senmaiScreen(next);
+      if(prev) $('#goPrev').onclick=()=>senmaiScreen(prev);
+      return;
+    }
+    const cols = S.cols; // [区分, 麹/掛]
+    const ents = x.e.map(e=>({ci:e[0], kubun:cols[e[0]][0], grp:cols[e[0]][1], rice:e[1], ratio:e[2], code:e[3], prod:e[4], no:e[5], kg:e[6]}))
+                    .sort((a,b)=>a.ci-b.ci || a.no-b.no);
+    const grpHtml = (g,label)=>{
+      const list = ents.filter(e=>e.grp===g);
+      const sum = list.reduce((s,e)=>s+e.kg,0);
+      let s = `<div class="mf-sec">${label}<span>${list.length?kgfmt(sum)+' kg':'なし'}</span></div>`;
+      if(!list.length) return s + `<div class="muted" style="padding:4px 2px 6px">この日はありません</div>`;
+      for(const e of list){
+        s += `<div class="mf-item"><div class="mf-kb ${g==='掛'?'kake':''}">${e.kubun}</div>
+          <div><span class="mf-rice">${esc(e.rice)}</span>${ratioBadge(e.ratio)} <span class="muted">${esc(e.code)}</span></div>
+          <div class="mf-kg">${kgfmt(e.kg)}<small style="font-size:12px;font-weight:400"> kg</small></div>
+          <div>${prodChip(e.prod)} <span style="font-size:13px;font-weight:700">No.${e.no}</span></div>
+          <div class="mf-bag">${bags(e.kg)}</div></div>`;
+      }
+      return s;
+    };
+    h += grpHtml('麹','麹米（酛・添・仲・留）');
+    h += grpHtml('掛','掛米（酛・添・仲・留'+(ents.some(e=>e.kubun==='四段')?'・四段':'')+'）');
+    // 品種・歩合ごとの合計（米を出すとき用）
+    const by = {};
+    for(const e of ents){ const k=e.rice+'|'+e.ratio; by[k]=(by[k]||0)+e.kg; }
+    const tot = ents.reduce((s,e)=>s+e.kg,0);
+    h += `<div class="mf-sum"><div class="mf-sec" style="margin-top:0">品種・精米歩合ごとの合計<span>1袋＝${BAG_KG}kg</span></div>`;
+    for(const k of Object.keys(by).sort()){ const [r,ra]=k.split('|');
+      h += `<div class="tl-row"><span style="color:var(--ink);font-size:14px"><b>${esc(r)}</b>${ratioBadge(Number(ra))}</span><b>${kgfmt(by[k])} kg　<span style="font-weight:400;color:var(--ink);font-size:13px">${bags(by[k])}</span></b></div>`; }
+    h += `<div class="tl-row" style="border-top:2px solid var(--navy);margin-top:4px"><span style="color:var(--navy);font-weight:700;font-size:14px">総米</span><b style="font-size:17px">${kgfmt(tot)} kg</b></div>`;
+    if(x.t!=null && Math.abs(x.t-tot)>0.05) h += `<div class="mf-warn">洗米予定表の総米（${kgfmt(x.t)}kg）と合計が合いません。造りexで確認してください。</div>`;
+    h += `</div>`;
+    app.innerHTML = h + mfgSrcInfo('senmai','造りex 洗米予定表');
+    bindDayNav(senmaiScreen);
+  };
+  mfgOpen(render);
+}
+function dayNav(day){
+  const t=dtoday();
+  const lbl = day===t?'今日':day===dadd(t,1)?'明日':day===dadd(t,-1)?'昨日':'';
+  return `<div class="mf-date">${djp(day)}${lbl?`<small>${lbl}</small>`:''}</div>
+    <div class="mf-nav"><button id="dPrev">‹ 前日</button><button id="dToday" ${day===t?'disabled':''}>今日</button><button id="dNext" class="main">翌日 ›</button></div>`;
+}
+function bindDayNav(fn){
+  const cur = fn===senmaiScreen?SEN_DAY:ZAI_DAY;
+  $('#dPrev').onclick=()=>fn(dadd(cur,-1));
+  $('#dNext').onclick=()=>fn(dadd(cur,1));
+  $('#dToday').onclick=()=>fn(dtoday());
+}
+
+/* ---------- 在庫管理（品種受払） ---------- */
+let ZAI_DAY = null;
+function zaikoScreen(day){
+  ZAI_DAY = day || dtoday();
+  const render=function zaiRender(){
+    app.dataset.mfg='zaiRender';
+    head('在庫管理','品種・精米歩合ごとの在庫');
+    const Z = MFG && MFG.zaiko;
+    let h = mfgErrView() + dayNav(ZAI_DAY);
+    if(!Z){ app.innerHTML = h + '<div class="card">品種受払のデータがまだ届いていません。</div>' + mfgSrcInfo('zaiko','造りex 仕込調整 品種受払'); bindDayNav(zaikoScreen); return; }
+    const keys = Object.keys(Z.days).sort();
+    const at = keys.filter(d=>d<=ZAI_DAY).pop();
+    const st = at ? Z.days[at].s : Z.vars.map(()=>0);
+    const today = Z.days[ZAI_DAY];
+    const inn = today ? today.i : Z.vars.map(()=>0), out = today ? today.o : Z.vars.map(()=>0);
+    // その先7日の払出予定
+    const fut = Z.vars.map(()=>0);
+    keys.filter(d=>d>ZAI_DAY && d<=dadd(ZAI_DAY,7)).forEach(d=>Z.days[d].o.forEach((v,i)=>fut[i]+=v));
+    h += `<div class="mf-sec">${djp(ZAI_DAY)} 終わりの在庫<span>1袋＝${BAG_KG}kg</span></div>
+      <div class="tl-scroll"><table class="tl-tbl" style="width:100%"><thead><tr><th>品種・歩合</th><th>在庫</th><th>袋</th><th>受入</th><th>払出</th><th>7日先まで払出</th></tr></thead><tbody>`;
+    let tS=0,tI=0,tO=0,tF=0;
+    Z.vars.forEach((v,i)=>{
+      const m=v.match(/^(.+?)(\d+)%$/); const lab = m?`<b>${esc(m[1])}</b>${ratioBadge(Number(m[2]))}`:esc(v);
+      const s=st[i]||0, dim = !s && !inn[i] && !out[i] && !fut[i];
+      tS+=s; tI+=inn[i]||0; tO+=out[i]||0; tF+=fut[i];
+      h += `<tr style="${dim?'opacity:.4':''}"><td style="white-space:nowrap">${lab}</td>
+        <td class="${s<0?'mf-neg':''}" style="font-weight:700">${kgfmt(s)}</td>
+        <td class="${s<0?'mf-neg':''}" style="white-space:nowrap;font-size:12px">${s?bags(s):'—'}</td>
+        <td>${inn[i]?kgfmt(inn[i]):''}</td><td>${out[i]?kgfmt(out[i]):''}</td><td style="color:var(--sub)">${fut[i]?kgfmt(fut[i]):''}</td></tr>`;
+    });
+    h += `<tr class="tot"><td>合計</td><td class="${tS<0?'mf-neg':''}">${kgfmt(tS)}</td><td></td><td>${tI?kgfmt(tI):''}</td><td>${tO?kgfmt(tO):''}</td><td>${tF?kgfmt(tF):''}</td></tr></tbody></table></div>
+      <p class="tl-note">単位はkg。在庫がマイナス（赤字）のものは、品種受払にまだ受入が入っていないか、払出が受入を上回っています。</p>`;
+    if(Z.first && ZAI_DAY<Z.first) h += `<div class="mf-warn">この日は品種受払の期間（${djp(Z.first,true)}〜）より前です。</div>`;
+    if(Z.last && ZAI_DAY>Z.last) h += `<div class="mf-warn">この日は品種受払の期間（〜${djp(Z.last,true)}）より後です。最終日の在庫を表示しています。</div>`;
+    app.innerHTML = h + mfgSrcInfo('zaiko','造りex 仕込調整 品種受払');
+    bindDayNav(zaikoScreen);
+  };
+  mfgOpen(render);
+}
+
+/* ---------- 製造カレンダー（出勤表／カレンダー） ---------- */
+function calendarScreen(tab){
+  const t = tab || 'kinmu';
+  if(t==='cal'){ calendarGoogle(); return; }
+  kinmuScreen();
+}
+function calTabs(on){
+  return `<div class="mf-tabs"><button data-t="kinmu" class="${on==='kinmu'?'on':''}">出勤表</button><button data-t="cal" class="${on==='cal'?'on':''}">カレンダー</button></div>`;
+}
+function bindCalTabs(){ app.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>calendarScreen(b.dataset.t)); }
+function calendarGoogle(){
+  app.dataset.mfg='cal';
+  head('製造カレンダー','生産本部製造担当・会社休日');
+  const mode=lsGet('tool.calmode','MONTH');
+  app.innerHTML=calTabs('cal')+`
+    <div class="tl-seg"><button data-m="MONTH" class="${mode==='MONTH'?'on':''}">月</button><button data-m="WEEK" class="${mode==='WEEK'?'on':''}">週</button><button data-m="AGENDA" class="${mode==='AGENDA'?'on':''}">予定の一覧</button></div>
+    <iframe class="cal-frame" src="${CAL_SRC}&mode=${mode}" loading="lazy" title="製造カレンダー"></iframe>
+    <p class="tl-note">青＝生産本部製造担当の予定／赤＝会社休日。予定の登録・変更は、これまでどおり部署共有のGoogleカレンダーで行います。</p>
+    <a class="tl-link" href="${CAL_SRC}&mode=${mode}" target="_blank" rel="noopener">Googleカレンダーの画面で開く ›</a>`;
+  bindCalTabs();
+  app.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ lsSet('tool.calmode',b.dataset.m); calendarGoogle(); });
+}
+
+let KN_YM = null, KN_SEL = null;
+function knMyStaff(staff){
+  const me = nrm(MFG&&MFG.me&&MFG.me.name || ST.name);
+  if(!me) return -1;
+  let i = staff.findIndex(s=>nrm(s)===me);
+  if(i<0) i = staff.findIndex(s=>{ const n=nrm(s); return n.startsWith(me)||me.startsWith(n); });
+  return i;
+}
+function knHead(s){
+  const t=String(s||'').trim(), m=t.split(/[\s\u3000]+/);
+  const [a,b] = m.length>1 ? [m[0], m.slice(1).join('')] : [t.slice(0,2), t.slice(2)];
+  return esc(a)+(b?'<br>'+esc(b):'');
+}
+function reqActive(r){ return r.status==='申請中'||r.status==='承認'; }
+function reqWant(r){ return r.status==='申請中'?'赤':r.status==='承認'?'黒':''; }
+function kinmuScreen(){
+  const render=function knRender(){
+    app.dataset.mfg='knRender';
+    head('製造カレンダー','出勤表・振休依頼');
+    const K = MFG && MFG.shukkin;
+    let h = calTabs('kinmu') + mfgErrView();
+    if(!K || !K.months || !Object.keys(K.months).length){
+      app.innerHTML = h + '<div class="card">出勤表のデータがまだ届いていません。</div>' + mfgSrcInfo('shukkin','出勤表'); bindCalTabs(); return;
+    }
+    const yms = Object.keys(K.months).sort();
+    const cur = dtoday().slice(0,7);
+    if(!KN_YM || !K.months[KN_YM]) KN_YM = K.months[cur] ? cur : yms.filter(y=>y<=cur).pop() || yms[yms.length-1];
+    const M = K.months[KN_YM], hol = new Set(K.holidays||[]);
+    const mine = knMyStaff(M.staff);
+    const reqs = (MFG.requests||[]);
+    const me = MFG.me||{};
+    // 承認待ち（管理者）
+    const pend = reqs.filter(r=>r.status==='申請中').sort((a,b)=>a.date<b.date?-1:1);
+    h += `<button class="btn p" id="bReq" style="background:#b21b1b;border-color:#b21b1b">✋ 振休依頼</button>`;
+    if(me.admin && pend.length){
+      h += `<div class="mf-sec">承認待ち<span>${pend.length}件</span></div>`;
+      for(const r of pend) h += reqRow(r, 'admin');
+    }
+    const my = reqs.filter(r=>r.applicantId===me.id && r.status!=='取消' && !(me.admin && r.status==='申請中')).sort((a,b)=>a.date<b.date?1:-1).slice(0,6);
+    if(my.length){
+      h += `<div class="mf-sec">自分の依頼<span>最近${my.length}件</span></div>`;
+      for(const r of my) h += reqRow(r, 'mine');
+    }
+    // 月の切り替え
+    const i = yms.indexOf(KN_YM);
+    const [yy,mm] = KN_YM.split('-').map(Number);
+    h += `<div class="mf-nav" style="margin-top:16px"><button id="mPrev" ${i<=0?'disabled':''}>‹ 前月</button>
+      <div class="mf-date" style="flex:1;margin:0">${yy}年${mm}月</div>
+      <button id="mNext" ${i>=yms.length-1?'disabled':''}>翌月 ›</button></div>`;
+    // 表
+    const byCell = {};
+    for(const r of reqs){ if(r.date.slice(0,7)===KN_YM) (byCell[r.date+'|'+nrm(r.staff)] = byCell[r.date+'|'+nrm(r.staff)]||[]).push(r); }
+    const td = dtoday();
+    h += `<div class="kn-wrap" id="knWrap"><table class="kn"><thead><tr><th class="dt">日</th>`;
+    M.staff.forEach((s,k)=>{ h += `<th class="nm ${k===mine?'me':''}">${knHead(s)}</th>`; });
+    h += `<th class="nt">備考</th></tr></thead><tbody>`;
+    for(const d of M.days){
+      const dd = dparse(d.d), isHol = hol.has(d.d);
+      h += `<tr data-d="${d.d}" class="${isHol?'hol':''} ${d.d===td?'today':''} ${d.d===KN_SEL?'sel':''}"><td class="dt">${dd.getDate()} <span style="font-weight:400">${WD[dd.getDay()]}</span></td>`;
+      M.staff.forEach((s,k)=>{
+        let v = d.c[k]||'', cls = d.r[k]?'red':'';
+        const rs = (byCell[d.d+'|'+nrm(s)]||[]);
+        const act = rs.find(reqActive);
+        if(act && act.excel!==reqWant(act)){ v = act.mark; cls = (act.status==='申請中'?'red ':'')+'pend'; }
+        else if(!act && rs.some(r=>(r.excel==='赤'||r.excel==='黒'))){ cls += ' gone'; }
+        h += `<td class="c ${k===mine?'me':''} ${v.length>2?'long':''}"><div><span class="${cls}">${esc(v)}</span></div></td>`;
+      });
+      h += `<td class="nt">${esc(d.n||'')}</td></tr>`;
+    }
+    h += `</tbody></table></div>
+      <p class="tl-note"><span style="color:#d11a1a;font-weight:700">赤×</span>＝振休の申請中／黒×＝承認済み。点線の枠は、まだ出勤表Excelに書き込まれていないもの（会社PCが数分以内に反映します）。行を押すとその日の詳しい内容が出ます。</p>
+      <div id="knDay"></div>`;
+    app.innerHTML = h + mfgSrcInfo('shukkin','出勤表Excel');
+    bindCalTabs();
+    $('#bReq').onclick=()=>go(()=>furikyuForm());
+    const mp=$('#mPrev'), mn=$('#mNext');
+    if(mp) mp.onclick=()=>{ KN_YM=yms[i-1]; KN_SEL=null; knRender(); };
+    if(mn) mn.onclick=()=>{ KN_YM=yms[i+1]; KN_SEL=null; knRender(); };
+    app.querySelectorAll('tr[data-d]').forEach(tr=>tr.onclick=()=>{ KN_SEL=tr.dataset.d; showDay(M, KN_SEL); app.querySelectorAll('tr.sel').forEach(x=>x.classList.remove('sel')); tr.classList.add('sel'); });
+    bindReqButtons(knRender);
+    if(KN_SEL) showDay(M, KN_SEL);
+  };
+  mfgOpen(render);
+}
+function showDay(M, d){
+  const x = M.days.find(z=>z.d===d); if(!x) return;
+  const reqs = (MFG.requests||[]).filter(r=>r.date===d && r.status!=='取消');
+  let h = `<div class="mf-day"><div style="font-weight:700;color:var(--navy);margin-bottom:6px">${djp(d)}</div><div class="g">`;
+  M.staff.forEach((s,k)=>{ if(x.c[k]) h += `<span class="muted">${esc(nrm(s))}</span><span class="${x.r[k]?'red':''}" style="${x.r[k]?'color:#d11a1a;font-weight:700':''}">${esc(x.c[k])}</span>`; });
+  if(x.j) h += `<span class="muted">上槽</span><span>${esc(x.j)}</span>`;
+  if(x.k) h += `<span class="muted">粕</span><span>${esc(x.k)}</span>`;
+  if(x.p) h += `<span class="muted">蔵人員</span><span>${esc(x.p)}人</span>`;
+  if(x.n) h += `<span class="muted">備考</span><span>${esc(x.n)}</span>`;
+  h += `</div>`;
+  if(reqs.length){ h += `<div style="margin-top:8px">`; reqs.forEach(r=>{ h += `<div class="muted">振休依頼：${esc(nrm(r.staff))}・${esc(r.kind)}（${esc(r.status)}）</div>`; }); h+='</div>'; }
+  h += `<button class="btn o" id="dayReq" style="margin-top:10px">この日で振休依頼</button></div>`;
+  $('#knDay').innerHTML = h;
+  $('#dayReq').onclick=()=>go(()=>furikyuForm(d));
+}
+function reqRow(r, mode){
+  const st = r.status==='申請中'?'p':r.status==='承認'?'a':'x';
+  let bt = '';
+  if(mode==='admin') bt = `<button class="ok" data-ok="${r.id}">承認</button><button data-ng="${r.id}">却下</button>`;
+  else if(r.status==='申請中') bt = `<button data-cx="${r.id}">取り消す</button>`;
+  const sync = reqActive(r) && r.excel!==reqWant(r) ? '<div class="muted" style="font-size:11px">出勤表へ反映待ち</div>' : '';
+  return `<div class="mf-req"><span class="st ${st}">${esc(r.status)}</span>
+    <div><b>${esc(nrm(r.staff))}</b>　${dshort(r.date)}　${esc(r.kind)}${r.memo?`<div class="muted" style="font-size:12px">${esc(r.memo)}</div>`:''}${mode==='admin'&&r.applicant&&nrm(r.applicant)!==nrm(r.staff)?`<div class="muted" style="font-size:11px">申請：${esc(r.applicant)}</div>`:''}${sync}</div>
+    <div class="bt">${bt}</div></div>`;
+}
+function bindReqButtons(rerender){
+  const act = async(body, btn)=>{
+    btn.disabled=true; btn.textContent='…';
+    try{
+      const j = await api(Object.assign({token:ST.token}, body));
+      if(j && j.ok){ if(j.requests){ MFG.requests=j.requests.map(x=>Object.assign({},x)); lsSet('mfg.cache',MFG); } }
+      else alert(mfgErrJP(j&&j.err));
+    }catch(e){ alert('通信できませんでした。電波の良い場所でもう一度お試しください。'); }
+    rerender();
+  };
+  app.querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>act({action:'mfg_decide', id:b.dataset.ok, ok:true}, b));
+  app.querySelectorAll('[data-ng]').forEach(b=>b.onclick=()=>{ if(confirm('この依頼を却下しますか？')) act({action:'mfg_decide', id:b.dataset.ng, ok:false}, b); });
+  app.querySelectorAll('[data-cx]').forEach(b=>b.onclick=()=>{ if(confirm('この依頼を取り消しますか？')) act({action:'mfg_cancel', id:b.dataset.cx}, b); });
+}
+function mfgErrJP(e){
+  return ({dup:'この日・この人の振休依頼はすでに出ています。', bad_kind:'区分を選んでください。', bad_date:'日付を選んでください。',
+    bad_staff:'対象者を選んでください。', cannot:'この依頼はもう変更できません。', not_yours:'自分の依頼だけ取り消せます。',
+    not_admin:'承認できるのは杜氏だけです。', bad_token:'ログインし直してください。', not_found:'依頼が見つかりませんでした。'}[e]) || ('うまくいきませんでした（'+(e||'原因不明')+'）');
+}
+
+/* ---------- 振休依頼の入力 ---------- */
+function furikyuForm(day){
+  head('振休依頼','出勤表に赤×で入ります');
+  const K = MFG && MFG.shukkin;
+  if(!K){ app.innerHTML = '<div class="card" style="margin-top:14px">出勤表のデータがまだ届いていないため、依頼できません。</div>'; return; }
+  const yms = Object.keys(K.months).sort();
+  const latest = K.months[dtoday().slice(0,7)] || K.months[yms[yms.length-1]];
+  const staffAll = [...new Set([...(latest?latest.staff:[]), ...yms.slice(-3).flatMap(y=>K.months[y].staff)])];
+  const mine = knMyStaff(staffAll);
+  const kinds = (MFG.kinds && MFG.kinds.length) ? MFG.kinds : ['1日','午前半休','午後半休','午前1/4休','午後1/4休'];
+  const marks = MFG.marks || {};
+  let sel = { staff: mine>=0?staffAll[mine]:'', date: day || dadd(dtoday(),1), kind: kinds[0], memo:'' };
+  const render=()=>{
+    const M = K.months[sel.date.slice(0,7)];
+    let curVal = '';
+    if(M){ const k=M.staff.findIndex(s=>nrm(s)===nrm(sel.staff)); const dd=M.days.find(z=>z.d===sel.date); if(k>=0&&dd) curVal=dd.c[k]||''; }
+    app.innerHTML = `<div class="mf-lbl">対象者</div>
+      <select class="mf-sel" id="fStaff"><option value="">選んでください</option>${staffAll.map(s=>`<option ${s===sel.staff?'selected':''}>${esc(s)}</option>`).join('')}</select>
+      <div class="mf-lbl">日付</div>
+      <input type="date" class="mf-sel" id="fDate" value="${sel.date}">
+      <div class="muted" style="margin-top:4px">${djp(sel.date,true)}${K.holidays&&K.holidays.includes(sel.date)?'　<b style="color:#c62828">会社休日</b>':''}</div>
+      <div class="mf-lbl">区分</div>
+      <div class="mf-kinds">${kinds.map(k=>`<button data-k="${esc(k)}" class="${k===sel.kind?'on':''}">${esc(k)}</button>`).join('')}</div>
+      <div class="muted" style="margin-top:6px">出勤表には <b style="color:#d11a1a">${esc(marks[sel.kind]||'×')}</b>（赤）で入り、承認されると黒に変わります。</div>
+      <div class="mf-lbl">メモ（任意）</div>
+      <input class="mf-sel" id="fMemo" maxlength="100" value="${esc(sel.memo)}" placeholder="例：○日の休日出勤の振替">
+      ${curVal?`<div class="mf-warn">この日の出勤表にはすでに「${esc(curVal)}」が入っています。依頼すると置き換わります（却下・取り消しで元に戻ります）。</div>`:''}
+      ${!M?`<div class="mf-warn">この月の出勤表シートがまだありません。シートができたら書き込まれます。</div>`:''}
+      <button class="btn p" id="fSend" style="margin-top:16px;background:#b21b1b;border-color:#b21b1b">依頼する</button>
+      <div id="fMsg" class="muted" style="text-align:center;margin-top:8px"></div>`;
+    $('#fStaff').onchange=e=>{ sel.staff=e.target.value; render(); };
+    $('#fDate').onchange=e=>{ if(e.target.value){ sel.date=e.target.value; render(); } };
+    $('#fMemo').oninput=e=>{ sel.memo=e.target.value; };
+    app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ sel.kind=b.dataset.k; render(); });
+    $('#fSend').onclick=async()=>{
+      if(!sel.staff){ $('#fMsg').textContent='対象者を選んでください。'; return; }
+      const b=$('#fSend'); b.disabled=true; b.textContent='送信しています…';
+      try{
+        const j = await api({action:'mfg_request', token:ST.token, staff:sel.staff, date:sel.date, kind:sel.kind, memo:sel.memo});
+        if(j && j.ok){
+          if(j.requests){ MFG.requests=j.requests; lsSet('mfg.cache',MFG); }
+          KN_YM = sel.date.slice(0,7); KN_SEL = sel.date;
+          app.innerHTML = `<div class="card" style="margin-top:16px;text-align:center"><div style="font-size:34px">✅</div>
+            <b>振休依頼を送りました</b><div class="muted" style="margin-top:6px">${esc(nrm(sel.staff))}　${djp(sel.date)}　${esc(sel.kind)}<br>出勤表に赤×で入ります。承認されると黒になります。</div></div>
+            <button class="btn p" id="fBack">出勤表にもどる</button>`;
+          $('#fBack').onclick=()=>{ nav.pop(); const f=nav[nav.length-1]; f?f():go(home); hBack.classList.toggle('hide',nav.length<=1); };
+        } else { b.disabled=false; b.textContent='依頼する'; $('#fMsg').textContent=mfgErrJP(j&&j.err); }
+      }catch(e){ b.disabled=false; b.textContent='依頼する'; $('#fMsg').textContent='通信できませんでした。電波の良い場所でもう一度お試しください。'; }
+    };
+  };
+  render();
 }
 
 </script>
