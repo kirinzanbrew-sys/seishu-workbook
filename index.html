@@ -953,7 +953,7 @@ function capacityPanel(k){
     ${noMsg}
     <div class="tl-grid">
       <label>容器番号</label><input class="tl-in key" inputmode="numeric" data-cap="${k}" data-f="no" value="${esc(st.no)}">
-      <label>検索寸法（空寸 mm）</label><input class="tl-in" inputmode="numeric" data-cap="${k}" data-f="mm" value="${esc(st.mm)}">
+      <label>検索寸法（mm）</label><input class="tl-in" inputmode="numeric" data-cap="${k}" data-f="mm" value="${esc(st.mm)}">
       <label>→ 容量</label><div class="tl-out">${vol!==null?fnum(Math.round(vol),0):'—'}<small>ℓ</small></div>
       <label>検索容量（ℓ）</label><input class="tl-in" inputmode="decimal" data-cap="${k}" data-f="L" value="${esc(st.L)}">
       <label>→ 寸法</label><div class="tl-out">${mmOut!==null?fnum(mmOut,0):'—'}<small>mm</small></div>
@@ -963,8 +963,8 @@ function capacityPanel(k){
     ${t?`<div style="margin-top:10px">
       <div class="tl-row"><span>全容量</span><b>${fnum(t.f,0)} ℓ</b></div>
       <div class="tl-row"><span>底板面（中心深での容量）</span><b>${fnum(t.bottom,0)} ℓ</b></div>
-      <div class="tl-row"><span>全深</span><b>${t.depthAll?fnum(t.depthAll,0)+' mm':'—'}</b></div>
-      <div class="tl-row"><span>中心深</span><b>${fnum(t.center,0)} mm</b></div></div>`:''}
+      <div class="tl-row"><span>中心深</span><b>${fnum(t.center,0)} mm</b></div>
+      ${t.cut?`<div class="tl-warn" style="margin-top:8px">この容器は早見表の ${fnum(t.cut,0)}mm より深い部分の数字が崩れているため、${fnum(t.cut,0)}mm までで計算します。</div>`:''}</div>`:''}
   </div>`;
 }
 async function capacityScreen(){
