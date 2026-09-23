@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="英語ボイス練習">
+<meta name="apple-mobile-web-app-title" content="Sake Tour Guide">
 <link rel="icon" href="data:,">
-<title>英語ボイス練習</title>
+<title>Sake Tour Guide</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 :root{
@@ -74,6 +74,16 @@ select,.btn{font:inherit;border:1px solid var(--line);background:var(--panel);co
 label.small{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
 input[type=range]{width:110px}
 .sr{position:absolute;left:-9999px}
+
+.backbtn{display:inline-block;padding:9px 14px;border:1px solid var(--line,#ddd);border-radius:10px;background:#fff;color:#1b2a41;
+  font-size:13.5px;text-decoration:none;font-weight:600;margin-bottom:10px}
+.backbtn:active{background:#1b2a41;color:#fff}
+.procs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;-webkit-overflow-scrolling:touch}
+.proc{flex:0 0 auto;padding:7px 11px;border:1px solid var(--line,#ddd);background:#fff;border-radius:999px;font-size:12.5px;
+  font-family:inherit;color:#1b2a41;cursor:pointer;white-space:nowrap}
+.proc.on{background:#1b2a41;color:#fff;border-color:#1b2a41;font-weight:700}
+.proc:disabled{opacity:.35}
+.proc small{opacity:.7;margin-left:3px}
 </style>
 </head>
 <body>
@@ -81,9 +91,8 @@ input[type=range]{width:110px}
 
 <div class="wrap">
   <div>
-    <a href="./" style="font-size:12.5px;color:var(--muted);text-decoration:none">← 清酒学習帳へ戻る</a>
-    <h1>英語ボイス練習</h1>
-    <p class="sub">蔵見学の英語台本 v2 から出題。「▶ 質問を聞く」→ マイクで答える → 採点。困ったら「日本語訳」「模範解答」。</p>
+    <a href="./" class="backbtn">← 製造ツールへ戻る</a>
+    <h1>Sake Tour Guide</h1>
   </div>
 
   <div class="tabs" role="tablist">
@@ -91,6 +100,8 @@ input[type=range]{width:110px}
     <button class="tab" data-m="say" role="tab">日本語→英語で言う</button>
     <button class="tab" data-m="shadow" role="tab">★を復唱する</button>
   </div>
+
+  <div class="procs" id="procs" role="tablist" aria-label="Process"></div>
 
   <div class="row">
     <select id="sec" aria-label="範囲"></select>
@@ -154,9 +165,58 @@ function items(mode){
 }
 let mode="qa", list=[], idx=0, cur=null, recognizing=false, finalTxt="";
 
+// ---- 工程でしぼる（Process）----
+const PROCS=[
+  {id:"", en:"All"},
+  {id:"wash",   en:"Washing"},
+  {id:"steam",  en:"Steaming"},
+  {id:"koji",   en:"Koji"},
+  {id:"shubo",  en:"Starter"},
+  {id:"moromi", en:"Fermentation"},
+  {id:"press",  en:"Pressing"},
+  {id:"filter", en:"Filtration"},
+  {id:"past",   en:"Pasteurization"},
+  {id:"store",  en:"Storage"}
+];
+let proc="";
+// 各問題がどの工程か（人の手で割り当て。qa=質問, say=言ってみる, st=聞いて繰り返す）
+const PROCMAP={
+  qa3:["wash"], qa4:["wash"], qa40:["wash","koji","press"],
+  qa6:["koji"], qa7:["koji"], qa8:["koji"], qa19:["koji"], qa20:["koji"], qa21:["koji"], qa22:["koji"], qa23:["koji"], qa46:["koji"],
+  qa9:["shubo"], qa10:["shubo"],
+  qa5:["moromi"], qa12:["moromi"], qa13:["moromi"], qa48:["moromi"],
+  qa14:["press"],
+  qa31:["store"], qa35:["store"],
+  say12:["wash"], say13:["wash"], say14:["steam"],
+  say15:["koji"], say16:["koji"],
+  say17:["shubo"], say18:["shubo"], say19:["shubo"],
+  say20:["moromi"], say21:["moromi","press"], say41:["moromi"],
+  say22:["filter"], say23:["store"], say24:["store"]
+};
+// 「聞いて繰り返す」は見出し（sec）でそのまま判定できる
+const SEC2PROC=[
+  [/洗米/, ["wash"]], [/浸漬と蒸し/, ["wash","steam"]], [/蒸し|蒸米/, ["steam"]],
+  [/麹室|麹/, ["koji"]], [/酒母|酛/, ["shubo"]], [/仕込み|醪/, ["moromi"]],
+  [/上槽|搾/, ["press"]], [/ろ過|濾過/, ["filter"]], [/火入/, ["past"]], [/貯蔵|熟成/, ["store"]]
+];
+function procsOf(d){
+  if(PROCMAP[d.id]) return PROCMAP[d.id];
+  const sec=d.sec||"";
+  for(const [re,v] of SEC2PROC) if(re.test(sec)) return v;
+  return [];
+}
+function inProc(d,p){ return !p || procsOf(d).indexOf(p)>=0; }
+
 const $=id=>document.getElementById(id);
 function build(){
-  const all=items(mode);
+  const all0=items(mode);
+  // 工程のボタン（件数つき。0件は押せない）
+  $("procs").innerHTML=PROCS.map(p=>{
+    const n=p.id?all0.filter(d=>inProc(d,p.id)).length:all0.length;
+    return `<button class="proc ${proc===p.id?"on":""}" data-p="${p.id}" ${(p.id&&!n)?"disabled":""}>${p.en}<small>${n}</small></button>`;
+  }).join("");
+  $("procs").querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{ proc=b.dataset.p; $("sec").value=""; build(); });
+  const all=all0.filter(d=>inProc(d,proc));
   const secs=[...new Set(all.map(d=>d.sec))];
   const sel=$("sec"); const keep=sel.value;
   sel.innerHTML='<option value="">すべて（'+all.length+'）</option>'+secs.map(s=>`<option value="${s}">${s}（${all.filter(d=>d.sec===s).length}）</option>`).join("");
@@ -165,7 +225,14 @@ function build(){
   const ord=$("order").value;
   if(ord==="rand") list.sort(()=>Math.random()-.5);
   if(ord==="weak") list.sort((a,b)=>(best(a)-best(b))||(a.id<b.id?-1:1));
-  idx=0; show();
+  idx=0;
+  if(!list.length){
+    $("eyeL").textContent=""; $("eyeR").textContent="0 / 0";
+    $("prompt").textContent="この工程の問題はまだありません。ほかの工程を選んでください。"; $("prompt").classList.remove("jp");
+    $("hint").hidden=true; $("result").hidden=true; $("status").textContent="";
+    stat(); return;
+  }
+  show();
 }
 function best(d){ return (store[d.id]&&store[d.id].best)||0; }
 function show(){
@@ -179,7 +246,7 @@ function show(){
   stat();
 }
 function stat(){
-  const all=items(mode); const done=all.filter(d=>best(d)>=70).length;
+  const all=items(mode).filter(d=>inProc(d,proc)); const done=all.filter(d=>best(d)>=70).length;
   $("stat").textContent=`このモード：70%以上 ${done} / ${all.length}　（採点は単語の一致率。数字と固有名詞が言えていれば合格）`;
 }
 
