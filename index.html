@@ -913,6 +913,8 @@ const TOOL_CSS = `
 .tl-scroll{overflow-x:auto;margin:0 -4px;padding:0 4px}
 .tl-mini{background:none;border:0;color:var(--sub);font-size:18px;padding:2px 6px;cursor:pointer}
 .tl-link{background:none;border:0;color:var(--navy);text-decoration:underline;font-size:13px;padding:6px 0;cursor:pointer;font-family:inherit}
+.tl-swap{background:#fff;border:1px solid var(--navy);color:var(--navy);border-radius:8px;font-size:13px;font-family:inherit;padding:6px 8px;cursor:pointer;text-align:center;white-space:nowrap}
+.tl-swap:active{background:var(--navy);color:#fff}
 .cal-frame{width:100%;height:72vh;min-height:460px;border:1px solid var(--line);border-radius:12px;background:#fff}
 @media(min-width:640px){.tl-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}}
 `;
@@ -985,18 +987,15 @@ function capacityPanel(k){
       <div class="tl-grid" style="grid-template-columns:auto 1fr">
         <label>容器番号</label><input class="tl-in key" inputmode="numeric" data-cap="${k}" data-f="no" value="${esc(st.no)}">
       </div>
-      <div class="tl-seg" style="margin:10px 0 8px">
-        <button data-capmode="${k}" data-m="mm" class="${st.mode==='mm'?'on':''}">寸法から引く</button>
-        <button data-capmode="${k}" data-m="L" class="${st.mode==='L'?'on':''}">容量から引く</button>
-      </div>
-      <div class="tl-grid">
+      <div class="tl-grid" style="margin-top:10px">
         ${st.mode==='mm' ? `
           <label>寸法（mm）</label><input class="tl-in key" inputmode="numeric" data-cap="${k}" data-f="mm" value="${esc(st.mm)}" placeholder="例：500">
-          <label>→ 容量</label><div class="tl-out" style="font-size:22px">${vol!==null?fnum(Math.round(vol),0):'—'}<small>ℓ</small></div>`
+          <button class="tl-swap" data-capmode="${k}" data-m="L">容量 ✎</button><div class="tl-out" style="font-size:22px">${vol!==null?fnum(Math.round(vol),0):'—'}<small>ℓ</small></div>`
         : `
-          <label>容量（ℓ）</label><input class="tl-in key" inputmode="decimal" data-cap="${k}" data-f="L" value="${esc(st.L)}" placeholder="例：5000">
-          <label>→ 寸法</label><div class="tl-out" style="font-size:22px">${mmTxt(mmOut)}</div>`}
+          <button class="tl-swap" data-capmode="${k}" data-m="mm">寸法 ✎</button><div class="tl-out" style="font-size:22px">${mmTxt(mmOut)}</div>
+          <label>容量（ℓ）</label><input class="tl-in key" inputmode="decimal" data-cap="${k}" data-f="L" value="${esc(st.L)}" placeholder="例：5000">`}
       </div>
+      <p class="tl-note" style="margin-top:4px">${st.mode==='mm'?'「容量 ✎」を押すと、容量から寸法を引けます。':'「寸法 ✎」を押すと、寸法から容量を引けます。'}</p>
       ${vol!==null?`<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px">
         <div class="tl-grid">
           <label>抽出量（ℓ）</label><input class="tl-in key" inputmode="decimal" data-cap="${k}" data-f="sub" value="${esc(st.sub)}" placeholder="例：1500">
