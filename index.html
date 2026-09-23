@@ -1198,7 +1198,7 @@ const MFG_CSS = `
 .lb-row .v{flex:1}
 .lb-src{font-size:12px;color:var(--sub);line-height:1.7;margin-top:2px}
 .lb-src a{color:var(--navy)}
-.kn-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#fff;-webkit-overflow-scrolling:touch}
+.kn-wrap{overflow:auto;max-height:min(62vh,520px);border:1px solid var(--line);border-radius:10px;background:#fff;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .kn{border-collapse:separate;border-spacing:0;font-size:11.5px;min-width:100%}
 .kn th,.kn td{border-bottom:1px solid #eee7d8;border-right:1px solid #f1ece1;padding:0 2px;height:28px;text-align:center;white-space:nowrap}
 .kn thead th{position:sticky;top:0;background:#f7f4ec;color:var(--navy);font-weight:700;z-index:2}
@@ -1213,6 +1213,27 @@ const MFG_CSS = `
 .kn tr.hol td.dt{color:#c62828}
 .kn tr.hol td{background:#fdf1f0}
 .kn tr.hol td.dt{background:#fdf1f0}
+.sn{border-collapse:separate;border-spacing:0;font-size:11px;min-width:100%}
+.sn th,.sn td{border-bottom:1px solid #eee7d8;border-right:1px solid #f1ece1;padding:2px 3px;text-align:center;vertical-align:top}
+.sn thead th{position:sticky;top:0;background:#f7f4ec;color:var(--navy);font-weight:700;z-index:2;
+  font-size:10.5px;line-height:1.25;white-space:nowrap;padding:4px 3px}
+.sn thead th.kj{background:#eef2e9}.sn thead th.kk{background:#f6efe2}
+.sn td.dt,.sn th.dt{position:sticky;left:0;background:#fff;z-index:1;text-align:left;padding:4px 5px;
+  min-width:44px;font-weight:700;color:var(--ink);white-space:nowrap;font-size:11.5px}
+.sn thead th.dt{z-index:3;background:#f7f4ec}
+.sn td.c{min-width:86px;max-width:86px}
+.sn .r2 .mf-prod{font-size:11px;padding:1px 4px;white-space:nowrap}
+.sn td.c.e{background:#fcfbf7}
+.sn .r1{font-size:11.5px;font-weight:700;color:var(--ink);white-space:nowrap}
+.sn .r2{margin-top:1px}
+.sn .r3{margin-top:1px;font-size:11px;white-space:nowrap;color:var(--ink)}
+.sn .r3 b{font-size:12px}
+.sn td.tt{background:#fff;min-width:58px;max-width:58px;font-weight:700;
+  color:var(--navy);font-size:12.5px;white-space:nowrap;vertical-align:middle}
+.sn tr.sel td{background:#fbf6e4}
+.sn tr.sel td.dt,.sn tr.sel td.tt{background:#fbf6e4}
+.sn tr.sun td.dt{color:#c62828}.sn tr.sat td.dt{color:#1f5fa8}
+.sn .mh td{background:#f2efe6;font-weight:700;color:var(--navy);text-align:left;padding:5px 6px;font-size:12px;position:sticky;left:0}
 .kn tr.today td{background:#fff7d6!important}
 .kn tr.sel td{outline:2px solid var(--navy);outline-offset:-2px}
 .kn .red{color:#d11a1a;font-weight:700}
@@ -1327,11 +1348,11 @@ function riceScreen(){
   app.innerHTML=`<div style="height:16px"></div>
     ${card('bSen','🚿','洗米チェック','その日の洗米数量（麹米・掛米）を30kg袋で')}
     ${card('bZai','📦','在庫管理','品種・精米歩合ごとのその日の在庫')}
-    ${card('bPdf','📄','洗米予定表','会社PCで作った予定表（PDF）をそのまま見る')}
+    ${card('bPdf','📄','洗米予定表','ひと月ぶんの予定表を表で見る（PDFも開けます）')}
     <p class="tl-note">造りexの洗米予定表・品種受払が更新されると、数分でここに反映されます。</p>`;
   $('#bSen').onclick=()=>go(()=>senmaiScreen());
   $('#bZai').onclick=()=>go(()=>zaikoScreen());
-  $('#bPdf').onclick=()=>go(()=>senmaiPdfScreen());
+  $('#bPdf').onclick=()=>go(()=>yoteiScreen());
   app.dataset.mfg='riceScreen';
   mfgRefresh();
 }
@@ -1563,6 +1584,108 @@ function libDetail(name){
   app.innerHTML = h;
 }
 
+/* ---------- 洗米予定表（表で見る） ---------- */
+const YO_TAB = {v:'tbl'};
+let YO_YM = null, YO_SEL = null;
+function yoteiTabs(on){
+  return `<div class="mf-tabs"><button data-yt="tbl" class="${on==='tbl'?'on':''}">表</button><button data-yt="pdf" class="${on==='pdf'?'on':''}">PDF</button></div>`;
+}
+function bindYoTabs(){ app.querySelectorAll('[data-yt]').forEach(b=>b.onclick=()=>{ YO_TAB.v=b.dataset.yt; yoteiScreen(); }); }
+function yoteiScreen(){
+  if(YO_TAB.v==='pdf'){ senmaiPdfScreen(); return; }
+  const render=function yoRender(){
+    app.dataset.mfg='yoRender';
+    head('洗米予定表','ひと月ぶんをまとめて見る');
+    const S = MFG && MFG.senmai;
+    let h = yoteiTabs('tbl') + mfgErrView();
+    if(!S || !S.days || !Object.keys(S.days).length){
+      app.innerHTML = h + `<div class="card">洗米予定表のデータがこの端末にまだありません。
+        <button class="btn p" style="margin-top:10px" onclick="mfgReload()">もう一度読み込む</button></div>`
+        + mfgSrcInfo('senmai','造りex 洗米予定表');
+      bindYoTabs(); return;
+    }
+    const all = Object.keys(S.days).sort();
+    const yms = [...new Set(all.map(d=>d.slice(0,7)))];
+    const cur = dtoday().slice(0,7);
+    if(!YO_YM || yms.indexOf(YO_YM)<0) YO_YM = yms.indexOf(cur)>=0 ? cur : (yms.filter(y=>y<=cur).pop() || yms[0]);
+    const i = yms.indexOf(YO_YM);
+    const days = all.filter(d=>d.slice(0,7)===YO_YM);
+    const [yy,mm] = YO_YM.split('-');
+    const monTot = days.reduce((a,d)=>a + (S.days[d].e||[]).reduce((b,e)=>b+Number(e[6]||0),0), 0);
+    h += `<div class="mf-nav" style="margin-bottom:8px">
+      <button id="yPrev" ${i>0?'':'disabled'}>‹ 前の月</button>
+      <button disabled style="flex:1.3;color:var(--navy);font-weight:700">${Number(yy)}年${Number(mm)}月</button>
+      <button id="yNext" class="main" ${i<yms.length-1?'':'disabled'}>次の月 ›</button></div>`;
+    h += `<div class="tl-row" style="margin:0 2px 8px"><span style="color:var(--sub);font-size:13px;white-space:nowrap">この月の洗米 ${days.length}日</span><b style="white-space:nowrap">総米 ${kgfmt(monTot)} kg</b></div>`;
+
+    const cols = S.cols;
+    h += `<div class="kn-wrap"><table class="sn"><thead><tr><th class="dt">日</th>`;
+    cols.forEach(c=>{ h += `<th class="${c[1]==='麹'?'kj':'kk'}">${c[1]==='麹'?'麹':'掛'}<br>${esc(c[0])}</th>`; });
+    h += `<th class="tt">総米</th></tr></thead><tbody>`;
+    for(const d of days){
+      const x = S.days[d], dd = dparse(d), w = dd.getDay();
+      const byCi = {}; (x.e||[]).forEach(e=>{ (byCi[e[0]] = byCi[e[0]] || []).push(e); });
+      const tot = (x.e||[]).reduce((a,e)=>a+Number(e[6]||0),0);
+      h += `<tr data-yd="${d}" class="${d===YO_SEL?'sel':''} ${w===0?'sun':''} ${w===6?'sat':''}">
+        <td class="dt">${dd.getDate()}<br><span style="font-weight:400;font-size:10px">${WD[w]}</span></td>`;
+      cols.forEach((c,ci)=>{
+        const list = byCi[ci];
+        if(!list){ h += `<td class="c e"></td>`; return; }
+        h += `<td class="c">` + list.map(e=>{
+          const [,rice,ratio,code,prod,no,kg0] = e; const kg = Number(kg0||0);
+          return `<div class="r1">${esc(rice)}${ratioBadge(ratio)}</div>
+            <div class="r2">${prodChip(prod)}</div>
+            <div class="r3">${code?esc(code)+' ':''}<b>${no}</b>（${kgfmt(kg)}）</div>`;
+        }).join('<div style="border-top:1px dotted #c9c2b2;margin:3px 0"></div>') + `</td>`;
+      });
+      h += `<td class="tt">${kgfmt(tot)}</td></tr>`;
+    }
+    h += `</tbody></table></div>
+      <p class="tl-note">液種の色・精米歩合の色は紙の予定表と同じです。カッコの中はkg。行を押すと、その日の洗米チェック（袋数つき）が下に出ます。横にスクロールすると掛米・総米まで見られます。</p>
+      <div id="yoDay"></div>`;
+    app.innerHTML = h + mfgSrcInfo('senmai','造りex 洗米予定表');
+    bindYoTabs();
+    const yp=$('#yPrev'), yn=$('#yNext');
+    if(yp) yp.onclick=()=>{ YO_YM=yms[i-1]; YO_SEL=null; yoRender(); };
+    if(yn) yn.onclick=()=>{ YO_YM=yms[i+1]; YO_SEL=null; yoRender(); };
+    app.querySelectorAll('tr[data-yd]').forEach(tr=>tr.onclick=()=>{
+      YO_SEL = tr.dataset.yd;
+      app.querySelectorAll('tr.sel').forEach(x=>x.classList.remove('sel'));
+      tr.classList.add('sel');
+      yoDay(YO_SEL);
+    });
+    if(YO_SEL) yoDay(YO_SEL);
+  };
+  mfgOpen(render);
+}
+/* 行を押したときに出す、その日のまとめ */
+function yoDay(d){
+  const box = $('#yoDay'); if(!box) return;
+  const S = MFG && MFG.senmai; const x = S && S.days[d]; if(!x) { box.innerHTML=''; return; }
+  const cols = S.cols;
+  const ents = (x.e||[]).map(e=>({ci:e[0], kubun:cols[e[0]][0], grp:cols[e[0]][1], rice:e[1], ratio:e[2], code:e[3], prod:e[4], no:e[5], kg:Number(e[6]||0)}))
+                        .sort((a,b)=>a.ci-b.ci || a.no-b.no);
+  const by = {}; ents.forEach(e=>{ const k=e.rice+'|'+e.ratio; by[k]=(by[k]||0)+e.kg; });
+  const tot = ents.reduce((a,e)=>a+e.kg,0);
+  let h = `<div class="mf-day"><div style="font-weight:700;color:var(--navy);margin-bottom:6px">${djp(d)}</div>`;
+  ['麹','掛'].forEach(g=>{
+    const list = ents.filter(e=>e.grp===g); if(!list.length) return;
+    h += `<div class="mf-sec" style="margin-top:6px">${g==='麹'?'麹米':'掛米'}<span>${kgfmt(list.reduce((a,e)=>a+e.kg,0))} kg</span></div>`;
+    list.forEach(e=>{
+      h += `<div class="tl-row"><span style="font-size:13px"><b>${esc(e.kubun)}</b>　${esc(e.rice)}${ratioBadge(e.ratio)} ${prodChip(e.prod)} <b>${e.no}</b></span>
+        <span style="white-space:nowrap"><b>${kgfmt(e.kg)}</b>kg　<span style="font-size:12px">${bags(e.kg)}</span></span></div>`;
+    });
+  });
+  h += `<div class="mf-sec" style="margin-top:8px">品種・精米歩合ごと<span>1袋＝${BAG_KG}kg</span></div>`;
+  Object.keys(by).sort().forEach(k=>{ const [r,ra]=k.split('|');
+    h += `<div class="tl-row"><span style="font-size:13px"><b>${esc(r)}</b>${ratioBadge(Number(ra))}</span><b>${kgfmt(by[k])} kg　<span style="font-weight:400;font-size:12px">${bags(by[k])}</span></b></div>`; });
+  h += `<div class="tl-row" style="border-top:2px solid var(--navy)"><span style="color:var(--navy);font-weight:700;font-size:14px">総米</span><b style="font-size:16px">${kgfmt(tot)} kg</b></div>`;
+  if(x.t!=null && Math.abs(x.t-tot)>0.05) h += `<div class="mf-warn">洗米予定表の総米（${kgfmt(x.t)}kg）と合計が合いません。</div>`;
+  h += `</div>`;
+  box.innerHTML = h;
+  box.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
 /* ---------- 洗米予定表（PDF） ---------- */
 let MFG_PDF = null;                 // { url, name, bytes }（この画面を開いている間だけ持つ）
 function b64ToBlob(b64, type){
@@ -1575,12 +1698,12 @@ function senmaiPdfScreen(){
     app.dataset.mfg='pdfRender';
     head('洗米予定表','会社PCで作った予定表をそのまま表示');
     const m = (MFG&&MFG.meta&&MFG.meta.senmaiPdf)||null;
-    let h = mfgErrView();
+    let h = yoteiTabs('pdf') + mfgErrView();
     if(!m || !m.file){
       h += `<div class="card">洗米予定表のPDFがまだ届いていません。<br>
         <span style="color:var(--sub);font-size:13px">会社PCの「造りex＼洗米予定表」フォルダにPDFを置くと、数分でここに届きます。</span>
         <button class="btn p" style="margin-top:10px" onclick="mfgReload()">もう一度読み込む</button></div>`;
-      app.innerHTML = h; return;
+      app.innerHTML = h; bindYoTabs(); return;
     }
     const kb = m.bytes ? Math.round(m.bytes/1024) : 0;
     h += `<div class="card">
@@ -1591,6 +1714,7 @@ function senmaiPdfScreen(){
         <p class="tl-note">通信で受け取るので、電波の良いところでどうぞ。一度開けば、この画面にいる間は再読み込みしません。</p>
       </div></div>`;
     app.innerHTML = h;
+    bindYoTabs();
     const box = $('#pdfBox');
     const showLinks = () => {
       box.innerHTML = `
