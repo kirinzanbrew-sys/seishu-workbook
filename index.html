@@ -483,6 +483,7 @@ function home(){
   let h=`<div style="height:16px"></div>
   ${card('bCal','📅','製造カレンダー','出勤表・振休依頼／部署の予定・会社休日')}
   ${card('bRice','🌾','米管理','洗米チェック・在庫管理')}
+  ${card('bLib','🧬','酵母・麹ライブラリ','全国の酵母・種麹から、造りたい酒に合うものを探す')}
   ${card('bCap','🛢','容量計算','容器番号と寸法から容量（ℓ）')}
   ${card('bFil','🧪','濾過計算','タンクを合わせたときの日本酒度・Alc・酸度・アミノ酸度')}
   ${card('bAlc','🍶','アル添計算','目標の日本酒度とアルコール添加量')}
@@ -503,6 +504,7 @@ function home(){
   app.innerHTML=h;
   $('#bQuiz').onclick=()=>go(quizHome);
   $('#bCal').onclick=()=>go(()=>calendarScreen());
+  $('#bLib').onclick=()=>go(()=>libScreen());
   $('#bRice').onclick=()=>go(riceScreen);
   $('#bCap').onclick=()=>go(capacityScreen);
   $('#bFil').onclick=()=>go(filterScreen);
@@ -1175,6 +1177,27 @@ const MFG_CSS = `
 .mf-tabs{display:flex;gap:6px;margin:12px 0 10px}
 .mf-tabs button{flex:1;padding:10px;border:1px solid var(--line);background:#fff;border-radius:10px;font-family:inherit;font-size:14px;color:var(--sub);cursor:pointer}
 .mf-tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700}
+.lb-grp{margin:14px 0 6px;font-size:13px;font-weight:700;color:var(--sub)}
+.lb-opts{display:flex;flex-wrap:wrap;gap:6px}
+.lb-opt{padding:8px 12px;border:1px solid var(--line);background:#fff;border-radius:999px;font-size:13px;
+  font-family:inherit;color:var(--ink);cursor:pointer}
+.lb-opt.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700}
+.lb-card{border:1px solid var(--line);border-radius:12px;background:#fff;padding:12px 13px;margin-bottom:8px;
+  text-align:left;width:100%;font-family:inherit;cursor:pointer;display:block}
+.lb-nm{font-size:16px;font-weight:700;color:var(--navy)}
+.lb-sub{font-size:12px;color:var(--sub);margin-top:2px}
+.lb-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
+.lb-tag{font-size:11.5px;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--ink)}
+.lb-hit{font-size:12px;font-weight:700;color:#1b7f3b}
+.lb-hit.few{color:var(--sub);font-weight:400}
+.lb-cf{font-size:11px;border-radius:5px;padding:1px 6px;color:#fff;display:inline-block}
+.lb-cf.c2{background:#1b7f3b}.lb-cf.c1{background:#6a7a8a}.lb-cf.c0{background:#b8570b}
+.lb-kura{font-size:11px;background:var(--gold);color:#fff;border-radius:5px;padding:1px 6px;display:inline-block}
+.lb-row{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #f0ece2;font-size:14px}
+.lb-row .k{width:6.5em;flex:0 0 auto;color:var(--sub);font-size:13px}
+.lb-row .v{flex:1}
+.lb-src{font-size:12px;color:var(--sub);line-height:1.7;margin-top:2px}
+.lb-src a{color:var(--navy)}
 .kn-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#fff;-webkit-overflow-scrolling:touch}
 .kn{border-collapse:separate;border-spacing:0;font-size:11.5px;min-width:100%}
 .kn th,.kn td{border-bottom:1px solid #eee7d8;border-right:1px solid #f1ece1;padding:0 2px;height:28px;text-align:center;white-space:nowrap}
@@ -1222,7 +1245,10 @@ const MFG_PROD_COLORS = { // 洗米予定表と同じ液種の色（背景／文
   'ながれぼし':['#dae7fc','#16428f'], '超辛':['#d9e6e5','#0f4a48']
 };
 const MFG_RATIO_COLORS = {65:'#333',60:'#1b7f3b',55:'#1f5fa8',50:'#6a3fa0',45:'#c62828',40:'#b8570b'};
-let MFG = lsGet('mfg.cache', null), MFG_ERR = '', MFG_LOADING = null;
+let MFG = lsGet('mfg.cache', null), MFG_ERR = '', MFG_LOADING = null, MFG_STALE = false;
+/* 製造ツールの返事かどうか（清酒学習帳の受信窓口が返す {ok:true,msg:…} を取り違えないため） */
+function mfgValid(j){ return !!(j && j.ok && (j.mfg || j.kinds || j.meta || j.shukkin || j.senmai || j.zaiko)); }
+if(MFG && !mfgValid(MFG)) { MFG=null; try{ localStorage.removeItem('mfg.cache'); }catch(e){} }
 
 function dstr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function dparse(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
@@ -1249,18 +1275,27 @@ function mfgRefresh(){
   if(MFG_LOADING) return MFG_LOADING;
   MFG_LOADING = (async()=>{
     try{
-      const j = await api({action:'mfg_get', token:ST.token});
-      if(j && j.ok){ MFG=j; MFG._at=Date.now(); MFG_ERR=''; lsSet('mfg.cache', MFG); }
+      const j = await apiT({action:'mfg_get', token:ST.token}, 20000);
+      if(mfgValid(j)){ MFG=j; MFG._at=Date.now(); MFG_ERR=''; MFG_STALE=false; lsSet('mfg.cache', MFG); }
+      else if(j && j.ok){ /* 学習帳の受信窓口が答えている＝製造ツールの処理が動いていない。前の内容は消さない */
+        MFG_ERR='サーバー側の製造ツール機能が動いていません（Apps Script を「新バージョン」でデプロイし直してください）。'; MFG_STALE=true; }
       else MFG_ERR = (j&&j.err==='bad_token') ? 'ログイン情報を確認できませんでした。いったんログアウトしてログインし直してください。'
                    : (j&&j.err&&j.err!=='server') ? 'サーバーの準備がまだ済んでいません（米管理・出勤表の設定手順を実施してください）。'
-                   : 'サーバーでエラーが起きました' + (j&&j.msg?'（'+j.msg+'）':'');
-    }catch(e){ MFG_ERR = '通信できませんでした。前回読み込んだ内容を表示しています。'; }
+                   : 'サーバーでエラーが起きました' + (j&&j.msg?'（'+j.msg+'）':''), MFG_STALE=true;
+    }catch(e){ MFG_ERR='通信できませんでした。'; MFG_STALE=true; }
     MFG_LOADING=null; return MFG;
   })();
   return MFG_LOADING;
 }
 function mfgLoadingView(t){ app.innerHTML=`<div class="card" style="margin-top:16px;text-align:center;color:var(--sub)">${t||'読み込んでいます…'}</div>`; }
-function mfgErrView(){ return MFG_ERR ? `<div class="mf-warn">${esc(MFG_ERR)}</div>` : ''; }
+function mfgErrView(){
+  let h='';
+  if(MFG_STALE && MFG && MFG._at)
+    h += `<div class="mf-warn">最新を取りに行けなかったので、<b>前回読み込んだ内容</b>を表示しています（${tjp(new Date(MFG._at).toISOString())} 時点）。<button class="btn" id="bMfgRe" style="margin-top:6px" onclick="mfgReload()">もう一度読み込む</button></div>`;
+  if(MFG_ERR) h += `<div class="mf-warn">${esc(MFG_ERR)}</div>`;
+  return h;
+}
+
 function mfgSrcInfo(k, label){
   const m = (MFG&&MFG.meta&&MFG.meta[k])||{};
   const pc = MFG&&MFG.meta&&MFG.meta.pcSeen;
@@ -1269,7 +1304,14 @@ function mfgSrcInfo(k, label){
     アプリへの反映：${tjp(m.at)}　／　会社PCの最終確認：${tjp(pc)}${stale?'<br><b style="color:var(--ng)">会社PCと30分以上つながっていません（PCの電源が切れている可能性）。表示は最後に届いた内容です。</b>':''}</p>`;
 }
 /* 画面を開いたら、まず手元の内容を出し、裏で最新を取り直して描き直す */
+let MFG_RERENDER = null;
+async function mfgReload(){
+  const b=$('#bMfgRe'); if(b){ b.disabled=true; b.textContent='読み込んでいます…'; }
+  await mfgRefresh();
+  if(MFG_RERENDER) MFG_RERENDER();
+}
 async function mfgOpen(render){
+  MFG_RERENDER = render;
   if(!MFG){ mfgLoadingView(); await mfgRefresh(); render(); return; }
   render();
   const before = MFG && MFG._at, myNav = nav[nav.length-1];
@@ -1285,11 +1327,297 @@ function riceScreen(){
   app.innerHTML=`<div style="height:16px"></div>
     ${card('bSen','🚿','洗米チェック','その日の洗米数量（麹米・掛米）を30kg袋で')}
     ${card('bZai','📦','在庫管理','品種・精米歩合ごとのその日の在庫')}
+    ${card('bPdf','📄','洗米予定表','会社PCで作った予定表（PDF）をそのまま見る')}
     <p class="tl-note">造りexの洗米予定表・品種受払が更新されると、数分でここに反映されます。</p>`;
   $('#bSen').onclick=()=>go(()=>senmaiScreen());
   $('#bZai').onclick=()=>go(()=>zaikoScreen());
+  $('#bPdf').onclick=()=>go(()=>senmaiPdfScreen());
   app.dataset.mfg='riceScreen';
   mfgRefresh();
+}
+
+/* ================= 酵母・麹ライブラリ =================
+   全国の酵母・種麹のデータ。毎朝のネット調査でサーバー側が増えていく。
+   端末に丸ごと持つので、一度読み込めば通信できないときも使える。 */
+let LIB = lsGet('lib.cache', null), LIB_ERR = '', LIB_LOADING = null;
+const LIB_TAB = {v:'ask'};                 // ask=提案 / find=さがす
+const LIB_SEL = {aroma:'', taste:[], kire:'', yoin:'', acid:'', power:'', foam:'', use:[], kind:'酵母', kura:''};
+const LIB_FIND = {q:'', group:'', kind:''};
+
+const LIB_Q = [
+  {k:'aroma', label:'香り',   opts:['カプロン酸エチル系','酢酸イソアミル系','バランス型','穏やか'], multi:false},
+  {k:'taste', label:'味',     opts:['甘み・ふくらみ','旨み・コク','酸が立つ','淡麗・軽快'],        multi:true },
+  {k:'kire',  label:'キレ',   opts:['キレが良い','標準','やわらか'],                               multi:false},
+  {k:'yoin',  label:'余韻',   opts:['長い','標準','短い・すっきり'],                               multi:false}
+];
+const LIB_Q2 = [
+  {k:'acid',  label:'酸',     opts:['高い','標準','少なめ'],           multi:false},
+  {k:'power', label:'発酵力', opts:['強い','標準','低温向き'],         multi:false},
+  {k:'foam',  label:'泡',     opts:['泡あり','泡なし'],                multi:false},
+  {k:'use',   label:'用途',   opts:['吟醸・出品','純米・純吟','普通酒・本醸造','ブレンド・特殊'], multi:true}
+];
+
+function libRefresh(){
+  if(LIB_LOADING) return LIB_LOADING;
+  LIB_LOADING = (async()=>{
+    try{
+      const j = await apiT({action:'mfg_lib', token:ST.token}, 60000);
+      if(j && j.ok && j.json){
+        try{ LIB = JSON.parse(j.json); LIB_ERR=''; lsSet('lib.cache', LIB); }
+        catch(e){ LIB_ERR='データを読めませんでした。'; }
+      }
+      else if(j && j.err==='no_lib') LIB_ERR='サーバーにライブラリがまだありません。';
+      else if(j && j.ok) LIB_ERR='サーバー側の製造ツール機能が動いていません（Apps Script のデプロイを確認してください）。';
+      else LIB_ERR='受け取れませんでした'+(j&&j.err?'（'+j.err+'）':'');
+    }catch(e){ LIB_ERR='通信できませんでした。'; }
+    LIB_LOADING=null; return LIB;
+  })();
+  return LIB_LOADING;
+}
+const libItems = ()=> (LIB && LIB.items) || [];
+function libCf(c){ return c==='複数出典'?'c2':c==='単一出典'?'c1':'c0'; }
+function libArr(v){ return Array.isArray(v)?v:(v?[v]:[]); }
+
+/* 選んだ条件との合い方。合えば+2、食い違えば-1、データが無ければ0 */
+function libScore(e){
+  let sc=0, hit=0, tot=0, miss=0;
+  const one=(sel, val)=>{ if(!sel) return; tot++; if(val==null||val===''){ miss++; return; }
+    if(val===sel){ sc+=2; hit++; } else sc-=1; };
+  const many=(sels, vals)=>{ if(!sels.length) return; tot+=sels.length;
+    const V=libArr(vals);
+    if(!V.length){ miss+=sels.length; return; }
+    sels.forEach(x=>{ if(V.indexOf(x)>=0){ sc+=2; hit++; } else sc-=1; }); };
+  one(LIB_SEL.aroma, e.aroma); many(LIB_SEL.taste, e.taste);
+  one(LIB_SEL.kire, e.kire);   one(LIB_SEL.yoin, e.yoin);
+  one(LIB_SEL.acid, e.acid);   one(LIB_SEL.power, e.power);
+  one(LIB_SEL.foam, e.foam);   many(LIB_SEL.use, e.use);
+  return {sc, hit, tot, miss};
+}
+function libAnyCond(){
+  return !!(LIB_SEL.aroma||LIB_SEL.kire||LIB_SEL.yoin||LIB_SEL.acid||LIB_SEL.power||LIB_SEL.foam
+            ||LIB_SEL.taste.length||LIB_SEL.use.length);
+}
+function libTags(e){
+  const t=[];
+  if(e.aroma) t.push(e.aroma);
+  libArr(e.taste).forEach(x=>t.push(x));
+  if(e.kire) t.push(e.kire); if(e.yoin) t.push('余韻'+e.yoin);
+  if(e.acid) t.push('酸'+e.acid); if(e.power) t.push('発酵力'+e.power);
+  if(e.foam) t.push(e.foam);
+  if(e.gluco) t.push('糖化力'+e.gluco); if(e.amylase) t.push('液化力'+e.amylase);
+  if(e.protease) t.push('タンパク分解'+e.protease); if(e.haze) t.push(e.haze);
+  libArr(e.use).forEach(x=>t.push(x));
+  return t.map(x=>`<span class="lb-tag">${esc(x)}</span>`).join('');
+}
+function libCard(e, r){
+  const hit = r ? `<div class="lb-hit ${r.hit?'':'few'}">条件に合う ${r.hit} / ${r.tot}${r.miss?`　<span style="color:var(--sub);font-weight:400">（${r.miss}項目はデータなし）</span>`:''}</div>` : '';
+  return `<button class="lb-card" data-lib="${esc(e.name)}">
+    <div class="lb-nm">${esc(e.name)}
+      <span class="lb-cf ${libCf(e.confidence)}">${esc(e.confidence)}</span>
+      ${e.kura?'<span class="lb-kura">自蔵で使用</span>':''}</div>
+    <div class="lb-sub">${esc(e.kind)}／${esc(e.group||'')}${e.supplier?'　'+esc(e.supplier):''}${e.pref?'　'+esc(e.pref):''}</div>
+    ${hit}
+    <div class="lb-tags">${libTags(e)}</div>
+  </button>`;
+}
+function libBind(){
+  app.querySelectorAll('[data-lib]').forEach(b=>b.onclick=()=>go(()=>libDetail(b.dataset.lib)));
+}
+
+function libScreen(){
+  const render=function libRender(){
+    app.dataset.mfg='libRender';
+    head('酵母・麹ライブラリ','造りたい酒から、合う酵母・種麹をさがす');
+    let h = '';
+    if(LIB_ERR) h += `<div class="mf-warn">${esc(LIB_ERR)}<button class="btn" style="margin-top:6px" onclick="libReload()">もう一度読み込む</button></div>`;
+    if(!libItems().length){
+      app.innerHTML = h + `<div class="card">ライブラリがこの端末にまだありません。
+        <button class="btn p" style="margin-top:10px" onclick="libReload()">読み込む</button></div>`;
+      return;
+    }
+    h += `<div class="mf-tabs"><button data-lt="ask" class="${LIB_TAB.v==='ask'?'on':''}">提案</button><button data-lt="find" class="${LIB_TAB.v==='find'?'on':''}">さがす</button></div>`;
+    h += (LIB_TAB.v==='ask') ? libAskBody() : libFindBody();
+    h += `<p class="mf-info">収録 ${libItems().length}件（酵母 ${LIB.counts&&LIB.counts['酵母']||0}／種麹 ${LIB.counts&&LIB.counts['種麹']||0}）・最終更新 ${esc(LIB.updated||'—')}<br>
+      毎朝の調査で少しずつ増えます。数値や特性は出典を見て確かめてから使ってください。</p>`;
+    app.innerHTML = h;
+    app.querySelectorAll('[data-lt]').forEach(b=>b.onclick=()=>{ LIB_TAB.v=b.dataset.lt; render(); });
+    app.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{
+      const k=b.dataset.q, v=b.dataset.v, q=[...LIB_Q,...LIB_Q2].find(x=>x.k===k);
+      if(q&&q.multi){ const a=LIB_SEL[k], i=a.indexOf(v); i<0?a.push(v):a.splice(i,1); }
+      else LIB_SEL[k] = (LIB_SEL[k]===v ? '' : v);
+      render();
+    });
+    const clr=$('#libClr'); if(clr) clr.onclick=()=>{
+      LIB_SEL.aroma=LIB_SEL.kire=LIB_SEL.yoin=LIB_SEL.acid=LIB_SEL.power=LIB_SEL.foam='';
+      LIB_SEL.taste=[]; LIB_SEL.use=[]; render();
+    };
+    const more=$('#libMore'); if(more) more.onclick=()=>{ LIB_SEL.more=!LIB_SEL.more; render(); };
+    const kb=app.querySelectorAll('[data-kind]'); kb.forEach(b=>b.onclick=()=>{ LIB_SEL.kind=b.dataset.kind; render(); });
+    const q=$('#libQ'); if(q){ q.oninput=()=>{ LIB_FIND.q=q.value; libFindList(); }; }
+    app.querySelectorAll('[data-fg]').forEach(b=>b.onclick=()=>{ LIB_FIND.group = LIB_FIND.group===b.dataset.fg?'':b.dataset.fg; render(); });
+    libBind();
+  };
+  mfgOpenLib(render);
+}
+async function mfgOpenLib(render){
+  LIB_RERENDER = render;
+  if(!libItems()){ mfgLoadingView('ライブラリを読み込んでいます…'); await libRefresh(); render(); return; }
+  render();
+  if(!LIB) { await libRefresh(); render(); }
+}
+let LIB_RERENDER = null;
+async function libReload(){
+  const b=event&&event.target; if(b){ b.disabled=true; b.textContent='読み込んでいます…'; }
+  await libRefresh();
+  if(LIB_RERENDER) LIB_RERENDER();
+}
+
+function libOptsHtml(q){
+  const cur = LIB_SEL[q.k];
+  return `<div class="lb-grp">${q.label}</div><div class="lb-opts">` + q.opts.map(o=>{
+    const on = q.multi ? (cur.indexOf(o)>=0) : (cur===o);
+    return `<button class="lb-opt ${on?'on':''}" data-q="${q.k}" data-v="${esc(o)}">${esc(o)}</button>`;
+  }).join('') + `</div>`;
+}
+function libAskBody(){
+  let h = `<div class="card">
+    <div style="font-size:14px;color:var(--sub)">造りたい酒のイメージを選んでください。選ぶほど候補がしぼれます。</div>`;
+  LIB_Q.forEach(q=>{ h += libOptsHtml(q); });
+  h += `<button class="btn" id="libMore" style="margin-top:12px;border:1px solid var(--line);background:#fff">${LIB_SEL.more?'▲ そのほかの条件を閉じる':'▼ そのほかの条件（酸・発酵力・泡・用途）'}</button>`;
+  if(LIB_SEL.more) LIB_Q2.forEach(q=>{ h += libOptsHtml(q); });
+  if(libAnyCond()) h += `<button class="btn" id="libClr" style="margin-top:8px;border:1px solid var(--line);background:#fff;color:var(--sub)">選び直す</button>`;
+  h += `</div>`;
+
+  if(!libAnyCond()) return h + `<div class="card" style="color:var(--sub)">条件を選ぶと、合う候補が出ます。</div>`;
+
+  const rank = kind => libItems().filter(e=>e.kind===kind)
+      .map(e=>({e, r:libScore(e)}))
+      .filter(x=>x.r.hit>0)
+      .sort((a,b)=> b.r.sc-a.r.sc || b.r.hit-a.r.hit || (a.r.miss-b.r.miss)
+        || (['複数出典','単一出典','暫定'].indexOf(a.e.confidence)-['複数出典','単一出典','暫定'].indexOf(b.e.confidence)));
+  const ys = rank('酵母').slice(0,8), ks = rank('種麹').slice(0,6);
+  h += `<div class="mf-sec">酵母の候補<span>${ys.length}件</span></div>`;
+  h += ys.length ? ys.map(x=>libCard(x.e,x.r)).join('') : '<div class="card" style="color:var(--sub)">この条件に合う酵母は見つかりませんでした。条件を減らしてみてください。</div>';
+  h += `<div class="mf-sec">種麹の候補<span>${ks.length}件</span></div>`;
+  h += ks.length ? ks.map(x=>libCard(x.e,x.r)).join('') : '<div class="card" style="color:var(--sub)">この条件に合う種麹は見つかりませんでした。種麹は「味」「用途」で選ぶと出やすいです。</div>';
+  return h;
+}
+
+function libFindBody(){
+  const groups = [...new Set(libItems().map(e=>e.group).filter(Boolean))];
+  let h = `<input class="tl-in" id="libQ" placeholder="名前で探す（K7、白夜、ハイ・G …）" value="${esc(LIB_FIND.q)}"
+    style="width:100%;padding:11px;font-size:16px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px">
+    <div class="lb-opts">` +
+    groups.map(g=>`<button class="lb-opt ${LIB_FIND.group===g?'on':''}" data-fg="${esc(g)}">${esc(g)}</button>`).join('') +
+    `</div><div id="libList"></div>`;
+  setTimeout(libFindList, 0);
+  return h;
+}
+function libFindList(){
+  const box = $('#libList'); if(!box) return;
+  const q = nrm(LIB_FIND.q).toLowerCase();
+  const hit = libItems().filter(e=>{
+    if(LIB_FIND.group && e.group!==LIB_FIND.group) return false;
+    if(!q) return true;
+    const s = [e.name, ...(e.aliases||[]), e.supplier, e.pref].filter(Boolean).join(' ');
+    return nrm(s).toLowerCase().indexOf(q)>=0;
+  });
+  box.innerHTML = `<div class="mf-sec">${hit.length}件</div>` +
+    (hit.length ? hit.slice(0,60).map(e=>libCard(e,null)).join('')
+                : '<div class="card" style="color:var(--sub)">見つかりませんでした。</div>') +
+    (hit.length>60 ? '<p class="mf-info">上位60件まで表示しています。名前や分類でしぼってください。</p>' : '');
+  libBind();
+}
+
+function libDetail(name){
+  const e = libItems().find(x=>x.name===name);
+  head(name, '酵母・麹ライブラリ');
+  if(!e){ app.innerHTML='<div class="card">見つかりませんでした。</div>'; return; }
+  const row=(k,v)=> v ? `<div class="lb-row"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>` : '';
+  const rowA=(k,v)=> (libArr(v).length) ? row(k, libArr(v).join('・')) : '';
+  let h = `<div class="card">
+    <div style="margin-bottom:8px">
+      <span class="lb-cf ${libCf(e.confidence)}">${esc(e.confidence)}</span>
+      ${e.kura?'<span class="lb-kura" style="margin-left:4px">自蔵で使用</span>':''}
+    </div>
+    ${row('種別', e.kind)}${row('分類', e.group)}${row('供給元', e.supplier)}${row('由来', e.pref)}
+    ${row('頒布', e.status)}${row('実用年', e.year)}${row('菌種', e.species)}
+    ${(e.aliases&&e.aliases.length)?row('別表記', e.aliases.join('・')):''}
+  </div>`;
+  h += `<div class="mf-sec">特性</div><div class="card">
+    ${row('香り', e.aroma)}${rowA('味', e.taste)}${row('キレ', e.kire)}${row('余韻', e.yoin)}
+    ${row('酸', e.acid)}${row('発酵力', e.power)}${row('泡', e.foam)}
+    ${row('液化力（α）', e.amylase)}${row('糖化力（グルコ）', e.gluco)}${row('タンパク分解', e.protease)}${row('破精', e.haze)}
+    ${rowA('用途', e.use)}${row('温度・経過', e.temp)}
+  </div>`;
+  if(e.note) h += `<div class="mf-sec">特徴</div><div class="card" style="line-height:1.8">${esc(e.note)}</div>`;
+  if(e.caution) h += `<div class="mf-sec">注意</div><div class="mf-warn" style="margin:0">${esc(e.caution)}</div>`;
+  if(e.kura) h += `<div class="mf-sec">自蔵での傾向</div><div class="card" style="line-height:1.8">${esc(e.kura)}</div>`;
+  h += `<div class="mf-sec">出典<span>${(e.sources||[]).length}件</span></div><div class="card">`;
+  h += (e.sources&&e.sources.length) ? e.sources.map(x=>{
+      const t = esc(x.title||x.url||'');
+      const link = (x.url&&/^https?:/.test(x.url)) ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${t}</a>` : t;
+      return `<div class="lb-src">・${link}${x.note?`<br><span style="color:var(--sub)">　${esc(x.note)}</span>`:''}</div>`;
+    }).join('') : '<div class="lb-src">出典が記録されていません。</div>';
+  h += `</div><p class="mf-info">更新 ${esc(e.updated||'—')}。数値や特性は出典で確かめてから使ってください。</p>`;
+  app.innerHTML = h;
+}
+
+/* ---------- 洗米予定表（PDF） ---------- */
+let MFG_PDF = null;                 // { url, name, bytes }（この画面を開いている間だけ持つ）
+function b64ToBlob(b64, type){
+  const bin = atob(b64), n = bin.length, a = new Uint8Array(n);
+  for(let i=0;i<n;i++) a[i] = bin.charCodeAt(i);
+  return new Blob([a], {type: type || 'application/pdf'});
+}
+function senmaiPdfScreen(){
+  const render=function pdfRender(){
+    app.dataset.mfg='pdfRender';
+    head('洗米予定表','会社PCで作った予定表をそのまま表示');
+    const m = (MFG&&MFG.meta&&MFG.meta.senmaiPdf)||null;
+    let h = mfgErrView();
+    if(!m || !m.file){
+      h += `<div class="card">洗米予定表のPDFがまだ届いていません。<br>
+        <span style="color:var(--sub);font-size:13px">会社PCの「造りex＼洗米予定表」フォルダにPDFを置くと、数分でここに届きます。</span>
+        <button class="btn p" style="margin-top:10px" onclick="mfgReload()">もう一度読み込む</button></div>`;
+      app.innerHTML = h; return;
+    }
+    const kb = m.bytes ? Math.round(m.bytes/1024) : 0;
+    h += `<div class="card">
+      <div style="font-size:17px;font-weight:700">${esc(m.file)}</div>
+      <div style="color:var(--sub);font-size:13px;margin-top:4px">作成 ${tjp(m.mtime)}${kb?`　/　${kb}KB`:''}</div>
+      <div id="pdfBox" style="margin-top:12px">
+        <button class="btn p" id="bPdfGo">洗米予定表</button>
+        <p class="tl-note">通信で受け取るので、電波の良いところでどうぞ。一度開けば、この画面にいる間は再読み込みしません。</p>
+      </div></div>`;
+    app.innerHTML = h;
+    const box = $('#pdfBox');
+    const showLinks = () => {
+      box.innerHTML = `
+        <a class="btn p" href="${MFG_PDF.url}" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">別の画面で開く</a>
+        <a class="btn" href="${MFG_PDF.url}" download="${esc(MFG_PDF.name)}" style="display:block;text-align:center;text-decoration:none;margin-top:8px;border:1px solid var(--line);background:var(--card,#fff);color:var(--navy)">端末に保存する</a>
+        <iframe src="${MFG_PDF.url}" style="width:100%;height:70vh;border:1px solid var(--line);border-radius:10px;margin-top:10px;background:#fff"></iframe>
+        <p class="tl-note">iPhoneでは下の枠に1ページ目だけ出ることがあります。全部見るときは「別の画面で開く」から。</p>`;
+    };
+    if(MFG_PDF){ showLinks(); return; }
+    $('#bPdfGo').onclick=async()=>{
+      const b=$('#bPdfGo'); b.disabled=true; b.textContent='受け取っています…';
+      try{
+        const j = await apiT({action:'mfg_pdf', token:ST.token, kind:'senmai'}, 60000);
+        if(j && j.ok && j.b64){
+          MFG_PDF = { url: URL.createObjectURL(b64ToBlob(j.b64)), name: m.file, bytes: m.bytes };
+          showLinks();
+        } else {
+          b.disabled=false; b.textContent='洗米予定表';
+          box.insertAdjacentHTML('beforeend', `<div class="mf-warn">${j&&j.err==='no_pdf'?'サーバーにPDFがまだ届いていません。':'受け取れませんでした。'}</div>`);
+        }
+      }catch(e){
+        b.disabled=false; b.textContent='洗米予定表';
+        box.insertAdjacentHTML('beforeend', '<div class="mf-warn">通信できませんでした。電波の良いところでもう一度お試しください。</div>');
+      }
+    };
+  };
+  mfgOpen(render);
 }
 
 /* ---------- 洗米チェック ---------- */
@@ -1302,7 +1630,7 @@ function senmaiScreen(day){
     const S = MFG && MFG.senmai;
     let h = mfgErrView();
     h += dayNav(SEN_DAY);
-    if(!S){ app.innerHTML = h + '<div class="card">洗米予定表のデータがまだ届いていません。</div>' + mfgSrcInfo('senmai','造りex 洗米予定表'); bindDayNav(senmaiScreen); return; }
+    if(!S){ app.innerHTML = h + '<div class="card">洗米予定表のデータがこの端末にまだありません。<button class="btn p" style="margin-top:10px" onclick="mfgReload()">もう一度読み込む</button></div>' + mfgSrcInfo('senmai','造りex 洗米予定表'); bindDayNav(senmaiScreen); return; }
     const x = S.days[SEN_DAY];
     if(!x){
       const next = Object.keys(S.days).sort().find(d=>d>SEN_DAY), prev = Object.keys(S.days).sort().reverse().find(d=>d<SEN_DAY);
@@ -1371,7 +1699,7 @@ function zaikoScreen(day){
     head('在庫管理','品種・精米歩合ごとの在庫');
     const Z = MFG && MFG.zaiko;
     let h = mfgErrView() + dayNav(ZAI_DAY);
-    if(!Z){ app.innerHTML = h + '<div class="card">品種受払のデータがまだ届いていません。</div>' + mfgSrcInfo('zaiko','造りex 仕込調整 品種受払'); bindDayNav(zaikoScreen); return; }
+    if(!Z){ app.innerHTML = h + '<div class="card">品種受払のデータがこの端末にまだありません。<button class="btn p" style="margin-top:10px" onclick="mfgReload()">もう一度読み込む</button></div>' + mfgSrcInfo('zaiko','造りex 仕込調整 品種受払'); bindDayNav(zaikoScreen); return; }
     const keys = Object.keys(Z.days).sort();
     const at = keys.filter(d=>d<=ZAI_DAY).pop();
     const st = at ? Z.days[at].s : Z.vars.map(()=>0);
@@ -1500,7 +1828,10 @@ function kinmuScreen(){
     const K = MFG && MFG.shukkin;
     let h = calTabs('kinmu') + mfgErrView();
     if(!K || !K.months || !Object.keys(K.months).length){
-      app.innerHTML = h + '<div class="card">出勤表のデータがまだ届いていません。</div>' + mfgSrcInfo('shukkin','出勤表'); bindCalTabs(); return;
+      app.innerHTML = h + `<div class="card">出勤表のデータがこの端末にまだありません。<br>
+        <span style="color:var(--sub);font-size:13px">一度でも表示できていれば、あとは通信できないときも最後の内容を表示します。</span>
+        <button class="btn p" style="margin-top:10px" onclick="mfgReload()">もう一度読み込む</button></div>`
+        + mfgSrcInfo('shukkin','出勤表'); bindCalTabs(); return;
     }
     const yms = Object.keys(K.months).sort();
     const cur = dtoday().slice(0,7);
