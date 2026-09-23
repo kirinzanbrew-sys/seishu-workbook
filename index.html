@@ -969,45 +969,57 @@ function mmAt(t,L){
   return (v.length-1)*2;
 }
 function capacityPanel(k){
-  const st=Object.assign({no:'',mm:'',L:'',sub:''}, lsGet('tool.cap'+k,{}));
+  const st=Object.assign({no:'',mode:'mm',mm:'',L:'',sub:''}, lsGet('tool.cap'+k,{}));
   const t=tankByNo(st.no);
+  const blocked = !!(t && (t.verify || t.blocked || !t.checked));   // 照合できていない容器は絶対に計算しない
   const mm=pnum(st.mm), L=pnum(st.L), sub=pnum(st.sub);
   let vol=null, mmOut=null;
-  const blocked = !!(t && (t.verify || t.blocked || !t.checked));   // 照合できていない容器は絶対に計算しない
-  if(t && !blocked && mm!==null) vol=volAt(t,mm);
-  if(t && !blocked && L!==null) mmOut=mmAt(t,L);
-  const useVol = vol!==null ? vol : (L!==null && t && !blocked ? L : null);   // 引き算のもとになる量
+  if(t && !blocked && st.mode==='mm' && mm!==null) vol=volAt(t,mm);
+  if(t && !blocked && st.mode==='L'  && L!==null){ mmOut=mmAt(t,L); vol=L; }
   let rest=null, restMM=null;
-  if(useVol!==null && sub!==null){ rest=useVol-sub; if(t && !blocked) restMM=mmAt(t,rest); }
+  if(vol!==null && sub!==null){ rest=vol-sub; if(t && !blocked) restMM=mmAt(t,rest); }
   const noMsg = st.no && !t ? `<div class="tl-warn">容器番号 ${esc(st.no)} は早見表にありません。</div>` : '';
-  return `<div class="card">
-    <div style="font-weight:700;color:var(--navy);margin-bottom:8px">第${k}選択</div>
-    ${noMsg}
-    <div class="tl-grid">
-      <label>容器番号</label><input class="tl-in key" inputmode="numeric" data-cap="${k}" data-f="no" value="${esc(st.no)}">
-      <label>検索寸法（mm）</label><input class="tl-in" inputmode="numeric" data-cap="${k}" data-f="mm" value="${esc(st.mm)}">
-      <label>→ 容量</label><div class="tl-out">${vol!==null?fnum(Math.round(vol),0):'—'}<small>ℓ</small></div>
-      <label>検索容量（ℓ）</label><input class="tl-in" inputmode="decimal" data-cap="${k}" data-f="L" value="${esc(st.L)}">
-      <label>→ 寸法</label><div class="tl-out">${mmOut!==null?fnum(mmOut,0):'—'}<small>mm</small></div>
-    </div>
-    ${useVol!==null?`<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px">
-      <div class="tl-grid">
-        <label>いまの量（ℓ）</label><div class="tl-out">${fnum(Math.round(useVol),0)}<small>ℓ</small></div>
-        <label>引く量（ℓ）</label><input class="tl-in key" inputmode="decimal" data-cap="${k}" data-f="sub" value="${esc(st.sub)}" placeholder="例：1500">
-        <label>→ 残り</label><div class="tl-out" style="font-size:21px">${rest!==null?fnum(Math.round(rest),0):'—'}<small>ℓ</small></div>
-        <label>→ 残りの寸法（尺）</label><div class="tl-out" style="font-size:21px">${restMM!==null?fnum(restMM,0):'—'}<small>mm</small></div>
+  const mmTxt = v => v===null ? '—' : '（'+fnum(v,0)+' mm）';
+  return `${noMsg}
+    <div class="card">
+      <div class="tl-grid" style="grid-template-columns:auto 1fr">
+        <label>容器番号</label><input class="tl-in key" inputmode="numeric" data-cap="${k}" data-f="no" value="${esc(st.no)}">
       </div>
-      ${rest!==null&&rest<0?`<div class="tl-warn" style="margin-top:8px">引く量が今の量より多いため、残りがマイナスになっています。</div>`:''}
-      ${rest!==null&&rest>=0&&restMM===null&&!blocked?`<div class="tl-warn" style="margin-top:8px">残りの量が早見表の範囲外（底板面以下、または全容量より多い）のため、寸法は出せません。</div>`:''}
-    </div>`:''}
-    ${t?`<div style="margin-top:10px">
-      <div class="tl-row"><span>全容量</span><b>${fnum(t.f,0)} ℓ</b></div>
-      <div class="tl-row"><span>底板面（中心深での容量）</span><b>${fnum(t.bottom,0)} ℓ</b></div>
-      <div class="tl-row"><span>中心深</span><b>${fnum(t.center,0)} mm</b></div>
+      <div class="tl-seg" style="margin:10px 0 8px">
+        <button data-capmode="${k}" data-m="mm" class="${st.mode==='mm'?'on':''}">寸法から引く</button>
+        <button data-capmode="${k}" data-m="L" class="${st.mode==='L'?'on':''}">容量から引く</button>
+      </div>
+      <div class="tl-grid">
+        ${st.mode==='mm' ? `
+          <label>寸法（mm）</label><input class="tl-in key" inputmode="numeric" data-cap="${k}" data-f="mm" value="${esc(st.mm)}" placeholder="例：500">
+          <label>→ 容量</label><div class="tl-out" style="font-size:22px">${vol!==null?fnum(Math.round(vol),0):'—'}<small>ℓ</small></div>`
+        : `
+          <label>容量（ℓ）</label><input class="tl-in key" inputmode="decimal" data-cap="${k}" data-f="L" value="${esc(st.L)}" placeholder="例：5000">
+          <label>→ 寸法</label><div class="tl-out" style="font-size:22px">${mmTxt(mmOut)}</div>`}
+      </div>
+      ${vol!==null?`<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px">
+        <div class="tl-grid">
+          <label>抽出量（ℓ）</label><input class="tl-in key" inputmode="decimal" data-cap="${k}" data-f="sub" value="${esc(st.sub)}" placeholder="例：1500">
+          <label>→ 残り</label><div class="tl-out" style="font-size:20px;white-space:nowrap">${rest!==null?`<span style="font-size:15px;color:var(--sub)">${mmTxt(restMM)}</span> ${fnum(Math.round(rest),0)}<small>ℓ</small>`:'—'}</div>
+        </div>
+        ${rest!==null&&rest<0?`<div class="tl-warn" style="margin-top:8px">抽出量が今の量より多いため、残りがマイナスになっています。</div>`:''}
+        ${rest!==null&&rest>=0&&restMM===null&&!blocked?`<div class="tl-warn" style="margin-top:8px">残りの量が早見表の範囲外（底板面以下、または全容量より多い）のため、寸法は出せません。</div>`:''}
       </div>`:''}
-    ${blocked?`<div class="tl-warn" style="margin-top:8px;background:#fdecec;border-color:#e0a0a0;color:#8a1c1c;font-weight:700">この容器は、早見表の数値の照合がまだ済んでいません。誤った数値を出さないため、アプリでは計算しません。必ず造りexの容量早見表で確認してください。${t.reason?`<div style="font-weight:400;margin-top:4px">理由：${esc(t.reason)}</div>`:''}</div>`:''}
-    ${t&&!blocked?`<div style="margin-top:8px;font-size:12px;color:#1d6b45">✓ 造りexの早見表（PDF・Excel書き出しの2つ）と全点照合済み</div>`:''}
-  </div>`;
+      ${t?`<div style="margin-top:10px">
+        <div class="tl-row"><span>全容量</span><b>${fnum(t.f,0)} ℓ</b></div>
+        <div class="tl-row"><span>底板面（いちばん深いところ）</span><b>${fnum(t.bottom,0)} ℓ</b></div>
+        </div>`:''}
+      ${blocked?`<div class="tl-warn" style="margin-top:8px;background:#fdecec;border-color:#e0a0a0;color:#8a1c1c;font-weight:700">この容器は、早見表の数値の照合がまだ済んでいません。誤った数値を出さないため、アプリでは計算しません。必ず造りexの容量早見表で確認してください。${t.reason?`<div style="font-weight:400;margin-top:4px">理由：${esc(t.reason)}</div>`:''}</div>`:''}
+      ${t&&!blocked?`<div style="margin-top:8px;font-size:12px;color:#1d6b45">✓ 造りexの早見表（PDF・Excel書き出しの2つ）と全点照合済み</div>`:''}
+    </div>`;
+}
+/* パネルで今わかっている量（ℓ）。合計に使う */
+function capVol(k){
+  const st=Object.assign({no:'',mode:'mm',mm:'',L:''}, lsGet('tool.cap'+k,{}));
+  const t=tankByNo(st.no);
+  if(!t || t.verify || t.blocked || !t.checked) return null;
+  if(st.mode==='mm'){ const m=pnum(st.mm); if(m===null) return null; const v=volAt(t,m); return v===null?null:Math.round(v); }
+  return pnum(st.L);
 }
 async function capacityScreen(){
   head('容量計算','タンク容量早見表（空積寸）');
@@ -1015,18 +1027,24 @@ async function capacityScreen(){
   await loadTanks();
   if(!TANKS){ app.innerHTML=`<div class="tl-warn" style="margin-top:14px">タンク容量早見表のデータがまだ入っていません。</div>`; return; }
   const draw=()=>{
-    const s1=lsGet('tool.cap1',{}), s2=lsGet('tool.cap2',{});
-    const t1=tankByNo(s1.no), t2=tankByNo(s2.no);
-    const v=(t,s)=>{ if(!t||t.verify||t.blocked||!t.checked)return null; const m=pnum(s.mm); if(m!==null){const x=volAt(t,m); return x===null?null:Math.round(x);} return pnum(s.L); };
-    const a=v(t1,s1), b=v(t2,s2);
-    app.innerHTML=`<div style="height:12px"></div><div class="tl-two">${capacityPanel(1)}${capacityPanel(2)}</div>
-      ${(a!==null&&b!==null)?`<div class="card"><div class="tl-row"><span>2本の合計</span><b class="tl-big">${fnum(a+b,0)} ℓ</b></div></div>`:''}
+    const sel=lsGet('tool.capsel',1);
+    const a=capVol(1), b=capVol(2);
+    app.innerHTML=`<div style="height:12px"></div>
+      <div class="mf-tabs">
+        <button data-cs="1" class="${sel===1?'on':''}">タンク①${a!==null?`<span style="font-size:11px;display:block">${fnum(a,0)} ℓ</span>`:''}</button>
+        <button data-cs="2" class="${sel===2?'on':''}">タンク②${b!==null?`<span style="font-size:11px;display:block">${fnum(b,0)} ℓ</span>`:''}</button>
+      </div>
+      ${capacityPanel(sel)}
+      ${(a!==null&&b!==null)?`<div class="card"><div class="tl-row"><span>タンク①＋②</span><b class="tl-big">${fnum(a+b,0)} ℓ</b></div></div>`:''}
       <p class="tl-note">空寸（上からの寸法）で引く早見表です。表は2mmごとで、間の寸法は前後の値から直線で補っています。${TANKS.version?`早見表：${esc(TANKS.version)}（${TANKS_INFO}）`:''}</p>
       <button class="tl-link" id="capClr">入力を消す</button>`;
+    app.querySelectorAll('[data-cs]').forEach(b=>b.onclick=()=>{ lsSet('tool.capsel',Number(b.dataset.cs)); draw(); });
+    app.querySelectorAll('[data-capmode]').forEach(b=>b.onclick=()=>{
+      const k=b.dataset.capmode, s=lsGet('tool.cap'+k,{});
+      s.mode=b.dataset.m; lsSet('tool.cap'+k,s); draw();
+    });
     app.querySelectorAll('[data-cap]').forEach(inp=>{
-      inp.addEventListener('change',()=>{ const k=inp.dataset.cap; const s=lsGet('tool.cap'+k,{}); s[inp.dataset.f]=inp.value;
-        if(inp.dataset.f==='mm'&&inp.value!=='') s.L=''; if(inp.dataset.f==='L'&&inp.value!=='') s.mm='';
-        lsSet('tool.cap'+k,s); draw(); });
+      inp.addEventListener('change',()=>{ const k=inp.dataset.cap; const s=lsGet('tool.cap'+k,{}); s[inp.dataset.f]=inp.value; lsSet('tool.cap'+k,s); draw(); });
     });
     $('#capClr').onclick=()=>{ lsSet('tool.cap1',{}); lsSet('tool.cap2',{}); draw(); };
   };
