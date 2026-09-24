@@ -1919,9 +1919,12 @@ function riceCalc(){
   const balAt = d => { const k = ds.filter(x=>x<d).pop(); return k ? bal[k] : base; };
 
   // 不足：洗米日ごとに、前日までの在庫で足りるか
+  // 引取予定が1件も無いときは判定しない（入ってくる米が分からないので、全部「不足」になってしまう）
+  const hasHiki = !!(H && H.days && Object.keys(H.days).length);
   const short = [], tight = [];
-  Object.keys(need).sort().forEach(d=>{
-    if(H && H.last && d > H.last) return;      // 引取予定がまだ無い期間は判定しない
+  if(hasHiki) Object.keys(need).sort().forEach(d=>{
+    if(H.last && d > H.last) return;           // 引取予定がまだ無い期間は判定しない
+    if(H.first && d < H.first) return;         // 引取予定より前の期間も判定しない
     const prev = balAt(d);
     Object.keys(need[d]).forEach(v=>{
       const k = idx[v];
@@ -1932,7 +1935,8 @@ function riceCalc(){
       else if(have - want < bag) tight.push({d, v, want, have, margin: have-want});
     });
   });
-  RICE = {vars, base, R, bal, ds, balAt, need, short, tight, coverTo: (H&&H.last)||null, from: (H&&H.first)||null, bag};
+  RICE = {vars, base, R, bal, ds, balAt, need, short, tight, hasHiki,
+          coverTo: (H&&H.last)||null, from: (H&&H.first)||null, bag};
   RICE_AT = MFG._at||0;
   return RICE;
 }
@@ -1949,6 +1953,7 @@ function zaiDiff(d){
 }
 function riceShortView(day){
   const R = riceCalc(); if(!R) return '';
+  if(!R.hasHiki) return '';   // 引取予定が無いうちは何も出さない
   const soon = R.short.filter(x=>x.d >= dtoday()).slice(0,6);
   if(!soon.length) return riceTightView();
   const near = soon.filter(x=>x.d <= dadd(dtoday(),3));
@@ -1962,7 +1967,7 @@ function riceShortView(day){
 }
 /* 足りてはいるが、余裕が1袋未満の日 */
 function riceTightView(){
-  const R = riceCalc(); if(!R || !R.tight) return '';
+  const R = riceCalc(); if(!R || !R.hasHiki || !R.tight) return '';
   const soon = R.tight.filter(x=>x.d >= dtoday()).slice(0,5);
   if(!soon.length) return '';
   let h = `<div class="mf-warn" style="border-width:2px"><b>余裕が少ない日があります（前日在庫 − 必要量 が1袋未満）</b>`;
@@ -1999,7 +2004,7 @@ function zaikoScreen(day){
       <div class="tl-scroll"><table class="tl-tbl" style="width:100%"><thead><tr><th>品種・歩合</th><th>在庫</th><th>見通し</th><th>袋（見通し）</th><th>受入</th><th>払出</th><th>7日先まで払出</th></tr></thead><tbody>`;
     let tS=0,tI=0,tO=0,tF=0,tM=0;
     const RC = riceCalc();
-    const mib = RC ? RC.balAt(dadd(ZAI_DAY,1)) : null;   // 引取予定を足した見通し（この日の終わり）
+    const mib = (RC && RC.hasHiki) ? RC.balAt(dadd(ZAI_DAY,1)) : null;   // 引取予定を足した見通し（この日の終わり）
     Z.vars.forEach((v,i)=>{
       const m=v.match(/^(.+?)(\d+)%$/); const lab = m?`<b>${esc(m[1])}</b>${ratioBadge(Number(m[2]))}`:esc(v);
       const s=st[i]||0, mi = mib ? (mib[i]||0) : null;
@@ -2013,7 +2018,7 @@ function zaikoScreen(day){
         <td>${inn[i]?kgfmt(inn[i]):''}</td><td>${out[i]?kgfmt(out[i]):''}</td><td style="color:var(--sub)">${fut[i]?kgfmt(fut[i]):''}</td></tr>`;
     });
     h += `<tr class="tot"><td>合計</td><td class="${tS<0?'mf-neg':''}">${kgfmt(tS)}</td><td class="${tM<0?'mf-neg':''}">${mib?kgfmt(tM):''}</td><td></td><td>${tI?kgfmt(tI):''}</td><td>${tO?kgfmt(tO):''}</td><td>${tF?kgfmt(tF):''}</td></tr></tbody></table></div>
-      <p class="tl-note">単位はkg。<b>在庫</b>＝品種受払の在庫欄そのまま。<b>見通し</b>＝引取予定を足し、払出を引いて計算した数（受入がまだ入力されていなくても正しく出ます）。
+      <p class="tl-note">単位はkg。<b>在庫</b>＝品種受払の在庫欄そのまま。<b>見通し</b>＝引取予定を足し、払出を引いて計算した数（受入がまだ入力されていなくても正しく出ます）。${mib?'':'<br>引取予定がまだ届いていないので、見通しは「—」になっています。'}
       ${dif&&dif.length?`<br><b style="color:#b02a26">※</b> は前日の在庫・受入・払出から計算した数と合わないところです。押すと内訳が出ます。`:''}</p>
       <div id="zdifBox"></div>`;
     if(Z.first && ZAI_DAY<Z.first) h += `<div class="mf-warn">この日は品種受払の期間（${djp(Z.first,true)}〜）より前です。</div>`;
