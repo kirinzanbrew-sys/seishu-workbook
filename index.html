@@ -58,6 +58,100 @@ h2{font-size:15px;margin:22px 0 10px;font-weight:600;color:var(--navy);
 .crs .go{color:var(--gold);font-size:18px}
 .crs[disabled]{opacity:.5;cursor:default}
 
+/* ===== ホーム：麒麟山の帯（写真があれば写真、無ければ絵） ===== */
+.kz{position:relative;margin:0 -14px 0;height:132px;overflow:hidden;background:linear-gradient(180deg,#1c3350,#3d6285)}
+.kz img{width:100%;height:100%;object-fit:cover;display:block}
+.kz svg{width:100%;height:100%;display:block}
+.kz .fade{position:absolute;left:0;right:0;bottom:0;height:46px;pointer-events:none;
+  background:linear-gradient(180deg,rgba(247,244,236,0),var(--paper))}
+.kz .cap{position:absolute;left:0;right:0;bottom:5px;text-align:center;font-size:10.5px;
+  color:var(--navy);z-index:2;letter-spacing:.01em}
+.kz .cap b{color:#7a5f22}
+.kz.photo .cap{color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.65)}
+.kz.photo .cap b{color:#f0dda8}
+.kz.photo .fade{height:58px;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.28) 45%,rgba(0,0,0,.58))}
+.kz .sig{position:absolute;top:8px;left:14px;z-index:2;color:#fff;font-size:11px;
+  letter-spacing:.14em;text-shadow:0 1px 4px rgba(0,0,0,.6);opacity:.9}
+.kz-hide{display:none!important}
+.kz-pride{text-align:center;font-size:11.5px;color:var(--sub);margin:12px 4px 0}
+.kz-pride b{color:var(--gold)}
+
+/* ===== ホーム：亀甲（六角形）ならべ ===== */
+/* 正六角形：高さ＝幅×1.1547。縦の重なりは「幅に対する％」で出す（marginの％は幅が基準）。
+   0.25 × 1.1547 ÷ 3.5 ＝ 0.0825 → 8.25% */
+.hx{--g:7px;--w:calc((100% - 2.5 * var(--g)) / 3.5);margin:6px 0 2px;user-select:none}
+.hx .row{display:flex;gap:var(--g)}
+.hx .row + .row{margin-top:calc(-8.25% + var(--g) * 0.21)}
+.hx .row.off{margin-left:calc((var(--w) + var(--g)) / 2)}
+.hxb{width:var(--w);aspect-ratio:1 / 1.1547;flex:0 0 auto;position:relative;
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  -webkit-clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  border:0;padding:0;margin:0;font-family:inherit;color:#26210f;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  text-decoration:none;overflow:hidden;transition:filter .12s,transform .12s;
+  filter:drop-shadow(0 2px 3px rgba(84,72,24,.22))}
+.hxb::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(152deg,rgba(255,255,255,.42),rgba(255,255,255,0) 56%)}
+.hxb:active{filter:drop-shadow(0 1px 2px rgba(84,72,24,.2)) brightness(1.06);transform:scale(.93)}
+.hxb{will-change:transform}
+/* 稲の模様（穂・籾・葉）。墨の線をうっすら */
+.hxb .tex{position:absolute;inset:0;z-index:0;pointer-events:none}
+
+/* ---- 出てくるときの動き（1つずつ順に） ---- */
+@keyframes hxIn{
+  0%  {opacity:0;transform:scale(.62) translateY(12px)}
+  62% {opacity:1;transform:scale(1.045) translateY(0)}
+  100%{opacity:1;transform:scale(1) translateY(0)}
+}
+.hx .hxb{animation:hxIn .46s cubic-bezier(.22,1.1,.36,1) both;
+  animation-delay:calc(var(--i,0) * 42ms)}
+.hx .hxw{animation:hxIn .46s cubic-bezier(.22,1.1,.36,1) both;
+  animation-delay:calc(var(--i,0) * 42ms)}
+.hx .hxw .hxb{animation:none}
+
+/* ---- 光が一度すっと流れる ---- */
+.hxb .sheen{position:absolute;top:0;left:0;width:55%;height:100%;z-index:2;pointer-events:none;
+  background:linear-gradient(105deg,rgba(255,255,255,0),rgba(255,255,255,.55),rgba(255,255,255,0));
+  transform:translateX(-160%) skewX(-12deg);
+  animation:hxSheen 1.15s ease-out both;
+  animation-delay:calc(var(--i,0) * 42ms + 300ms)}
+@keyframes hxSheen{0%{transform:translateX(-160%) skewX(-12deg)}100%{transform:translateX(330%) skewX(-12deg)}}
+
+/* ---- 赤い丸：ゆっくり脈打つ ---- */
+@keyframes hxPulse{
+  0%,72%,100%{transform:scale(1)}
+  80%{transform:scale(1.18)}
+  88%{transform:scale(1)}
+}
+.hxn{animation:hxPop .3s cubic-bezier(.2,1.4,.4,1) both calc(var(--i,0) * 42ms + 380ms),
+  hxPulse 3.2s ease-in-out 1.6s infinite;transform-origin:center}
+@keyframes hxPop{0%{opacity:0;transform:scale(0)}100%{opacity:1;transform:scale(1)}}
+
+/* ---- 「きょう」の行はあとから浮き上がる ---- */
+@keyframes hxUp{0%{opacity:0;transform:translateY(9px)}100%{opacity:1;transform:translateY(0)}}
+.hx-today span{animation:hxUp .42s ease-out both;animation-delay:calc(440ms + var(--i,0) * 70ms)}
+
+@media (prefers-reduced-motion:reduce){
+  .hx .hxb,.hx .hxw,.hxb .sheen,.hxn,.hx-today span{animation:none!important}
+  .hxb .sheen{display:none}
+}
+.hxb .e{font-size:clamp(20px,6.4vw,26px);line-height:1;position:relative;z-index:1}
+.hxb .lb{font-size:clamp(9.5px,2.9vw,11.5px);font-weight:700;line-height:1.25;text-align:center;
+  padding:0 7px;position:relative;z-index:1;letter-spacing:-.02em}
+.hxb .sm{display:block;font-weight:400;font-size:.86em;opacity:.7}
+.hxw{position:relative;flex:0 0 auto;width:var(--w);aspect-ratio:1 / 1.1547}
+.hxw .hxb{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto}
+.hxn{position:absolute;top:5%;right:2%;z-index:3;background:#d62b22;color:#fff;
+  font-size:11px;font-weight:700;min-width:21px;height:21px;border-radius:99px;
+  display:flex;align-items:center;justify-content:center;padding:0 6px;
+  border:2px solid var(--paper);pointer-events:none}
+.hx-today{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:16px 2px 2px}
+.hx-today span{font-size:12px;color:var(--sub);background:#fff;border:1px solid var(--line);
+  border-radius:99px;padding:3px 11px;white-space:nowrap}
+.hx-today b{color:var(--navy);font-size:12.5px}
+.hx-today span.w{border-color:#e6b9b6;background:#fdf3f2;color:#8a2c28}
+.hx-today span.w b{color:#b02a26}
+
 .ring{width:46px;height:46px;flex:0 0 46px;position:relative}
 .ring svg{transform:rotate(-90deg)}
 .ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -191,7 +285,7 @@ const KEY='sakeWB2';
 let MEM=null, CANSAVE=true;
 (function(){ try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); }
   catch(e){ CANSAVE=false; } })();
-function fresh(){return{stats:{},logs:[],name:'',id:'',token:'',q:[],data:null,dataVer:''}}
+function fresh(){return{stats:{},logs:[],name:'',id:'',token:'',q:[],data:null}}
 function load(){try{return Object.assign(fresh(),JSON.parse(localStorage.getItem(KEY))||{})}catch(e){return MEM||fresh()}}
 function save(){ MEM=ST; try{localStorage.setItem(KEY,JSON.stringify(ST))}catch(e){CANSAVE=false} }
 let ST=load();
@@ -221,15 +315,6 @@ const ERRJP={
 };
 const errJP=e=>ERRJP[e]||('うまくいきませんでした（'+(e||'原因不明')+'）');
 
-/* ログインを速くする：端末に同じ版のデータがあれば送ってもらわない／学習記録が端末にあれば復元用を読まない */
-function loginBody(b){
-  if(ST.data&&ST.data.questions&&ST.data.questions.length&&ST.dataVer) b.have=ST.dataVer;
-  if(Object.keys(ST.stats||{}).length) b.hasLocal=true;
-  return b;
-}
-/* ログイン画面を出した時点でサーバーを起こしておく（ID・パスワードを打っている間に準備が済む） */
-let WARMED=false;
-function warmServer(){ if(WARMED||!ONLINE_OK)return; WARMED=true; try{ fetch(API_URL,{method:'GET',mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(e){} }
 function newSid(){return 's'+Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
 
 /* 未送信の記録をためて、順に送る */
@@ -367,7 +452,6 @@ async function apiT(body, ms){
 }
 function loginScreen(msg){
   head('製造ツール','ログイン');
-  warmServer();
   hBack.classList.add('hide');
   app.innerHTML=`
     <div class="card" style="margin-top:16px">
@@ -387,7 +471,7 @@ function loginScreen(msg){
     const b=$('#lgo'); b.disabled=true; b.textContent='確認しています…';
     const stop=waitHint(b,'確認しています');
     try{
-      const j=await apiT(loginBody({action:'login',id:id,pw:pw}),40000);
+      const j=await apiT({action:'login',id:id,pw:pw},40000);
       stop();
       if(!j.ok){ $('#lmsg').textContent=errJP(j.err); b.disabled=false; b.textContent='ログイン'; $('#lp').select(); return }
       afterLogin(j);
@@ -447,8 +531,7 @@ function registerScreen(msg){
 /** ログイン成功後の共通処理 */
 function afterLogin(j){
   ST.token=j.token; ST.id=j.id; ST.name=j.name;
-  if(j.data&&j.data.questions&&j.data.questions.length){ ST.data=j.data; ST.dataVer=j.dataVer||''; }
-  else if(j.same&&j.dataVer){ ST.dataVer=j.dataVer; }
+  if(j.data&&j.data.questions&&j.data.questions.length){ ST.data=j.data; }
   save();
   applyData(ST.data);
   const r=j.restore;
@@ -483,50 +566,154 @@ function restoreScreen(name,d){
 }
 
 /* ========== ホーム ========== */
+/* ===== ホームの赤い丸と「今日」の行 =====
+   米管理・出勤表のデータ（MFG）は下の tools の中にあり、ここより後で読み込まれる。
+   まだ無くても落ちないように、いつも typeof で確かめてから使う。 */
+function homeMfg(){ try{ return (typeof MFG!=='undefined' && MFG) ? MFG : null; }catch(e){ return null; } }
+function homeDay(){ const d=new Date(); const p=n=>('0'+n).slice(-2);
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+/* その日に確認がすんでいない品種の数（品種受払に動きがある日だけ数える） */
+function homeRiceLeft(){
+  const M=homeMfg(); const Z=M&&M.zaiko; if(!Z||!Z.days) return 0;
+  const d=homeDay(); const x=Z.days[d]; if(!x) return 0;
+  const ks=Object.keys(Z.days).sort(); let at=null;
+  for(const k of ks) if(k<=d) at=k;
+  const st=at?Z.days[at].s:[];
+  const done={}; ((M.zvchecks)||[]).forEach(r=>{ if(r.date===d) done[r.v]=1; });
+  let n=0;
+  Z.vars.forEach((v,k)=>{ if(((st[k]||0)||(x.i[k]||0)||(x.o[k]||0)) && !done[v]) n++; });
+  return n;
+}
+function homeBadge(kind){
+  const M=homeMfg(); if(!M) return 0;
+  if(kind==='rice') return homeRiceLeft();
+  if(kind==='cal'){
+    const me=M.me||{}, rs=M.requests||[];
+    const p=rs.filter(r=>r.status==='申請中');
+    return me.admin ? p.length : p.filter(r=>r.applicantId===me.id).length;
+  }
+  return 0;
+}
+function homeToday(){
+  const M=homeMfg(); if(!M) return '';
+  const d=homeDay(); const out=[];
+  const S=M.senmai;
+  if(S&&S.days&&S.days[d]){
+    const e=S.days[d].e||[];
+    const kg=e.reduce((a,x)=>a+Number(x[6]||0),0);
+    out.push(`<span>きょうの洗米 <b>${e.length}件・${Math.round(kg).toLocaleString('ja-JP')}kg</b></span>`);
+  }
+  const left=homeRiceLeft();
+  if(left) out.push(`<span class="w">在庫チェック 残り <b>${left}品種</b></span>`);
+  const cal=homeBadge('cal');
+  if(cal) out.push(`<span>振休の承認待ち <b>${cal}件</b></span>`);
+  if(!out.length) return '';
+  return `<div class="hx-today">${out.map((x,i)=>x.replace('<span','<span style="--i:'+i+'"')).join('')}</div>`;
+}
+
+/* ===== 六角形の中の稲の模様 =====
+   ho＝実った穂の粒、momi＝籾のすじ、ha＝葉脈。墨の細い線をうっすら重ねる。 */
+function hexTex(kind){
+  const o = a => `stroke="#3d3413" stroke-opacity="${a}" fill="none" stroke-linecap="round"`;
+  let g = '';
+  if(kind==='ho'){
+    for(let c=0;c<3;c++){ const bx=26+c*24;
+      for(let i=0;i<7;i++){ const y=14+i*12, dx=(i%2?4:-4);
+        g += `<ellipse cx="${bx+dx}" cy="${y}" rx="4.6" ry="7" ${o(.17)} stroke-width="1.4" transform="rotate(${dx>0?14:-14} ${bx+dx} ${y})"/>`; } }
+  } else if(kind==='momi'){
+    for(let i=-4;i<=4;i++){ const x=50+i*9;
+      g += `<path d="M${x},6 C${x+i*1.6},34 ${x+i*1.6},66 ${x},94" ${o(.16)} stroke-width="1.6"/>`; }
+  } else if(kind==='ha'){
+    g = `<path d="M50,4 C50,35 50,68 50,96" ${o(.22)} stroke-width="2"/>`;
+    for(let i=0;i<7;i++){ const y=14+i*11.5;
+      g += `<path d="M50,${y} C36,${y+3} 26,${y+9} 20,${y+17}" ${o(.15)} stroke-width="1.5"/>`;
+      g += `<path d="M50,${y} C64,${y+3} 74,${y+9} 80,${y+17}" ${o(.15)} stroke-width="1.5"/>`; }
+  } else return '';
+  return `<svg class="tex" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${g}</svg>`;
+}
+
+/* ===== 麒麟山の帯 =====
+   同じフォルダに kirinzan.jpg があればその写真を、無ければ描いた稜線を出す。
+   写真は 1200×500 くらいの横長。写真が無くても画面は崩れない。 */
+const KZ_PHOTO = 'kirinzan.jpg';
+function kirinzanBand(){
+  return `<div class="kz" id="kzBand">
+    <img id="kzImg" class="kz-hide" src="${KZ_PHOTO}?v=1" alt="麒麟山と常浪川">
+    <svg id="kzSvg" viewBox="0 0 390 132" preserveAspectRatio="none" aria-hidden="true">
+      <defs><linearGradient id="kzSky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#1c3350"/><stop offset="1" stop-color="#4e7396"/></linearGradient></defs>
+      <rect width="390" height="132" fill="url(#kzSky)"/>
+      <path d="M0,132 L0,74 L38,58 L74,70 L112,50 L150,64 L188,46 L228,60 L268,44 L308,58 L346,50 L390,64 L390,132 Z" fill="#33526f" opacity=".75"/>
+      <path d="M96,132 L104,58 L116,28 L126,20 L140,24 L150,40 L156,62 L162,132 Z" fill="#2f4a38"/>
+      <path d="M150,132 L156,62 L168,48 L182,54 L190,74 L196,132 Z" fill="#3a5a43"/>
+      <g stroke="#243b2c" stroke-width="1.1" opacity=".5">
+        <line x1="112" y1="40" x2="115" y2="128"/><line x1="122" y1="28" x2="126" y2="128"/>
+        <line x1="132" y1="24" x2="136" y2="128"/><line x1="142" y1="32" x2="146" y2="128"/>
+        <line x1="152" y1="58" x2="155" y2="128"/><line x1="170" y1="56" x2="173" y2="128"/>
+        <line x1="180" y1="60" x2="183" y2="128"/></g>
+      <path d="M0,132 L0,96 L34,86 L68,95 L96,86 L120,93 L160,85 L196,94 L232,82 L270,93 L306,84 L344,94 L390,85 L390,132 Z" fill="#2c4a32"/>
+      <path d="M0,132 L0,116 C44,110 88,122 132,115 C176,108 220,120 264,113 C308,106 350,118 390,111 L390,132 Z" fill="#5a93bb" opacity=".95"/>
+    </svg>
+    <div class="fade"></div>
+    <div class="cap">名峰 <b>麒麟山</b>（海抜195m）と <b>常浪川</b>　／　2010年から ブナと杉 <b>5,000本</b></div>
+  </div>`;
+}
+function kirinzanBind(){
+  const img=$('#kzImg'), svg=$('#kzSvg'), band=$('#kzBand');
+  if(!img||!band) return;
+  img.onload =()=>{ img.classList.remove('kz-hide'); if(svg) svg.classList.add('kz-hide'); band.classList.add('photo'); };
+  img.onerror=()=>{ img.classList.add('kz-hide'); if(svg) svg.classList.remove('kz-hide'); band.classList.remove('photo'); };
+  if(img.complete && img.naturalWidth) img.onload();
+}
+
 function home(){
   if(!ST.token){nav=[];loginScreen();return}
   if(!QUESTIONS.length){nav=[];loginScreen('問題データを読み込めませんでした。もう一度ログインしてください。');return}
   flush();
   head('製造ツール','麒麟山酒造');
   const all=QUESTIONS, done=all.filter(q=>lvl(q.id)>0).length;
-  const icon=t=>`<div style="width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto">${t}</div>`;
-  const card=(id,ic,nm,ds)=>`<button class="crs" id="${id}">${icon(ic)}<div style="flex:1"><div class="nm">${nm}</div><div class="ds">${ds}</div></div><div class="go">›</div></button>`;
-  let h=`<div style="height:16px"></div>
-  ${card('bCal','📅','製造カレンダー','出勤表・振休依頼／部署の予定・会社休日')}
-  ${card('bRice','🌾','米管理','洗米チェック・在庫管理')}
-  ${card('bKoji','🍚','麹','今日の出麹・盛・引込み・洗米の記録と配置図')}
-  ${card('bBun','🧪','分析','醪・酒母の分析値を入れると BMD・推奨追水・警告が出る')}
-  ${card('bShk','🍶','仕込み','仕込カルテ（吸水・麹・酒母・醪・上槽粕・原酒評価）')}
-  ${card('bWash','🫧','タンク洗浄管理','醪タンクの洗浄期限と、洗浄・仕上げ・チェックの記録')}
-  ${card('bCalc','🧮','各種計算ツール','容量計算・濾過計算・アル添計算')}
-  ${card('bLib','🧬','酵母・麹情報','全国の酵母・種麹から、造りたい酒に合うものを探す')}
-  ${card('bMan','📘','マニュアル','ジャンルごとの作業手順（製造部のマニュアル）')}
-  <a class="crs" href="seishu-jiten.html" style="text-decoration:none;color:inherit;box-sizing:border-box">
-    ${icon('📖')}
-    <div style="flex:1"><div class="nm">逆引き検索</div>
-    <div class="ds">資材・酵母・炭・製品から引く</div></div>
-    <div class="go">›</div></a>
-  <button class="crs" id="bQuiz">
-    ${ring(mastery(all))}
-    <div style="flex:1"><div class="nm">問題集</div>
-    <div class="ds">進級試験・酒造技能士・研修講習会／${done} / ${all.length} 問に着手</div></div>
-    <div class="go">›</div></button>`;
-  h+=`<a class="btn o" href="voice.html" style="text-align:center;text-decoration:none;box-sizing:border-box;margin-top:6px">🎙 Sake Tour Guide</a>`;
+  // 稲そのものの色。上が実った穂の黄金、下へいくほど葉の青田。模様も 穂 → 籾 → 葉。
+  const hexes = [
+    {id:'bCal',  e:'📅', lb:'製造<br>カレンダー', c:['#eed469','#d8bd4b'], t:'ho',   n:homeBadge('cal')},
+    {id:'bRice', e:'🌾', lb:'米管理',             c:['#f4de7b','#dfc75c'], t:'ho',   n:homeBadge('rice')},
+    {id:'bLib',  e:'🧬', lb:'酵母・麹',           c:['#e5c85a','#cfb141'], t:'ho'},
+    {id:'bCap',  e:'🛢', lb:'容量計算',           c:['#c5da68','#abc351'], t:'momi'},
+    {id:'bFil',  e:'🧪', lb:'濾過計算',           c:['#cbe075','#b1c95c'], t:'momi'},
+    {id:'bAlc',  e:'🍶', lb:'アル添計算',         c:['#b8cd54','#9eb440'], t:'momi'},
+    {href:'seishu-jiten.html', e:'📖', lb:'逆引き検索', c:['#95c97a','#7bb15f'], t:'ha'},
+    {id:'bQuiz', e:'✅', lb:`問題集<span class="sm">${mastery(all)}%</span>`, c:['#9fd286','#85ba6b'], t:'ha'},
+    {href:'voice.html', e:'🎙', lb:'Sake Tour<br>Guide', c:['#8abd6c','#70a453'], t:'ha'}
+  ];
+  const hex = (x,i) => {
+    const inner = `${hexTex(x.t)}<span class="sheen"></span><span class="e">${x.e}</span><span class="lb">${x.lb}</span>`;
+    const st = `--i:${i};background:linear-gradient(150deg,${x.c[0]},${x.c[1]})`;
+    const b = x.href
+      ? `<a class="hxb" href="${x.href}" style="${st}">${inner}</a>`
+      : `<button class="hxb" id="${x.id}" style="${st}">${inner}</button>`;
+    return x.n ? `<span class="hxw" style="--i:${i}">${b}<span class="hxn">${x.n}</span></span>` : b;
+  };
+  let h=`${kirinzanBand()}
+  <div style="height:12px"></div>
+  <div class="hx">
+    <div class="row">${hexes.slice(0,3).map((x,i)=>hex(x,i)).join('')}</div>
+    <div class="row off">${hexes.slice(3,6).map((x,i)=>hex(x,i+3)).join('')}</div>
+    <div class="row">${hexes.slice(6,9).map((x,i)=>hex(x,i+6)).join('')}</div>
+  </div>
+  ${homeToday()}
+  <p class="kz-pride">水は山から、米は里から。<b>やっぱり、いつもの。</b></p>`;
   if(ONLINE_OK&&ST.q.length){h+=`<div class="muted" style="text-align:center;margin-top:4px">未送信の記録が${ST.q.length}件あります（電波が入ると自動で送られます）</div>`}
   if(!CANSAVE){h+=`<div id="boot" style="margin-top:14px"><b>ご注意：この開き方では進捗が保存されません。</b><br>
     Safari や Chrome で開き直してください。</div>`}
   app.innerHTML=h;
+  kirinzanBind();
   $('#bQuiz').onclick=()=>go(quizHome);
+  void done;
   $('#bCal').onclick=()=>go(()=>calendarScreen());
   $('#bLib').onclick=()=>go(()=>libScreen());
   $('#bRice').onclick=()=>go(riceScreen);
-  $('#bKoji').onclick=()=>go(()=>kojiScreen());
-  $('#bBun').onclick=()=>go(()=>bunsekiScreen());
-  $('#bShk').onclick=()=>go(()=>shikomiScreen());
-  $('#bWash').onclick=()=>go(washScreen);
-  $('#bCalc').onclick=()=>go(calcHome);
-  $('#bMan').onclick=()=>go(manualScreen);
-  setTimeout(()=>{ if(typeof wsPrefetch==='function') wsPrefetch(); }, 1500);
+  $('#bCap').onclick=()=>go(capacityScreen);
+  $('#bFil').onclick=()=>go(filterScreen);
+  $('#bAlc').onclick=()=>go(alcScreen);
 }
 
 /* ========== 問題集（習熟度・コース・復習） ========== */
@@ -872,7 +1059,7 @@ window.onerror=function(m,s,l,c){
     else if(ST.token){ 
       head('製造ツール','読み込んでいます…');
       app.innerHTML='<div class="card" style="margin-top:16px;text-align:center" class="muted">問題を読み込んでいます…</div>';
-      const j=await api(loginBody({action:'login',token:ST.token}));
+      const j=await api({action:'login',token:ST.token});
       if(j.ok) afterLogin(j); else logout(j.err==='bad_token');
     }
     else { nav=[]; loginScreen(); }
@@ -886,10 +1073,10 @@ window.onerror=function(m,s,l,c){
 async function refreshData(){
   if(!ONLINE_OK||!ST.token)return;
   try{
-    const j=await api(loginBody({action:'login',token:ST.token}));
+    const j=await api({action:'login',token:ST.token});
     if(j&&j.ok&&j.data&&j.data.questions&&j.data.questions.length){
       const before=QUESTIONS.length;
-      ST.token=j.token||ST.token; ST.data=j.data; ST.dataVer=j.dataVer||''; save(); applyData(ST.data);
+      ST.token=j.token||ST.token; ST.data=j.data; save(); applyData(ST.data);
       if(QUESTIONS.length!==before && nav.length<=1) go(home,false);
     }else if(j&&j.err==='bad_token'){ logout(true) }
   }catch(e){}
@@ -1289,6 +1476,21 @@ const MFG_CSS = `
 .sn tr.sun td.dt{color:#c62828}.sn tr.sat td.dt{color:#1f5fa8}
 .sn .mh td{background:#f2efe6;font-weight:700;color:var(--navy);text-align:left;padding:5px 6px;font-size:12px;position:sticky;left:0}
 .kn-wrap.tall{max-height:min(80vh,900px)}
+.zt td.zvc,.zt th:last-child{width:54px;min-width:54px;padding:2px 3px;
+  position:sticky;right:0;background:#fff;border-left:1px solid var(--line);z-index:1}
+.zt thead th:last-child{z-index:2;background:#f4f1e9}
+.zt tr.tot td:last-child{background:#f4f1e9}
+.zvb{width:48px;border-radius:7px;border:1px solid var(--line);background:#fff;font-family:inherit;
+  font-size:11px;font-weight:700;line-height:1.15;padding:4px 0;color:var(--sub)}
+.zvb.ok{border-color:#2e7d5b;color:#2e7d5b}
+.zvb.keep{border-color:#b8570b;color:#b8570b}
+.zvb.done{background:#e8f2ec;border-color:#2e7d5b;color:#1d6b45;font-size:15px}
+.zvb.done.keep{background:#fdf1e3;border-color:#b8570b;color:#8a4408;font-size:11px}
+.zvl{border-radius:5px;padding:1px 5px;font-size:12px}
+.zvl.ok{border:1px solid #2e7d5b;color:#2e7d5b}
+.zvl.keep{border:1px solid #b8570b;color:#b8570b}
+.mf-kinds.ekinds{display:flex;flex-wrap:wrap;gap:6px}
+.mf-kinds.ekinds button{flex:0 0 auto;min-width:62px;padding:6px 10px;font-size:13px}
 .kn tr.today td{background:#fff7d6!important}
 .kn tr.sel td{outline:2px solid var(--navy);outline-offset:-2px}
 .kn .red{color:#d11a1a;font-weight:700}
@@ -1509,7 +1711,7 @@ function libBind(){
 function libScreen(){
   const render=function libRender(){
     app.dataset.mfg='libRender';
-    head('酵母・麹情報','造りたい酒から、合う酵母・種麹をさがす');
+    head('酵母・麹ライブラリ','造りたい酒から、合う酵母・種麹をさがす');
     let h = '';
     if(LIB_ERR) h += `<div class="mf-warn">${esc(LIB_ERR)}<button class="btn" style="margin-top:6px" onclick="libReload()">もう一度読み込む</button></div>`;
     if(!libItems().length){
@@ -1613,7 +1815,7 @@ function libFindList(){
 
 function libDetail(name){
   const e = libItems().find(x=>x.name===name);
-  head(name, '酵母・麹情報');
+  head(name, '酵母・麹ライブラリ');
   if(!e){ app.innerHTML='<div class="card">見つかりませんでした。</div>'; return; }
   const row=(k,v)=> v ? `<div class="lb-row"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>` : '';
   const rowA=(k,v)=> (libArr(v).length) ? row(k, libArr(v).join('・')) : '';
@@ -2041,6 +2243,34 @@ function zaiDiff(d){
     return {v, s:(x.s[k]||0), calc, inn:(x.i[k]||0), out:(x.o[k]||0), prev:(prev[k]||0), diff:(x.s[k]||0)-calc};
   }).filter(r=>Math.abs(r.diff) > 0.05);
 }
+/* 品種ごとに「いつからずれているか」。品種受払の全日を古い順にたどり、
+   いちばん新しい“合っていた日”のあとから、ずっとずれ続けているかを見る。 */
+let ZSINCE=null, ZSINCE_AT=0;
+function zaiSince(){
+  const Z = MFG && MFG.zaiko; if(!Z || !Z.days) return null;
+  if(ZSINCE && ZSINCE_AT===(MFG._at||0)) return ZSINCE;
+  const ks = Object.keys(Z.days).sort();
+  const out = {};
+  Z.vars.forEach((v,k)=>{
+    let from=null, lastOk=null, run=0, latest=null, cur=0;
+    for(let i=1;i<ks.length;i++){
+      const prev=Z.days[ks[i-1]].s, x=Z.days[ks[i]];
+      const calc=(prev[k]||0)+(x.i[k]||0)-(x.o[k]||0);
+      const d=(x.s[k]||0)-calc;
+      if(Math.abs(d)<=0.05){ lastOk=ks[i]; from=null; run=0; }
+      else { if(from===null) from=ks[i]; run++; latest=ks[i]; cur=d; }
+    }
+    out[v] = from ? {from, lastOk, days:run, last:latest, diff:cur} : null;
+  });
+  ZSINCE = out; ZSINCE_AT = MFG._at||0;
+  return out;
+}
+/* その日の品種ごとのチェック記録（誰のでも、新しいものを採用） */
+function zvOf(date){
+  const m = {};
+  ((MFG&&MFG.zvchecks)||[]).forEach(r=>{ if(r.date!==date) return; const o=m[r.v]; if(!o || o.at<r.at) m[r.v]=r; });
+  return m;
+}
 function riceShortView(day){
   const R = riceCalc(); if(!R) return '';
   if(!R.hasHiki) return '';   // 引取予定が無いうちは何も出さない
@@ -2090,8 +2320,11 @@ function zaikoScreen(day){
     h += riceShortView(ZAI_DAY);
     const dif = zaiDiff(ZAI_DAY), difMap = {};
     if(dif) dif.forEach(r=>difMap[r.v]=r);
-    h += `<div class="mf-sec">${djp(ZAI_DAY)} 終わりの在庫<span>1袋＝${BAG_KG}kg</span></div>
-      <div class="tl-scroll"><table class="tl-tbl" style="width:100%"><thead><tr><th>品種・歩合</th><th>在庫</th><th>袋</th><th>受入</th><th>払出</th><th>7日先まで払出</th></tr></thead><tbody>`;
+    const zv = zvOf(ZAI_DAY);
+    const live = Z.vars.filter((v,i)=>((at?Z.days[at].s[i]:0)||0)||(today?today.i[i]||today.o[i]:0));
+    const doneN = live.filter(v=>zv[v]).length;
+    h += `<div class="mf-sec">${djp(ZAI_DAY)} 終わりの在庫<span>確認 ${doneN}/${live.length} 品種</span></div>
+      <div class="tl-scroll"><table class="tl-tbl zt" style="width:100%"><thead><tr><th>品種・歩合</th><th>在庫</th><th>袋</th><th>受入</th><th>払出</th><th>7日先</th><th>確認</th></tr></thead><tbody>`;
     let tS=0,tI=0,tO=0,tF=0,tM=0;
     const RC = riceCalc();
     const mib = (RC && RC.hasHiki) ? RC.balAt(dadd(ZAI_DAY,1)) : null;   // 引取予定を足した見通し（この日の終わり）
@@ -2103,13 +2336,20 @@ function zaikoScreen(day){
       tS+=s; tI+=inn[i]||0; tO+=out[i]||0; tF+=fut[i]; tM+=raw;
       const dq = difMap[v];
       const gap = (mi!==null && Math.abs(mi-raw)>0.05);
+      const zr = zv[v];
+      let btn;
+      if(zr) btn = `<button class="zvb done ${zr.mode==='現状維持'?'keep':''}" data-zvx="${esc(zr.id)}" title="${esc(nrm(zr.by))} ${tjp(zr.at)}">${zr.mode==='現状維持'?'現状<br>維持':'✓'}</button>`;
+      else if(dq) btn = `<button class="zvb keep" data-zvk="${esc(v)}">現状<br>維持</button>`;
+      else btn = `<button class="zvb ok" data-zvc="${esc(v)}">確認</button>`;
+      if(dim) btn = '';
       h += `<tr style="${dim?'opacity:.4':''}"><td style="white-space:nowrap">${lab}</td>
         <td class="${s<0?'mf-neg':''}" style="font-weight:700">${kgfmt(s)}${dq?`<span class="zx" data-zdif="${esc(v)}">※</span>`:''}
           ${gap?`<div style="font-size:10.5px;font-weight:400;color:var(--sub);white-space:nowrap">受払欄 ${kgfmt(raw)}</div>`:''}</td>
         <td class="${s<0?'mf-neg':''}" style="white-space:nowrap;font-size:12px">${s?bags(s):'—'}</td>
-        <td>${inn[i]?kgfmt(inn[i]):''}</td><td>${out[i]?kgfmt(out[i]):''}</td><td style="color:var(--sub)">${fut[i]?kgfmt(fut[i]):''}</td></tr>`;
+        <td>${inn[i]?kgfmt(inn[i]):''}</td><td>${out[i]?kgfmt(out[i]):''}</td><td style="color:var(--sub)">${fut[i]?kgfmt(fut[i]):''}</td>
+        <td class="zvc">${btn}</td></tr>`;
     });
-    h += `<tr class="tot"><td>合計</td><td class="${tS<0?'mf-neg':''}">${kgfmt(tS)}</td><td></td><td>${tI?kgfmt(tI):''}</td><td>${tO?kgfmt(tO):''}</td><td>${tF?kgfmt(tF):''}</td></tr></tbody></table></div>
+    h += `<tr class="tot"><td>合計</td><td class="${tS<0?'mf-neg':''}">${kgfmt(tS)}</td><td></td><td>${tI?kgfmt(tI):''}</td><td>${tO?kgfmt(tO):''}</td><td>${tF?kgfmt(tF):''}</td><td></td></tr></tbody></table></div>
       <p class="tl-note">単位はkg。${mib?`<b>在庫</b>は<b>引取予定を入れて計算した数</b>です（受入が品種受払にまだ入力されていなくても正しく出ます）。<br>
         小さい「受払欄」は、造りexの品種受払にいま入っている在庫の値です。受入を入力していない分だけマイナスになります。`
         :'いまの数は品種受払の在庫欄そのままです。引取予定が届くと、それを入れて計算した数に変わります。'}
@@ -2117,21 +2357,26 @@ function zaikoScreen(day){
       <div id="zdifBox"></div>`;
     if(Z.first && ZAI_DAY<Z.first) h += `<div class="mf-warn">この日は品種受払の期間（${djp(Z.first,true)}〜）より前です。</div>`;
     if(Z.last && ZAI_DAY>Z.last) h += `<div class="mf-warn">この日は品種受払の期間（〜${djp(Z.last,true)}）より後です。最終日の在庫を表示しています。</div>`;
-    // 在庫チェック（誰がいつ確認したか）
+    // 在庫チェック（品種ごと）
     const me = (MFG&&MFG.me)||{};
-    const zc = ((MFG&&MFG.zchecks)||[]).filter(x=>x.date===ZAI_DAY);
-    const mineChecked = zc.some(x=>x.byId===me.id);
-    h += `<div class="mf-sec">在庫チェック<span>${zc.length?zc.length+'件':'まだ確認されていません'}</span></div>`;
-    for(const c of zc){
-      h += `<div class="mf-req"><span class="st a">✅ 確認</span>
-        <div><b>${esc(nrm(c.by))}</b>　${tjp(c.at)}${c.memo?`<div class="muted" style="font-size:12px">${esc(c.memo)}</div>`:''}</div>
-        <div class="bt">${(c.byId===me.id||me.admin)?`<button data-zx="${esc(c.id)}">取り消す</button>`:''}</div></div>`;
+    const rest = live.filter(v=>!zv[v]);
+    const restOk = rest.filter(v=>!difMap[v]);
+    const since = zaiSince() || {};
+    const ngNow = live.filter(v=>difMap[v]);
+    h += `<div class="mf-sec">在庫チェック<span>${doneN?doneN+'品種すんでいます':'まだ確認されていません'}</span></div>`;
+    h += `<div class="card" style="font-size:13px;line-height:1.7">
+      表のいちばん右で、<b>品種ごとに1つずつ</b>確認します。<br>
+      <b class="zvl ok">確認</b>＝計算と合っているのを見た。
+      <b class="zvl keep">現状維持</b>＝合っていないが、いまは直さずこのままにする。<br>
+      <span style="color:var(--sub)">現状維持を押しても <b style="color:#b02a26">※</b> は消えません。造りexを直して数が合うまで出続けます。</span></div>`;
+    if(restOk.length) h += `<button class="btn p" id="zAllOk" style="background:var(--ok);border-color:var(--ok);margin-top:8px">合っている ${restOk.length}品種 をまとめて確認</button>`;
+    if(ngNow.length){
+      h += `<div class="mf-warn" style="margin-top:8px"><b>合っていない品種が ${ngNow.length} あります</b>`;
+      ngNow.forEach(v=>{ const sc=since[v];
+        h += `<div style="font-size:12.5px;padding:2px 0">${esc(v)}　${kgfmt(difMap[v].diff)}kg ちがい${sc?`　<b style="color:#b02a26">${djp(sc.from,true)}から ${sc.days}日</b>`:''}</div>`; });
+      h += `</div>`;
     }
-    if(!mineChecked){
-      h += `<input class="mf-sel" id="zMemo" maxlength="100" placeholder="メモ（任意）例：実棚と一致" style="margin-bottom:6px">
-        <button class="btn p" id="zChk" style="background:var(--ok);border-color:var(--ok)">確認</button>`;
-    }
-    h += `<button class="tl-link" id="zHist">確認の履歴を見る ›</button>`;
+    h += `<button class="tl-link" id="zHist">ずれと確認の履歴を見る ›</button>`;
     h += hikitoriSoon(ZAI_DAY);
     app.innerHTML = h + mfgSrcInfo('zaiko','造りex 仕込調整 品種受払');
     bindDayNav(zaikoScreen);
@@ -2154,39 +2399,105 @@ function zaikoScreen(day){
       btn.disabled=true; btn.textContent='送信しています…';
       try{
         const j=await apiT(Object.assign({token:ST.token},body),40000);
-        if(j&&j.ok){ if(j.zchecks){ MFG.zchecks=j.zchecks; lsSet('mfg.cache',MFG); } }
+        if(j&&j.ok){
+          if(j.zchecks) MFG.zchecks=j.zchecks;
+          if(j.zvchecks) MFG.zvchecks=j.zvchecks;
+          lsSet('mfg.cache',MFG);
+        }
         else alert(mfgErrJP(j&&j.err));
       }catch(e){ alert('通信できませんでした。電波の良い場所でもう一度お試しください。'); }
       btn.disabled=false; btn.textContent=label; render();
     };
-    const cb=$('#zChk');
-    if(cb) cb.onclick=()=>{
-      const snap = Z.vars.map((v,i)=>st[i]?`${v}:${kgfmt(st[i])}`:'').filter(Boolean).join(' / ');
-      zact({action:'mfg_zcheck', date:ZAI_DAY, memo:($('#zMemo')||{}).value||'', snapshot:snap}, cb, '確認');
+    const stockOf = v => { const i=Z.vars.indexOf(v); return i<0?null:(st[i]||0); };
+    app.querySelectorAll('[data-zvc]').forEach(b=>b.onclick=()=>{
+      const v=b.dataset.zvc;
+      zact({action:'mfg_zv', date:ZAI_DAY, v, mode:'確認', diff:0, stock:stockOf(v)}, b, '確認');
+    });
+    app.querySelectorAll('[data-zvk]').forEach(b=>b.onclick=()=>{
+      const v=b.dataset.zvk, d=difMap[v], sc=since[v];
+      const msg = `${v} は計算と ${kgfmt(d?d.diff:0)}kg 合っていません。\n`
+        + (sc?`${djp(sc.from,true)}から ${sc.days}日 ずれ続けています。\n`:'')
+        + `\nいまは直さず「現状維持」として記録しますか？\n（※印は、造りexを直して数が合うまで消えません）`;
+      if(!confirm(msg)) return;
+      zact({action:'mfg_zv', date:ZAI_DAY, v, mode:'現状維持', diff:d?d.diff:0, stock:stockOf(v)}, b, '現状維持');
+    });
+    app.querySelectorAll('[data-zvx]').forEach(b=>b.onclick=()=>{
+      if(confirm('このチェックを取り消しますか？')) zact({action:'mfg_zv_undo', id:b.dataset.zvx}, b, '取消');
+    });
+    const zao=$('#zAllOk');
+    if(zao) zao.onclick=()=>{
+      const items = restOk.map(v=>({v, mode:'確認', diff:0, stock:stockOf(v)}));
+      zact({action:'mfg_zv', date:ZAI_DAY, items}, zao, 'まとめて確認');
     };
-    app.querySelectorAll('[data-zx]').forEach(b=>b.onclick=()=>{ if(confirm('この確認を取り消しますか？')) zact({action:'mfg_zuncheck', id:b.dataset.zx}, b, '取り消す'); });
   };
   mfgOpen(render);
 }
 
-/* ---------- 在庫チェックの履歴 ---------- */
+/* ---------- ずれと確認の履歴 ---------- */
+let ZH_TAB = 'zure';
 function zcheckScreen(){
   const render=function zhRender(){
     app.dataset.mfg='zhRender';
-    head('在庫チェックの履歴','誰がいつ在庫を確認したか');
-    const list=((MFG&&MFG.zchecks)||[]).slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(a.at<b.at?1:-1));
-    let h=mfgErrView();
-    if(!list.length){ app.innerHTML=h+'<div class="card" style="margin-top:14px">まだ確認の記録がありません。</div>'; return; }
-    let day='';
-    for(const c of list){
-      if(c.date!==day){ day=c.date; h+=`<div class="mf-sec">${djp(day,true)}<span></span></div>`; }
-      h+=`<div class="mf-req"><span class="st a">✅</span>
-        <div><b>${esc(nrm(c.by))}</b>　<span class="muted">${tjp(c.at)} 確認</span>${c.memo?`<div class="muted" style="font-size:12px">${esc(c.memo)}</div>`:''}</div>
-        <div class="bt"><button data-zd="${esc(c.date)}">その日の在庫</button></div></div>`;
+    head('ずれと確認の履歴','いつから合わないか／誰がいつ見たか');
+    let h = mfgErrView() + `<div class="mf-tabs">
+      <button data-zh="zure" class="${ZH_TAB==='zure'?'on':''}">いつから合わないか</button>
+      <button data-zh="log" class="${ZH_TAB==='log'?'on':''}">チェックの記録</button></div>`;
+    const me=(MFG&&MFG.me)||{};
+    if(ZH_TAB==='zure'){
+      const sc = zaiSince();
+      const Z = MFG && MFG.zaiko;
+      if(!sc){ h += '<div class="card">品種受払のデータがこの端末にまだありません。</div>'; }
+      else {
+        const ng = Object.keys(sc).filter(v=>sc[v]).sort((a,b)=>sc[a].from<sc[b].from?-1:1);
+        if(!ng.length) h += `<div class="card" style="text-align:center"><div style="font-size:30px">✅</div>
+          <b>いまは全部の品種が合っています</b><div class="muted" style="margin-top:4px">前日の在庫＋受入−払出 と、品種受払の在庫欄が一致しています。</div></div>`;
+        else {
+          h += `<div class="mf-err" style="margin-bottom:10px"><div class="ti">⚠ 合っていない品種が ${ng.length} あります</div>
+            <div class="nt">「いつから」は、品種受払で<b>最後に計算と合っていた日の次の日</b>です。そこからずっとずれ続けています。</div></div>`;
+          ng.forEach(v=>{
+            const x = sc[v], zs = ((MFG&&MFG.zvchecks)||[]).filter(r=>r.v===v).slice(0,3);
+            h += `<div class="card" style="margin-bottom:8px">
+              <div class="tl-row" style="border:0;padding-bottom:2px"><b style="font-size:15px">${esc(v)}</b>
+                <b style="color:#b02a26">${x.diff>0?'＋':''}${kgfmt(x.diff)} kg</b></div>
+              <div class="tl-row"><span>いつから</span><b>${djp(x.from,true)}（${x.days}日ぶん）</b></div>
+              <div class="tl-row"><span>最後に合っていた日</span><b>${x.lastOk?djp(x.lastOk,true):'—'}</b></div>
+              ${zs.length?`<div style="margin-top:6px">${zs.map(r=>`<div class="muted" style="font-size:12px">${djp(r.date,true)}　${esc(r.mode)}　${esc(nrm(r.by))}${r.memo?'　'+esc(r.memo):''}</div>`).join('')}</div>`:''}
+              <button class="tl-link" data-zd="${esc(x.from)}" style="margin-top:4px">ずれ始めた日の在庫を見る ›</button>
+              </div>`;
+          });
+        }
+      }
+    } else {
+      const list = ((MFG&&MFG.zvchecks)||[]).slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(a.at<b.at?1:-1));
+      const old = ((MFG&&MFG.zchecks)||[]).slice();
+      if(!list.length && !old.length) h += '<div class="card">まだチェックの記録がありません。</div>';
+      let day='';
+      for(const c of list){
+        if(c.date!==day){ day=c.date; h+=`<div class="mf-sec">${djp(day,true)}<span></span></div>`; }
+        h+=`<div class="mf-req"><span class="st ${c.mode==='現状維持'?'p':'a'}">${esc(c.mode)}</span>
+          <div><b>${esc(c.v)}</b>${c.mode==='現状維持'&&c.diff?`　<span style="color:#b02a26;font-weight:700">${c.diff>0?'＋':''}${kgfmt(c.diff)}kg</span>`:''}
+            <div class="muted" style="font-size:12px">${esc(nrm(c.by))}　${tjp(c.at)}${c.memo?'　'+esc(c.memo):''}</div></div>
+          <div class="bt">${(c.byId===me.id||me.admin)?`<button data-zvd="${esc(c.id)}">取消</button>`:''}</div></div>`;
+      }
+      if(old.length){
+        h += `<div class="mf-sec">品種ごとにする前の記録<span>${old.length}件</span></div>`;
+        old.slice(0,20).forEach(c=>{ h+=`<div class="mf-req"><span class="st a">✅</span>
+          <div><b>${esc(nrm(c.by))}</b>　<span class="muted">${djp(c.date,true)} ${tjp(c.at)} その日ぜんぶ確認</span>${c.memo?`<div class="muted" style="font-size:12px">${esc(c.memo)}</div>`:''}</div>
+          <div class="bt"></div></div>`; });
+      }
+      h+=`<p class="tl-note">記録はスプレッドシート「在庫チェック品種」に残ります（対象日・品種・確認／現状維持・ちがい・確認者・確認日時・メモ）。</p>`;
     }
-    h+=`<p class="tl-note">記録はスプレッドシート「在庫チェック」に残ります（対象日・確認者・確認日時・メモ・確認したときの在庫）。</p>`;
     app.innerHTML=h;
+    app.querySelectorAll('[data-zh]').forEach(b=>b.onclick=()=>{ ZH_TAB=b.dataset.zh; zhRender(); });
     app.querySelectorAll('[data-zd]').forEach(b=>b.onclick=()=>{ nav.pop(); go(()=>zaikoScreen(b.dataset.zd)); });
+    app.querySelectorAll('[data-zvd]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('このチェックを取り消しますか？')) return;
+      b.disabled=true; b.textContent='…';
+      try{ const j=await apiT({action:'mfg_zv_undo', token:ST.token, id:b.dataset.zvd},40000);
+        if(j&&j.ok){ if(j.zvchecks){ MFG.zvchecks=j.zvchecks; lsSet('mfg.cache',MFG); } } else alert(mfgErrJP(j&&j.err));
+      }catch(e){ alert('通信できませんでした。'); }
+      zhRender();
+    });
   };
   mfgOpen(render);
 }
@@ -2227,7 +2538,28 @@ function knHead(s){
   const [a,b] = m.length>1 ? [m[0], m.slice(1).join('')] : [t.slice(0,2), t.slice(2)];
   return esc(a)+(b?'<br>'+esc(b):'');
 }
+/* 出勤表でいま使われている記号を、多い順に集める（リストの手入れが要らないように） */
+let KN_MARKS = null, KN_MARKS_AT = -1;
+function knMarkList(){
+  if(KN_MARKS && KN_MARKS_AT===(MFG&&MFG._at||0)) return KN_MARKS;
+  const K = MFG && MFG.shukkin; const c = {};
+  if(K && K.months) Object.keys(K.months).forEach(ym=>{
+    (K.months[ym].days||[]).forEach(d=>(d.c||[]).forEach(v=>{ const t=String(v||'').trim(); if(t) c[t]=(c[t]||0)+1; }));
+  });
+  // 振休で使う記号は、出勤表にまだ無くても必ず出す
+  Object.values((MFG&&MFG.marks)||{}).forEach(m=>{ const t=String(m||'').trim(); if(t&&!c[t]) c[t]=0.5; });
+  const all = Object.keys(c).sort((a,b)=>c[b]-c[a] || (a<b?-1:1));
+  KN_MARKS = { all, often: all.filter(m=>c[m]>=2 || c[m]===0.5).slice(0,24), n:c };
+  KN_MARKS_AT = (MFG&&MFG._at||0);
+  return KN_MARKS;
+}
+function markNote(m){
+  const K = (MFG&&MFG.marks)||{};
+  for(const k of Object.keys(K)) if(K[k]===m) return '振休（'+k+'）';
+  return ({'＼':'休み','／':'休み（もう一方）','＼ｐ0.5':'午後半休','＼a0.5':'午前半休','泊':'泊まり','当':'当番','＼当':'休みだが当番'})[m] || '';
+}
 function reqActive(r){ return r.status==='申請中'||r.status==='承認'; }
+function isEdit(r){ return r.kind==='直接変更'; }
 function reqWant(r){ return r.status==='申請中'?'赤':r.status==='承認'?'黒':''; }
 function kinmuScreen(){
   const render=function knRender(){
@@ -2255,10 +2587,15 @@ function kinmuScreen(){
       h += `<div class="mf-sec">承認待ち<span>${pend.length}件</span></div>`;
       for(const r of pend) h += reqRow(r, 'admin');
     }
-    const my = reqs.filter(r=>r.applicantId===me.id && r.status!=='取消' && !(me.admin && r.status==='申請中')).sort((a,b)=>a.date<b.date?1:-1).slice(0,6);
+    const my = reqs.filter(r=>r.applicantId===me.id && r.status!=='取消' && !isEdit(r) && !(me.admin && r.status==='申請中')).sort((a,b)=>a.date<b.date?1:-1).slice(0,6);
     if(my.length){
       h += `<div class="mf-sec">自分の依頼<span>最近${my.length}件</span></div>`;
       for(const r of my) h += reqRow(r, 'mine');
+    }
+    const eds = reqs.filter(r=>isEdit(r) && r.status==='承認').sort((a,b)=>a.at<b.at?1:-1).slice(0,5);
+    if(me.admin && eds.length){
+      h += `<div class="mf-sec">アプリから直した分<span>最近${eds.length}件</span></div>`;
+      for(const r of eds) h += reqRow(r, 'edit');
     }
     // 月の切り替え
     const i = yms.indexOf(KN_YM);
@@ -2311,10 +2648,77 @@ function showDay(M, d){
   if(x.p) h += `<span class="muted">蔵人員</span><span>${esc(x.p)}人</span>`;
   if(x.n) h += `<span class="muted">備考</span><span>${esc(x.n)}</span>`;
   h += `</div>`;
-  if(reqs.length){ h += `<div style="margin-top:8px">`; reqs.forEach(r=>{ h += `<div class="muted">振休依頼：${esc(nrm(r.staff))}・${esc(r.kind)}（${esc(r.status)}）</div>`; }); h+='</div>'; }
-  h += `<button class="btn o" id="dayReq" style="margin-top:10px">この日で振休依頼</button></div>`;
+  if(reqs.length){ h += `<div style="margin-top:8px">`; reqs.forEach(r=>{
+    h += `<div class="muted">${isEdit(r)?`アプリで変更：${esc(nrm(r.staff))}・${r.mark?esc(r.mark):'空'}（${esc(nrm(r.applicant))}）`:`振休依頼：${esc(nrm(r.staff))}・${esc(r.kind)}（${esc(r.status)}）`}</div>`; }); h+='</div>'; }
+  h += `<button class="btn o" id="dayReq" style="margin-top:10px">この日で振休依頼</button>`;
+  if(((MFG&&MFG.me)||{}).admin) h += `<button class="btn p" id="dayEdit" style="margin-top:8px">✏️ この日の出勤表を直す</button>`;
+  h += `</div>`;
   $('#knDay').innerHTML = h;
   $('#dayReq').onclick=()=>go(()=>furikyuForm(d));
+  const de=$('#dayEdit'); if(de) de.onclick=()=>go(()=>kinmuEditForm(d));
+}
+
+/* ---------- 出勤表を直す（権限のある人だけ） ---------- */
+function kinmuEditForm(day, staff0){
+  head('出勤表を直す','会社PCのExcelにも反映されます');
+  const K = MFG && MFG.shukkin, me = (MFG&&MFG.me)||{};
+  if(!me.admin){ app.innerHTML = '<div class="card" style="margin-top:14px">出勤表を直せるのは権限のある人だけです。</div>'; return; }
+  if(!K || !K.months){ app.innerHTML = '<div class="card" style="margin-top:14px">出勤表のデータがまだ届いていないため、直せません。</div>'; return; }
+  const yms = Object.keys(K.months).sort();
+  const latest = K.months[dtoday().slice(0,7)] || K.months[yms[yms.length-1]];
+  const staffAll = [...new Set([...(latest?latest.staff:[]), ...yms.slice(-3).flatMap(y=>K.months[y].staff)])];
+  const ML = knMarkList();
+  let sel = { staff: staff0 || '', date: day || dtoday(), mark: null, memo:'', all:false };   // mark===null は未選択、'' は空にする
+  const render=()=>{
+    const M = K.months[sel.date.slice(0,7)];
+    let curVal = '';
+    if(M){ const k=M.staff.findIndex(x=>nrm(x)===nrm(sel.staff)); const dd=M.days.find(z=>z.d===sel.date); if(k>=0&&dd) curVal=dd.c[k]||''; }
+    const busy = (MFG.requests||[]).find(r=>r.date===sel.date && nrm(r.staff)===nrm(sel.staff) && reqActive(r));
+    app.innerHTML = `<div class="mf-lbl">誰の欄を直しますか</div>
+      <select class="mf-sel" id="eStaff"><option value="">選んでください</option>${staffAll.map(x=>`<option ${x===sel.staff?'selected':''}>${esc(x)}</option>`).join('')}</select>
+      <div class="mf-lbl">日付</div>
+      <input type="date" class="mf-sel" id="eDate" value="${sel.date}">
+      <div class="muted" style="margin-top:4px">${djp(sel.date,true)}${K.holidays&&K.holidays.includes(sel.date)?'　<b style="color:#c62828">会社休日</b>':''}</div>
+      ${sel.staff?`<div class="tl-row" style="margin-top:8px"><span>いまの出勤表</span><b style="font-size:16px">${curVal?esc(curVal):'<span class="muted">空</span>'}</b></div>`:''}
+      <div class="mf-lbl">何に直しますか</div>
+      <div class="mf-kinds ekinds">
+        <button data-em="" class="${sel.mark===''?'on':''}">空にする</button>
+        ${(sel.all?ML.all:[...new Set([...ML.often, ...(sel.mark?[sel.mark]:[])])]).map(m=>`<button data-em="${esc(m)}" class="${sel.mark===m?'on':''}">${esc(m)}</button>`).join('')}</div>
+      ${ML.all.length>ML.often.length?`<button class="tl-link" id="eAll">${sel.all?'よく使う記号だけにする':`ほかの記号も出す（ぜんぶで${ML.all.length}）`} ›</button>`:''}
+      ${sel.mark!==null?`<div class="muted" style="margin-top:6px">出勤表の <b>${esc(nrm(sel.staff)||'—')}</b> の <b>${djp(sel.date,true)}</b> を
+        <b style="font-size:15px">${sel.mark===''?'空':esc(sel.mark)}</b> にします。${markNote(sel.mark)?`（${esc(markNote(sel.mark))}）`:''}</div>`:''}
+      <div class="mf-lbl">メモ（任意）</div>
+      <input class="mf-sel" id="eMemo" maxlength="100" value="${esc(sel.memo)}" placeholder="例：本人と相談のうえ変更">
+      ${busy?`<div class="mf-warn">この日・この人は、いま振休依頼（${esc(busy.status)}）が入っています。先にそちらを取り消してください。</div>`:''}
+      ${!M?`<div class="mf-warn">この月の出勤表シートがまだありません。シートができたら書き込まれます。</div>`:''}
+      <button class="btn p" id="eSend" style="margin-top:16px" ${busy?'disabled':''}>この内容に直す</button>
+      <p class="tl-note">直したことは記録に残ります（誰が・いつ・どこを・何に）。<b>元に戻す</b>を押せば、直す前の値に戻せます。
+        会社PCが数分以内にExcelへ書き込みます。Excelを開いたままでも書き込まれます（保存はご自身で）。</p>
+      <div id="eMsg" class="muted" style="text-align:center;margin-top:8px"></div>`;
+    $('#eStaff').onchange=e=>{ sel.staff=e.target.value; render(); };
+    $('#eDate').onchange=e=>{ if(e.target.value){ sel.date=e.target.value; render(); } };
+    $('#eMemo').oninput=e=>{ sel.memo=e.target.value; };
+    app.querySelectorAll('[data-em]').forEach(b=>b.onclick=()=>{ sel.mark=b.dataset.em; render(); });
+    const ea=$('#eAll'); if(ea) ea.onclick=()=>{ sel.all=!sel.all; render(); };
+    $('#eSend').onclick=async()=>{
+      if(!sel.staff){ $('#eMsg').textContent='誰の欄を直すか選んでください。'; return; }
+      if(sel.mark===null){ $('#eMsg').textContent='何に直すか選んでください。'; return; }
+      const b=$('#eSend'); b.disabled=true; b.textContent='送信しています…';
+      try{
+        const j = await apiT({action:'mfg_edit', token:ST.token, staff:sel.staff, date:sel.date, mark:sel.mark, memo:sel.memo}, 40000);
+        if(j && j.ok){
+          if(j.requests){ MFG.requests=j.requests; lsSet('mfg.cache',MFG); }
+          KN_YM = sel.date.slice(0,7); KN_SEL = sel.date;
+          app.innerHTML = `<div class="card" style="margin-top:16px;text-align:center"><div style="font-size:34px">✅</div>
+            <b>出勤表を直しました</b><div class="muted" style="margin-top:6px">${esc(nrm(sel.staff))}　${djp(sel.date)}　→ <b>${sel.mark===''?'空':esc(sel.mark)}</b><br>
+            会社PCが数分以内にExcelへ書き込みます。</div></div>
+            <button class="btn p" id="eBack">出勤表にもどる</button>`;
+          $('#eBack').onclick=()=>{ nav.pop(); const f=nav[nav.length-1]; f?f():go(home); hBack.classList.toggle('hide',nav.length<=1); };
+        } else { b.disabled=false; b.textContent='この内容に直す'; $('#eMsg').textContent=mfgErrJP(j&&j.err); }
+      }catch(e){ b.disabled=false; b.textContent='この内容に直す'; $('#eMsg').textContent='通信できませんでした。電波の良い場所でもう一度お試しください。'; }
+    };
+  };
+  render();
 }
 function reqRow(r, mode){
   const st = r.status==='申請中'?'p':r.status==='承認'?'a':'x';
@@ -2322,6 +2726,13 @@ function reqRow(r, mode){
   if(mode==='admin') bt = `<button class="ok" data-ok="${r.id}">承認</button><button data-ng="${r.id}">却下</button>`;
   else if(r.status==='申請中') bt = `<button data-cx="${r.id}">取り消す</button>`;
   const sync = reqActive(r) && r.excel!==reqWant(r) ? '<div class="muted" style="font-size:11px">出勤表へ反映待ち</div>' : '';
+  if(isEdit(r)){
+    const mk = String(r.mark||'');
+    return `<div class="mf-req"><span class="st a">直した</span>
+      <div><b>${esc(nrm(r.staff))}</b>　${dshort(r.date)}　→ <b style="font-size:15px">${mk?esc(mk):'<span class="muted">空</span>'}</b>${r.memo?`<div class="muted" style="font-size:12px">${esc(r.memo)}</div>`:''}
+        <div class="muted" style="font-size:11px">${esc(nrm(r.applicant))}${sync?'':'　出勤表に反映済み'}</div>${sync}</div>
+      <div class="bt"><button data-cx="${r.id}">元に戻す</button></div></div>`;
+  }
   return `<div class="mf-req"><span class="st ${st}">${esc(r.status)}</span>
     <div><b>${esc(nrm(r.staff))}</b>　${dshort(r.date)}　${esc(r.kind)}${r.memo?`<div class="muted" style="font-size:12px">${esc(r.memo)}</div>`:''}${mode==='admin'&&r.applicant&&nrm(r.applicant)!==nrm(r.staff)?`<div class="muted" style="font-size:11px">申請：${esc(r.applicant)}</div>`:''}${sync}</div>
     <div class="bt">${bt}</div></div>`;
@@ -2338,12 +2749,17 @@ function bindReqButtons(rerender){
   };
   app.querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>act({action:'mfg_decide', id:b.dataset.ok, ok:true}, b));
   app.querySelectorAll('[data-ng]').forEach(b=>b.onclick=()=>{ if(confirm('この依頼を却下しますか？')) act({action:'mfg_decide', id:b.dataset.ng, ok:false}, b); });
-  app.querySelectorAll('[data-cx]').forEach(b=>b.onclick=()=>{ if(confirm('この依頼を取り消しますか？')) act({action:'mfg_cancel', id:b.dataset.cx}, b); });
+  app.querySelectorAll('[data-cx]').forEach(b=>b.onclick=()=>{
+    const r = ((MFG&&MFG.requests)||[]).find(x=>x.id===b.dataset.cx);
+    const msg = (r && isEdit(r)) ? 'この変更を取り消して、出勤表を元の値に戻しますか？' : 'この依頼を取り消しますか？';
+    if(confirm(msg)) act({action:'mfg_cancel', id:b.dataset.cx}, b);
+  });
 }
 function mfgErrJP(e){
   return ({dup:'この日・この人の振休依頼はすでに出ています。', bad_kind:'区分を選んでください。', bad_date:'日付を選んでください。',
     bad_staff:'対象者を選んでください。', cannot:'この依頼はもう変更できません。', not_yours:'自分の依頼だけ取り消せます。',
-    not_admin:'承認できるのは杜氏だけです。', bad_token:'ログインし直してください。', not_found:'依頼が見つかりませんでした。'}[e]) || ('うまくいきませんでした（'+(e||'原因不明')+'）');
+    not_admin:'これができるのは権限のある人だけです。', bad_token:'ログインし直してください。', not_found:'記録が見つかりませんでした。',
+    bad_mark:'記号を選んでください。', bad_var:'品種を選んでください。', bad_mode:'確認か現状維持かを選んでください。'}[e]) || ('うまくいきませんでした（'+(e||'原因不明')+'）');
 }
 
 /* ---------- 振休依頼の入力 ---------- */
@@ -2400,1105 +2816,9 @@ function furikyuForm(day){
 }
 
 
-/* ===================================================================
-   各種計算ツール（まとめ画面）＋ タンク洗浄管理  2026-09-24 追加
-   タンク洗浄管理のデータは Apps Script「タンク洗浄チェック R8BY」
-   （スプレッドシート「タンク洗浄記録_R8BY」）と読み書きする。
-   =================================================================== */
-
-/* ---------- 各種計算ツール：容量・濾過・アル添の入口 ---------- */
-function calcHome(){
-  head('各種計算ツール','容量計算・濾過計算・アル添計算');
-  const icon=t=>`<div style="width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto">${t}</div>`;
-  const card=(id,ic,nm,ds)=>`<button class="crs" id="${id}">${icon(ic)}<div style="flex:1"><div class="nm">${nm}</div><div class="ds">${ds}</div></div><div class="go">›</div></button>`;
-  app.innerHTML=`<div style="height:16px"></div>
-    ${card('bCap','🛢','容量計算','容器番号と寸法から容量（ℓ）')}
-    ${card('bFil','🧪','濾過計算','タンクを合わせたときの日本酒度・Alc・酸度・アミノ酸度')}
-    ${card('bAlc','🍶','アル添計算','目標の日本酒度とアルコール添加量')}
-    <p class="tl-note">計算はすべて端末の中で行います（電波が無くても使えます）。</p>`;
-  $('#bCap').onclick=()=>go(capacityScreen);
-  $('#bFil').onclick=()=>go(filterScreen);
-  $('#bAlc').onclick=()=>go(alcScreen);
-}
-
-/* ---------- タンク洗浄管理 ---------- */
-const WASH_URL = "https://script.google.com/macros/s/AKfycbzoeOALiv27YFlsvQlKSrQpv100mqUu354URy2yV0gRTiYot8iLy0d1WOTMA9tj9_nZ/exec";
-const WASH_CSS = `
-.ws-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0 10px}
-.ws-sum button{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 8px;text-align:left;font-family:inherit;color:inherit;display:flex;flex-direction:column;gap:2px;cursor:pointer}
-.ws-sum button.on{border-color:var(--navy);box-shadow:inset 0 0 0 1px var(--navy)}
-.ws-sum .k{font-size:11px;color:var(--sub)}
-.ws-sum .v{font-size:22px;font-weight:700;line-height:1.1;color:var(--navy)}
-.ws-sum .v.bad{color:var(--ng)} .ws-sum .v.warn{color:#a8761e} .ws-sum .v.ok{color:var(--ok)}
-.ws-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-.ws-chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px;font-family:inherit;color:var(--sub);cursor:pointer}
-.ws-chip.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}
-.ws-status{font-size:12px;color:var(--sub);min-height:1.2em;margin:0 0 6px}
-.ws-status.warn{color:var(--ng)}
-.ws-row{width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px 10px 0;margin-bottom:8px;display:grid;grid-template-columns:6px 60px 1fr auto;gap:0 10px;align-items:center;text-align:left;font-family:inherit;color:inherit;cursor:pointer;overflow:hidden}
-.ws-row .st{align-self:stretch;border-radius:12px 0 0 12px;background:var(--line)}
-.ws-row.bad .st{background:var(--ng)} .ws-row.warn .st{background:#c08a2a} .ws-row.done .st{background:var(--ok)}
-.ws-row .tk{font-size:24px;font-weight:700;line-height:1;color:var(--navy)}
-.ws-row .tk small{display:block;font-size:11px;font-weight:500;color:var(--sub);margin-top:2px}
-.ws-row .mid{min-width:0}
-.ws-row .b{font-weight:600;font-size:15px}
-.ws-row .d{font-size:12px;color:var(--sub)}
-.ws-row .dl{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
-.ws-row .date{font-weight:700;font-size:14px}
-.ws-row .left{font-size:12px;color:var(--sub)}
-.ws-row .left.bad{color:var(--ng);font-weight:700} .ws-row .left.warn{color:#a8761e;font-weight:700}
-.ws-steps{display:flex;gap:4px}
-.ws-steps span{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line);font-size:11px;display:grid;place-items:center;color:var(--sub)}
-.ws-steps span.on{background:#e1efe4;border-color:var(--ok);color:var(--ok);font-weight:700}
-.ws-tl{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:12px 0}
-.ws-tl div{background:#eef1f5;border-radius:8px;padding:6px 8px;font-size:12px;color:var(--sub)}
-.ws-tl div b{display:block;color:var(--ink);font-size:14px}
-.ws-tl div.hot b{color:var(--ng)}
-.ws-fs{border:1px solid var(--line);border-radius:12px;padding:10px 12px 12px;margin:0 0 10px;min-width:0;background:var(--card)}
-.ws-fs.on{border-color:var(--ok);background:#e9f3ec}
-.ws-fs legend{padding:0 6px;font-weight:700}
-.ws-fs legend label{display:flex;gap:8px;align-items:center;cursor:pointer}
-.ws-fs legend input{width:22px;height:22px;accent-color:var(--ok)}
-.ws-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
-.ws-f{display:flex;flex-direction:column;gap:3px;min-width:0}
-.ws-f span{font-size:11px;color:var(--sub)}
-.ws-f input,.ws-f select{font:inherit;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:42px;width:100%}
-.ws-seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.ws-seg button{flex:1;border:0;background:#fff;padding:9px 4px;font-size:14px;font-family:inherit;color:inherit;cursor:pointer}
-.ws-seg button+button{border-left:1px solid var(--line)}
-.ws-seg button.ok{background:var(--ok);color:#fff} .ws-seg button.ng{background:var(--ng);color:#fff}
-.ws-hint{font-size:11px;color:var(--sub)} .ws-hint.bad{color:var(--ng);font-weight:700}
-.ws-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
-.ws-btn{background:var(--navy);color:#fff;border:0;border-radius:10px;padding:12px 20px;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer}
-.ws-ghost{border:1px solid var(--line);background:transparent;border-radius:8px;padding:6px 10px;font-size:13px;font-family:inherit;color:inherit;cursor:pointer}
-.ws-ta{width:100%;min-height:70px;font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;color:var(--ink)}
-@media(max-width:480px){.ws-sum{grid-template-columns:repeat(2,1fr)} .ws-row{grid-template-columns:6px 52px 1fr auto;gap:0 8px} .ws-row .tk{font-size:21px} .ws-row .d{display:none}}
-`;
-(function(){ const s=document.createElement('style'); s.textContent=WASH_CSS; document.head.appendChild(s); })();
-
-const WS = { plan:[], records:{}, staff:[], filter:'todo', loadedAt:0 };
-const wsPad=n=>String(n).padStart(2,'0');
-const wsToday=()=>{const d=new Date();return `${d.getFullYear()}-${wsPad(d.getMonth()+1)}-${wsPad(d.getDate())}`};
-const wsNow=()=>{const d=new Date();return `${wsPad(d.getHours())}:${wsPad(d.getMinutes())}`};
-const wsMD=s=>s?`${+s.slice(5,7)}/${+s.slice(8,10)}`:'—';
-const wsJD=s=>s?`${+s.slice(5,7)}月${+s.slice(8,10)}日`:'';
-const wsDays=s=>Math.round((new Date(s+'T00:00:00')-new Date(wsToday()+'T00:00:00'))/86400000);
-function wsRec(id){ return WS.records[id]||{}; }
-function wsStage(r){ return ((r.wash&&r.wash.done)?1:0)+((r.finish&&r.finish.done)?1:0)+((r.check&&r.check.done)?1:0); }
-function wsUrg(p,r){ if(wsStage(r)===3)return 'done'; const d=wsDays(p.deadline); if(d<=3)return 'bad'; if(d<=14)return 'warn'; return ''; }
-async function washApi(body, ms){
-  const ctl = typeof AbortController!=='undefined' ? new AbortController() : null;
-  const t = ctl ? setTimeout(()=>ctl.abort(), ms||30000) : null;
-  try{
-    const r=await fetch(WASH_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow',signal:ctl?ctl.signal:undefined});
-    return await r.json();
-  } finally { if(t) clearTimeout(t); }
-}
-function wsApply(d){ WS.plan=d.plan||[]; WS.records=d.records||{}; if(d.staff&&d.staff.length) WS.staff=d.staff; WS.loadedAt=Date.now(); lsSet('tool.wash',{plan:WS.plan,records:WS.records,staff:WS.staff,at:WS.loadedAt}); }
-/* 端末に保存してある前回の内容（あればすぐ表示に使う） */
-function wsFromCache(){
-  if(WS.plan.length) return;
-  const c=lsGet('tool.wash',null);
-  if(c&&c.plan){ WS.plan=c.plan; WS.records=c.records||{}; WS.staff=c.staff||[]; WS.loadedAt=c.at||0; }
-}
-/* サーバーから最新を取る（同時に何回呼ばれても1回だけ通信する） */
-let WS_BG=null;
-function wsFetch(){
-  if(WS_BG) return WS_BG;
-  WS_BG=(async()=>{ let ok=false; try{ const j=await washApi({action:'wash_get'},25000); if(j&&j.ok){ wsApply(j.data); ok=true; } }catch(e){} WS_BG=null; return ok; })();
-  return WS_BG;
-}
-async function wsLoad(force){
-  wsFromCache();
-  if(!force && WS.plan.length && Date.now()-WS.loadedAt<60000) return true;
-  return wsFetch();
-}
-/* ホームを開いたときに裏で取っておく（タンク洗浄を開いた瞬間に出せるように） */
-function wsPrefetch(){ try{ wsFromCache(); if(Date.now()-WS.loadedAt>5*60000) wsFetch(); }catch(e){} }
-function wsStatus(t,warn){ const s=$('#wsStatus'); if(!s)return; s.textContent=t; s.className='ws-status'+(warn?' warn':''); if(!warn) setTimeout(()=>{ if(s.textContent===t) s.textContent=''; },4000); }
-
-async function washScreen(){
-  head('タンク洗浄管理','R8BY 醪タンク（期限＝酛下日）');
-  wsFromCache();
-  let ok=true, bg=null;
-  if(!WS.plan.length){
-    app.innerHTML='<p class="muted" style="margin-top:14px">洗浄の予定と記録を読み込んでいます…</p>';
-    ok=await wsFetch();
-  }else if(Date.now()-WS.loadedAt>60000){
-    bg=wsFetch();          // 前回の内容をすぐ表示し、最新は裏で取る
-  }
-  if(!WS.plan.length){ app.innerHTML=`<div class="tl-warn" style="margin-top:14px">洗浄の予定を読み込めませんでした。電波の届く所でもう一度開いてください。</div>`; return; }
-  const draw=()=>{
-    const f=WS.filter;
-    let over=0,soon=0,todo=0,done=0;
-    WS.plan.forEach(p=>{ const s=wsStage(wsRec(p.id)); if(s===3){done++;return;} todo++; const d=wsDays(p.deadline); if(d<0)over++; else if(d<=14)soon++; });
-    const vis=p=>{ const s=wsStage(wsRec(p.id)), d=wsDays(p.deadline);
-      if(f==='all')return true; if(f==='done')return s===3; if(f==='todo')return s<3; if(f==='soon')return s<3&&d<=14; if(f==='over')return s<3&&d<0; return true; };
-    const rows=WS.plan.filter(vis).sort((a,b)=>a.deadline.localeCompare(b.deadline)||a.n-b.n);
-    let h=`<div class="ws-sum">
-      <button data-f="over"><span class="k">期限超過</span><span class="v ${over?'bad':''}">${over}</span></button>
-      <button data-f="soon"><span class="k">14日以内</span><span class="v ${soon?'warn':''}">${soon}</span></button>
-      <button data-f="todo"><span class="k">未完了</span><span class="v">${todo}</span></button>
-      <button data-f="done"><span class="k">完了</span><span class="v ok">${done}</span></button></div>
-    <div class="ws-bar">
-      <button class="ws-chip ${f==='todo'?'on':''}" data-f="todo">未完了</button>
-      <button class="ws-chip ${f==='soon'?'on':''}" data-f="soon">14日以内</button>
-      <button class="ws-chip ${f==='done'?'on':''}" data-f="done">完了</button>
-      <button class="ws-chip ${f==='all'?'on':''}" data-f="all">全部</button>
-      <span style="flex:1"></span>
-      <button class="ws-ghost" id="wsStaff">担当者名</button>
-      <button class="ws-ghost" id="wsReload">更新</button></div>
-    <div id="wsStaffBox" class="card" style="display:none">
-      <div style="font-size:13px;margin-bottom:6px">担当者を1行に1人ずつ。全員の画面の選択肢に反映されます。</div>
-      <textarea class="ws-ta" id="wsStaffTa">${esc(WS.staff.join('\n'))}</textarea>
-      <div class="ws-actions"><button class="ws-ghost" id="wsStaffNo">閉じる</button><button class="ws-btn" id="wsStaffOk">保存</button></div></div>
-    <div class="ws-status${ok?'':' warn'}" id="wsStatus">${bg?'最新の内容を確認しています…':ok?'':'（電波が無いため、端末に保存した内容を表示しています）'}</div>`;
-    if(!rows.length) h+=`<p class="muted" style="text-align:center;padding:24px 0">該当するタンクはありません</p>`;
-    h+=rows.map(p=>{ const r=wsRec(p.id), s=wsStage(r), u=wsUrg(p,r), d=wsDays(p.deadline);
-      const left=s===3?'完了':d<0?`${-d}日超過`:d===0?'今日まで':`あと${d}日`;
-      return `<button class="ws-row ${u}" data-id="${p.id}"><span class="st"></span>
-        <span class="tk">${p.tank}<small>No.${p.n} ${esc(p.kigo)}</small></span>
-        <span class="mid"><span class="b">${esc(p.brand)}</span><br><span class="d">添 ${wsMD(p.soe)}・留 ${wsMD(p.tome)}・上槽 ${p.josouActual?`<b>${wsMD(p.josouActual)}</b>(実)`:wsMD(p.josou)}${p.prev?`　前回上槽 ${wsMD(p.prev)}${p.prevActual?'(実)':''}`:''}</span></span>
-        <span class="dl"><span class="date">${wsMD(p.deadline)}まで</span><span class="left ${u==='done'?'':u}">${left}</span>
-          <span class="ws-steps"><span class="${r.wash&&r.wash.done?'on':''}">洗</span><span class="${r.finish&&r.finish.done?'on':''}">仕</span><span class="${r.check&&r.check.done?'on':''}">確</span></span></span></button>`; }).join('');
-    h+=`<p class="tl-note">記録はスプレッドシート「タンク洗浄記録_R8BY」に保存されます。「仕込み」で上槽日を入れると前回上槽が実績（実）に変わります。印刷用の表は
-      <a href="${WASH_URL}" target="_blank" rel="noopener">こちら（印刷ボタン付き）</a>。仕込計画が変わったら予定表を作り直します。</p>`;
-    app.innerHTML=h;
-    app.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{ WS.filter=b.dataset.f; draw(); });
-    app.querySelectorAll('.ws-row').forEach(b=>b.onclick=()=>go(()=>washEdit(b.dataset.id)));
-    $('#wsReload').onclick=async()=>{ wsStatus('更新中…'); ok=await wsFetch(); bg=null; draw(); };
-    $('#wsStaff').onclick=()=>{ const x=$('#wsStaffBox'); x.style.display=x.style.display==='none'?'block':'none'; };
-    $('#wsStaffNo').onclick=()=>{ $('#wsStaffBox').style.display='none'; };
-    $('#wsStaffOk').onclick=async()=>{ const names=$('#wsStaffTa').value.split('\n').map(s=>s.trim()).filter(Boolean); if(!names.length)return;
-      WS.staff=names; $('#wsStaffBox').style.display='none'; wsStatus('担当者名を保存中…');
-      try{ const j=await washApi({action:'wash_staff',names}); wsStatus(j&&j.ok?'担当者名を保存しました':'担当者名を保存できませんでした',!(j&&j.ok)); }catch(e){ wsStatus('担当者名を保存できませんでした',true); } };
-  };
-  draw();
-  if(bg){
-    ok=await bg; bg=null;
-    // まだこの画面を見ていて、担当者名の編集中でなければ描き直す
-    const box=$('#wsStaffBox');
-    if(document.getElementById('wsStatus') && !(box && box.style.display!=='none')) draw();
-    else if(!ok) wsStatus('最新の内容を取れませんでした（前回の内容を表示しています）',true);
-  }
-}
-
-function washEdit(id){
-  const p=WS.plan.find(x=>x.id===id); if(!p){ go(washScreen,false); return; }
-  const r=JSON.parse(JSON.stringify(wsRec(id))); r.wash=r.wash||{}; r.finish=r.finish||{}; r.check=r.check||{};
-  head(`タンク ${p.tank}`, `${p.brand}　仕込No.${p.n}（記号 ${p.kigo}）`);
-  const d=wsDays(p.deadline);
-  const opt=(cur)=>`<option value="">—</option>`+WS.staff.map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');
-  app.innerHTML=`
-    <div class="ws-tl">
-      <div>${p.prev?(p.prevActual?'前回上槽（実績）':'前回上槽（予定）'):'今期初使用'}<b>${p.prev?wsJD(p.prev):'—'}</b></div>
-      <div class="${d<=3&&wsStage(r)<3?'hot':''}">洗浄期限（酛下日）<b>${wsJD(p.deadline)}</b></div>
-      <div>添仕込<b>${wsJD(p.soe)}</b></div></div>
-    <fieldset class="ws-fs ${r.wash.done?'on':''}" id="fsWash"><legend><label><input type="checkbox" id="wDone" ${r.wash.done?'checked':''}>洗浄</label></legend>
-      <div class="ws-grid">
-        <label class="ws-f"><span>日付</span><input type="date" id="wDate" value="${esc(r.wash.date||'')}"></label>
-        <label class="ws-f"><span>時刻</span><input type="time" id="wTime" value="${esc(r.wash.time||'')}"></label>
-        <label class="ws-f"><span>測定方法</span><select id="wMethod"><option ${!r.wash.method||r.wash.method==='酸素濃度計'?'selected':''}>酸素濃度計</option><option ${r.wash.method==='その他'?'selected':''}>その他</option></select></label>
-        <label class="ws-f"><span>酸素濃度（%）</span><input type="number" id="wO2" inputmode="decimal" step="0.1" min="0" max="25" placeholder="20.9" value="${r.wash.o2??''}"><span class="ws-hint" id="o2hint"></span></label>
-        <label class="ws-f"><span>担当</span><select id="wBy">${opt(r.wash.by)}</select></label></div></fieldset>
-    <fieldset class="ws-fs ${r.finish.done?'on':''}" id="fsFin"><legend><label><input type="checkbox" id="fDone" ${r.finish.done?'checked':''}>仕上げ</label></legend>
-      <div class="ws-grid">
-        <label class="ws-f"><span>日付</span><input type="date" id="fDate" value="${esc(r.finish.date||'')}"></label>
-        <label class="ws-f"><span>担当</span><select id="fBy">${opt(r.finish.by)}</select></label></div></fieldset>
-    <fieldset class="ws-fs ${r.check.done?'on':''}" id="fsChk"><legend><label><input type="checkbox" id="cDone" ${r.check.done?'checked':''}>チェック</label></legend>
-      <div class="ws-grid">
-        <div class="ws-f"><span>臭い</span><div class="ws-seg" id="segSmell"><button type="button" data-v="OK" class="${r.check.smell==='OK'?'ok':''}">なし</button><button type="button" data-v="NG" class="${r.check.smell==='NG'?'ng':''}">あり</button></div></div>
-        <div class="ws-f"><span>汚れ</span><div class="ws-seg" id="segDirt"><button type="button" data-v="OK" class="${r.check.dirt==='OK'?'ok':''}">なし</button><button type="button" data-v="NG" class="${r.check.dirt==='NG'?'ng':''}">あり</button></div></div>
-        <label class="ws-f"><span>確認者</span><select id="cBy">${opt(r.check.by)}</select></label></div></fieldset>
-    <label class="ws-f"><span>備考</span><input type="text" id="wsNote" value="${esc(r.note||'')}" placeholder="やり直し・気付きなど"></label>
-    <div class="ws-status" id="wsStatus" style="margin-top:8px"></div>
-    <div class="ws-actions"><button class="ws-ghost" id="wsCancel">やめる</button><button class="ws-btn" id="wsSave">保存</button></div>`;
-  const cur={smell:r.check.smell||'',dirt:r.check.dirt||''};
-  const seg=(id,key)=>{ const s=$('#'+id); s.querySelectorAll('button').forEach(b=>b.onclick=()=>{ cur[key]=b.dataset.v; s.querySelectorAll('button').forEach(x=>x.className=''); b.className=b.dataset.v==='OK'?'ok':'ng'; }); };
-  seg('segSmell','smell'); seg('segDirt','dirt');
-  const o2=()=>{ const v=parseFloat($('#wO2').value), h=$('#o2hint'); if(isNaN(v)){h.textContent='';h.className='ws-hint';return;} if(v<18){h.textContent='18%未満 — 立入不可、再換気';h.className='ws-hint bad';} else {h.textContent='18%以上 OK';h.className='ws-hint';} };
-  $('#wO2').oninput=o2; o2();
-  $('#wDone').onchange=e=>{ $('#fsWash').classList.toggle('on',e.target.checked); if(e.target.checked){ if(!$('#wDate').value)$('#wDate').value=wsToday(); if(!$('#wTime').value)$('#wTime').value=wsNow(); if(!$('#wBy').value&&ST.name&&WS.staff.includes(ST.name))$('#wBy').value=ST.name; } };
-  $('#fDone').onchange=e=>{ $('#fsFin').classList.toggle('on',e.target.checked); if(e.target.checked){ if(!$('#fDate').value)$('#fDate').value=wsToday(); if(!$('#fBy').value&&ST.name&&WS.staff.includes(ST.name))$('#fBy').value=ST.name; } };
-  $('#cDone').onchange=e=>{ $('#fsChk').classList.toggle('on',e.target.checked); if(e.target.checked){ if(!cur.smell){cur.smell='OK';$('#segSmell button[data-v=OK]').className='ok';} if(!cur.dirt){cur.dirt='OK';$('#segDirt button[data-v=OK]').className='ok';} if(!$('#cBy').value&&ST.name&&WS.staff.includes(ST.name))$('#cBy').value=ST.name; } };
-  $('#wsCancel').onclick=()=>hBack.click();
-  $('#wsSave').onclick=async()=>{
-    const data={
-      wash:{done:$('#wDone').checked,date:$('#wDate').value,time:$('#wTime').value,method:$('#wMethod').value,o2:$('#wO2').value===''?null:parseFloat($('#wO2').value),by:$('#wBy').value},
-      finish:{done:$('#fDone').checked,date:$('#fDate').value,by:$('#fBy').value},
-      check:{done:$('#cDone').checked,smell:cur.smell,dirt:cur.dirt,by:$('#cBy').value},
-      note:$('#wsNote').value };
-    const miss=[];
-    if(data.wash.done&&!data.wash.by)miss.push('洗浄の担当');
-    if(data.wash.done&&data.wash.o2===null)miss.push('酸素濃度');
-    if(data.finish.done&&!data.finish.by)miss.push('仕上げの担当');
-    if(data.check.done&&!data.check.by)miss.push('確認者');
-    if(miss.length){ wsStatus('未入力: '+miss.join('・'),true); return; }
-    $('#wsSave').disabled=true; wsStatus('保存中…');
-    try{
-      const j=await washApi({action:'wash_save',id,data},30000);
-      if(j&&j.ok){ wsApply(j.data); wsStatus(`タンク${p.tank} を保存しました`); setTimeout(()=>hBack.click(),400); }
-      else { wsStatus('保存できませんでした: '+(j&&j.error||''),true); $('#wsSave').disabled=false; }
-    }catch(e){ wsStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#wsSave').disabled=false; }
-  };
-}
-
-/* ================= マニュアル（2026-09-24） =================
-   会社PCの Desktop\製造部\マニュアル を同期スクリプトがサーバー（Googleドライブ）へ送り、
-   ログインした人だけが一覧（mfg_man_list）と中身（mfg_man_get）を受け取る。
-   Word(docx) は mammoth、Excel(xlsx) は SheetJS でスマホの中で読みやすく表示する。
-   同じ内容の別の版（〜f、資料/試料 など）は1つにまとめ、新しい版を先に出す。
-   ============================================================ */
-const MAN_GENRES = ['作業マニュアル（全工程）','原料処理','麹','酒母','仕込み','上槽・アル添','設備・水','研究室','技能検定','安全・消防','メモ（写真）'];
-const MAN_LIBS = {
-  docx: 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js',
-  xlsx: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-};
-const MAN_CSS = `
-.mn-search{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;font-family:inherit;background:var(--card);color:var(--ink);margin:14px 0 4px}
-.mn-g{margin:16px 0 6px;font-size:14px;font-weight:700;color:var(--navy);display:flex;justify-content:space-between;align-items:center;cursor:pointer}
-.mn-g .n{font-size:12px;color:var(--sub);font-weight:400}
-.mn-item{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:6px;display:flex;gap:10px;align-items:center;text-align:left;font-family:inherit;color:inherit;cursor:pointer}
-.mn-item .t{flex:1;font-size:15px;line-height:1.35}
-.mn-item .s{font-size:11px;color:var(--sub);margin-top:2px}
-.mn-bdg{font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px;color:#fff;flex:0 0 auto}
-.mn-bdg.w{background:#2b579a}.mn-bdg.x{background:#217346}.mn-bdg.p{background:#8a5a14}.mn-bdg.o{background:#666}
-.mn-vers{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
-.mn-vers button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px;font-family:inherit;color:var(--sub);cursor:pointer}
-.mn-vers button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}
-.mn-doc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:15px;line-height:1.7;overflow-wrap:anywhere}
-.mn-doc img{max-width:100%;height:auto;display:block;margin:8px 0;border-radius:6px}
-.mn-doc h1,.mn-doc h2,.mn-doc h3{color:var(--navy);line-height:1.4;margin:18px 0 8px}
-.mn-doc h1{font-size:18px}.mn-doc h2{font-size:16px}.mn-doc h3{font-size:15px}
-.mn-doc p{margin:6px 0}
-.mn-doc ol,.mn-doc ul{padding-left:1.4em;margin:6px 0}
-.mn-doc li{margin:4px 0}
-.mn-tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:8px 0}
-.mn-doc table{border-collapse:collapse;font-size:13px;line-height:1.45}
-.mn-doc td,.mn-doc th{border:1px solid var(--line);padding:4px 6px;vertical-align:top;min-width:2.5em}
-.mn-sheets{display:flex;gap:6px;overflow-x:auto;margin:0 0 8px;padding-bottom:4px}
-.mn-sheets button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font-size:13px;font-family:inherit;color:var(--sub);cursor:pointer}
-.mn-sheets button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
-.mn-foot{display:flex;gap:8px;margin:12px 0}
-.mn-foot a,.mn-foot button{flex:1;text-align:center;text-decoration:none;box-sizing:border-box}
-`;
-let MAN_LIST = lsGet('man.list', null), MAN_ERR = '', MAN_OPEN = {}, MAN_Q = '';
-const MAN_BODY = new Map();          // id → { ext, bytes }（開いている間だけ持つ）
-const MAN_SCRIPT = {};
-function manLoadLib(k){
-  if(MAN_SCRIPT[k]) return MAN_SCRIPT[k];
-  MAN_SCRIPT[k] = new Promise((ok, ng)=>{
-    const s=document.createElement('script'); s.src=MAN_LIBS[k]; s.onload=()=>ok(); s.onerror=()=>{ MAN_SCRIPT[k]=null; ng(new Error('表示用の部品を読み込めませんでした')); };
-    document.head.appendChild(s);
-  });
-  return MAN_SCRIPT[k];
-}
-function manKey(t){
-  return String(t||'').replace(/[\s　]/g,'').replace(/[fｆFＦ]$/,'')
-    .replace(/技能士検定/g,'技能検定').replace(/資料/g,'試料').replace(/作成方法/g,'作り方').toLowerCase();
-}
-function manKind(ext){
-  ext=String(ext||'').toLowerCase();
-  if(ext==='docx') return ['w','Word'];
-  if(ext==='xlsx') return ['x','Excel'];
-  if(['jpg','jpeg','png','gif','heic','webp'].includes(ext)) return ['p','写真'];
-  if(ext==='pdf') return ['o','PDF'];
-  return ['o',ext.toUpperCase()||'ファイル'];
-}
-function manDate(s){ if(!s) return ''; const d=new Date(s); return isNaN(d)?'':d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate(); }
-/* 一覧 → ジャンルごとのグループ（同じ内容の版は1つにまとめる） */
-function manGroups(files){
-  const by={};
-  (files||[]).forEach(f=>{ const k=manKey(f.title); (by[k]=by[k]||[]).push(f); });
-  const groups=Object.values(by).map(vs=>{
-    vs.sort((a,b)=>String(b.mtime).localeCompare(String(a.mtime)));
-    return { key:manKey(vs[0].title), title:vs[0].title.replace(/[fｆ]$/,''), genre:vs[0].genre, vers:vs };
-  });
-  const order=g=>{ const i=MAN_GENRES.indexOf(g); return i<0 ? (g==='その他'?999:500) : i; };
-  const gm={};
-  groups.forEach(g=>{ (gm[g.genre]=gm[g.genre]||[]).push(g); });
-  return Object.keys(gm).sort((a,b)=>order(a)-order(b)||a.localeCompare(b,'ja'))
-    .map(n=>({ name:n, items:gm[n].sort((a,b)=>a.title.localeCompare(b.title,'ja',{numeric:true})) }));
-}
-async function manFetchList(){
-  try{
-    const j=await apiT({action:'mfg_man_list', token:ST.token}, 30000);
-    if(j && j.ok && Array.isArray(j.files)){ MAN_LIST={files:j.files, at:j.at, got:Date.now()}; lsSet('man.list', MAN_LIST); MAN_ERR=''; }
-    else if(j && j.err==='bad_token') MAN_ERR='ログイン情報を確認できませんでした。いったんログアウトしてログインし直してください。';
-    else if(j && (j.err==='unknown_action' || (j.ok && !j.files))) MAN_ERR='サーバー側のマニュアル機能がまだ動いていません（Apps Script の新バージョンのデプロイが必要）。';
-    else MAN_ERR='マニュアルの一覧を読み込めませんでした'+(j&&j.err?'（'+j.err+'）':'')+'。';
-  }catch(e){ MAN_ERR='通信できませんでした。'+(MAN_LIST?'前回読み込んだ一覧を表示しています。':''); }
-}
-async function manualScreen(){
-  head('マニュアル','ジャンルごとの作業手順');
-  if(!document.getElementById('mnCss')){ const st=document.createElement('style'); st.id='mnCss'; st.textContent=MAN_CSS; document.head.appendChild(st); }
-  const draw=()=>{
-    let h=`<input class="mn-search" id="mnQ" type="search" placeholder="題名で探す（例：上槽、洗米）" value="${esc(MAN_Q)}">`;
-    if(MAN_ERR) h+=`<div class="mf-warn" style="margin-top:8px">${esc(MAN_ERR)}</div>`;
-    if(!MAN_LIST){ h+=`<div class="card" style="margin-top:12px;text-align:center;color:var(--sub)">読み込んでいます…</div>`; app.innerHTML=h; return; }
-    const q=MAN_Q.replace(/[\s　]/g,'').toLowerCase();
-    const gs=manGroups(MAN_LIST.files);
-    let shown=0;
-    gs.forEach((g,gi)=>{
-      const items=q ? g.items.filter(it=>it.vers.some(v=>(v.title+v.rel+g.name).replace(/[\s　]/g,'').toLowerCase().includes(q))) : g.items;
-      if(!items.length) return;
-      shown+=items.length;
-      const open = q || MAN_OPEN[g.name]!==false;
-      h+=`<div class="mn-g" data-g="${esc(g.name)}"><span>${open?'▾':'▸'} ${esc(g.name)}</span><span class="n">${items.length}件</span></div>`;
-      if(!open) return;
-      items.forEach(it=>{
-        const v=it.vers[0], [c,lab]=manKind(v.ext);
-        h+=`<button class="mn-item" data-k="${esc(it.key)}"><span class="mn-bdg ${c}">${lab}</span>
-          <div class="t">${esc(it.title)}<div class="s">更新 ${manDate(v.mtime)}${it.vers.length>1?'　／　ほかの版 '+(it.vers.length-1)+'つ':''}</div></div><div class="go">›</div></button>`;
-      });
-    });
-    if(!shown) h+=`<div class="card" style="margin-top:12px;text-align:center;color:var(--sub)">${q?'見つかりませんでした。':'まだマニュアルが届いていません。会社PCの同期（5分ごと）を待ってください。'}</div>`;
-    h+=`<p class="tl-note">会社PCの「製造部\\マニュアル」フォルダの中身です。フォルダにファイルを足す・直す・消すと、5分ほどで自動でここに反映されます（ジャンルはフォルダ名で分かれます）。${MAN_LIST.at?'<br>最終反映：'+esc(tjp(MAN_LIST.at)):''}</p>`;
-    app.innerHTML=h;
-    const inp=$('#mnQ');
-    inp.oninput=()=>{ MAN_Q=inp.value; const pos=inp.selectionStart; draw(); const n=$('#mnQ'); n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} };
-    app.querySelectorAll('.mn-g').forEach(el=>el.onclick=()=>{ const n=el.dataset.g; MAN_OPEN[n]=(MAN_OPEN[n]===false); draw(); });
-    app.querySelectorAll('.mn-item').forEach(el=>el.onclick=()=>{
-      const g=manGroups(MAN_LIST.files).flatMap(x=>x.items).find(x=>x.key===el.dataset.k);
-      if(g) go(()=>manualView(g));
-    });
-  };
-  draw();
-  await manFetchList();
-  if(nav.length && nav[nav.length-1] && document.getElementById('mnQ')) draw();
-}
-function manB64ToBytes(b64){ const s=atob(b64), u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; }
-function manMime(ext){ return ({docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',heic:'image/heic',webp:'image/webp',doc:'application/msword',xls:'application/vnd.ms-excel'})[ext]||'application/octet-stream'; }
-async function manualView(g, vi){
-  vi = vi||0;
-  const v=g.vers[vi];
-  head(g.title, g.genre);
-  let top='';
-  if(g.vers.length>1){
-    top+=`<div class="mn-vers">`+g.vers.map((x,i)=>`<button data-i="${i}" class="${i===vi?'on':''}">${i===0?'最新':'前の版'} ${manDate(x.mtime)}</button>`).join('')+`</div>`;
-  }
-  app.innerHTML=top+`<div class="mn-doc" id="mnDoc" style="text-align:center;color:var(--sub)">読み込んでいます…</div><div class="mn-foot" id="mnFoot"></div>`;
-  app.querySelectorAll('.mn-vers button').forEach(b=>b.onclick=()=>manualView(g, Number(b.dataset.i)));
-  const doc=$('#mnDoc');
-  let body=MAN_BODY.get(v.id);
-  if(typeof useAdd==='function') useAdd('man', v.id);
-  if(!body && typeof PC!=='undefined'){ const c=await PC.get('man:'+v.id); if(c && c.mtime===v.mtime && c.bytes){ body={ext:c.ext, bytes:c.bytes}; MAN_BODY.set(v.id, body); } }
-  try{
-    if(!body){
-      const j=await apiT({action:'mfg_man_get', token:ST.token, id:v.id}, 90000);
-      if(!j || !j.ok) throw new Error(j&&j.err==='bad_token'?'ログインし直してください。':j&&j.err==='not_found'?'このマニュアルは会社PCから消されたようです。一覧に戻って開き直してください。':'読み込めませんでした（'+(j&&j.err||'原因不明')+'）');
-      body={ ext:String(j.ext||v.ext).toLowerCase(), bytes:manB64ToBytes(j.b64) };
-      MAN_BODY.set(v.id, body);
-      if(typeof PC!=='undefined') PC.set('man:'+v.id, { mtime:v.mtime, ext:body.ext, bytes:body.bytes });
-      if(MAN_BODY.size>6){ MAN_BODY.delete(MAN_BODY.keys().next().value); }
-    }
-  }catch(e){
-    doc.innerHTML=`<div class="mf-warn">${esc(e&&e.name==='AbortError'?'時間がかかりすぎました。電波の良い場所でもう一度お試しください。':(e.message||'読み込めませんでした。'))}</div>`;
-    return;
-  }
-  if(!document.getElementById('mnDoc')) return;   // 読み込み中に別の画面へ移った
-  const blob=new Blob([body.bytes],{type:manMime(body.ext)}), url=URL.createObjectURL(blob);
-  const fname=v.title+'.'+body.ext;
-  $('#mnFoot').innerHTML=`<a class="btn o" href="${url}" download="${esc(fname)}">ファイルを保存</a><a class="btn o" href="${url}" target="_blank" rel="noopener">別の画面で開く</a>`;
-  doc.style.textAlign='left'; doc.style.color='';
-  try{
-    if(body.ext==='docx'){
-      await manLoadLib('docx');
-      const r=await mammoth.convertToHtml({arrayBuffer:body.bytes.buffer});
-      doc.innerHTML=(r.value||'<p>（中身がありません）</p>').replace(/<table/g,'<div class="mn-tw"><table').replace(/<\/table>/g,'</table></div>');
-      // Wordでは続き番号の手順が、画像をはさむと 1 から振り直しになるので、見出しまでは番号を続ける
-      let cnt=0;
-      [...doc.children].forEach(el=>{
-        if(/^H[1-6]$/.test(el.tagName)) cnt=0;
-        else if(el.tagName==='OL'){ if(cnt && !el.hasAttribute('start')) el.start=cnt+1; cnt=(el.start||1)-1+el.children.length; }
-      });
-      // 目次（ページ番号つきのリンク）は押しても意味がないので文字だけにする
-      doc.querySelectorAll('a[href^="#"]').forEach(a=>{ const sp=document.createElement('span'); sp.textContent=a.textContent.replace(/\t\d+\s*$/,''); a.replaceWith(sp); });
-    }else if(body.ext==='xlsx'){
-      await manLoadLib('xlsx');
-      const wb=XLSX.read(body.bytes,{type:'array'});
-      const names=wb.SheetNames.filter(n=>{ const ws=wb.Sheets[n]; return ws && ws['!ref']; });
-      const show=i=>{
-        const ws=wb.Sheets[names[i]];
-        let t=XLSX.utils.sheet_to_html(ws,{editable:false});
-        const m=t.match(/<table[\s\S]*<\/table>/); t=m?m[0]:t;
-        doc.innerHTML=(names.length>1?`<div class="mn-sheets">`+names.map((n,k)=>`<button data-s="${k}" class="${k===i?'on':''}">${esc(n)}</button>`).join('')+`</div>`:'')+`<div class="mn-tw">${t}</div>`;
-        doc.querySelectorAll('.mn-sheets button').forEach(b=>b.onclick=()=>show(Number(b.dataset.s)));
-      };
-      if(names.length) show(0); else doc.innerHTML='<p>（表が空です）</p>';
-    }else if(['jpg','jpeg','png','gif','webp','heic'].includes(body.ext)){
-      doc.innerHTML=`<img src="${url}" alt="${esc(v.title)}" style="margin:0 auto">`+(body.ext==='heic'?'<p class="muted">HEIC形式の写真です。表示されないときは「別の画面で開く」を押してください。</p>':'');
-    }else if(body.ext==='pdf'){
-      doc.innerHTML=`<iframe src="${url}" style="width:100%;height:70vh;border:0"></iframe>`;
-    }else{
-      doc.innerHTML=`<p>この形式（${esc(body.ext)}）はアプリの中では表示できません。「ファイルを保存」から開いてください。</p>`;
-    }
-  }catch(e){
-    doc.innerHTML=`<div class="mf-warn">表示できませんでした（${esc(e.message||e)}）。「ファイルを保存」から開いてください。</div>`;
-  }
-}
-</script>
-<script>
-/* ================= 醸造記録：麹／分析／仕込み（2026-09-24） =================
-   データ本体：製造アカウントのGoogleスプレッドシート「醪管理R8BY」「麹管理R8BY」
-   （造りexの帳票 → build_moromi.py / build_koji.py で生成した型を取り込んだもの）。
-   裏側：Apps Script「醸造記録 R8BY」（REC_URL）。入力は誰でもできるが、
-   ログイン名が「醪管理R8BY › 入力ログ」に残る（誰が・いつ・どのセルを・何から何へ）。
-   印刷用（仕込カルテ・経過カルテ・今日の作業）はスプレッドシートをPCで開く。
-   ============================================================ */
-const REC_URL = "https://script.google.com/macros/s/AKfycbz_RRj9okjh_-RHAVj1ei9shJFKL5bD8rtqU29FGUjtRDR4yVvjaVacwHfp6NKNf08L/exec";
-const REC_SS_MOROMI = "https://docs.google.com/spreadsheets/d/1QwGTSxM3iSxX7KVDx5TP7wUEAnfdqxbFFVH_GFWojdk/edit";
-const REC_SS_KOJI = "https://docs.google.com/spreadsheets/d/18OlcgDg6hkOjLL6N2c-ShMP8ZUy3RIFcwePtRn93J7k/edit";
-const REC_CSS = `
-.rc-nav{display:flex;align-items:center;gap:6px;margin:12px 0 8px}
-.rc-nav .d{flex:1;text-align:center;font-weight:700;font-size:17px}
-.rc-nav button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 12px;font-family:inherit;font-size:14px;color:inherit;cursor:pointer}
-.rc-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 0 10px}
-.rc-sum div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 8px}
-.rc-sum .k{font-size:11px;color:var(--sub)} .rc-sum .v{font-size:20px;font-weight:700;color:var(--navy);line-height:1.1} .rc-sum .v small{font-size:11px;font-weight:500;color:var(--sub)}
-.rc-h{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 8px;margin:14px 0 6px;font-weight:700;font-size:15px;white-space:nowrap}
-.rc-h small{font-weight:500;color:var(--sub);font-size:12px;white-space:normal}
-.rc-row{width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 10px 9px 0;margin-bottom:7px;display:grid;grid-template-columns:6px 58px 1fr auto;gap:0 9px;align-items:center;text-align:left;font-family:inherit;color:inherit;cursor:pointer;overflow:hidden}
-.rc-row .st{align-self:stretch;border-radius:12px 0 0 12px;background:var(--line)}
-.rc-row.done .st{background:var(--ok)} .rc-row.part .st{background:#c08a2a} .rc-row.bad .st{background:var(--ng)} .rc-row.now .st{background:var(--navy)}
-.rc-row .id{font-size:17px;font-weight:700;color:var(--navy);line-height:1.1} .rc-row .id small{display:block;font-size:11px;font-weight:500;color:var(--sub)}
-.rc-row .mid{min-width:0} .rc-row .b{font-weight:600;font-size:14px} .rc-row .d{font-size:12px;color:var(--sub)}
-.rc-row .r{text-align:right;font-size:12px;color:var(--sub);display:flex;flex-direction:column;align-items:flex-end;gap:3px}
-.rc-row .r b{font-size:14px;color:var(--ink)}
-.rc-pl{display:inline-block;background:var(--navy);color:#fff;border-radius:6px;padding:1px 7px;font-size:12px;font-weight:700;margin-right:4px}
-.rc-pl.no{background:#eef0f3;color:var(--sub)}
-.rc-warn{display:inline-block;background:#fdecec;color:var(--ng);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700}
-.rc-rec{display:inline-block;background:#e6f0fb;color:#1f5fa8;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700}
-.rc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
-.rc-f{display:flex;flex-direction:column;gap:3px;min-width:0}
-.rc-f span{font-size:11px;color:var(--sub)} .rc-f span i{font-style:normal;color:#1f5fa8}
-.rc-f input,.rc-f select,.rc-f textarea{font:inherit;font-size:16px;color:var(--ink);background:#fffbe6;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:42px;width:100%}
-.rc-f textarea{min-height:56px}
-.rc-f.ro input{background:#f3f4f6;color:var(--sub)}
-.rc-kv{width:100%;border-collapse:collapse;font-size:13px}
-.rc-kv th,.rc-kv td{padding:4px 5px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
-.rc-kv th{color:var(--sub);font-weight:600;font-size:11px}
-.rc-kv td:first-child,.rc-kv th:first-child{text-align:left}
-.rc-kv tr.on td{background:#fffbe6;font-weight:700}
-.rc-days{display:flex;gap:5px;overflow-x:auto;padding:4px 0 8px;-webkit-overflow-scrolling:touch}
-.rc-days button{flex:0 0 auto;min-width:44px;padding:7px 4px;border:1px solid var(--line);background:#fff;border-radius:9px;font-family:inherit;font-size:13px;color:var(--sub);cursor:pointer;line-height:1.15}
-.rc-days button small{display:block;font-size:10px}
-.rc-days button.has{border-color:var(--ok);color:var(--ok);font-weight:600}
-.rc-days button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700}
-.rc-seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.rc-seg button{flex:1;border:0;background:#fff;padding:11px 2px;font-size:15px;font-family:inherit;color:var(--sub);cursor:pointer}
-.rc-seg button+button{border-left:1px solid var(--line)}
-.rc-seg button.on{background:var(--navy);color:#fff;font-weight:700}
-.rc-crit{font-size:12px;color:var(--sub);min-height:1.2em;margin-top:3px}
-.rc-calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin:8px 0}
-.rc-calc div{background:#eef1f5;border-radius:8px;padding:6px 8px;font-size:12px;color:var(--sub)}
-.rc-calc div b{display:block;color:var(--ink);font-size:15px}
-.rc-calc div.bad b{color:var(--ng)} .rc-calc div.rec b{color:#1f5fa8}
-.rc-status{font-size:12px;color:var(--sub);min-height:1.2em;margin:6px 0}
-.rc-status.warn{color:var(--ng);font-weight:600}
-.rc-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
-.rc-btn{background:var(--navy);color:#fff;border:0;border-radius:10px;padding:12px 20px;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer}
-.rc-btn:disabled{opacity:.5}
-.rc-ghost{border:1px solid var(--line);background:transparent;border-radius:8px;padding:7px 11px;font-size:13px;font-family:inherit;color:inherit;cursor:pointer}
-.rc-map{display:grid;gap:4px;margin:4px 0 8px}
-.rc-map div{background:#fff;border:1px solid var(--line);border-radius:7px;min-height:44px;padding:3px 4px;font-size:11px;text-align:center;display:flex;flex-direction:column;justify-content:center}
-.rc-map div b{color:var(--sub);font-size:10px;font-weight:600}
-.rc-map div.on{background:#e9f3ec;border-color:var(--ok)} .rc-map div.on b{color:var(--ok)}
-.rc-map div em{font-style:normal;font-weight:700;color:var(--navy);font-size:12px;line-height:1.2}
-.rc-tabs{display:flex;gap:6px;margin:12px 0 8px}
-.rc-tabs button{flex:1;padding:9px;border:1px solid var(--line);background:#fff;border-radius:9px;font-family:inherit;font-size:14px;color:var(--sub);cursor:pointer}
-.rc-tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}
-.rc-chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;font-size:13px;font-family:inherit;color:var(--sub);cursor:pointer}
-.rc-chip.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}
-.rc-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
-@media(max-width:480px){.rc-sum{grid-template-columns:repeat(2,1fr)} .rc-row{grid-template-columns:6px 52px 1fr auto;gap:0 7px} .rc-row .d{font-size:11px}}
-`;
-(function(){ const s=document.createElement('style'); s.textContent=REC_CSS; document.head.appendChild(s); })();
-
-/* ---------- 共通 ---------- */
-const RC = { state:null, at:0, koji:{}, bun:{}, shubo:{}, karte:{}, filter:'now', btab:'moromi', kday:null };
-const RC_PLACE1 = ['A','B','C','D'];
-const RC_PLACE2 = [...Array(10)].map((_,i)=>'麹棚'+(i+1)).concat([...Array(5)].map((_,i)=>'天幕L'+(i+1)), [...Array(5)].map((_,i)=>'天幕R'+(i+1)));
-const RC_CRIT = {
-  sogo:['総合',['出荷不可','要検討','標準','良い','非常に良い'],'商品としての総合印象。目標酒質にどれだけ合っているか'],
-  kaori:['香り',['弱い／オフフレーバー','弱め','適度','しっかり','華やか'],'吟醸香の強さと質。異臭があれば1〜2にしてコメントに書く'],
-  aji:['味わい',['薄い／荒い','やや物足りない','標準','旨味あり','豊か'],'口に含んだときの旨味・甘味・膨らみ'],
-  kire:['キレ',['だれる','やや残る','標準','良い','非常に良い'],'飲み込んだ後の切れ方。辛口系は4以上が目標'],
-  atoaji:['後味',['雑味あり','やや雑味','標準','きれい','非常にきれい'],'飲み込んだ直後に残る味（苦味・渋味・粕っぽさ）'],
-  yoin:['余韻',['短い','やや短い','標準','続く','長く心地よい'],'香味の残り方。吟醸系は4以上が目標'],
-  kuse:['クセ',['強い','やや強い','少し','ほぼなし','なし'],'銘柄の個性を超えた癖・異質さ。5が「クセなし」'] };
-const rcUser=()=>ST.name||ST.id||'';
-const rcN=v=>(v===''||v===null||v===undefined)?'—':(typeof v==='number'?(Math.round(v*100)/100):v);
-const rcMD=s=>s?`${+String(s).slice(5,7)}/${+String(s).slice(8,10)}`:'—';
-const rcDays=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000);
-function rcStatus(t,warn){ const s=$('#rcStatus'); if(!s)return; s.textContent=t; s.className='rc-status'+(warn?' warn':''); if(!warn) setTimeout(()=>{ if(s.textContent===t) s.textContent=''; },4000); }
-async function recApi(body, ms){
-  const ctl = typeof AbortController!=='undefined' ? new AbortController() : null;
-  const t = ctl ? setTimeout(()=>ctl.abort(), ms||30000) : null;
-  const b = Object.assign({user:rcUser(), device:(navigator.userAgent.match(/iPhone|iPad|Android|Windows|Mac/)||[''])[0]}, body);
-  try{
-    const r=await fetch(REC_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b),redirect:'follow',signal:ctl?ctl.signal:undefined});
-    return await r.json();
-  } finally { if(t) clearTimeout(t); }
-}
-async function recState(force){
-  if(!force && RC.state && Date.now()-RC.at<60000) return RC.state;
-  if(!RC.state){ const c=lsGet('rec.state',null); if(c&&c.master) RC.state=c; }
-  try{ const j=await recApi({action:'state'},40000); if(j&&j.ok){ RC.state=j; RC.at=Date.now(); lsSet('rec.state',j); } }catch(e){}
-  return RC.state;
-}
-function rcLoading(t){ app.innerHTML=`<div class="card" style="margin-top:16px;text-align:center;color:var(--sub)">${t||'読み込んでいます…'}</div>`; }
-function rcFail(t){ app.innerHTML=`<div class="tl-warn" style="margin-top:14px">${t||'読み込めませんでした。電波の届く所でもう一度開いてください。'}</div>`; }
-function rcMaster(no){ return ((RC.state&&RC.state.master)||[]).find(m=>String(m.no)===String(no))||null; }
-function rcToday(no){ return (RC.state&&RC.state.today&&RC.state.today[no])||null; }
-function rcMoromiDay(m,date){ if(!m||!m.tome) return null; return rcDays(m.tome,date||dtoday())+1; }   // 留＝1日目
-function rcShuboDay(m,date){ if(!m||!m.motodate) return null; return rcDays(m.motodate,date||dtoday())+1; }
-function rcField(id,label,val,opt){ opt=opt||{}; const hint=opt.hint?`<i>${esc(opt.hint)}</i>`:'';
-  if(opt.type==='select') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><select id="${id}"><option value="">—</option>${opt.options.map(o=>`<option ${String(o)===String(val)?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`;
-  if(opt.type==='text') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><input type="text" id="${id}" value="${esc(val??'')}"></label>`;
-  if(opt.type==='time') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><input type="time" id="${id}" value="${esc(val??'')}"></label>`;
-  if(opt.type==='date') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><input type="date" id="${id}" value="${esc(val??'')}"></label>`;
-  if(opt.type==='ta') return `<label class="rc-f" style="grid-column:1/-1"><span>${esc(label)}</span><textarea id="${id}">${esc(val??'')}</textarea></label>`;
-  return `<label class="rc-f"><span>${esc(label)} ${hint}</span><input type="number" inputmode="decimal" step="${opt.step||'0.1'}" id="${id}" value="${esc(val??'')}" placeholder="${esc(opt.ph||'')}"></label>`; }
-function rcDiff(defs, orig){ const out={}; defs.forEach(([c])=>{ const el=$('#'+rcId(c)); if(!el)return; const v=el.value; if(String(v)!==String(orig[c]??'')) out[c]=v; }); return out; }
-const rcId=c=>'rc_'+c.replace(/[^\w]/g,m=>m.charCodeAt(0).toString(16));
-
-/* ========== 🍚 麹：今日の作業（出麹→盛→引込→洗米）と配置図 ========== */
-async function kojiScreen(day){
-  RC.kday = day || RC.kday || dtoday();
-  const date = RC.kday;
-  head('麹', '今日の作業と記録（麹管理R8BY）');
-  rcLoading('麹の予定を読み込んでいます…');
-  let j = RC.koji[date];
-  try{ const r=await recApi({action:'koji_today',date},40000); if(r&&r.ok){ j=r; RC.koji[date]=r; } }catch(e){}
-  if(!j){ rcFail(); return; }
-  const rows=j.koji||[], wash=j.wash||[], tg=j.targets||{};
-  const out=rows.filter(r=>r['出麹日']===date), mori=rows.filter(r=>r['盛日']===date), hik=rows.filter(r=>r['引込日']===date);
-  const kg=a=>a.reduce((s,r)=>s+(Number(r['麹米kg'])||0),0);
-  const pl=(n,p)=>(n||p)?`<span class="rc-pl">${esc(n?('①②③④⑤⑥⑦⑧⑨⑩'[n-1]||n):'')}${esc(p||'')}</span>`:`<span class="rc-pl no">場所未定</span>`;
-  const row=(r,stage)=>{
-    const map={出麹:['出麹 順番','出麹 場所',r['出麹 品温']!==''?'done':'', r['出麹 品温']!==''?`出麹 ${rcN(r['出麹 品温'])}℃`:'未',`${r['出麹 時刻']||'—'} 目標${tg['出麹']?tg['出麹'].temp:''}℃`],
-      盛:['盛 順番','盛 場所',(r['留仕事 品温']!==''?'done':(r['盛 時刻']!==''?'part':'')), r['留仕事 品温']!==''?`留仕事 ${rcN(r['留仕事 品温'])}℃`:(r['仲仕事 品温']!==''?`仲仕事 ${rcN(r['仲仕事 品温'])}℃`:(r['盛 時刻']!==''?`盛 ${r['盛 時刻']}`:'未')),`盛${tg['盛後']?tg['盛後'].time:''}→仲${tg['仲仕事']?tg['仲仕事'].time:''}→留${tg['留仕事']?tg['留仕事'].time:''}`],
-      引込:['引込 順番','引込 場所',(r['切返し 品温']!==''?'done':(r['引込 時刻']!==''?'part':'')), r['切返し 品温']!==''?`切返し ${rcN(r['切返し 品温'])}℃`:(r['種切 品温']!==''?`種切 ${rcN(r['種切 品温'])}℃`:(r['引込 時刻']!==''?`引込 ${r['引込 時刻']}`:'未')),`引込${tg['引込']?tg['引込'].time:''} 目標${tg['引込']?tg['引込'].temp:''}℃`]}[stage];
-    return `<button class="rc-row ${map[2]}" data-id="${esc(r['麹ID'])}" data-st="${stage}"><span class="st"></span>
-      <span class="id">${esc(r['麹ID'])}<small>${esc(r['記号'])} ${r['麹米kg']}kg</small></span>
-      <span class="mid">${pl(r[map[0]],r[map[1]])}<span class="b">${esc(r['液種'])}</span><br><span class="d">${esc(r['品種'])} ${r['精米歩合']}%${r['種麹']?'・'+esc(r['種麹']):''}${r['使用日']?'・使用 '+rcMD(r['使用日']):''}${r['注意']?' ・'+esc(r['注意']):''}</span></span>
-      <span class="r"><b>${map[3]}</b><span>${map[4]}</span></span></button>`; };
-  const wrow=w=>`<button class="rc-row ${w.kyusui!==''?'done':''}" data-key="${esc(w.key)}"><span class="st"></span>
-      <span class="id">${esc(w.stage)}${w.no}<small>${esc(w.rice)}</small></span>
-      <span class="mid"><span class="b">${esc(w.liquid)}</span><br><span class="d">${esc(w.kind)} ${w.ratio}%・${w.kg}kg</span></span>
-      <span class="r"><b>${w.kyusui!==''?'吸水 '+rcN(w.kyusui)+'%':'未'}</b><span>${w.shinseki!==''?'浸漬'+w.shinseki+'分':''} ${w.suion!==''?'水温'+w.suion+'℃':''}</span></span></button>`;
-  const map1=(list,pc)=>`<div class="rc-map" style="grid-template-columns:repeat(4,1fr)">${['D','C','B','A'].map(p=>{ const x=list.filter(r=>r[pc]===p); return `<div class="${x.length?'on':''}"><b>${p}</b>${x.map(r=>`<em>${esc(r['麹ID'])} ${r['麹米kg']}kg</em>`).join('')}</div>`; }).join('')}</div><div class="tl-note" style="margin:-4px 0 6px;display:flex;justify-content:space-between"><span>奥</span><span>手前</span></div>`;
-  const map2=(list,pc)=>`<div class="tl-note">麹棚</div><div class="rc-map" style="grid-template-columns:repeat(5,1fr)">${[10,9,8,7,6,5,4,3,2,1].map(i=>{ const x=list.filter(r=>r[pc]==='麹棚'+i); return `<div class="${x.length?'on':''}"><b>棚${i}</b>${x.map(r=>`<em>${esc(r['麹ID'])}</em>`).join('')}</div>`; }).join('')}</div>
-    <div class="tl-note">天幕</div><div class="rc-map" style="grid-template-columns:repeat(5,1fr)">${['L5','L4','L3','L2','L1','R5','R4','R3','R2','R1'].map(n=>{ const x=list.filter(r=>r[pc]==='天幕'+n); return `<div class="${x.length?'on':''}"><b>${n}</b>${x.map(r=>`<em>${esc(r['麹ID'])}</em>`).join('')}</div>`; }).join('')}</div>`;
-  const sec=(t,sub,list,fn)=>`<div class="rc-h">${t}<small>${sub}</small></div>`+(list.length?list.map(fn).join(''):`<p class="muted" style="margin:0 0 6px;font-size:13px">なし</p>`);
-  let h=`<div class="rc-nav"><button id="kPrev">‹ 前日</button><span class="d">${djp(date)}</span><button id="kNext">翌日 ›</button><button id="kToday">今日</button></div>
-    <div class="rc-sum"><div><span class="k">出麹</span><span class="v">${out.length}<small> 本 ${kgfmt(kg(out))}kg</small></span></div><div><span class="k">盛（仲・留仕事）</span><span class="v">${mori.length}<small> 本 ${kgfmt(kg(mori))}kg</small></span></div>
-      <div><span class="k">引込（種切・切返し）</span><span class="v">${hik.length}<small> 本 ${kgfmt(kg(hik))}kg</small></span></div><div><span class="k">洗米（麹米）</span><span class="v">${wash.length}<small> 口 ${kgfmt(wash.reduce((s,w)=>s+(Number(w.kg)||0),0))}kg</small></span></div></div>
-    <div class="rc-status" id="rcStatus"></div>`;
-  h+=sec('出麹','朝いちばん。品温・水分・重量を記録',out.sort((a,b)=>(a['出麹 順番']||99)-(b['出麹 順番']||99)),r=>row(r,'出麹'));
-  h+=sec('盛・仲仕事・留仕事','盛の順番と棚を決めて記録',mori.sort((a,b)=>(a['盛 順番']||99)-(b['盛 順番']||99)),r=>row(r,'盛'));
-  h+=sec('引込み・種切・切返し','1号室の置き場所を決めて記録',hik.sort((a,b)=>(a['引込 順番']||99)-(b['引込 順番']||99)),r=>row(r,'引込'));
-  h+=sec('洗米（麹米）の吸水','米温・水温・浸漬・吸水%',wash,wrow);
-  h+=`<div class="rc-h">配置図<small>どの麹をどこに置いたか（順番・場所は各麹の画面で入れる）</small></div>
-    <div class="card"><b style="font-size:13px">1号室（引込み）</b>${map1(hik,'引込 場所')}<b style="font-size:13px">2号室（盛）</b>${map2(mori,'盛 場所')}<b style="font-size:13px;display:block;margin-top:8px">2号室（出麹）</b>${map2(out,'出麹 場所')}</div>
-    <p class="tl-note">目標品温・標準時刻は「麹管理R8BY › 設定」。印刷・履歴分析・週間予定は <a href="${REC_SS_KOJI}" target="_blank" rel="noopener">スプレッドシート（PC）</a>。</p>`;
-  app.innerHTML=h;
-  $('#kPrev').onclick=()=>kojiScreen(dadd(date,-1)); $('#kNext').onclick=()=>kojiScreen(dadd(date,1)); $('#kToday').onclick=()=>kojiScreen(dtoday());
-  app.querySelectorAll('.rc-row[data-id]').forEach(b=>b.onclick=()=>go(()=>kojiEdit(date,b.dataset.id,b.dataset.st)));
-  app.querySelectorAll('.rc-row[data-key]').forEach(b=>b.onclick=()=>go(()=>kyusuiEdit(date,b.dataset.key)));
-}
-const KOJI_FIELDS = {
-  引込:[['引込 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['引込 場所','場所（1号室）',{type:'select',options:RC_PLACE1}],['種麹','種麹',{type:'text'}],['割合%','種麹の割合 %',{step:'1'}],
-    ['引込 時刻','引込 時刻',{type:'time',tg:'引込'}],['引込 品温','引込 品温 ℃',{tg:'引込'}],['引込 水分%','引込 水分 %'],['引込 DRY','引込 DRY'],['引込 WET','引込 WET'],
-    ['種切 時刻','種切 時刻',{type:'time',tg:'種切'}],['種切 品温','種切 品温 ℃',{tg:'種切'}],['種切 水分%','種切 水分 %'],['ねせ h','ねせ 時間 h'],['ねせ 品温','ねせ 品温 ℃'],
-    ['切返し 時刻','切返し 時刻',{type:'time',tg:'切返し'}],['切返し 品温','切返し 品温 ℃',{tg:'切返し'}],['切返し DRY','切返し DRY'],['切返し WET','切返し WET'],['備考','備考',{type:'ta'}]],
-  盛:[['盛 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['盛 場所','場所（2号室）',{type:'select',options:RC_PLACE2}],
-    ['盛前 品温','盛前 品温 ℃',{tg:'盛前'}],['盛 時刻','盛 時刻',{type:'time',tg:'盛後'}],['盛後 品温','盛後 品温 ℃',{tg:'盛後'}],['盛 DRY','盛 DRY'],['盛 WET','盛 WET'],
-    ['仲仕事 時刻','仲仕事 時刻',{type:'time',tg:'仲仕事'}],['仲仕事 品温','仲仕事 品温 ℃',{tg:'仲仕事'}],['留仕事 時刻','留仕事 時刻',{type:'time',tg:'留仕事'}],['留仕事 品温','留仕事 品温 ℃',{tg:'留仕事'}],['備考','備考',{type:'ta'}]],
-  出麹:[['出麹 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['出麹 場所','場所（2号室）',{type:'select',options:RC_PLACE2}],
-    ['出麹 時刻','出麹 時刻',{type:'time',tg:'出麹'}],['出麹 品温','出麹 品温 ℃',{tg:'出麹'}],['出麹 水分%','出麹 水分 %'],['出麹 DRY','出麹 DRY'],['出麹 WET','出麹 WET'],['出麹重量kg','出麹重量 kg'],['備考','備考',{type:'ta'}]] };
-function kojiEdit(date, id, stage){
-  const j=RC.koji[date]; const r=j&&j.koji.find(x=>x['麹ID']===id); if(!r){ go(()=>kojiScreen(date),false); return; }
-  const tg=j.targets||{};
-  head(`${id}（${stage}）`, `${r['液種']}　${r['品種']} ${r['精米歩合']}%　麹米 ${r['麹米kg']}kg`);
-  const defs=KOJI_FIELDS[stage];
-  let h=`<div class="rc-calc"><div>洗米<b>${rcMD(r['洗米日'])}</b></div><div>引込<b>${rcMD(r['引込日'])}</b></div><div>盛<b>${rcMD(r['盛日'])}</b></div><div>出麹<b>${rcMD(r['出麹日'])}</b></div><div>使用日<b>${rcMD(r['使用日'])}</b></div>
-    <div>種麹<b>${esc(r['種麹']||'—')} ${r['種麹g']!==''?r['種麹g']+'g':''}</b></div><div>吸水<b>${rcN(r['吸水%'])}%</b></div>${stage!=='引込'?`<div>引込 品温<b>${rcN(r['引込 品温'])}℃</b></div>`:''}${stage==='出麹'?`<div>留仕事 品温<b>${rcN(r['留仕事 品温'])}℃</b></div>`:''}</div>
-    <div class="card"><div class="rc-grid">${defs.map(([c,l,o])=>{ o=Object.assign({},o||{}); if(o.tg&&tg[o.tg]){ o.hint=(o.type==='time'?'標準 '+(tg[o.tg].time||'—'):'目標 '+(tg[o.tg].temp??'—')+'℃'); } return rcField(rcId(c),l,r[c],o); }).join('')}</div></div>
-    <div class="rc-status" id="rcStatus"></div>
-    <div class="rc-actions"><button class="rc-ghost" id="rcCancel">やめる</button><button class="rc-btn" id="rcSave">保存</button></div>
-    <p class="tl-note">保存すると「麹管理R8BY › 麹DB」に書き込まれ、入力者（${esc(rcUser())}）が入力ログに残ります。</p>`;
-  app.innerHTML=h;
-  $('#rcCancel').onclick=()=>hBack.click();
-  $('#rcSave').onclick=async()=>{
-    const values=rcDiff(defs,r); if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
-    $('#rcSave').disabled=true; rcStatus('保存中…');
-    try{ const res=await recApi({action:'koji_save',id,values},40000);
-      if(res&&res.ok){ Object.assign(r,values); rcStatus(`${id} を保存しました（${res.changed}項目）`); setTimeout(()=>hBack.click(),400); }
-      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
-    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
-  };
-}
-function kyusuiEdit(date, key){
-  const j=RC.koji[date]; const w=j&&j.wash.find(x=>String(x.key)===String(key)); if(!w){ go(()=>kojiScreen(date),false); return; }
-  head(`洗米 ${w.stage}${w.no} ${w.rice}`, `${w.liquid}　${w.kind} ${w.ratio}%　${w.kg}kg`);
-  const defs=[['kometemp','米温 ℃'],['suion','水温 ℃'],['shinseki','浸漬 分',{step:'1'}],['kyusui','吸水 %'],['chosei','調整後 %'],['biko','備考',{type:'ta'}]];
-  app.innerHTML=`<div class="card"><div class="rc-grid">${defs.map(([c,l,o])=>rcField(rcId(c),l,w[c],o)).join('')}</div></div>
-    <div class="rc-status" id="rcStatus"></div>
-    <div class="rc-actions"><button class="rc-ghost" id="rcCancel">やめる</button><button class="rc-btn" id="rcSave">保存</button></div>
-    <p class="tl-note">「麹管理R8BY › 洗米吸水」に保存。醪管理の仕込カルテにも吸水として出ます。</p>`;
-  $('#rcCancel').onclick=()=>hBack.click();
-  $('#rcSave').onclick=async()=>{
-    const values=rcDiff(defs,w); if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
-    $('#rcSave').disabled=true; rcStatus('保存中…');
-    try{ const res=await recApi({action:'kyusui_save',key,values},40000);
-      if(res&&res.ok){ Object.assign(w,values); rcStatus('保存しました'); setTimeout(()=>hBack.click(),400); }
-      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
-    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
-  };
-}
-
-/* ========== 🧪 分析：醪・酒母の分析値入力（入れた瞬間に BMD・推奨追水・警告が返る） ========== */
-async function bunsekiScreen(tab){
-  if(tab) RC.btab=tab;
-  head('分析','醪・酒母の分析値（醪管理R8BY）');
-  rcLoading('仕込の一覧を読み込んでいます…');
-  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
-  const today=dtoday();
-  let h=`<div class="rc-tabs"><button class="${RC.btab==='moromi'?'on':''}" data-t="moromi">醪</button><button class="${RC.btab==='shubo'?'on':''}" data-t="shubo">酒母</button></div><div class="rc-status" id="rcStatus"></div>`;
-  if(RC.btab==='moromi'){
-    const list=st.master.map(m=>({m,t:st.today[m.no]||{},d:rcMoromiDay(m,today)})).filter(x=>x.d!==null && x.t.state!=='上槽済' && x.d>=-2).sort((a,b)=>a.m.tome.localeCompare(b.m.tome));
-    const done=st.master.filter(m=>(st.today[m.no]||{}).state==='上槽済');
-    h+=list.length?list.map(({m,t,d})=>{ const now=d>=1; const last=t.lastDay?`${t.lastDay}日目 ${rcMD(t.lastDate)}`:'未入力'; const stale=now&&t.lastDay&&d-t.lastDay>=2;
-      return `<button class="rc-row ${now?(stale?'part':'now'):''}" data-no="${m.no}"><span class="st"></span>
-        <span class="id">${m.no}<small>${esc(m.sym)} T${m.tank}</small></span>
-        <span class="mid"><span class="b">${esc(m.liquid)}</span><br><span class="d">留 ${rcMD(m.tome)}・上槽予定 ${rcMD(m.joso)}${t.smv!==''&&t.smv!==undefined?`・日本酒度 ${rcN(t.smv)} alc ${rcN(t.alc)}`:''}</span>
-          ${t.warn?`<br><span class="rc-warn">${esc(t.warn)}</span>`:''}${t.oimizuRec?` <span class="rc-rec">追水 ${rcN(t.oimizuRec)}L 推奨</span>`:''}</span>
-        <span class="r"><b>${now?d+'日目':'留まで'+(1-d)+'日'}</b><span>${last}</span></span></button>`; }).join(''):`<p class="muted" style="text-align:center;padding:20px 0">醪中の仕込はありません</p>`;
-    if(done.length) h+=`<p class="tl-note">上槽済：${done.map(m=>m.no).join('、')}（「仕込み」から見られます）</p>`;
-  }else{
-    const list=st.master.filter(m=>m.motodate).map(m=>({m,d:rcShuboDay(m,today)})).filter(x=>x.d>=-3 && x.d<=rcDays(x.m.motodate,x.m.tome)+1).sort((a,b)=>a.m.motodate.localeCompare(b.m.motodate));
-    h+=list.length?list.map(({m,d})=>`<button class="rc-row ${d>=1?'now':''}" data-no="${m.no}"><span class="st"></span>
-        <span class="id">${m.no}<small>酒母${esc(m.shuboSym||'')}${m.shuboT?' T'+esc(m.shuboT):''}</span></span>
-        <span class="mid"><span class="b">${esc(m.liquid)}</span><br><span class="d">酛立 ${rcMD(m.motodate)}・添 ${rcMD(m.soe)}・酵母 ${esc(m.yeast||'—')}</span></span>
-        <span class="r"><b>${d>=1?d+'日目':'酛立まで'+(1-d)+'日'}</b></span></button>`).join(''):`<p class="muted" style="text-align:center;padding:20px 0">育成中の酒母はありません</p>`;
-  }
-  h+=`<div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="rcReload">更新</button><span class="tl-note" style="margin:0">酵母・酒母タンクは「醪管理R8BY › 入力_順号別」で。経過カルテ（グラフ・印刷）は <a href="${REC_SS_MOROMI}" target="_blank" rel="noopener">スプレッドシート</a>。</span></div>`;
-  app.innerHTML=h;
-  app.querySelectorAll('.rc-tabs button').forEach(b=>b.onclick=()=>bunsekiScreen(b.dataset.t));
-  app.querySelectorAll('.rc-row[data-no]').forEach(b=>b.onclick=()=>go(()=>RC.btab==='moromi'?moromiInput(b.dataset.no):shuboInput(b.dataset.no)));
-  $('#rcReload').onclick=async()=>{ rcStatus('更新中…'); await recState(true); bunsekiScreen(); };
-}
-function rcCalcCard(c,m){
-  if(!c) return '';
-  const bad=s=>s?'bad':'';
-  return `<div class="rc-calc">
-    <div>日本酒度（統一）<b>${rcN(c.smv)}</b></div><div class="${c.bmdDiff!==''&&Math.abs(c.bmdDiff)>=6?'bad':''}">BMD<b>${rcN(c.bmd)}<small style="font-size:11px;color:var(--sub)"> 標準${rcN(c.bmdStd)}${c.bmdDiff!==''?' ('+(c.bmdDiff>0?'+':'')+rcN(c.bmdDiff)+')':''}</small></b></div>
-    <div>Be切れ（前日比）<b>${rcN(c.bekire)}</b></div><div class="${c.over!==''&&c.over>0?'rec':''}">エキス分<b>${rcN(c.ext)}<small style="font-size:11px;color:var(--sub)"> AB線${rcN(c.abExt)}</small></b></div>
-    <div class="${c.rec?'rec':''}">推奨追水<b>${c.rec?rcN(c.rec)+' L':'—'}</b></div><div>追水残<b>${rcN(c.rest)} L</b></div>
-    <div>標準品温<b>${rcN(c.tStd)}℃<small style="font-size:11px;color:var(--sub)"> 最高${rcN(c.tmax)}℃</small></b></div>
-    ${c.warn?`<div class="bad" style="grid-column:1/-1">警告<b>${esc(c.warn)}</b></div>`:''}${c.miss?`<div class="bad" style="grid-column:1/-1">入力ミス？<b>${esc(c.miss)}</b></div>`:''}</div>`;
-}
-async function moromiInput(no, day){
-  const m=rcMaster(no)||{};
-  head(`順号 ${no}　${m.sym||''}号`, `${m.liquid||''}　T${m.tank||''}　酵母 ${m.yeast||'—'}　総米 ${m.soumai||''}kg`);
-  rcLoading('分析値を読み込んでいます…');
-  let b=RC.bun[no];
-  try{ const r=await recApi({action:'bunseki_get',no},40000); if(r&&r.ok){ b=r; RC.bun[no]=r; } }catch(e){}
-  if(!b){ rcFail(); return; }
-  const today=dtoday(); const dToday=rcMoromiDay(m,today);
-  const has=d=>{ const x=b.days[d-1]; return x&&(x.be!==''||x.alc!==''||x.tAM!==''||x.tPM!==''||x.oimizu!==''); };
-  if(!day){ day=Math.min(36,Math.max(1,dToday||1)); }
-  const D=b.days[day-1]; const c=b.calc[day];
-  const defs= day===1 ? [['tAM','品温（留）℃']] : [['be','Be（ボーメ）／3.0未満は日本酒度（＋）'],['alc','alc %'],['ta','酸度'],['aa','アミノ酸度'],['oimizu','追水 L',{step:'1'}],['tAM','品温 AM ℃'],['tPM','品温 PM ℃']];
-  let h=`<div class="rc-days" id="rcDays">${b.days.map(x=>`<button data-d="${x.day}" class="${x.day===day?'on':(has(x.day)?'has':'')}">${x.day===1?'留':x.day+'日'}<small>${rcMD(x.date)}</small></button>`).join('')}</div>
-    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><b style="font-size:16px">${day===1?'留（1日目）':day+'日目'}　${djp(D.date)}</b><span class="muted" style="font-size:12px">${dToday===day?'今日':''}</span></div>
-      <div class="rc-grid">${defs.map(([f,l,o])=>rcField('rc_'+f,l,D[f],o)).join('')}</div>
-      <div class="rc-status" id="rcStatus"></div>
-      <div class="rc-actions"><button class="rc-btn" id="rcSave">保存して計算</button></div></div>
-    <div id="rcCalc">${rcCalcCard(c,m)}</div>
-    <div class="rc-h">経過<small>入力済みの日</small></div>
-    <div class="tl-scroll"><table class="rc-kv"><tr><th>日</th><th>日付</th><th>Be</th><th>alc</th><th>酸</th><th>ｱﾐﾉ</th><th>追水</th><th>AM</th><th>PM</th><th>BMD</th><th></th></tr>
-    ${b.days.filter(x=>has(x.day)).map(x=>{ const k=b.calc[x.day]||{}; return `<tr class="${x.day===day?'on':''}" data-d="${x.day}"><td>${x.day===1?'留':x.day}</td><td>${rcMD(x.date)}</td><td>${rcN(x.be)}</td><td>${rcN(x.alc)}</td><td>${rcN(x.ta)}</td><td>${rcN(x.aa)}</td><td>${rcN(x.oimizu)}</td><td>${rcN(x.tAM)}</td><td>${rcN(x.tPM)}</td><td>${rcN(k.bmd)}</td><td style="text-align:left">${k.warn?`<span class="rc-warn">${esc(k.warn)}</span>`:''}${k.rec?` <span class="rc-rec">追水${rcN(k.rec)}L</span>`:''}</td></tr>`; }).join('')||'<tr><td colspan="11" class="muted">まだ入力がありません</td></tr>'}</table></div>
-    <p class="tl-note">Be は R7BY と同じ：ボーメ（正）で入れ、3.0 未満になったら日本酒度メーター（負）を＋で入れる。BMD・AB直線・推奨追水は醸造試験場「全国出品酒経過調査」の式（醪管理R8BY › 醪DB）。追水計画 ${m.oimizu||'—'}L／四段 ${m.yodan||'—'}L／アル添 ${m.alc||'—'}L。</p>`;
-  app.innerHTML=h;
-  const dv=$('#rcDays'); const on=dv.querySelector('.on'); if(on) dv.scrollLeft=Math.max(0,on.offsetLeft-dv.clientWidth/2+30);
-  dv.querySelectorAll('button').forEach(x=>x.onclick=()=>moromiInput(no,Number(x.dataset.d)));
-  app.querySelectorAll('tr[data-d]').forEach(x=>x.onclick=()=>moromiInput(no,Number(x.dataset.d)));
-  $('#rcSave').onclick=async()=>{
-    const values={}; defs.forEach(([f])=>{ const v=$('#rc_'+f).value; if(String(v)!==String(D[f]??'')) values[f]=v; });
-    if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
-    $('#rcSave').disabled=true; rcStatus('保存して計算中…');
-    try{ const res=await recApi({action:'bunseki_save',no,day,values},50000);
-      if(res&&res.ok){ RC.bun[no]=res.all; RC.at=0; const w=(res.calc&&(res.calc.warn||res.calc.miss))||''; await moromiInput(no,day); rcStatus(w?('保存しました。'+w):`${day===1?'留':day+'日目'} を保存しました`,!!w); }
-      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
-    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
-  };
-}
-async function shuboInput(no, day){
-  const m=rcMaster(no)||{};
-  head(`酒母 順号 ${no}　${m.shuboSym||m.sym||''}`, `${m.liquid||''}　${m.shuboT?'T'+m.shuboT:'酒母タンク未設定'}　酵母 ${m.yeast||'—'}`);
-  rcLoading('酒母経過を読み込んでいます…');
-  let s=RC.shubo[no];
-  try{ const r=await recApi({action:'shubo_get',no},40000); if(r&&r.ok){ s=r; RC.shubo[no]=r; } }catch(e){}
-  if(!s){ rcFail(); return; }
-  const dToday=rcShuboDay(m,dtoday());
-  const has=d=>{ const x=s.days[d-1]; return x&&(x.temp!==''||x.be!==''||x.ta!==''||x.alc!==''||x.biko); };
-  if(!day) day=Math.min(13,Math.max(1,dToday||1));
-  const D=s.days[day-1];
-  const defs=[['temp','品温 ℃'],['be','Be（ボーメ）'],['ta','酸度'],['alc','alc %'],['biko','備考',{type:'text'}]];
-  app.innerHTML=`<div class="rc-days" id="rcDays">${s.days.map(x=>`<button data-d="${x.day}" class="${x.day===day?'on':(has(x.day)?'has':'')}">${x.day}日<small>${rcMD(x.date)}</small></button>`).join('')}</div>
-    <div class="card"><b style="font-size:16px">${day}日目　${djp(D.date)}</b>
-      <div class="rc-grid" style="margin-top:8px">${defs.map(([f,l,o])=>rcField('rc_'+f,l,D[f],o)).join('')}</div>
-      <div class="rc-status" id="rcStatus"></div>
-      <div class="rc-actions"><button class="rc-btn" id="rcSave">保存</button></div></div>
-    <div class="card"><div class="rc-grid">${rcField('rc_moto','酛卸日',s.motooroshi,{type:'date',hint:s.motooroshiPlan?'予定 '+rcMD(s.motooroshiPlan):''})}${rcField('rc_biko2','酒母の備考',s.biko,{type:'text'})}</div>
-      <div class="rc-actions"><button class="rc-btn" id="rcSave2">酛卸日・備考を保存</button></div></div>
-    <div class="rc-h">経過</div>
-    <table class="rc-kv"><tr><th>日</th><th>日付</th><th>品温</th><th>Be</th><th>酸度</th><th>alc</th><th>備考</th></tr>
-    ${s.days.filter(x=>has(x.day)).map(x=>`<tr class="${x.day===day?'on':''}" data-d="${x.day}"><td>${x.day}</td><td>${rcMD(x.date)}</td><td>${rcN(x.temp)}</td><td>${rcN(x.be)}</td><td>${rcN(x.ta)}</td><td>${rcN(x.alc)}</td><td style="text-align:left">${esc(x.biko||'')}</td></tr>`).join('')||'<tr><td colspan="7" class="muted">まだ入力がありません</td></tr>'}</table>
-    <p class="tl-note">項目は R7BY の分析酒母と同じ（日目1〜13の品温・Be・酸度・alc、酛卸日）。乳酸 ${m.nyusan||s.head.nyusan||'—'}ml。</p>`;
-  const dv=$('#rcDays'); const on=dv.querySelector('.on'); if(on) dv.scrollLeft=Math.max(0,on.offsetLeft-dv.clientWidth/2+30);
-  dv.querySelectorAll('button').forEach(x=>x.onclick=()=>shuboInput(no,Number(x.dataset.d)));
-  app.querySelectorAll('tr[data-d]').forEach(x=>x.onclick=()=>shuboInput(no,Number(x.dataset.d)));
-  $('#rcSave').onclick=async()=>{
-    const values={}; defs.forEach(([f])=>{ const v=$('#rc_'+f).value; if(String(v)!==String(D[f]??'')) values[f]=v; });
-    if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
-    $('#rcSave').disabled=true; rcStatus('保存中…');
-    try{ const res=await recApi({action:'shubo_save',no,day,values},40000);
-      if(res&&res.ok){ Object.assign(D,values); rcStatus(`${day}日目 を保存しました`); RC.shubo[no]=null; setTimeout(()=>shuboInput(no,day),500); }
-      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
-    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
-  };
-  $('#rcSave2').onclick=async()=>{
-    const body={action:'shubo_save',no}; const mo=$('#rc_moto').value, bk=$('#rc_biko2').value;
-    if(mo!==(s.motooroshi||'')) body.motooroshi=mo; if(bk!==(s.biko||'')) body.biko=bk;
-    if(!('motooroshi' in body)&&!('biko' in body)){ rcStatus('変わったところがありません'); return; }
-    rcStatus('保存中…');
-    try{ const res=await recApi(body,40000); if(res&&res.ok){ s.motooroshi=mo; s.biko=bk; rcStatus('保存しました'); } else rcStatus('保存できませんでした: '+(res&&res.err||''),true); }
-    catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); }
-  };
-}
-
-/* ========== 🍶 仕込み：一覧 → 仕込カルテ（吸水・麹・酒母・醪・上槽粕・最終分析・原酒評価） ========== */
-async function shikomiScreen(f){
-  if(f) RC.filter=f;
-  head('仕込み','仕込ごとのカルテ・上槽・原酒評価');
-  rcLoading('仕込の一覧を読み込んでいます…');
-  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
-  const today=dtoday();
-  const stateOf=m=>{ const t=st.today[m.no]||{}; if(t.state==='上槽済') return ['上槽済','done']; const d=rcMoromiDay(m,today); if(d>=1) return [`醪 ${d}日目`,'now']; const sd=rcShuboDay(m,today); if(sd>=1) return [`酒母 ${sd}日目`,'part']; return ['予定','']; };
-  const F=RC.filter; const list=st.master.map(m=>({m,s:stateOf(m)})).filter(x=>F==='all'||(F==='now'&&x.s[1]==='now')||(F==='shubo'&&x.s[1]==='part')||(F==='done'&&x.s[1]==='done')||(F==='plan'&&x.s[1]===''));
-  let h=`<div class="rc-bar">${[['now','醪中'],['shubo','酒母'],['plan','予定'],['done','上槽済'],['all','全部']].map(([k,l])=>`<button class="rc-chip ${F===k?'on':''}" data-f="${k}">${l}</button>`).join('')}<span style="flex:1"></span><button class="rc-ghost" id="rcReload">更新</button></div><div class="rc-status" id="rcStatus"></div>`;
-  h+=list.length?list.map(({m,s})=>{ const t=st.today[m.no]||{}; return `<button class="rc-row ${s[1]}" data-no="${m.no}"><span class="st"></span>
-      <span class="id">${m.no}<small>${esc(m.sym)} T${m.tank}</small></span>
-      <span class="mid"><span class="b">${esc(m.liquid)}</span><br><span class="d">酛立 ${rcMD(m.motodate)}・添 ${rcMD(m.soe)}・留 ${rcMD(m.tome)}・上槽予定 ${rcMD(m.joso)}</span>${t.warn?`<br><span class="rc-warn">${esc(t.warn)}</span>`:''}</span>
-      <span class="r"><b>${s[0]}</b><span>${t.smv!==''&&t.smv!==undefined?`日本酒度 ${rcN(t.smv)}`:''}</span></span></button>`; }).join(''):`<p class="muted" style="text-align:center;padding:20px 0">該当なし</p>`;
-  h+=`<p class="tl-note">印刷用の仕込カルテ・仕込一覧・資材予定は <a href="${REC_SS_MOROMI}" target="_blank" rel="noopener">醪管理R8BY（スプレッドシート）</a>。仕込計画が変わったら 造りex の帳票から作り直す（杜氏）。</p>`;
-  app.innerHTML=h;
-  app.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>shikomiScreen(b.dataset.f));
-  app.querySelectorAll('.rc-row[data-no]').forEach(b=>b.onclick=()=>go(()=>karteScreen(b.dataset.no)));
-  $('#rcReload').onclick=async()=>{ rcStatus('更新中…'); await recState(true); shikomiScreen(); };
-}
-async function karteScreen(no, force){
-  const m=rcMaster(no)||{};
-  head(`仕込カルテ 順号 ${no}`, `${m.sym||''}号　${m.liquid||''}　T${m.tank||''}`);
-  rcLoading('カルテを集めています…');
-  let k=force?null:RC.karte[no];
-  if(!k){ try{ const r=await recApi({action:'karte',no},50000); if(r&&r.ok){ k=r; RC.karte[no]=r; } }catch(e){} }
-  if(!k){ rcFail(); return; }
-  const M=k.master||m, t=k.today||{}, b=k.moromi, s=k.shubo, j=k.joso||{};
-  const sec=(t,body,extra)=>`<div class="rc-h">${t}${extra||''}</div><div class="card">${body}</div>`;
-  const kv=o=>`<div class="rc-calc">${o.map(([l,v])=>`<div>${l}<b>${v}</b></div>`).join('')}</div>`;
-  const has=x=>x.be!==''||x.alc!==''||x.tAM!==''||x.tPM!==''||x.oimizu!=='';
-  const mdays=b?b.days.filter(has):[]; const last=mdays[mdays.length-1]; const lc=last?(b.calc[last.day]||{}):{};
-  const kasu=(j['粕重量kg']&&M.soumai)?Math.round(j['粕重量kg']/M.soumai*1000)/10:'';
-  const avg=key=>{ const v=k.hyoka.map(x=>Number(x[key])).filter(x=>x>0); return v.length?Math.round(v.reduce((a,c)=>a+c,0)/v.length*10)/10:'—'; };
-  let h=sec('配合・日程', kv([['麹米',esc(M.kome||'—')],['掛米',esc(M.kake||'—')],['総米',(M.soumai||'—')+'kg'],['酵母',esc(M.yeast||'—')],['酒母T',esc(M.shuboT||'—')],['酒母記号',esc(M.shuboSym||'—')],
-      ['酛立',rcMD(M.motodate)],['添',rcMD(M.soe)],['仲',rcMD(M.naka)],['留',rcMD(M.tome)],['上槽予定',rcMD(M.joso)],['醪日数計画',(M.period||'—')+'日'],['追水計画',(M.oimizu||'—')+'L'],['四段',(M.yodan||'—')+'L'],['アル添',(M.alc||'—')+'L'],['最高温度',(M.tmax||'—')+'℃']]));
-  h+=sec('米の吸水', k.wash&&k.wash.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>段</th><th>米</th><th>品種</th><th>%</th><th>kg</th><th>洗米</th><th>浸漬</th><th>水温</th><th>吸水%</th></tr>${k.wash.map(w=>`<tr><td>${esc(w.stage)}</td><td>${esc(w.rice)}</td><td>${esc(w.kind)}</td><td>${w.ratio}</td><td>${w.kg}</td><td>${rcMD(w.date)}</td><td>${rcN(w.shinseki)}</td><td>${rcN(w.suion)}</td><td><b>${rcN(w.kyusui)}</b></td></tr>`).join('')}</table></div>`:'<p class="muted">洗米の記録なし</p>');
-  h+=sec('麹の出来', k.koji&&k.koji.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>麹</th><th>kg</th><th>種麹</th><th>吸水%</th><th>引込℃</th><th>盛後℃</th><th>仲℃</th><th>留℃</th><th>出麹℃</th><th>水分%</th><th>出麹kg</th><th>麹歩合</th><th>引→出h</th></tr>${k.koji.map(r=>`<tr><td>${esc(r['麹ID'])}</td><td>${r['麹米kg']}</td><td>${esc(r['種麹']||'')}</td><td>${rcN(r['吸水%'])}</td><td>${rcN(r['引込 品温'])}</td><td>${rcN(r['盛後 品温'])}</td><td>${rcN(r['仲仕事 品温'])}</td><td>${rcN(r['留仕事 品温'])}</td><td><b>${rcN(r['出麹 品温'])}</b></td><td>${rcN(r['出麹 水分%'])}</td><td>${rcN(r['出麹重量kg'])}</td><td>${rcN(r['麹歩合'])}</td><td>${rcN(r['引込→出麹 h'])}</td></tr>`).join('')}</table></div>`:'<p class="muted">麹の記録なし</p>');
-  const sdays=s?s.days.filter(x=>x.temp!==''||x.be!==''||x.ta!==''||x.alc!==''):[];
-  h+=sec('酒母の経過', (sdays.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>日</th><th>日付</th><th>品温</th><th>Be</th><th>酸度</th><th>alc</th><th>備考</th></tr>${sdays.map(x=>`<tr><td>${x.day}</td><td>${rcMD(x.date)}</td><td>${rcN(x.temp)}</td><td>${rcN(x.be)}</td><td>${rcN(x.ta)}</td><td>${rcN(x.alc)}</td><td style="text-align:left">${esc(x.biko||'')}</td></tr>`).join('')}</table></div>`:'<p class="muted">酒母の記録なし</p>')+`<p class="tl-note">酛卸日 ${s&&s.motooroshi?rcMD(s.motooroshi):'—'}${s&&s.biko?'　'+esc(s.biko):''}</p><div class="rc-actions"><button class="rc-ghost" id="goShubo">酒母を入力</button></div>`);
-  h+=sec('醪の経過', (last?kv([['最新',`${last.day===1?'留':last.day+'日目'} ${rcMD(last.date)}`],['日本酒度',rcN(lc.smv)],['alc',rcN(last.alc)+'%'],['酸度',rcN(last.ta)],['アミノ酸度',rcN(last.aa)],['BMD',`${rcN(lc.bmd)} <small style="font-size:11px;color:var(--sub)">標準${rcN(lc.bmdStd)}</small>`],['累計追水',rcN(t.oimizuSum)+'L'],['追水残',rcN(lc.rest)+'L'],['状態',esc(t.state||'—')]]):'<p class="muted">醪の記録なし</p>')
-    +(t.warn?`<p><span class="rc-warn">${esc(t.warn)}</span></p>`:'')+(mdays.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>日</th><th>Be</th><th>alc</th><th>酸</th><th>ｱﾐﾉ</th><th>追水</th><th>AM</th><th>PM</th><th>BMD</th></tr>${mdays.map(x=>{ const c=b.calc[x.day]||{}; return `<tr><td>${x.day===1?'留':x.day}</td><td>${rcN(x.be)}</td><td>${rcN(x.alc)}</td><td>${rcN(x.ta)}</td><td>${rcN(x.aa)}</td><td>${rcN(x.oimizu)}</td><td>${rcN(x.tAM)}</td><td>${rcN(x.tPM)}</td><td>${rcN(c.bmd)}</td></tr>`; }).join('')}</table></div>`:'')
-    +`<div class="rc-actions"><button class="rc-ghost" id="goMoromi">分析を入力</button></div>`);
-  const jd=[['上槽日','上槽日',{type:'date'}],['上槽前容量L','上槽前容量 L',{step:'1'}],['四段仕込日','四段仕込日',{type:'date'}],['四段払出L','四段払出 L',{step:'1'}],['アル添L(40%)','アル添 L（40%）',{step:'1'}],['上槽 日本酒度','上槽 日本酒度'],['上槽 alc','上槽 alc %'],['上槽 酸度','上槽 酸度'],['上槽 アミノ酸度','上槽 アミノ酸度'],['粕重量kg','粕重量 kg',{step:'1'}],['備考','備考',{type:'text'}]];
-  h+=sec('上槽・粕・最終分析値', `<div class="rc-calc"><div>醪日数<b>${j['醪日数']||'—'}<small style="font-size:11px;color:var(--sub)"> 計画${M.period||'—'}</small></b></div><div>粕歩合<b id="kasu">${kasu!==''?kasu+'%':'—'}</b></div><div>醪最終 日本酒度<b>${rcN(j['醪最終日 日本酒度'])}</b></div><div>醪最終 alc<b>${rcN(j['醪最終日 alc'])}</b></div></div>
-    <div class="rc-grid">${jd.map(([c,l,o])=>rcField(rcId(c),l,j[c],o)).join('')}</div><div class="rc-status" id="rcStatus"></div><div class="rc-actions"><button class="rc-btn" id="rcSaveJoso">上槽を保存</button></div><p class="tl-note">上槽日を入れると「今日の状況」が上槽済になり、タンク洗浄管理の期限計算にも使われる。正式値は rp2090（検定せん）。</p>`);
-  h+=sec('原酒評価', `<div class="rc-calc">${['sogo','kaori','aji','kire','atoaji','yoin','kuse'].map(key=>`<div>${RC_CRIT[key][0]}<b>${avg(RC_CRIT[key][0])}</b></div>`).join('')}<div>評価数<b>${k.hyoka.length}</b></div></div>
-    ${k.hyoka.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>日付</th><th>評価者</th><th>総合</th><th>香</th><th>味</th><th>キレ</th><th>後味</th><th>余韻</th><th>クセ</th><th>コメント</th></tr>${k.hyoka.map(x=>`<tr><td>${rcMD(x['評価日'])}</td><td style="text-align:left">${esc(x['評価者'])}</td><td><b>${x['総合']}</b></td><td>${x['香り']}</td><td>${x['味わい']}</td><td>${x['キレ']}</td><td>${x['後味']}</td><td>${x['余韻']}</td><td>${x['クセ']}</td><td style="text-align:left;white-space:normal;min-width:120px">${esc(x['コメント']||'')}</td></tr>`).join('')}</table></div>`:'<p class="muted">まだ評価がありません</p>'}
-    <div class="rc-actions"><button class="rc-btn" id="goHyoka">評価する（${esc(rcUser())}）</button></div>`);
-  h+=`<p class="tl-note">印刷用（グラフ付き）は <a href="${REC_SS_MOROMI}" target="_blank" rel="noopener">醪管理R8BY › 仕込カルテ</a> で順号 ${no} を選ぶ。</p>`;
-  app.innerHTML=h;
-  $('#goShubo').onclick=()=>go(()=>shuboInput(no)); $('#goMoromi').onclick=()=>go(()=>moromiInput(no)); $('#goHyoka').onclick=()=>go(()=>hyokaScreen(no));
-  const kEl=$('#'+rcId('粕重量kg')); kEl.oninput=()=>{ const v=Number(kEl.value); $('#kasu').textContent=(v&&M.soumai)?(Math.round(v/M.soumai*1000)/10)+'%':'—'; };
-  $('#rcSaveJoso').onclick=async()=>{
-    const values=rcDiff(jd,j); if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
-    $('#rcSaveJoso').disabled=true; rcStatus('保存中…');
-    try{ const res=await recApi({action:'joso_save',no,values},40000);
-      if(res&&res.ok){ rcStatus('上槽を保存しました'); RC.at=0; setTimeout(()=>karteScreen(no,true),600); }
-      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSaveJoso').disabled=false; }
-    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSaveJoso').disabled=false; }
-  };
-}
-function hyokaScreen(no){
-  const m=rcMaster(no)||{};
-  head(`原酒評価 順号 ${no}`, `${m.sym||''}号　${m.liquid||''}　評価者：${rcUser()}`);
-  const keys=['sogo','kaori','aji','kire','atoaji','yoin','kuse']; const sc={};
-  app.innerHTML=`<div class="card"><div class="rc-grid">${rcField('rc_hdate','評価日',dtoday(),{type:'date'})}<label class="rc-f ro"><span>評価者（ログイン名）</span><input type="text" value="${esc(rcUser())}" readonly></label></div></div>
-    ${keys.map(k=>`<div class="card" style="padding:10px 12px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>${RC_CRIT[k][0]}</b><span class="muted" style="font-size:11px">${esc(RC_CRIT[k][2])}</span></div>
-      <div class="rc-seg" id="seg_${k}" style="margin-top:6px">${[1,2,3,4,5].map(v=>`<button type="button" data-v="${v}">${v}</button>`).join('')}</div><div class="rc-crit" id="crit_${k}">1＝${RC_CRIT[k][1][0]}　…　5＝${RC_CRIT[k][1][4]}</div></div>`).join('')}
-    <div class="card">${rcField('rc_hcomment','コメント（なぜその点か、1行で）','',{type:'ta'})}</div>
-    <div class="rc-status" id="rcStatus"></div>
-    <div class="rc-actions"><button class="rc-ghost" id="rcCancel">やめる</button><button class="rc-btn" id="rcSave">この評価を記録</button></div>
-    <p class="tl-note">ものさしは全員共通（醪管理R8BY › 評価基準）。原則 常温・同じグラスで。記録は「原酒評価」に1行追加され、評価者と記録日時が自動で入る。</p>`;
-  keys.forEach(k=>{ const s=$('#seg_'+k); s.querySelectorAll('button').forEach(b=>b.onclick=()=>{ sc[k]=Number(b.dataset.v); s.querySelectorAll('button').forEach(x=>x.className=''); b.className='on'; $('#crit_'+k).textContent=b.dataset.v+'＝'+RC_CRIT[k][1][b.dataset.v-1]; }); });
-  $('#rcCancel').onclick=()=>hBack.click();
-  $('#rcSave').onclick=async()=>{
-    const miss=keys.filter(k=>!sc[k]); if(miss.length){ rcStatus('未入力: '+miss.map(k=>RC_CRIT[k][0]).join('・'),true); return; }
-    if(!rcUser()){ rcStatus('ログイン名がありません。ログインし直してください',true); return; }
-    $('#rcSave').disabled=true; rcStatus('記録中…');
-    try{ const res=await recApi({action:'hyoka_save',no,date:$('#rc_hdate').value,scores:sc,comment:$('#rc_hcomment').value},40000);
-      if(res&&res.ok){ RC.karte[no]=null; rcStatus('記録しました'); setTimeout(()=>hBack.click(),400); }
-      else { rcStatus('記録できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
-    }catch(e){ rcStatus('記録できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
-  };
-}
-
-/* ================= 待たせない仕組み（2026-09-24） =================
-   ① アプリを開いたら（ホームが出たら）裏で各項目のデータを先読みする。
-      よく使う項目から順に。使ったことのある重い項目（ライブラリ・マニュアル本文・
-      よく見る仕込の詳細）はその人だけ先読み（人によって先読みの中身が変わる）。
-   ② 画面を開くときは、端末に保存してある前回の内容をすぐ出し、最新は裏で取って描き直す
-      （入力中は描き直さない）。対象：仕込の一覧・麹・分析・酒母・カルテ・マニュアル本文。
-   ③ アプリに戻ってきたとき（5分以上たっていれば）も先読みする。
-   ④ サービスワーカー（sw.js）で画面のファイルと表示用の部品（Word/Excel）を端末に持つ。
-   使い方の記録（どの項目・どのタンク・どのマニュアルをよく見るか）はこの端末の中だけに保存。
-   ================================================================ */
-const FAST = { dirty:false, last:0, running:false };
-
-/* ---------- 端末の保存庫（IndexedDB。使えなければ何もしない） ---------- */
-const PC = (()=>{
-  let dbp=null;
-  function db(){
-    if(dbp) return dbp;
-    dbp=new Promise((ok,ng)=>{ try{
-      const r=indexedDB.open('mfgcache',1);
-      r.onupgradeneeded=()=>r.result.createObjectStore('kv');
-      r.onsuccess=()=>ok(r.result); r.onerror=()=>ng(r.error);
-    }catch(e){ ng(e); } });
-    dbp.catch(()=>{ dbp=null; });
-    return dbp;
-  }
-  async function get(k){ try{ const d=await db(); return await new Promise(ok=>{ const q=d.transaction('kv').objectStore('kv').get(k); q.onsuccess=()=>ok(q.result||null); q.onerror=()=>ok(null); }); }catch(e){ return null; } }
-  async function set(k,v){ try{ const d=await db(); await new Promise(ok=>{ const tx=d.transaction('kv','readwrite'); tx.objectStore('kv').put(v,k); tx.oncomplete=()=>ok(); tx.onerror=()=>ok(); tx.onabort=()=>ok(); }); }catch(e){} }
-  async function delPrefix(p){ try{ const d=await db(); await new Promise(ok=>{ const tx=d.transaction('kv','readwrite'); const q=tx.objectStore('kv').openCursor();
-    q.onsuccess=()=>{ const c=q.result; if(c){ if(String(c.key).indexOf(p)===0) c.delete(); c.continue(); } }; tx.oncomplete=()=>ok(); tx.onerror=()=>ok(); }); }catch(e){} }
-  return { get, set, delPrefix };
-})();
-
-/* ---------- 使い方の記録（この端末だけ） ---------- */
-function useGet(){ return lsGet('fast.use',{ f:{}, tank:{}, man:{} }); }
-function useAdd(kind, key){
-  if(!key) return;
-  const u=useGet(); u[kind]=u[kind]||{};
-  const e=u[kind][key]||{n:0,t:0}; e.n++; e.t=Date.now(); u[kind][key]=e;
-  // 古いものは消す（90日）
-  Object.keys(u[kind]).forEach(k=>{ if(Date.now()-u[kind][k].t>90*86400000) delete u[kind][k]; });
-  lsSet('fast.use',u);
-}
-/* よく使う順（回数に、最近使ったほど重みを付ける） */
-function useRank(kind){
-  const u=(useGet()[kind])||{};
-  return Object.keys(u).map(k=>{ const e=u[k], days=(Date.now()-e.t)/86400000; return [k, e.n*Math.pow(0.5, days/14)]; })
-    .sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
-}
-
-/* ---------- 入力中は描き直さない ---------- */
-document.addEventListener('input', ()=>{ FAST.dirty=true; }, true);
-(function(){
-  const _go=go;
-  go=function(fn,push){ FAST.dirty=false; return _go(fn, push===undefined?true:push); };
-  hBack.addEventListener('click', ()=>{ FAST.dirty=false; }, true);
-})();
-/* 裏で取った内容が変わっていたら、同じ画面を見ているときだけ描き直す */
-function fastRerender(myTop){
-  if(FAST.dirty) return;
-  const a=document.activeElement;
-  if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
-  const f=nav[nav.length-1];
-  if(!f || f!==myTop) return;
-  const y=window.scrollY; f(); window.scrollTo(0,y);
-}
-
-/* ---------- 記録系（麹・分析・酒母・カルテ）：保存分をすぐ返し、裏で最新 ---------- */
-const REC_READ = { koji_today:1, bunseki_get:1, shubo_get:1, karte:1 };
-const REC_BG = {};
-const recApiNet = recApi;
-function recKey(b){ return 'rec:'+b.action+':'+(b.no!=null?b.no:'')+':'+(b.date||''); }
-async function recFetchStore(body, ms){
-  const r=await recApiNet(body, ms);
-  if(r && r.ok) PC.set(recKey(body), { at:Date.now(), s:JSON.stringify(r) });
-  return r;
-}
-recApi = async function(body, ms){
-  const a=body&&body.action;
-  if(!REC_READ[a]){
-    const r=await recApiNet(body, ms);
-    if(r && r.ok && /save/.test(a)){ PC.delPrefix('rec:'); }   // 保存したら保存分は捨てる（古い値を出さない）
-    return r;
-  }
-  if(!body._pf && (a==='bunseki_get'||a==='shubo_get'||a==='karte')) useAdd('tank', String(body.no));
-  const k=recKey(body), c=await PC.get(k);
-  if(c && c.s){
-    const age=Date.now()-c.at;
-    if(age>30000 && !REC_BG[k]){
-      const myTop=nav[nav.length-1];
-      REC_BG[k]=recFetchStore(body, ms).then(r=>{
-        if(r && r.ok && JSON.stringify(r)!==c.s){
-          // 画面側の手元の控え（RC）も新しくして描き直す
-          if(a==='koji_today') RC.koji[body.date]=r;
-          if(a==='bunseki_get') RC.bun[body.no]=r;
-          if(a==='shubo_get') RC.shubo[body.no]=r;
-          if(a==='karte') RC.karte[body.no]=r;
-          if(!body._pf) fastRerender(myTop);
-        }
-      }).catch(()=>{}).finally(()=>{ delete REC_BG[k]; });
-    }
-    try{ return JSON.parse(c.s); }catch(e){}
-  }
-  return recFetchStore(body, ms);
-};
-/* 仕込の一覧（state）：保存分をすぐ返し、1分より古ければ裏で最新 */
-let REC_STATE_BG=null;
-recState = async function(force){
-  if(!RC.state){ const c=lsGet('rec.state',null); if(c&&c.master){ RC.state=c; RC.at=c._at||0; } }
-  const net=()=>recApiNet({action:'state'},40000).then(j=>{
-    if(j&&j.ok){ const changed=!RC.state || JSON.stringify(j)!==JSON.stringify(Object.assign({},RC.state,{_at:undefined})); j._at=Date.now(); RC.state=j; RC.at=j._at; lsSet('rec.state',j); return changed; }
-    return false;
-  }).catch(()=>false);
-  if(!force && RC.state){
-    if(Date.now()-RC.at>60000 && !REC_STATE_BG){
-      const myTop=nav[nav.length-1];
-      REC_STATE_BG=net().then(ch=>{ REC_STATE_BG=null; if(ch) fastRerender(myTop); });
-    }
-    return RC.state;
-  }
-  await net();
-  return RC.state;
-};
-
-/* ---------- 先読み ---------- */
-const HOME_KEYS = { bCal:'cal', bRice:'rice', bKoji:'koji', bBun:'bun', bShk:'shk', bWash:'wash', bCalc:'calc', bLib:'lib', bMan:'man', bQuiz:'quiz' };
-document.addEventListener('click', e=>{
-  const el=e.target.closest && e.target.closest('#app .crs, #app a.btn');
-  if(!el || !FAST.onHome) return;
-  const href=el.getAttribute('href')||'';
-  const k=HOME_KEYS[el.id] || (href.indexOf('seishu-jiten')>=0?'jiten':href.indexOf('voice')>=0?'voice':'');
-  if(k) useAdd('f', k);
-}, true);
-
-function libAt(){ return lsGet('fast.libAt',0); }
-const PF_TASKS = {
-  // 軽いもの：だれでも先読み
-  mfg:  { light:true, ttl:3*60000, run:()=>mfgRefresh(), at:()=>MFG&&MFG._at||0 },
-  wash: { light:true, ttl:3*60000, run:()=>{ wsFromCache(); return wsFetch(); }, at:()=>WS.loadedAt||0 },
-  rec:  { light:true, ttl:2*60000, run:()=>recState(true), at:()=>RC.at||0 },
-  koji: { light:true, ttl:2*60000, run:()=>recFetchStore({action:'koji_today',date:dtoday(),_pf:1},40000), at:()=>0, pcKey:()=>recKey({action:'koji_today',date:dtoday()}) },
-  manlist: { light:true, ttl:30*60000, run:()=>manFetchList(), at:()=>MAN_LIST&&MAN_LIST.got||0 },
-  // 重いもの：使ったことのある人だけ
-  lib:  { ttl:12*3600000, run:()=>libRefresh().then(()=>lsSet('fast.libAt',Date.now())), at:libAt },
-  tanks:{ ttl:2*60000, run:pfTanks, at:()=>0 },
-  manbody:{ ttl:30*60000, run:pfManuals, at:()=>lsGet('fast.manAt',0) },
-  libs: { ttl:7*86400000, run:pfLibs, at:()=>lsGet('fast.libsAt',0) },
-  jiten:{ ttl:6*3600000, run:()=>fetch('seishu-jiten.html',{cache:'no-cache'}).then(()=>lsSet('fast.jitenAt',Date.now())), at:()=>lsGet('fast.jitenAt',0) }
-};
-/* 項目 → 先読みするもの */
-const F_NEEDS = {
-  cal:['mfg'], rice:['mfg'], koji:['koji'], bun:['rec','tanks'], shk:['rec','tanks'], wash:['wash'],
-  lib:['lib'], man:['manlist','manbody','libs'], jiten:['jiten']
-};
-async function pfTanks(){
-  // よく見るタンク（順号）上位3つの分析・酒母・カルテ
-  const nos=useRank('tank').slice(0,3);
-  for(const no of nos){
-    for(const a of ['bunseki_get','shubo_get','karte']){
-      const k=recKey({action:a,no}); const c=await PC.get(k);
-      if(c && Date.now()-c.at<120000) continue;
-      try{ await recFetchStore({action:a,no,_pf:1},50000); }catch(e){}
-    }
-  }
-}
-async function pfManuals(){
-  // よく開くマニュアル上位3つの本文を端末に保存（内容が変わっていなければ取らない）
-  if(!MAN_LIST || !MAN_LIST.files) await manFetchList();
-  if(!MAN_LIST || !MAN_LIST.files) return;
-  const ids=useRank('man').slice(0,3);
-  for(const id of ids){
-    const f=MAN_LIST.files.find(x=>x.id===id); if(!f) continue;
-    const c=await PC.get('man:'+id); if(c && c.mtime===f.mtime) continue;
-    try{
-      const j=await apiT({action:'mfg_man_get', token:ST.token, id}, 90000);
-      if(j && j.ok) await PC.set('man:'+id, { mtime:f.mtime, ext:String(j.ext||f.ext).toLowerCase(), bytes:manB64ToBytes(j.b64) });
-    }catch(e){}
-  }
-  lsSet('fast.manAt',Date.now());
-}
-async function pfLibs(){
-  // Word・Excelを表示する部品（サービスワーカーが端末に持つ）
-  for(const u of Object.values(MAN_LIBS)){ try{ await fetch(u,{mode:'no-cors'}); }catch(e){} }
-  lsSet('fast.libsAt',Date.now());
-}
-async function fastPrefetch(){
-  if(!ST.token || FAST.running) return;
-  FAST.running=true; FAST.last=Date.now();
-  try{
-    const saveData = navigator.connection && navigator.connection.saveData;
-    // よく使う項目の順に、必要な先読みを並べる（重複は1回）
-    const order=[], seen={};
-    const push=t=>{ if(!seen[t]){ seen[t]=1; order.push(t); } };
-    const used=useRank('f');
-    used.forEach(f=>(F_NEEDS[f]||[]).forEach(push));
-    // 使ったことがなくても、軽いものはだれでも
-    Object.keys(PF_TASKS).forEach(t=>{ if(PF_TASKS[t].light) push(t); });
-    const todo=order.filter(t=>{
-      const p=PF_TASKS[t]; if(!p) return false;
-      if(saveData && !p.light) return false;
-      if(!p.light && !used.some(f=>(F_NEEDS[f]||[]).indexOf(t)>=0)) return false;
-      return Date.now()-(p.at()||0) > p.ttl;
-    });
-    // 3本ずつ並べて取る（サーバーが別なので並べても混まない）
-    let i=0;
-    const worker=async()=>{ while(i<todo.length){ const t=todo[i++]; try{ await PF_TASKS[t].run(); }catch(e){} } };
-    await Promise.all([worker(),worker(),worker()]);
-  } finally { FAST.running=false; }
-}
-
-/* ---------- ホームに割り込む（先読みのきっかけ） ---------- */
-(function(){
-  const _home=home;
-  home=function(){ const r=_home.apply(this, arguments); FAST.onHome=true; setTimeout(fastPrefetch, 800); return r; };
-  // 起動時にすでにホームが出ていたら、それも差し替える
-  for(let i=0;i<nav.length;i++){ if(nav[i]===_home) nav[i]=home; }
-  if(nav[nav.length-1]===home || app.querySelector('#bCal')){ FAST.onHome=true; setTimeout(fastPrefetch, 800); }
-  const _go2=go;
-  go=function(fn,push){ FAST.onHome=(fn===home); return _go2(fn,push); };
-  hBack.addEventListener('click', ()=>{ setTimeout(()=>{ FAST.onHome=(nav[nav.length-1]===home); },0); });
-})();
-/* アプリに戻ってきたとき（5分以上たっていれば）も先読み */
-document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState==='visible' && Date.now()-FAST.last>5*60000) setTimeout(fastPrefetch, 500);
-});
-/* ログアウトしたら、この端末に保存した記録系の控えを消す */
-(function(){ const _lo=logout; logout=function(){ PC.delPrefix('rec:'); PC.delPrefix('man:'); return _lo.apply(this, arguments); }; })();
-
-/* ---------- サービスワーカー（画面のファイルと表示用の部品を端末に持つ） ---------- */
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
-}
+/* ここまで読み込めたので、米管理・出勤表のデータ（MFG）が使えるようになった。
+   ホームを開いたままなら、赤い丸と「きょう」の行を出すために一度だけ描き直す。 */
+try{ if(ST && ST.token && nav.length<=1 && typeof app!=='undefined' && app.querySelector('.hx')) go(home,false); }catch(e){}
 </script>
 <!-- /tools -->
 </body>
