@@ -495,8 +495,9 @@ function home(){
   ${card('bCal','📅','製造カレンダー','出勤表・振休依頼／部署の予定・会社休日')}
   ${card('bRice','🌾','米管理','洗米チェック・在庫管理')}
   ${card('bWash','🫧','タンク洗浄管理','醪タンクの洗浄期限と、洗浄・仕上げ・チェックの記録')}
-  ${card('bLib','🧬','酵母・麹ライブラリ','全国の酵母・種麹から、造りたい酒に合うものを探す')}
   ${card('bCalc','🧮','各種計算ツール','容量計算・濾過計算・アル添計算')}
+  ${card('bLib','🧬','酵母・麹情報','全国の酵母・種麹から、造りたい酒に合うものを探す')}
+  ${card('bMan','📘','マニュアル','ジャンルごとの作業手順（製造部のマニュアル）')}
   <a class="crs" href="seishu-jiten.html" style="text-decoration:none;color:inherit;box-sizing:border-box">
     ${icon('📖')}
     <div style="flex:1"><div class="nm">逆引き検索</div>
@@ -518,6 +519,7 @@ function home(){
   $('#bRice').onclick=()=>go(riceScreen);
   $('#bWash').onclick=()=>go(washScreen);
   $('#bCalc').onclick=()=>go(calcHome);
+  $('#bMan').onclick=()=>go(manualScreen);
 }
 
 /* ========== 問題集（習熟度・コース・復習） ========== */
@@ -1500,7 +1502,7 @@ function libBind(){
 function libScreen(){
   const render=function libRender(){
     app.dataset.mfg='libRender';
-    head('酵母・麹ライブラリ','造りたい酒から、合う酵母・種麹をさがす');
+    head('酵母・麹情報','造りたい酒から、合う酵母・種麹をさがす');
     let h = '';
     if(LIB_ERR) h += `<div class="mf-warn">${esc(LIB_ERR)}<button class="btn" style="margin-top:6px" onclick="libReload()">もう一度読み込む</button></div>`;
     if(!libItems().length){
@@ -1604,7 +1606,7 @@ function libFindList(){
 
 function libDetail(name){
   const e = libItems().find(x=>x.name===name);
-  head(name, '酵母・麹ライブラリ');
+  head(name, '酵母・麹情報');
   if(!e){ app.innerHTML='<div class="card">見つかりませんでした。</div>'; return; }
   const row=(k,v)=> v ? `<div class="lb-row"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>` : '';
   const rowA=(k,v)=> (libArr(v).length) ? row(k, libArr(v).join('・')) : '';
@@ -2605,6 +2607,199 @@ function washEdit(id){
       else { wsStatus('保存できませんでした: '+(j&&j.error||''),true); $('#wsSave').disabled=false; }
     }catch(e){ wsStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#wsSave').disabled=false; }
   };
+}
+
+/* ================= マニュアル（2026-09-24） =================
+   会社PCの Desktop\製造部\マニュアル を同期スクリプトがサーバー（Googleドライブ）へ送り、
+   ログインした人だけが一覧（mfg_man_list）と中身（mfg_man_get）を受け取る。
+   Word(docx) は mammoth、Excel(xlsx) は SheetJS でスマホの中で読みやすく表示する。
+   同じ内容の別の版（〜f、資料/試料 など）は1つにまとめ、新しい版を先に出す。
+   ============================================================ */
+const MAN_GENRES = ['作業マニュアル（全工程）','原料処理','麹','酒母','仕込み','上槽・アル添','設備・水','研究室','技能検定','安全・消防','メモ（写真）'];
+const MAN_LIBS = {
+  docx: 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js',
+  xlsx: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+};
+const MAN_CSS = `
+.mn-search{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;font-family:inherit;background:var(--card);color:var(--ink);margin:14px 0 4px}
+.mn-g{margin:16px 0 6px;font-size:14px;font-weight:700;color:var(--navy);display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.mn-g .n{font-size:12px;color:var(--sub);font-weight:400}
+.mn-item{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:6px;display:flex;gap:10px;align-items:center;text-align:left;font-family:inherit;color:inherit;cursor:pointer}
+.mn-item .t{flex:1;font-size:15px;line-height:1.35}
+.mn-item .s{font-size:11px;color:var(--sub);margin-top:2px}
+.mn-bdg{font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px;color:#fff;flex:0 0 auto}
+.mn-bdg.w{background:#2b579a}.mn-bdg.x{background:#217346}.mn-bdg.p{background:#8a5a14}.mn-bdg.o{background:#666}
+.mn-vers{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.mn-vers button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px;font-family:inherit;color:var(--sub);cursor:pointer}
+.mn-vers button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}
+.mn-doc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:15px;line-height:1.7;overflow-wrap:anywhere}
+.mn-doc img{max-width:100%;height:auto;display:block;margin:8px 0;border-radius:6px}
+.mn-doc h1,.mn-doc h2,.mn-doc h3{color:var(--navy);line-height:1.4;margin:18px 0 8px}
+.mn-doc h1{font-size:18px}.mn-doc h2{font-size:16px}.mn-doc h3{font-size:15px}
+.mn-doc p{margin:6px 0}
+.mn-doc ol,.mn-doc ul{padding-left:1.4em;margin:6px 0}
+.mn-doc li{margin:4px 0}
+.mn-tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:8px 0}
+.mn-doc table{border-collapse:collapse;font-size:13px;line-height:1.45}
+.mn-doc td,.mn-doc th{border:1px solid var(--line);padding:4px 6px;vertical-align:top;min-width:2.5em}
+.mn-sheets{display:flex;gap:6px;overflow-x:auto;margin:0 0 8px;padding-bottom:4px}
+.mn-sheets button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font-size:13px;font-family:inherit;color:var(--sub);cursor:pointer}
+.mn-sheets button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.mn-foot{display:flex;gap:8px;margin:12px 0}
+.mn-foot a,.mn-foot button{flex:1;text-align:center;text-decoration:none;box-sizing:border-box}
+`;
+let MAN_LIST = lsGet('man.list', null), MAN_ERR = '', MAN_OPEN = {}, MAN_Q = '';
+const MAN_BODY = new Map();          // id → { ext, bytes }（開いている間だけ持つ）
+const MAN_SCRIPT = {};
+function manLoadLib(k){
+  if(MAN_SCRIPT[k]) return MAN_SCRIPT[k];
+  MAN_SCRIPT[k] = new Promise((ok, ng)=>{
+    const s=document.createElement('script'); s.src=MAN_LIBS[k]; s.onload=()=>ok(); s.onerror=()=>{ MAN_SCRIPT[k]=null; ng(new Error('表示用の部品を読み込めませんでした')); };
+    document.head.appendChild(s);
+  });
+  return MAN_SCRIPT[k];
+}
+function manKey(t){
+  return String(t||'').replace(/[\s　]/g,'').replace(/[fｆFＦ]$/,'')
+    .replace(/技能士検定/g,'技能検定').replace(/資料/g,'試料').replace(/作成方法/g,'作り方').toLowerCase();
+}
+function manKind(ext){
+  ext=String(ext||'').toLowerCase();
+  if(ext==='docx') return ['w','Word'];
+  if(ext==='xlsx') return ['x','Excel'];
+  if(['jpg','jpeg','png','gif','heic','webp'].includes(ext)) return ['p','写真'];
+  if(ext==='pdf') return ['o','PDF'];
+  return ['o',ext.toUpperCase()||'ファイル'];
+}
+function manDate(s){ if(!s) return ''; const d=new Date(s); return isNaN(d)?'':d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate(); }
+/* 一覧 → ジャンルごとのグループ（同じ内容の版は1つにまとめる） */
+function manGroups(files){
+  const by={};
+  (files||[]).forEach(f=>{ const k=manKey(f.title); (by[k]=by[k]||[]).push(f); });
+  const groups=Object.values(by).map(vs=>{
+    vs.sort((a,b)=>String(b.mtime).localeCompare(String(a.mtime)));
+    return { key:manKey(vs[0].title), title:vs[0].title.replace(/[fｆ]$/,''), genre:vs[0].genre, vers:vs };
+  });
+  const order=g=>{ const i=MAN_GENRES.indexOf(g); return i<0 ? (g==='その他'?999:500) : i; };
+  const gm={};
+  groups.forEach(g=>{ (gm[g.genre]=gm[g.genre]||[]).push(g); });
+  return Object.keys(gm).sort((a,b)=>order(a)-order(b)||a.localeCompare(b,'ja'))
+    .map(n=>({ name:n, items:gm[n].sort((a,b)=>a.title.localeCompare(b.title,'ja',{numeric:true})) }));
+}
+async function manFetchList(){
+  try{
+    const j=await apiT({action:'mfg_man_list', token:ST.token}, 30000);
+    if(j && j.ok && Array.isArray(j.files)){ MAN_LIST={files:j.files, at:j.at, got:Date.now()}; lsSet('man.list', MAN_LIST); MAN_ERR=''; }
+    else if(j && j.err==='bad_token') MAN_ERR='ログイン情報を確認できませんでした。いったんログアウトしてログインし直してください。';
+    else if(j && (j.err==='unknown_action' || (j.ok && !j.files))) MAN_ERR='サーバー側のマニュアル機能がまだ動いていません（Apps Script の新バージョンのデプロイが必要）。';
+    else MAN_ERR='マニュアルの一覧を読み込めませんでした'+(j&&j.err?'（'+j.err+'）':'')+'。';
+  }catch(e){ MAN_ERR='通信できませんでした。'+(MAN_LIST?'前回読み込んだ一覧を表示しています。':''); }
+}
+async function manualScreen(){
+  head('マニュアル','ジャンルごとの作業手順');
+  if(!document.getElementById('mnCss')){ const st=document.createElement('style'); st.id='mnCss'; st.textContent=MAN_CSS; document.head.appendChild(st); }
+  const draw=()=>{
+    let h=`<input class="mn-search" id="mnQ" type="search" placeholder="題名で探す（例：上槽、洗米）" value="${esc(MAN_Q)}">`;
+    if(MAN_ERR) h+=`<div class="mf-warn" style="margin-top:8px">${esc(MAN_ERR)}</div>`;
+    if(!MAN_LIST){ h+=`<div class="card" style="margin-top:12px;text-align:center;color:var(--sub)">読み込んでいます…</div>`; app.innerHTML=h; return; }
+    const q=MAN_Q.replace(/[\s　]/g,'').toLowerCase();
+    const gs=manGroups(MAN_LIST.files);
+    let shown=0;
+    gs.forEach((g,gi)=>{
+      const items=q ? g.items.filter(it=>it.vers.some(v=>(v.title+v.rel+g.name).replace(/[\s　]/g,'').toLowerCase().includes(q))) : g.items;
+      if(!items.length) return;
+      shown+=items.length;
+      const open = q || MAN_OPEN[g.name]!==false;
+      h+=`<div class="mn-g" data-g="${esc(g.name)}"><span>${open?'▾':'▸'} ${esc(g.name)}</span><span class="n">${items.length}件</span></div>`;
+      if(!open) return;
+      items.forEach(it=>{
+        const v=it.vers[0], [c,lab]=manKind(v.ext);
+        h+=`<button class="mn-item" data-k="${esc(it.key)}"><span class="mn-bdg ${c}">${lab}</span>
+          <div class="t">${esc(it.title)}<div class="s">更新 ${manDate(v.mtime)}${it.vers.length>1?'　／　ほかの版 '+(it.vers.length-1)+'つ':''}</div></div><div class="go">›</div></button>`;
+      });
+    });
+    if(!shown) h+=`<div class="card" style="margin-top:12px;text-align:center;color:var(--sub)">${q?'見つかりませんでした。':'まだマニュアルが届いていません。会社PCの同期（5分ごと）を待ってください。'}</div>`;
+    h+=`<p class="tl-note">会社PCの「製造部\\マニュアル」フォルダの中身です。フォルダにファイルを足す・直す・消すと、5分ほどで自動でここに反映されます（ジャンルはフォルダ名で分かれます）。${MAN_LIST.at?'<br>最終反映：'+esc(tjp(MAN_LIST.at)):''}</p>`;
+    app.innerHTML=h;
+    const inp=$('#mnQ');
+    inp.oninput=()=>{ MAN_Q=inp.value; const pos=inp.selectionStart; draw(); const n=$('#mnQ'); n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} };
+    app.querySelectorAll('.mn-g').forEach(el=>el.onclick=()=>{ const n=el.dataset.g; MAN_OPEN[n]=(MAN_OPEN[n]===false); draw(); });
+    app.querySelectorAll('.mn-item').forEach(el=>el.onclick=()=>{
+      const g=manGroups(MAN_LIST.files).flatMap(x=>x.items).find(x=>x.key===el.dataset.k);
+      if(g) go(()=>manualView(g));
+    });
+  };
+  draw();
+  await manFetchList();
+  if(nav.length && nav[nav.length-1] && document.getElementById('mnQ')) draw();
+}
+function manB64ToBytes(b64){ const s=atob(b64), u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; }
+function manMime(ext){ return ({docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',heic:'image/heic',webp:'image/webp',doc:'application/msword',xls:'application/vnd.ms-excel'})[ext]||'application/octet-stream'; }
+async function manualView(g, vi){
+  vi = vi||0;
+  const v=g.vers[vi];
+  head(g.title, g.genre);
+  let top='';
+  if(g.vers.length>1){
+    top+=`<div class="mn-vers">`+g.vers.map((x,i)=>`<button data-i="${i}" class="${i===vi?'on':''}">${i===0?'最新':'前の版'} ${manDate(x.mtime)}</button>`).join('')+`</div>`;
+  }
+  app.innerHTML=top+`<div class="mn-doc" id="mnDoc" style="text-align:center;color:var(--sub)">読み込んでいます…</div><div class="mn-foot" id="mnFoot"></div>`;
+  app.querySelectorAll('.mn-vers button').forEach(b=>b.onclick=()=>manualView(g, Number(b.dataset.i)));
+  const doc=$('#mnDoc');
+  let body=MAN_BODY.get(v.id);
+  try{
+    if(!body){
+      const j=await apiT({action:'mfg_man_get', token:ST.token, id:v.id}, 90000);
+      if(!j || !j.ok) throw new Error(j&&j.err==='bad_token'?'ログインし直してください。':j&&j.err==='not_found'?'このマニュアルは会社PCから消されたようです。一覧に戻って開き直してください。':'読み込めませんでした（'+(j&&j.err||'原因不明')+'）');
+      body={ ext:String(j.ext||v.ext).toLowerCase(), bytes:manB64ToBytes(j.b64) };
+      MAN_BODY.set(v.id, body);
+      if(MAN_BODY.size>6){ MAN_BODY.delete(MAN_BODY.keys().next().value); }
+    }
+  }catch(e){
+    doc.innerHTML=`<div class="mf-warn">${esc(e&&e.name==='AbortError'?'時間がかかりすぎました。電波の良い場所でもう一度お試しください。':(e.message||'読み込めませんでした。'))}</div>`;
+    return;
+  }
+  if(!document.getElementById('mnDoc')) return;   // 読み込み中に別の画面へ移った
+  const blob=new Blob([body.bytes],{type:manMime(body.ext)}), url=URL.createObjectURL(blob);
+  const fname=v.title+'.'+body.ext;
+  $('#mnFoot').innerHTML=`<a class="btn o" href="${url}" download="${esc(fname)}">ファイルを保存</a><a class="btn o" href="${url}" target="_blank" rel="noopener">別の画面で開く</a>`;
+  doc.style.textAlign='left'; doc.style.color='';
+  try{
+    if(body.ext==='docx'){
+      await manLoadLib('docx');
+      const r=await mammoth.convertToHtml({arrayBuffer:body.bytes.buffer});
+      doc.innerHTML=(r.value||'<p>（中身がありません）</p>').replace(/<table/g,'<div class="mn-tw"><table').replace(/<\/table>/g,'</table></div>');
+      // Wordでは続き番号の手順が、画像をはさむと 1 から振り直しになるので、見出しまでは番号を続ける
+      let cnt=0;
+      [...doc.children].forEach(el=>{
+        if(/^H[1-6]$/.test(el.tagName)) cnt=0;
+        else if(el.tagName==='OL'){ if(cnt && !el.hasAttribute('start')) el.start=cnt+1; cnt=(el.start||1)-1+el.children.length; }
+      });
+      // 目次（ページ番号つきのリンク）は押しても意味がないので文字だけにする
+      doc.querySelectorAll('a[href^="#"]').forEach(a=>{ const sp=document.createElement('span'); sp.textContent=a.textContent.replace(/\t\d+\s*$/,''); a.replaceWith(sp); });
+    }else if(body.ext==='xlsx'){
+      await manLoadLib('xlsx');
+      const wb=XLSX.read(body.bytes,{type:'array'});
+      const names=wb.SheetNames.filter(n=>{ const ws=wb.Sheets[n]; return ws && ws['!ref']; });
+      const show=i=>{
+        const ws=wb.Sheets[names[i]];
+        let t=XLSX.utils.sheet_to_html(ws,{editable:false});
+        const m=t.match(/<table[\s\S]*<\/table>/); t=m?m[0]:t;
+        doc.innerHTML=(names.length>1?`<div class="mn-sheets">`+names.map((n,k)=>`<button data-s="${k}" class="${k===i?'on':''}">${esc(n)}</button>`).join('')+`</div>`:'')+`<div class="mn-tw">${t}</div>`;
+        doc.querySelectorAll('.mn-sheets button').forEach(b=>b.onclick=()=>show(Number(b.dataset.s)));
+      };
+      if(names.length) show(0); else doc.innerHTML='<p>（表が空です）</p>';
+    }else if(['jpg','jpeg','png','gif','webp','heic'].includes(body.ext)){
+      doc.innerHTML=`<img src="${url}" alt="${esc(v.title)}" style="margin:0 auto">`+(body.ext==='heic'?'<p class="muted">HEIC形式の写真です。表示されないときは「別の画面で開く」を押してください。</p>':'');
+    }else if(body.ext==='pdf'){
+      doc.innerHTML=`<iframe src="${url}" style="width:100%;height:70vh;border:0"></iframe>`;
+    }else{
+      doc.innerHTML=`<p>この形式（${esc(body.ext)}）はアプリの中では表示できません。「ファイルを保存」から開いてください。</p>`;
+    }
+  }catch(e){
+    doc.innerHTML=`<div class="mf-warn">表示できませんでした（${esc(e.message||e)}）。「ファイルを保存」から開いてください。</div>`;
+  }
 }
 </script>
 <!-- /tools -->
