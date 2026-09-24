@@ -7,8 +7,8 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="生産本部製造ツール">
-<title>生産本部製造ツール</title>
+<meta name="apple-mobile-web-app-title" content="製造ツール">
+<title>製造ツール</title>
 <style>
 :root{
   --navy:#1b2a41; --navy2:#263c5a; --gold:#b08d3f; --gold-l:#d8b96a;
@@ -153,7 +153,7 @@ textarea{width:100%;height:150px;font-family:ui-monospace,monospace;font-size:12
 <body>
 <header><div class="hin">
   <button class="btn-back hide" id="back">‹ 戻る</button>
-  <h1 id="ttl">生産本部製造ツール<span class="sm" id="sub">麒麟山酒造</span></h1>
+  <h1 id="ttl">製造ツール<span class="sm" id="sub">麒麟山酒造</span></h1>
   <button class="who hide" id="who" aria-label="設定を開く"></button>
 </div></header>
 <div class="wrap" id="app">
@@ -165,7 +165,7 @@ textarea{width:100%;height:150px;font-family:ui-monospace,monospace;font-size:12
   </div>
 </div>
 <noscript><div class="wrap"><div id="boot"><b>JavaScriptが無効です。</b><br>ブラウザの設定でJavaScriptを有効にしてください。</div></div></noscript>
-<footer>生産本部製造ツール v2.1 ／ 社内限定・IDとパスワードが必要です</footer>
+<footer>製造ツール v2.1 ／ 社内限定・IDとパスワードが必要です</footer>
 
 <script>
 window.onerror=function(m,s,l,c){
@@ -357,7 +357,7 @@ async function apiT(body, ms){
   } finally { if(t) clearTimeout(t); }
 }
 function loginScreen(msg){
-  head('生産本部製造ツール','ログイン');
+  head('製造ツール','ログイン');
   hBack.classList.add('hide');
   app.innerHTML=`
     <div class="card" style="margin-top:16px">
@@ -396,7 +396,7 @@ function loginScreen(msg){
 }
 
 function registerScreen(msg){
-  head('生産本部製造ツール','初回のパスワード設定');
+  head('製造ツール','初回のパスワード設定');
   hBack.classList.add('hide');
   app.innerHTML=`
     <div class="card" style="margin-top:16px">
@@ -476,7 +476,7 @@ function home(){
   if(!ST.token){nav=[];loginScreen();return}
   if(!QUESTIONS.length){nav=[];loginScreen('問題データを読み込めませんでした。もう一度ログインしてください。');return}
   flush();
-  head('生産本部製造ツール','麒麟山酒造');
+  head('製造ツール','麒麟山酒造');
   const all=QUESTIONS, done=all.filter(q=>lvl(q.id)>0).length;
   const icon=t=>`<div style="width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto">${t}</div>`;
   const card=(id,ic,nm,ds)=>`<button class="crs" id="${id}">${icon(ic)}<div style="flex:1"><div class="nm">${nm}</div><div class="ds">${ds}</div></div><div class="go">›</div></button>`;
@@ -822,7 +822,7 @@ function settings(){
 
 function exportText(){
   const d=new Date(), p=n=>('0'+n).slice(-2);
-  let s=`【生産本部製造ツール 進捗】${ST.name||'（未設定）'}　${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())}\n`;
+  let s=`【製造ツール 進捗】${ST.name||'（未設定）'}　${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())}\n`;
   COURSES.forEach(c=>{
     const qs=QUESTIONS.filter(q=>q.course===c.id); if(!qs.length)return;
     s+=`\n■${c.name}　習熟度${mastery(qs)}%\n`;
@@ -852,7 +852,7 @@ window.onerror=function(m,s,l,c){
   try{
     if(ST.token && ST.data){ applyData(ST.data); go(home); refreshData(); }
     else if(ST.token){ 
-      head('生産本部製造ツール','読み込んでいます…');
+      head('製造ツール','読み込んでいます…');
       app.innerHTML='<div class="card" style="margin-top:16px;text-align:center" class="muted">問題を読み込んでいます…</div>';
       const j=await api({action:'login',token:ST.token});
       if(j.ok) afterLogin(j); else logout(j.err==='bad_token');
@@ -880,7 +880,7 @@ async function refreshData(){
 <!-- tools -->
 <script>
 /* ===================================================================
-   生産本部製造ツール：製造カレンダー／容量計算／濾過計算／アル添計算
+   製造ツール：製造カレンダー／容量計算／濾過計算／アル添計算
    すべて端末の中で計算する（PCの電源が切れていても使える）。
    =================================================================== */
 const CAL_SRC = "https://calendar.google.com/calendar/embed?src=kirinzanbrew%40titan.ocn.ne.jp&color=%233F51B5&src=388a84ab6ff2d6640a20e329914d31beaccd098f9aadc009d918ad73d951cc87%40group.calendar.google.com&color=%23E67C73&ctz=Asia%2FTokyo&showTitle=0&showPrint=0&showTz=0";
@@ -938,16 +938,17 @@ function decodeTank(t){
 }
 async function loadTanks(){
   if(TANKS) return TANKS;
-  try{ localStorage.removeItem('tool.tanks'); }catch(e){}   // 照合前の古い早見表（2026-09-22以前）は使わない
+  // 古い早見表が端末に残っていると「計算しない」表示が続くので消す
+  try{ localStorage.removeItem('tool.tanks'); localStorage.removeItem('tool.tanks2'); }catch(e){}
   // ① ログイン時に届いたデータ（辞書と一緒に配信する場合）
   const fromLogin = (ST.data && ((ST.data.dictionary&&ST.data.dictionary.tanks) || ST.data.tanks)) || null;
   if(fromLogin){ TANKS=fromLogin; TANKS_INFO='サーバー'; return TANKS; }
   // ② 同じ場所の tanks.json（端末に保存して、電波が無くても使えるようにする）
   try{
     const r=await fetch('tanks.json?v='+Date.now(),{cache:'no-store'});
-    if(r.ok){ const d=await r.json(); lsSet('tool.tanks2',d); TANKS=d; TANKS_INFO='最新'; return TANKS; }
+    if(r.ok){ const d=await r.json(); lsSet('tool.tanks3',d); TANKS=d; TANKS_INFO='最新'; return TANKS; }
   }catch(e){}
-  const c=lsGet('tool.tanks2',null); if(c){ TANKS=c; TANKS_INFO='端末に保存した版'; return TANKS; }
+  const c=lsGet('tool.tanks3',null); if(c){ TANKS=c; TANKS_INFO='端末に保存した版'; return TANKS; }
   return null;
 }
 function tankByNo(no){
@@ -1010,8 +1011,8 @@ function capacityPanel(k){
         <div class="tl-row"><span>全容量</span><b>${fnum(t.f,0)} ℓ</b></div>
         <div class="tl-row"><span>底板面（いちばん深いところ）</span><b>${fnum(t.bottom,0)} ℓ</b></div>
         </div>`:''}
-      ${blocked?`<div class="tl-warn" style="margin-top:8px;background:#fdecec;border-color:#e0a0a0;color:#8a1c1c;font-weight:700">この容器は、早見表の数値の照合がまだ済んでいません。誤った数値を出さないため、アプリでは計算しません。必ず造りexの容量早見表で確認してください。${t.reason?`<div style="font-weight:400;margin-top:4px">理由：${esc(t.reason)}</div>`:''}</div>`:''}
-      ${t&&!blocked?`<div style="margin-top:8px;font-size:12px;color:#1d6b45">✓ 造りexの早見表（PDF・Excel書き出しの2つ）と全点照合済み</div>`:''}
+      ${blocked?`<div class="tl-warn" style="margin-top:8px;background:#fdecec;border-color:#e0a0a0;color:#8a1c1c;font-weight:700">この容器は、造りexの早見表そのものに直らない数値があります。誤った数値を出さないため、アプリでは計算しません。必ず造りexの画面で確認してください。${t.reason?`<div style="font-weight:400;margin-top:4px">${esc(t.reason)}</div>`:''}</div>`:''}
+      ${t&&!blocked?`<div style="margin-top:8px;font-size:12px;color:#1d6b45">✓ 造りexが書き出した早見表そのまま（容器番号も造りexのもの）</div>`:''}
     </div>`;
 }
 /* パネルで今わかっている量（ℓ）。合計に使う */
@@ -1037,7 +1038,9 @@ async function capacityScreen(){
       </div>
       ${capacityPanel(sel)}
       ${(a!==null&&b!==null)?`<div class="card"><div class="tl-row"><span>タンク①＋②</span><b class="tl-big">${fnum(a+b,0)} ℓ</b></div></div>`:''}
-      <p class="tl-note">空寸（上からの寸法）で引く早見表です。表は2mmごとで、間の寸法は前後の値から直線で補っています。${TANKS.version?`早見表：${esc(TANKS.version)}（${TANKS_INFO}）`:''}</p>
+      <p class="tl-note">空寸（上からの寸法）で引く早見表です。表は2mmごとで、間の寸法は前後の値から直線で補っています。<br>
+        ${TANKS.version?`早見表：${esc(TANKS.version)}（${TANKS_INFO}）`:''}
+        ${(()=>{const b=TANKS.tanks.filter(x=>x.blocked);return b.length?`<br><b style="color:#8a1c1c">容器 ${b.map(x=>x.no).join('・')} は造りexの数値に直らないところがあるため、計算しません。</b>`:'';})()}</p>
       <button class="tl-link" id="capClr">入力を消す</button>`;
     app.querySelectorAll('[data-cs]').forEach(b=>b.onclick=()=>{ lsSet('tool.capsel',Number(b.dataset.cs)); draw(); });
     app.querySelectorAll('[data-capmode]').forEach(b=>b.onclick=()=>{
