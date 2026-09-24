@@ -2782,12 +2782,15 @@ async function manualView(g, vi){
   app.querySelectorAll('.mn-vers button').forEach(b=>b.onclick=()=>manualView(g, Number(b.dataset.i)));
   const doc=$('#mnDoc');
   let body=MAN_BODY.get(v.id);
+  if(typeof useAdd==='function') useAdd('man', v.id);
+  if(!body && typeof PC!=='undefined'){ const c=await PC.get('man:'+v.id); if(c && c.mtime===v.mtime && c.bytes){ body={ext:c.ext, bytes:c.bytes}; MAN_BODY.set(v.id, body); } }
   try{
     if(!body){
       const j=await apiT({action:'mfg_man_get', token:ST.token, id:v.id}, 90000);
       if(!j || !j.ok) throw new Error(j&&j.err==='bad_token'?'ログインし直してください。':j&&j.err==='not_found'?'このマニュアルは会社PCから消されたようです。一覧に戻って開き直してください。':'読み込めませんでした（'+(j&&j.err||'原因不明')+'）');
       body={ ext:String(j.ext||v.ext).toLowerCase(), bytes:manB64ToBytes(j.b64) };
       MAN_BODY.set(v.id, body);
+      if(typeof PC!=='undefined') PC.set('man:'+v.id, { mtime:v.mtime, ext:body.ext, bytes:body.bytes });
       if(MAN_BODY.size>6){ MAN_BODY.delete(MAN_BODY.keys().next().value); }
     }
   }catch(e){
@@ -3263,6 +3266,238 @@ function hyokaScreen(no){
       else { rcStatus('記録できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
     }catch(e){ rcStatus('記録できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
   };
+}
+
+/* ================= 待たせない仕組み（2026-09-24） =================
+   ① アプリを開いたら（ホームが出たら）裏で各項目のデータを先読みする。
+      よく使う項目から順に。使ったことのある重い項目（ライブラリ・マニュアル本文・
+      よく見る仕込の詳細）はその人だけ先読み（人によって先読みの中身が変わる）。
+   ② 画面を開くときは、端末に保存してある前回の内容をすぐ出し、最新は裏で取って描き直す
+      （入力中は描き直さない）。対象：仕込の一覧・麹・分析・酒母・カルテ・マニュアル本文。
+   ③ アプリに戻ってきたとき（5分以上たっていれば）も先読みする。
+   ④ サービスワーカー（sw.js）で画面のファイルと表示用の部品（Word/Excel）を端末に持つ。
+   使い方の記録（どの項目・どのタンク・どのマニュアルをよく見るか）はこの端末の中だけに保存。
+   ================================================================ */
+const FAST = { dirty:false, last:0, running:false };
+
+/* ---------- 端末の保存庫（IndexedDB。使えなければ何もしない） ---------- */
+const PC = (()=>{
+  let dbp=null;
+  function db(){
+    if(dbp) return dbp;
+    dbp=new Promise((ok,ng)=>{ try{
+      const r=indexedDB.open('mfgcache',1);
+      r.onupgradeneeded=()=>r.result.createObjectStore('kv');
+      r.onsuccess=()=>ok(r.result); r.onerror=()=>ng(r.error);
+    }catch(e){ ng(e); } });
+    dbp.catch(()=>{ dbp=null; });
+    return dbp;
+  }
+  async function get(k){ try{ const d=await db(); return await new Promise(ok=>{ const q=d.transaction('kv').objectStore('kv').get(k); q.onsuccess=()=>ok(q.result||null); q.onerror=()=>ok(null); }); }catch(e){ return null; } }
+  async function set(k,v){ try{ const d=await db(); await new Promise(ok=>{ const tx=d.transaction('kv','readwrite'); tx.objectStore('kv').put(v,k); tx.oncomplete=()=>ok(); tx.onerror=()=>ok(); tx.onabort=()=>ok(); }); }catch(e){} }
+  async function delPrefix(p){ try{ const d=await db(); await new Promise(ok=>{ const tx=d.transaction('kv','readwrite'); const q=tx.objectStore('kv').openCursor();
+    q.onsuccess=()=>{ const c=q.result; if(c){ if(String(c.key).indexOf(p)===0) c.delete(); c.continue(); } }; tx.oncomplete=()=>ok(); tx.onerror=()=>ok(); }); }catch(e){} }
+  return { get, set, delPrefix };
+})();
+
+/* ---------- 使い方の記録（この端末だけ） ---------- */
+function useGet(){ return lsGet('fast.use',{ f:{}, tank:{}, man:{} }); }
+function useAdd(kind, key){
+  if(!key) return;
+  const u=useGet(); u[kind]=u[kind]||{};
+  const e=u[kind][key]||{n:0,t:0}; e.n++; e.t=Date.now(); u[kind][key]=e;
+  // 古いものは消す（90日）
+  Object.keys(u[kind]).forEach(k=>{ if(Date.now()-u[kind][k].t>90*86400000) delete u[kind][k]; });
+  lsSet('fast.use',u);
+}
+/* よく使う順（回数に、最近使ったほど重みを付ける） */
+function useRank(kind){
+  const u=(useGet()[kind])||{};
+  return Object.keys(u).map(k=>{ const e=u[k], days=(Date.now()-e.t)/86400000; return [k, e.n*Math.pow(0.5, days/14)]; })
+    .sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+}
+
+/* ---------- 入力中は描き直さない ---------- */
+document.addEventListener('input', ()=>{ FAST.dirty=true; }, true);
+(function(){
+  const _go=go;
+  go=function(fn,push){ FAST.dirty=false; return _go(fn, push===undefined?true:push); };
+  hBack.addEventListener('click', ()=>{ FAST.dirty=false; }, true);
+})();
+/* 裏で取った内容が変わっていたら、同じ画面を見ているときだけ描き直す */
+function fastRerender(myTop){
+  if(FAST.dirty) return;
+  const a=document.activeElement;
+  if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  const f=nav[nav.length-1];
+  if(!f || f!==myTop) return;
+  const y=window.scrollY; f(); window.scrollTo(0,y);
+}
+
+/* ---------- 記録系（麹・分析・酒母・カルテ）：保存分をすぐ返し、裏で最新 ---------- */
+const REC_READ = { koji_today:1, bunseki_get:1, shubo_get:1, karte:1 };
+const REC_BG = {};
+const recApiNet = recApi;
+function recKey(b){ return 'rec:'+b.action+':'+(b.no!=null?b.no:'')+':'+(b.date||''); }
+async function recFetchStore(body, ms){
+  const r=await recApiNet(body, ms);
+  if(r && r.ok) PC.set(recKey(body), { at:Date.now(), s:JSON.stringify(r) });
+  return r;
+}
+recApi = async function(body, ms){
+  const a=body&&body.action;
+  if(!REC_READ[a]){
+    const r=await recApiNet(body, ms);
+    if(r && r.ok && /save/.test(a)){ PC.delPrefix('rec:'); }   // 保存したら保存分は捨てる（古い値を出さない）
+    return r;
+  }
+  if(!body._pf && (a==='bunseki_get'||a==='shubo_get'||a==='karte')) useAdd('tank', String(body.no));
+  const k=recKey(body), c=await PC.get(k);
+  if(c && c.s){
+    const age=Date.now()-c.at;
+    if(age>30000 && !REC_BG[k]){
+      const myTop=nav[nav.length-1];
+      REC_BG[k]=recFetchStore(body, ms).then(r=>{
+        if(r && r.ok && JSON.stringify(r)!==c.s){
+          // 画面側の手元の控え（RC）も新しくして描き直す
+          if(a==='koji_today') RC.koji[body.date]=r;
+          if(a==='bunseki_get') RC.bun[body.no]=r;
+          if(a==='shubo_get') RC.shubo[body.no]=r;
+          if(a==='karte') RC.karte[body.no]=r;
+          if(!body._pf) fastRerender(myTop);
+        }
+      }).catch(()=>{}).finally(()=>{ delete REC_BG[k]; });
+    }
+    try{ return JSON.parse(c.s); }catch(e){}
+  }
+  return recFetchStore(body, ms);
+};
+/* 仕込の一覧（state）：保存分をすぐ返し、1分より古ければ裏で最新 */
+let REC_STATE_BG=null;
+recState = async function(force){
+  if(!RC.state){ const c=lsGet('rec.state',null); if(c&&c.master){ RC.state=c; RC.at=c._at||0; } }
+  const net=()=>recApiNet({action:'state'},40000).then(j=>{
+    if(j&&j.ok){ const changed=!RC.state || JSON.stringify(j)!==JSON.stringify(Object.assign({},RC.state,{_at:undefined})); j._at=Date.now(); RC.state=j; RC.at=j._at; lsSet('rec.state',j); return changed; }
+    return false;
+  }).catch(()=>false);
+  if(!force && RC.state){
+    if(Date.now()-RC.at>60000 && !REC_STATE_BG){
+      const myTop=nav[nav.length-1];
+      REC_STATE_BG=net().then(ch=>{ REC_STATE_BG=null; if(ch) fastRerender(myTop); });
+    }
+    return RC.state;
+  }
+  await net();
+  return RC.state;
+};
+
+/* ---------- 先読み ---------- */
+const HOME_KEYS = { bCal:'cal', bRice:'rice', bKoji:'koji', bBun:'bun', bShk:'shk', bWash:'wash', bCalc:'calc', bLib:'lib', bMan:'man', bQuiz:'quiz' };
+document.addEventListener('click', e=>{
+  const el=e.target.closest && e.target.closest('#app .crs, #app a.btn');
+  if(!el || !FAST.onHome) return;
+  const href=el.getAttribute('href')||'';
+  const k=HOME_KEYS[el.id] || (href.indexOf('seishu-jiten')>=0?'jiten':href.indexOf('voice')>=0?'voice':'');
+  if(k) useAdd('f', k);
+}, true);
+
+function libAt(){ return lsGet('fast.libAt',0); }
+const PF_TASKS = {
+  // 軽いもの：だれでも先読み
+  mfg:  { light:true, ttl:3*60000, run:()=>mfgRefresh(), at:()=>MFG&&MFG._at||0 },
+  wash: { light:true, ttl:3*60000, run:()=>{ wsFromCache(); return wsFetch(); }, at:()=>WS.loadedAt||0 },
+  rec:  { light:true, ttl:2*60000, run:()=>recState(true), at:()=>RC.at||0 },
+  koji: { light:true, ttl:2*60000, run:()=>recFetchStore({action:'koji_today',date:dtoday(),_pf:1},40000), at:()=>0, pcKey:()=>recKey({action:'koji_today',date:dtoday()}) },
+  manlist: { light:true, ttl:30*60000, run:()=>manFetchList(), at:()=>MAN_LIST&&MAN_LIST.got||0 },
+  // 重いもの：使ったことのある人だけ
+  lib:  { ttl:12*3600000, run:()=>libRefresh().then(()=>lsSet('fast.libAt',Date.now())), at:libAt },
+  tanks:{ ttl:2*60000, run:pfTanks, at:()=>0 },
+  manbody:{ ttl:30*60000, run:pfManuals, at:()=>lsGet('fast.manAt',0) },
+  libs: { ttl:7*86400000, run:pfLibs, at:()=>lsGet('fast.libsAt',0) },
+  jiten:{ ttl:6*3600000, run:()=>fetch('seishu-jiten.html',{cache:'no-cache'}).then(()=>lsSet('fast.jitenAt',Date.now())), at:()=>lsGet('fast.jitenAt',0) }
+};
+/* 項目 → 先読みするもの */
+const F_NEEDS = {
+  cal:['mfg'], rice:['mfg'], koji:['koji'], bun:['rec','tanks'], shk:['rec','tanks'], wash:['wash'],
+  lib:['lib'], man:['manlist','manbody','libs'], jiten:['jiten']
+};
+async function pfTanks(){
+  // よく見るタンク（順号）上位3つの分析・酒母・カルテ
+  const nos=useRank('tank').slice(0,3);
+  for(const no of nos){
+    for(const a of ['bunseki_get','shubo_get','karte']){
+      const k=recKey({action:a,no}); const c=await PC.get(k);
+      if(c && Date.now()-c.at<120000) continue;
+      try{ await recFetchStore({action:a,no,_pf:1},50000); }catch(e){}
+    }
+  }
+}
+async function pfManuals(){
+  // よく開くマニュアル上位3つの本文を端末に保存（内容が変わっていなければ取らない）
+  if(!MAN_LIST || !MAN_LIST.files) await manFetchList();
+  if(!MAN_LIST || !MAN_LIST.files) return;
+  const ids=useRank('man').slice(0,3);
+  for(const id of ids){
+    const f=MAN_LIST.files.find(x=>x.id===id); if(!f) continue;
+    const c=await PC.get('man:'+id); if(c && c.mtime===f.mtime) continue;
+    try{
+      const j=await apiT({action:'mfg_man_get', token:ST.token, id}, 90000);
+      if(j && j.ok) await PC.set('man:'+id, { mtime:f.mtime, ext:String(j.ext||f.ext).toLowerCase(), bytes:manB64ToBytes(j.b64) });
+    }catch(e){}
+  }
+  lsSet('fast.manAt',Date.now());
+}
+async function pfLibs(){
+  // Word・Excelを表示する部品（サービスワーカーが端末に持つ）
+  for(const u of Object.values(MAN_LIBS)){ try{ await fetch(u,{mode:'no-cors'}); }catch(e){} }
+  lsSet('fast.libsAt',Date.now());
+}
+async function fastPrefetch(){
+  if(!ST.token || FAST.running) return;
+  FAST.running=true; FAST.last=Date.now();
+  try{
+    const saveData = navigator.connection && navigator.connection.saveData;
+    // よく使う項目の順に、必要な先読みを並べる（重複は1回）
+    const order=[], seen={};
+    const push=t=>{ if(!seen[t]){ seen[t]=1; order.push(t); } };
+    const used=useRank('f');
+    used.forEach(f=>(F_NEEDS[f]||[]).forEach(push));
+    // 使ったことがなくても、軽いものはだれでも
+    Object.keys(PF_TASKS).forEach(t=>{ if(PF_TASKS[t].light) push(t); });
+    const todo=order.filter(t=>{
+      const p=PF_TASKS[t]; if(!p) return false;
+      if(saveData && !p.light) return false;
+      if(!p.light && !used.some(f=>(F_NEEDS[f]||[]).indexOf(t)>=0)) return false;
+      return Date.now()-(p.at()||0) > p.ttl;
+    });
+    // 3本ずつ並べて取る（サーバーが別なので並べても混まない）
+    let i=0;
+    const worker=async()=>{ while(i<todo.length){ const t=todo[i++]; try{ await PF_TASKS[t].run(); }catch(e){} } };
+    await Promise.all([worker(),worker(),worker()]);
+  } finally { FAST.running=false; }
+}
+
+/* ---------- ホームに割り込む（先読みのきっかけ） ---------- */
+(function(){
+  const _home=home;
+  home=function(){ const r=_home.apply(this, arguments); FAST.onHome=true; setTimeout(fastPrefetch, 800); return r; };
+  // 起動時にすでにホームが出ていたら、それも差し替える
+  for(let i=0;i<nav.length;i++){ if(nav[i]===_home) nav[i]=home; }
+  if(nav[nav.length-1]===home || app.querySelector('#bCal')){ FAST.onHome=true; setTimeout(fastPrefetch, 800); }
+  const _go2=go;
+  go=function(fn,push){ FAST.onHome=(fn===home); return _go2(fn,push); };
+  hBack.addEventListener('click', ()=>{ setTimeout(()=>{ FAST.onHome=(nav[nav.length-1]===home); },0); });
+})();
+/* アプリに戻ってきたとき（5分以上たっていれば）も先読み */
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible' && Date.now()-FAST.last>5*60000) setTimeout(fastPrefetch, 500);
+});
+/* ログアウトしたら、この端末に保存した記録系の控えを消す */
+(function(){ const _lo=logout; logout=function(){ PC.delPrefix('rec:'); PC.delPrefix('man:'); return _lo.apply(this, arguments); }; })();
+
+/* ---------- サービスワーカー（画面のファイルと表示用の部品を端末に持つ） ---------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
 }
 </script>
 <!-- /tools -->
