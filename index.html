@@ -494,6 +494,9 @@ function home(){
   let h=`<div style="height:16px"></div>
   ${card('bCal','📅','製造カレンダー','出勤表・振休依頼／部署の予定・会社休日')}
   ${card('bRice','🌾','米管理','洗米チェック・在庫管理')}
+  ${card('bKoji','🍚','麹','今日の出麹・盛・引込み・洗米の記録と配置図')}
+  ${card('bBun','🧪','分析','醪・酒母の分析値を入れると BMD・推奨追水・警告が出る')}
+  ${card('bShk','🍶','仕込み','仕込カルテ（吸水・麹・酒母・醪・上槽粕・原酒評価）')}
   ${card('bWash','🫧','タンク洗浄管理','醪タンクの洗浄期限と、洗浄・仕上げ・チェックの記録')}
   ${card('bCalc','🧮','各種計算ツール','容量計算・濾過計算・アル添計算')}
   ${card('bLib','🧬','酵母・麹情報','全国の酵母・種麹から、造りたい酒に合うものを探す')}
@@ -517,6 +520,9 @@ function home(){
   $('#bCal').onclick=()=>go(()=>calendarScreen());
   $('#bLib').onclick=()=>go(()=>libScreen());
   $('#bRice').onclick=()=>go(riceScreen);
+  $('#bKoji').onclick=()=>go(()=>kojiScreen());
+  $('#bBun').onclick=()=>go(()=>bunsekiScreen());
+  $('#bShk').onclick=()=>go(()=>shikomiScreen());
   $('#bWash').onclick=()=>go(washScreen);
   $('#bCalc').onclick=()=>go(calcHome);
   $('#bMan').onclick=()=>go(manualScreen);
@@ -2531,10 +2537,10 @@ async function washScreen(){
       const left=s===3?'完了':d<0?`${-d}日超過`:d===0?'今日まで':`あと${d}日`;
       return `<button class="ws-row ${u}" data-id="${p.id}"><span class="st"></span>
         <span class="tk">${p.tank}<small>No.${p.n} ${esc(p.kigo)}</small></span>
-        <span class="mid"><span class="b">${esc(p.brand)}</span><br><span class="d">添 ${wsMD(p.soe)}・留 ${wsMD(p.tome)}・上槽 ${wsMD(p.josou)}${p.prev?`　前回上槽 ${wsMD(p.prev)}`:''}</span></span>
+        <span class="mid"><span class="b">${esc(p.brand)}</span><br><span class="d">添 ${wsMD(p.soe)}・留 ${wsMD(p.tome)}・上槽 ${p.josouActual?`<b>${wsMD(p.josouActual)}</b>(実)`:wsMD(p.josou)}${p.prev?`　前回上槽 ${wsMD(p.prev)}${p.prevActual?'(実)':''}`:''}</span></span>
         <span class="dl"><span class="date">${wsMD(p.deadline)}まで</span><span class="left ${u==='done'?'':u}">${left}</span>
           <span class="ws-steps"><span class="${r.wash&&r.wash.done?'on':''}">洗</span><span class="${r.finish&&r.finish.done?'on':''}">仕</span><span class="${r.check&&r.check.done?'on':''}">確</span></span></span></button>`; }).join('');
-    h+=`<p class="tl-note">記録はスプレッドシート「タンク洗浄記録_R8BY」に保存されます。印刷用の表は
+    h+=`<p class="tl-note">記録はスプレッドシート「タンク洗浄記録_R8BY」に保存されます。「仕込み」で上槽日を入れると前回上槽が実績（実）に変わります。印刷用の表は
       <a href="${WASH_URL}" target="_blank" rel="noopener">こちら（印刷ボタン付き）</a>。仕込計画が変わったら予定表を作り直します。</p>`;
     app.innerHTML=h;
     app.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{ WS.filter=b.dataset.f; draw(); });
@@ -2557,7 +2563,7 @@ function washEdit(id){
   const opt=(cur)=>`<option value="">—</option>`+WS.staff.map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');
   app.innerHTML=`
     <div class="ws-tl">
-      <div>${p.prev?'前回上槽':'今期初使用'}<b>${p.prev?wsJD(p.prev):'—'}</b></div>
+      <div>${p.prev?(p.prevActual?'前回上槽（実績）':'前回上槽（予定）'):'今期初使用'}<b>${p.prev?wsJD(p.prev):'—'}</b></div>
       <div class="${d<=3&&wsStage(r)<3?'hot':''}">洗浄期限（酛下日）<b>${wsJD(p.deadline)}</b></div>
       <div>添仕込<b>${wsJD(p.soe)}</b></div></div>
     <fieldset class="ws-fs ${r.wash.done?'on':''}" id="fsWash"><legend><label><input type="checkbox" id="wDone" ${r.wash.done?'checked':''}>洗浄</label></legend>
@@ -2800,6 +2806,435 @@ async function manualView(g, vi){
   }catch(e){
     doc.innerHTML=`<div class="mf-warn">表示できませんでした（${esc(e.message||e)}）。「ファイルを保存」から開いてください。</div>`;
   }
+}
+</script>
+<script>
+/* ================= 醸造記録：麹／分析／仕込み（2026-09-24） =================
+   データ本体：製造アカウントのGoogleスプレッドシート「醪管理R8BY」「麹管理R8BY」
+   （造りexの帳票 → build_moromi.py / build_koji.py で生成した型を取り込んだもの）。
+   裏側：Apps Script「醸造記録 R8BY」（REC_URL）。入力は誰でもできるが、
+   ログイン名が「醪管理R8BY › 入力ログ」に残る（誰が・いつ・どのセルを・何から何へ）。
+   印刷用（仕込カルテ・経過カルテ・今日の作業）はスプレッドシートをPCで開く。
+   ============================================================ */
+const REC_URL = "https://script.google.com/macros/s/AKfycbz_RRj9okjh_-RHAVj1ei9shJFKL5bD8rtqU29FGUjtRDR4yVvjaVacwHfp6NKNf08L/exec";
+const REC_SS_MOROMI = "https://docs.google.com/spreadsheets/d/1QwGTSxM3iSxX7KVDx5TP7wUEAnfdqxbFFVH_GFWojdk/edit";
+const REC_SS_KOJI = "https://docs.google.com/spreadsheets/d/18OlcgDg6hkOjLL6N2c-ShMP8ZUy3RIFcwePtRn93J7k/edit";
+const REC_CSS = `
+.rc-nav{display:flex;align-items:center;gap:6px;margin:12px 0 8px}
+.rc-nav .d{flex:1;text-align:center;font-weight:700;font-size:17px}
+.rc-nav button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 12px;font-family:inherit;font-size:14px;color:inherit;cursor:pointer}
+.rc-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 0 10px}
+.rc-sum div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 8px}
+.rc-sum .k{font-size:11px;color:var(--sub)} .rc-sum .v{font-size:20px;font-weight:700;color:var(--navy);line-height:1.1} .rc-sum .v small{font-size:11px;font-weight:500;color:var(--sub)}
+.rc-h{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 8px;margin:14px 0 6px;font-weight:700;font-size:15px;white-space:nowrap}
+.rc-h small{font-weight:500;color:var(--sub);font-size:12px;white-space:normal}
+.rc-row{width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 10px 9px 0;margin-bottom:7px;display:grid;grid-template-columns:6px 58px 1fr auto;gap:0 9px;align-items:center;text-align:left;font-family:inherit;color:inherit;cursor:pointer;overflow:hidden}
+.rc-row .st{align-self:stretch;border-radius:12px 0 0 12px;background:var(--line)}
+.rc-row.done .st{background:var(--ok)} .rc-row.part .st{background:#c08a2a} .rc-row.bad .st{background:var(--ng)} .rc-row.now .st{background:var(--navy)}
+.rc-row .id{font-size:17px;font-weight:700;color:var(--navy);line-height:1.1} .rc-row .id small{display:block;font-size:11px;font-weight:500;color:var(--sub)}
+.rc-row .mid{min-width:0} .rc-row .b{font-weight:600;font-size:14px} .rc-row .d{font-size:12px;color:var(--sub)}
+.rc-row .r{text-align:right;font-size:12px;color:var(--sub);display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.rc-row .r b{font-size:14px;color:var(--ink)}
+.rc-pl{display:inline-block;background:var(--navy);color:#fff;border-radius:6px;padding:1px 7px;font-size:12px;font-weight:700;margin-right:4px}
+.rc-pl.no{background:#eef0f3;color:var(--sub)}
+.rc-warn{display:inline-block;background:#fdecec;color:var(--ng);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700}
+.rc-rec{display:inline-block;background:#e6f0fb;color:#1f5fa8;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700}
+.rc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.rc-f{display:flex;flex-direction:column;gap:3px;min-width:0}
+.rc-f span{font-size:11px;color:var(--sub)} .rc-f span i{font-style:normal;color:#1f5fa8}
+.rc-f input,.rc-f select,.rc-f textarea{font:inherit;font-size:16px;color:var(--ink);background:#fffbe6;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:42px;width:100%}
+.rc-f textarea{min-height:56px}
+.rc-f.ro input{background:#f3f4f6;color:var(--sub)}
+.rc-kv{width:100%;border-collapse:collapse;font-size:13px}
+.rc-kv th,.rc-kv td{padding:4px 5px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.rc-kv th{color:var(--sub);font-weight:600;font-size:11px}
+.rc-kv td:first-child,.rc-kv th:first-child{text-align:left}
+.rc-kv tr.on td{background:#fffbe6;font-weight:700}
+.rc-days{display:flex;gap:5px;overflow-x:auto;padding:4px 0 8px;-webkit-overflow-scrolling:touch}
+.rc-days button{flex:0 0 auto;min-width:44px;padding:7px 4px;border:1px solid var(--line);background:#fff;border-radius:9px;font-family:inherit;font-size:13px;color:var(--sub);cursor:pointer;line-height:1.15}
+.rc-days button small{display:block;font-size:10px}
+.rc-days button.has{border-color:var(--ok);color:var(--ok);font-weight:600}
+.rc-days button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700}
+.rc-seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.rc-seg button{flex:1;border:0;background:#fff;padding:11px 2px;font-size:15px;font-family:inherit;color:var(--sub);cursor:pointer}
+.rc-seg button+button{border-left:1px solid var(--line)}
+.rc-seg button.on{background:var(--navy);color:#fff;font-weight:700}
+.rc-crit{font-size:12px;color:var(--sub);min-height:1.2em;margin-top:3px}
+.rc-calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin:8px 0}
+.rc-calc div{background:#eef1f5;border-radius:8px;padding:6px 8px;font-size:12px;color:var(--sub)}
+.rc-calc div b{display:block;color:var(--ink);font-size:15px}
+.rc-calc div.bad b{color:var(--ng)} .rc-calc div.rec b{color:#1f5fa8}
+.rc-status{font-size:12px;color:var(--sub);min-height:1.2em;margin:6px 0}
+.rc-status.warn{color:var(--ng);font-weight:600}
+.rc-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+.rc-btn{background:var(--navy);color:#fff;border:0;border-radius:10px;padding:12px 20px;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer}
+.rc-btn:disabled{opacity:.5}
+.rc-ghost{border:1px solid var(--line);background:transparent;border-radius:8px;padding:7px 11px;font-size:13px;font-family:inherit;color:inherit;cursor:pointer}
+.rc-map{display:grid;gap:4px;margin:4px 0 8px}
+.rc-map div{background:#fff;border:1px solid var(--line);border-radius:7px;min-height:44px;padding:3px 4px;font-size:11px;text-align:center;display:flex;flex-direction:column;justify-content:center}
+.rc-map div b{color:var(--sub);font-size:10px;font-weight:600}
+.rc-map div.on{background:#e9f3ec;border-color:var(--ok)} .rc-map div.on b{color:var(--ok)}
+.rc-map div em{font-style:normal;font-weight:700;color:var(--navy);font-size:12px;line-height:1.2}
+.rc-tabs{display:flex;gap:6px;margin:12px 0 8px}
+.rc-tabs button{flex:1;padding:9px;border:1px solid var(--line);background:#fff;border-radius:9px;font-family:inherit;font-size:14px;color:var(--sub);cursor:pointer}
+.rc-tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}
+.rc-chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;font-size:13px;font-family:inherit;color:var(--sub);cursor:pointer}
+.rc-chip.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}
+.rc-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+@media(max-width:480px){.rc-sum{grid-template-columns:repeat(2,1fr)} .rc-row{grid-template-columns:6px 52px 1fr auto;gap:0 7px} .rc-row .d{font-size:11px}}
+`;
+(function(){ const s=document.createElement('style'); s.textContent=REC_CSS; document.head.appendChild(s); })();
+
+/* ---------- 共通 ---------- */
+const RC = { state:null, at:0, koji:{}, bun:{}, shubo:{}, karte:{}, filter:'now', btab:'moromi', kday:null };
+const RC_PLACE1 = ['A','B','C','D'];
+const RC_PLACE2 = [...Array(10)].map((_,i)=>'麹棚'+(i+1)).concat([...Array(5)].map((_,i)=>'天幕L'+(i+1)), [...Array(5)].map((_,i)=>'天幕R'+(i+1)));
+const RC_CRIT = {
+  sogo:['総合',['出荷不可','要検討','標準','良い','非常に良い'],'商品としての総合印象。目標酒質にどれだけ合っているか'],
+  kaori:['香り',['弱い／オフフレーバー','弱め','適度','しっかり','華やか'],'吟醸香の強さと質。異臭があれば1〜2にしてコメントに書く'],
+  aji:['味わい',['薄い／荒い','やや物足りない','標準','旨味あり','豊か'],'口に含んだときの旨味・甘味・膨らみ'],
+  kire:['キレ',['だれる','やや残る','標準','良い','非常に良い'],'飲み込んだ後の切れ方。辛口系は4以上が目標'],
+  atoaji:['後味',['雑味あり','やや雑味','標準','きれい','非常にきれい'],'飲み込んだ直後に残る味（苦味・渋味・粕っぽさ）'],
+  yoin:['余韻',['短い','やや短い','標準','続く','長く心地よい'],'香味の残り方。吟醸系は4以上が目標'],
+  kuse:['クセ',['強い','やや強い','少し','ほぼなし','なし'],'銘柄の個性を超えた癖・異質さ。5が「クセなし」'] };
+const rcUser=()=>ST.name||ST.id||'';
+const rcN=v=>(v===''||v===null||v===undefined)?'—':(typeof v==='number'?(Math.round(v*100)/100):v);
+const rcMD=s=>s?`${+String(s).slice(5,7)}/${+String(s).slice(8,10)}`:'—';
+const rcDays=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000);
+function rcStatus(t,warn){ const s=$('#rcStatus'); if(!s)return; s.textContent=t; s.className='rc-status'+(warn?' warn':''); if(!warn) setTimeout(()=>{ if(s.textContent===t) s.textContent=''; },4000); }
+async function recApi(body, ms){
+  const ctl = typeof AbortController!=='undefined' ? new AbortController() : null;
+  const t = ctl ? setTimeout(()=>ctl.abort(), ms||30000) : null;
+  const b = Object.assign({user:rcUser(), device:(navigator.userAgent.match(/iPhone|iPad|Android|Windows|Mac/)||[''])[0]}, body);
+  try{
+    const r=await fetch(REC_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b),redirect:'follow',signal:ctl?ctl.signal:undefined});
+    return await r.json();
+  } finally { if(t) clearTimeout(t); }
+}
+async function recState(force){
+  if(!force && RC.state && Date.now()-RC.at<60000) return RC.state;
+  if(!RC.state){ const c=lsGet('rec.state',null); if(c&&c.master) RC.state=c; }
+  try{ const j=await recApi({action:'state'},40000); if(j&&j.ok){ RC.state=j; RC.at=Date.now(); lsSet('rec.state',j); } }catch(e){}
+  return RC.state;
+}
+function rcLoading(t){ app.innerHTML=`<div class="card" style="margin-top:16px;text-align:center;color:var(--sub)">${t||'読み込んでいます…'}</div>`; }
+function rcFail(t){ app.innerHTML=`<div class="tl-warn" style="margin-top:14px">${t||'読み込めませんでした。電波の届く所でもう一度開いてください。'}</div>`; }
+function rcMaster(no){ return ((RC.state&&RC.state.master)||[]).find(m=>String(m.no)===String(no))||null; }
+function rcToday(no){ return (RC.state&&RC.state.today&&RC.state.today[no])||null; }
+function rcMoromiDay(m,date){ if(!m||!m.tome) return null; return rcDays(m.tome,date||dtoday())+1; }   // 留＝1日目
+function rcShuboDay(m,date){ if(!m||!m.motodate) return null; return rcDays(m.motodate,date||dtoday())+1; }
+function rcField(id,label,val,opt){ opt=opt||{}; const hint=opt.hint?`<i>${esc(opt.hint)}</i>`:'';
+  if(opt.type==='select') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><select id="${id}"><option value="">—</option>${opt.options.map(o=>`<option ${String(o)===String(val)?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`;
+  if(opt.type==='text') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><input type="text" id="${id}" value="${esc(val??'')}"></label>`;
+  if(opt.type==='time') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><input type="time" id="${id}" value="${esc(val??'')}"></label>`;
+  if(opt.type==='date') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><input type="date" id="${id}" value="${esc(val??'')}"></label>`;
+  if(opt.type==='ta') return `<label class="rc-f" style="grid-column:1/-1"><span>${esc(label)}</span><textarea id="${id}">${esc(val??'')}</textarea></label>`;
+  return `<label class="rc-f"><span>${esc(label)} ${hint}</span><input type="number" inputmode="decimal" step="${opt.step||'0.1'}" id="${id}" value="${esc(val??'')}" placeholder="${esc(opt.ph||'')}"></label>`; }
+function rcDiff(defs, orig){ const out={}; defs.forEach(([c])=>{ const el=$('#'+rcId(c)); if(!el)return; const v=el.value; if(String(v)!==String(orig[c]??'')) out[c]=v; }); return out; }
+const rcId=c=>'rc_'+c.replace(/[^\w]/g,m=>m.charCodeAt(0).toString(16));
+
+/* ========== 🍚 麹：今日の作業（出麹→盛→引込→洗米）と配置図 ========== */
+async function kojiScreen(day){
+  RC.kday = day || RC.kday || dtoday();
+  const date = RC.kday;
+  head('麹', '今日の作業と記録（麹管理R8BY）');
+  rcLoading('麹の予定を読み込んでいます…');
+  let j = RC.koji[date];
+  try{ const r=await recApi({action:'koji_today',date},40000); if(r&&r.ok){ j=r; RC.koji[date]=r; } }catch(e){}
+  if(!j){ rcFail(); return; }
+  const rows=j.koji||[], wash=j.wash||[], tg=j.targets||{};
+  const out=rows.filter(r=>r['出麹日']===date), mori=rows.filter(r=>r['盛日']===date), hik=rows.filter(r=>r['引込日']===date);
+  const kg=a=>a.reduce((s,r)=>s+(Number(r['麹米kg'])||0),0);
+  const pl=(n,p)=>(n||p)?`<span class="rc-pl">${esc(n?('①②③④⑤⑥⑦⑧⑨⑩'[n-1]||n):'')}${esc(p||'')}</span>`:`<span class="rc-pl no">場所未定</span>`;
+  const row=(r,stage)=>{
+    const map={出麹:['出麹 順番','出麹 場所',r['出麹 品温']!==''?'done':'', r['出麹 品温']!==''?`出麹 ${rcN(r['出麹 品温'])}℃`:'未',`${r['出麹 時刻']||'—'} 目標${tg['出麹']?tg['出麹'].temp:''}℃`],
+      盛:['盛 順番','盛 場所',(r['留仕事 品温']!==''?'done':(r['盛 時刻']!==''?'part':'')), r['留仕事 品温']!==''?`留仕事 ${rcN(r['留仕事 品温'])}℃`:(r['仲仕事 品温']!==''?`仲仕事 ${rcN(r['仲仕事 品温'])}℃`:(r['盛 時刻']!==''?`盛 ${r['盛 時刻']}`:'未')),`盛${tg['盛後']?tg['盛後'].time:''}→仲${tg['仲仕事']?tg['仲仕事'].time:''}→留${tg['留仕事']?tg['留仕事'].time:''}`],
+      引込:['引込 順番','引込 場所',(r['切返し 品温']!==''?'done':(r['引込 時刻']!==''?'part':'')), r['切返し 品温']!==''?`切返し ${rcN(r['切返し 品温'])}℃`:(r['種切 品温']!==''?`種切 ${rcN(r['種切 品温'])}℃`:(r['引込 時刻']!==''?`引込 ${r['引込 時刻']}`:'未')),`引込${tg['引込']?tg['引込'].time:''} 目標${tg['引込']?tg['引込'].temp:''}℃`]}[stage];
+    return `<button class="rc-row ${map[2]}" data-id="${esc(r['麹ID'])}" data-st="${stage}"><span class="st"></span>
+      <span class="id">${esc(r['麹ID'])}<small>${esc(r['記号'])} ${r['麹米kg']}kg</small></span>
+      <span class="mid">${pl(r[map[0]],r[map[1]])}<span class="b">${esc(r['液種'])}</span><br><span class="d">${esc(r['品種'])} ${r['精米歩合']}%${r['種麹']?'・'+esc(r['種麹']):''}${r['使用日']?'・使用 '+rcMD(r['使用日']):''}${r['注意']?' ・'+esc(r['注意']):''}</span></span>
+      <span class="r"><b>${map[3]}</b><span>${map[4]}</span></span></button>`; };
+  const wrow=w=>`<button class="rc-row ${w.kyusui!==''?'done':''}" data-key="${esc(w.key)}"><span class="st"></span>
+      <span class="id">${esc(w.stage)}${w.no}<small>${esc(w.rice)}</small></span>
+      <span class="mid"><span class="b">${esc(w.liquid)}</span><br><span class="d">${esc(w.kind)} ${w.ratio}%・${w.kg}kg</span></span>
+      <span class="r"><b>${w.kyusui!==''?'吸水 '+rcN(w.kyusui)+'%':'未'}</b><span>${w.shinseki!==''?'浸漬'+w.shinseki+'分':''} ${w.suion!==''?'水温'+w.suion+'℃':''}</span></span></button>`;
+  const map1=(list,pc)=>`<div class="rc-map" style="grid-template-columns:repeat(4,1fr)">${['D','C','B','A'].map(p=>{ const x=list.filter(r=>r[pc]===p); return `<div class="${x.length?'on':''}"><b>${p}</b>${x.map(r=>`<em>${esc(r['麹ID'])} ${r['麹米kg']}kg</em>`).join('')}</div>`; }).join('')}</div><div class="tl-note" style="margin:-4px 0 6px;display:flex;justify-content:space-between"><span>奥</span><span>手前</span></div>`;
+  const map2=(list,pc)=>`<div class="tl-note">麹棚</div><div class="rc-map" style="grid-template-columns:repeat(5,1fr)">${[10,9,8,7,6,5,4,3,2,1].map(i=>{ const x=list.filter(r=>r[pc]==='麹棚'+i); return `<div class="${x.length?'on':''}"><b>棚${i}</b>${x.map(r=>`<em>${esc(r['麹ID'])}</em>`).join('')}</div>`; }).join('')}</div>
+    <div class="tl-note">天幕</div><div class="rc-map" style="grid-template-columns:repeat(5,1fr)">${['L5','L4','L3','L2','L1','R5','R4','R3','R2','R1'].map(n=>{ const x=list.filter(r=>r[pc]==='天幕'+n); return `<div class="${x.length?'on':''}"><b>${n}</b>${x.map(r=>`<em>${esc(r['麹ID'])}</em>`).join('')}</div>`; }).join('')}</div>`;
+  const sec=(t,sub,list,fn)=>`<div class="rc-h">${t}<small>${sub}</small></div>`+(list.length?list.map(fn).join(''):`<p class="muted" style="margin:0 0 6px;font-size:13px">なし</p>`);
+  let h=`<div class="rc-nav"><button id="kPrev">‹ 前日</button><span class="d">${djp(date)}</span><button id="kNext">翌日 ›</button><button id="kToday">今日</button></div>
+    <div class="rc-sum"><div><span class="k">出麹</span><span class="v">${out.length}<small> 本 ${kgfmt(kg(out))}kg</small></span></div><div><span class="k">盛（仲・留仕事）</span><span class="v">${mori.length}<small> 本 ${kgfmt(kg(mori))}kg</small></span></div>
+      <div><span class="k">引込（種切・切返し）</span><span class="v">${hik.length}<small> 本 ${kgfmt(kg(hik))}kg</small></span></div><div><span class="k">洗米（麹米）</span><span class="v">${wash.length}<small> 口 ${kgfmt(wash.reduce((s,w)=>s+(Number(w.kg)||0),0))}kg</small></span></div></div>
+    <div class="rc-status" id="rcStatus"></div>`;
+  h+=sec('出麹','朝いちばん。品温・水分・重量を記録',out.sort((a,b)=>(a['出麹 順番']||99)-(b['出麹 順番']||99)),r=>row(r,'出麹'));
+  h+=sec('盛・仲仕事・留仕事','盛の順番と棚を決めて記録',mori.sort((a,b)=>(a['盛 順番']||99)-(b['盛 順番']||99)),r=>row(r,'盛'));
+  h+=sec('引込み・種切・切返し','1号室の置き場所を決めて記録',hik.sort((a,b)=>(a['引込 順番']||99)-(b['引込 順番']||99)),r=>row(r,'引込'));
+  h+=sec('洗米（麹米）の吸水','米温・水温・浸漬・吸水%',wash,wrow);
+  h+=`<div class="rc-h">配置図<small>どの麹をどこに置いたか（順番・場所は各麹の画面で入れる）</small></div>
+    <div class="card"><b style="font-size:13px">1号室（引込み）</b>${map1(hik,'引込 場所')}<b style="font-size:13px">2号室（盛）</b>${map2(mori,'盛 場所')}<b style="font-size:13px;display:block;margin-top:8px">2号室（出麹）</b>${map2(out,'出麹 場所')}</div>
+    <p class="tl-note">目標品温・標準時刻は「麹管理R8BY › 設定」。印刷・履歴分析・週間予定は <a href="${REC_SS_KOJI}" target="_blank" rel="noopener">スプレッドシート（PC）</a>。</p>`;
+  app.innerHTML=h;
+  $('#kPrev').onclick=()=>kojiScreen(dadd(date,-1)); $('#kNext').onclick=()=>kojiScreen(dadd(date,1)); $('#kToday').onclick=()=>kojiScreen(dtoday());
+  app.querySelectorAll('.rc-row[data-id]').forEach(b=>b.onclick=()=>go(()=>kojiEdit(date,b.dataset.id,b.dataset.st)));
+  app.querySelectorAll('.rc-row[data-key]').forEach(b=>b.onclick=()=>go(()=>kyusuiEdit(date,b.dataset.key)));
+}
+const KOJI_FIELDS = {
+  引込:[['引込 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['引込 場所','場所（1号室）',{type:'select',options:RC_PLACE1}],['種麹','種麹',{type:'text'}],['割合%','種麹の割合 %',{step:'1'}],
+    ['引込 時刻','引込 時刻',{type:'time',tg:'引込'}],['引込 品温','引込 品温 ℃',{tg:'引込'}],['引込 水分%','引込 水分 %'],['引込 DRY','引込 DRY'],['引込 WET','引込 WET'],
+    ['種切 時刻','種切 時刻',{type:'time',tg:'種切'}],['種切 品温','種切 品温 ℃',{tg:'種切'}],['種切 水分%','種切 水分 %'],['ねせ h','ねせ 時間 h'],['ねせ 品温','ねせ 品温 ℃'],
+    ['切返し 時刻','切返し 時刻',{type:'time',tg:'切返し'}],['切返し 品温','切返し 品温 ℃',{tg:'切返し'}],['切返し DRY','切返し DRY'],['切返し WET','切返し WET'],['備考','備考',{type:'ta'}]],
+  盛:[['盛 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['盛 場所','場所（2号室）',{type:'select',options:RC_PLACE2}],
+    ['盛前 品温','盛前 品温 ℃',{tg:'盛前'}],['盛 時刻','盛 時刻',{type:'time',tg:'盛後'}],['盛後 品温','盛後 品温 ℃',{tg:'盛後'}],['盛 DRY','盛 DRY'],['盛 WET','盛 WET'],
+    ['仲仕事 時刻','仲仕事 時刻',{type:'time',tg:'仲仕事'}],['仲仕事 品温','仲仕事 品温 ℃',{tg:'仲仕事'}],['留仕事 時刻','留仕事 時刻',{type:'time',tg:'留仕事'}],['留仕事 品温','留仕事 品温 ℃',{tg:'留仕事'}],['備考','備考',{type:'ta'}]],
+  出麹:[['出麹 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['出麹 場所','場所（2号室）',{type:'select',options:RC_PLACE2}],
+    ['出麹 時刻','出麹 時刻',{type:'time',tg:'出麹'}],['出麹 品温','出麹 品温 ℃',{tg:'出麹'}],['出麹 水分%','出麹 水分 %'],['出麹 DRY','出麹 DRY'],['出麹 WET','出麹 WET'],['出麹重量kg','出麹重量 kg'],['備考','備考',{type:'ta'}]] };
+function kojiEdit(date, id, stage){
+  const j=RC.koji[date]; const r=j&&j.koji.find(x=>x['麹ID']===id); if(!r){ go(()=>kojiScreen(date),false); return; }
+  const tg=j.targets||{};
+  head(`${id}（${stage}）`, `${r['液種']}　${r['品種']} ${r['精米歩合']}%　麹米 ${r['麹米kg']}kg`);
+  const defs=KOJI_FIELDS[stage];
+  let h=`<div class="rc-calc"><div>洗米<b>${rcMD(r['洗米日'])}</b></div><div>引込<b>${rcMD(r['引込日'])}</b></div><div>盛<b>${rcMD(r['盛日'])}</b></div><div>出麹<b>${rcMD(r['出麹日'])}</b></div><div>使用日<b>${rcMD(r['使用日'])}</b></div>
+    <div>種麹<b>${esc(r['種麹']||'—')} ${r['種麹g']!==''?r['種麹g']+'g':''}</b></div><div>吸水<b>${rcN(r['吸水%'])}%</b></div>${stage!=='引込'?`<div>引込 品温<b>${rcN(r['引込 品温'])}℃</b></div>`:''}${stage==='出麹'?`<div>留仕事 品温<b>${rcN(r['留仕事 品温'])}℃</b></div>`:''}</div>
+    <div class="card"><div class="rc-grid">${defs.map(([c,l,o])=>{ o=Object.assign({},o||{}); if(o.tg&&tg[o.tg]){ o.hint=(o.type==='time'?'標準 '+(tg[o.tg].time||'—'):'目標 '+(tg[o.tg].temp??'—')+'℃'); } return rcField(rcId(c),l,r[c],o); }).join('')}</div></div>
+    <div class="rc-status" id="rcStatus"></div>
+    <div class="rc-actions"><button class="rc-ghost" id="rcCancel">やめる</button><button class="rc-btn" id="rcSave">保存</button></div>
+    <p class="tl-note">保存すると「麹管理R8BY › 麹DB」に書き込まれ、入力者（${esc(rcUser())}）が入力ログに残ります。</p>`;
+  app.innerHTML=h;
+  $('#rcCancel').onclick=()=>hBack.click();
+  $('#rcSave').onclick=async()=>{
+    const values=rcDiff(defs,r); if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
+    $('#rcSave').disabled=true; rcStatus('保存中…');
+    try{ const res=await recApi({action:'koji_save',id,values},40000);
+      if(res&&res.ok){ Object.assign(r,values); rcStatus(`${id} を保存しました（${res.changed}項目）`); setTimeout(()=>hBack.click(),400); }
+      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
+    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
+  };
+}
+function kyusuiEdit(date, key){
+  const j=RC.koji[date]; const w=j&&j.wash.find(x=>String(x.key)===String(key)); if(!w){ go(()=>kojiScreen(date),false); return; }
+  head(`洗米 ${w.stage}${w.no} ${w.rice}`, `${w.liquid}　${w.kind} ${w.ratio}%　${w.kg}kg`);
+  const defs=[['kometemp','米温 ℃'],['suion','水温 ℃'],['shinseki','浸漬 分',{step:'1'}],['kyusui','吸水 %'],['chosei','調整後 %'],['biko','備考',{type:'ta'}]];
+  app.innerHTML=`<div class="card"><div class="rc-grid">${defs.map(([c,l,o])=>rcField(rcId(c),l,w[c],o)).join('')}</div></div>
+    <div class="rc-status" id="rcStatus"></div>
+    <div class="rc-actions"><button class="rc-ghost" id="rcCancel">やめる</button><button class="rc-btn" id="rcSave">保存</button></div>
+    <p class="tl-note">「麹管理R8BY › 洗米吸水」に保存。醪管理の仕込カルテにも吸水として出ます。</p>`;
+  $('#rcCancel').onclick=()=>hBack.click();
+  $('#rcSave').onclick=async()=>{
+    const values=rcDiff(defs,w); if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
+    $('#rcSave').disabled=true; rcStatus('保存中…');
+    try{ const res=await recApi({action:'kyusui_save',key,values},40000);
+      if(res&&res.ok){ Object.assign(w,values); rcStatus('保存しました'); setTimeout(()=>hBack.click(),400); }
+      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
+    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
+  };
+}
+
+/* ========== 🧪 分析：醪・酒母の分析値入力（入れた瞬間に BMD・推奨追水・警告が返る） ========== */
+async function bunsekiScreen(tab){
+  if(tab) RC.btab=tab;
+  head('分析','醪・酒母の分析値（醪管理R8BY）');
+  rcLoading('仕込の一覧を読み込んでいます…');
+  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
+  const today=dtoday();
+  let h=`<div class="rc-tabs"><button class="${RC.btab==='moromi'?'on':''}" data-t="moromi">醪</button><button class="${RC.btab==='shubo'?'on':''}" data-t="shubo">酒母</button></div><div class="rc-status" id="rcStatus"></div>`;
+  if(RC.btab==='moromi'){
+    const list=st.master.map(m=>({m,t:st.today[m.no]||{},d:rcMoromiDay(m,today)})).filter(x=>x.d!==null && x.t.state!=='上槽済' && x.d>=-2).sort((a,b)=>a.m.tome.localeCompare(b.m.tome));
+    const done=st.master.filter(m=>(st.today[m.no]||{}).state==='上槽済');
+    h+=list.length?list.map(({m,t,d})=>{ const now=d>=1; const last=t.lastDay?`${t.lastDay}日目 ${rcMD(t.lastDate)}`:'未入力'; const stale=now&&t.lastDay&&d-t.lastDay>=2;
+      return `<button class="rc-row ${now?(stale?'part':'now'):''}" data-no="${m.no}"><span class="st"></span>
+        <span class="id">${m.no}<small>${esc(m.sym)} T${m.tank}</small></span>
+        <span class="mid"><span class="b">${esc(m.liquid)}</span><br><span class="d">留 ${rcMD(m.tome)}・上槽予定 ${rcMD(m.joso)}${t.smv!==''&&t.smv!==undefined?`・日本酒度 ${rcN(t.smv)} alc ${rcN(t.alc)}`:''}</span>
+          ${t.warn?`<br><span class="rc-warn">${esc(t.warn)}</span>`:''}${t.oimizuRec?` <span class="rc-rec">追水 ${rcN(t.oimizuRec)}L 推奨</span>`:''}</span>
+        <span class="r"><b>${now?d+'日目':'留まで'+(1-d)+'日'}</b><span>${last}</span></span></button>`; }).join(''):`<p class="muted" style="text-align:center;padding:20px 0">醪中の仕込はありません</p>`;
+    if(done.length) h+=`<p class="tl-note">上槽済：${done.map(m=>m.no).join('、')}（「仕込み」から見られます）</p>`;
+  }else{
+    const list=st.master.filter(m=>m.motodate).map(m=>({m,d:rcShuboDay(m,today)})).filter(x=>x.d>=-3 && x.d<=rcDays(x.m.motodate,x.m.tome)+1).sort((a,b)=>a.m.motodate.localeCompare(b.m.motodate));
+    h+=list.length?list.map(({m,d})=>`<button class="rc-row ${d>=1?'now':''}" data-no="${m.no}"><span class="st"></span>
+        <span class="id">${m.no}<small>酒母${esc(m.shuboSym||'')}${m.shuboT?' T'+esc(m.shuboT):''}</span></span>
+        <span class="mid"><span class="b">${esc(m.liquid)}</span><br><span class="d">酛立 ${rcMD(m.motodate)}・添 ${rcMD(m.soe)}・酵母 ${esc(m.yeast||'—')}</span></span>
+        <span class="r"><b>${d>=1?d+'日目':'酛立まで'+(1-d)+'日'}</b></span></button>`).join(''):`<p class="muted" style="text-align:center;padding:20px 0">育成中の酒母はありません</p>`;
+  }
+  h+=`<div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="rcReload">更新</button><span class="tl-note" style="margin:0">酵母・酒母タンクは「醪管理R8BY › 入力_順号別」で。経過カルテ（グラフ・印刷）は <a href="${REC_SS_MOROMI}" target="_blank" rel="noopener">スプレッドシート</a>。</span></div>`;
+  app.innerHTML=h;
+  app.querySelectorAll('.rc-tabs button').forEach(b=>b.onclick=()=>bunsekiScreen(b.dataset.t));
+  app.querySelectorAll('.rc-row[data-no]').forEach(b=>b.onclick=()=>go(()=>RC.btab==='moromi'?moromiInput(b.dataset.no):shuboInput(b.dataset.no)));
+  $('#rcReload').onclick=async()=>{ rcStatus('更新中…'); await recState(true); bunsekiScreen(); };
+}
+function rcCalcCard(c,m){
+  if(!c) return '';
+  const bad=s=>s?'bad':'';
+  return `<div class="rc-calc">
+    <div>日本酒度（統一）<b>${rcN(c.smv)}</b></div><div class="${c.bmdDiff!==''&&Math.abs(c.bmdDiff)>=6?'bad':''}">BMD<b>${rcN(c.bmd)}<small style="font-size:11px;color:var(--sub)"> 標準${rcN(c.bmdStd)}${c.bmdDiff!==''?' ('+(c.bmdDiff>0?'+':'')+rcN(c.bmdDiff)+')':''}</small></b></div>
+    <div>Be切れ（前日比）<b>${rcN(c.bekire)}</b></div><div class="${c.over!==''&&c.over>0?'rec':''}">エキス分<b>${rcN(c.ext)}<small style="font-size:11px;color:var(--sub)"> AB線${rcN(c.abExt)}</small></b></div>
+    <div class="${c.rec?'rec':''}">推奨追水<b>${c.rec?rcN(c.rec)+' L':'—'}</b></div><div>追水残<b>${rcN(c.rest)} L</b></div>
+    <div>標準品温<b>${rcN(c.tStd)}℃<small style="font-size:11px;color:var(--sub)"> 最高${rcN(c.tmax)}℃</small></b></div>
+    ${c.warn?`<div class="bad" style="grid-column:1/-1">警告<b>${esc(c.warn)}</b></div>`:''}${c.miss?`<div class="bad" style="grid-column:1/-1">入力ミス？<b>${esc(c.miss)}</b></div>`:''}</div>`;
+}
+async function moromiInput(no, day){
+  const m=rcMaster(no)||{};
+  head(`順号 ${no}　${m.sym||''}号`, `${m.liquid||''}　T${m.tank||''}　酵母 ${m.yeast||'—'}　総米 ${m.soumai||''}kg`);
+  rcLoading('分析値を読み込んでいます…');
+  let b=RC.bun[no];
+  try{ const r=await recApi({action:'bunseki_get',no},40000); if(r&&r.ok){ b=r; RC.bun[no]=r; } }catch(e){}
+  if(!b){ rcFail(); return; }
+  const today=dtoday(); const dToday=rcMoromiDay(m,today);
+  const has=d=>{ const x=b.days[d-1]; return x&&(x.be!==''||x.alc!==''||x.tAM!==''||x.tPM!==''||x.oimizu!==''); };
+  if(!day){ day=Math.min(36,Math.max(1,dToday||1)); }
+  const D=b.days[day-1]; const c=b.calc[day];
+  const defs= day===1 ? [['tAM','品温（留）℃']] : [['be','Be（ボーメ）／3.0未満は日本酒度（＋）'],['alc','alc %'],['ta','酸度'],['aa','アミノ酸度'],['oimizu','追水 L',{step:'1'}],['tAM','品温 AM ℃'],['tPM','品温 PM ℃']];
+  let h=`<div class="rc-days" id="rcDays">${b.days.map(x=>`<button data-d="${x.day}" class="${x.day===day?'on':(has(x.day)?'has':'')}">${x.day===1?'留':x.day+'日'}<small>${rcMD(x.date)}</small></button>`).join('')}</div>
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><b style="font-size:16px">${day===1?'留（1日目）':day+'日目'}　${djp(D.date)}</b><span class="muted" style="font-size:12px">${dToday===day?'今日':''}</span></div>
+      <div class="rc-grid">${defs.map(([f,l,o])=>rcField('rc_'+f,l,D[f],o)).join('')}</div>
+      <div class="rc-status" id="rcStatus"></div>
+      <div class="rc-actions"><button class="rc-btn" id="rcSave">保存して計算</button></div></div>
+    <div id="rcCalc">${rcCalcCard(c,m)}</div>
+    <div class="rc-h">経過<small>入力済みの日</small></div>
+    <div class="tl-scroll"><table class="rc-kv"><tr><th>日</th><th>日付</th><th>Be</th><th>alc</th><th>酸</th><th>ｱﾐﾉ</th><th>追水</th><th>AM</th><th>PM</th><th>BMD</th><th></th></tr>
+    ${b.days.filter(x=>has(x.day)).map(x=>{ const k=b.calc[x.day]||{}; return `<tr class="${x.day===day?'on':''}" data-d="${x.day}"><td>${x.day===1?'留':x.day}</td><td>${rcMD(x.date)}</td><td>${rcN(x.be)}</td><td>${rcN(x.alc)}</td><td>${rcN(x.ta)}</td><td>${rcN(x.aa)}</td><td>${rcN(x.oimizu)}</td><td>${rcN(x.tAM)}</td><td>${rcN(x.tPM)}</td><td>${rcN(k.bmd)}</td><td style="text-align:left">${k.warn?`<span class="rc-warn">${esc(k.warn)}</span>`:''}${k.rec?` <span class="rc-rec">追水${rcN(k.rec)}L</span>`:''}</td></tr>`; }).join('')||'<tr><td colspan="11" class="muted">まだ入力がありません</td></tr>'}</table></div>
+    <p class="tl-note">Be は R7BY と同じ：ボーメ（正）で入れ、3.0 未満になったら日本酒度メーター（負）を＋で入れる。BMD・AB直線・推奨追水は醸造試験場「全国出品酒経過調査」の式（醪管理R8BY › 醪DB）。追水計画 ${m.oimizu||'—'}L／四段 ${m.yodan||'—'}L／アル添 ${m.alc||'—'}L。</p>`;
+  app.innerHTML=h;
+  const dv=$('#rcDays'); const on=dv.querySelector('.on'); if(on) dv.scrollLeft=Math.max(0,on.offsetLeft-dv.clientWidth/2+30);
+  dv.querySelectorAll('button').forEach(x=>x.onclick=()=>moromiInput(no,Number(x.dataset.d)));
+  app.querySelectorAll('tr[data-d]').forEach(x=>x.onclick=()=>moromiInput(no,Number(x.dataset.d)));
+  $('#rcSave').onclick=async()=>{
+    const values={}; defs.forEach(([f])=>{ const v=$('#rc_'+f).value; if(String(v)!==String(D[f]??'')) values[f]=v; });
+    if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
+    $('#rcSave').disabled=true; rcStatus('保存して計算中…');
+    try{ const res=await recApi({action:'bunseki_save',no,day,values},50000);
+      if(res&&res.ok){ RC.bun[no]=res.all; RC.at=0; const w=(res.calc&&(res.calc.warn||res.calc.miss))||''; await moromiInput(no,day); rcStatus(w?('保存しました。'+w):`${day===1?'留':day+'日目'} を保存しました`,!!w); }
+      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
+    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
+  };
+}
+async function shuboInput(no, day){
+  const m=rcMaster(no)||{};
+  head(`酒母 順号 ${no}　${m.shuboSym||m.sym||''}`, `${m.liquid||''}　${m.shuboT?'T'+m.shuboT:'酒母タンク未設定'}　酵母 ${m.yeast||'—'}`);
+  rcLoading('酒母経過を読み込んでいます…');
+  let s=RC.shubo[no];
+  try{ const r=await recApi({action:'shubo_get',no},40000); if(r&&r.ok){ s=r; RC.shubo[no]=r; } }catch(e){}
+  if(!s){ rcFail(); return; }
+  const dToday=rcShuboDay(m,dtoday());
+  const has=d=>{ const x=s.days[d-1]; return x&&(x.temp!==''||x.be!==''||x.ta!==''||x.alc!==''||x.biko); };
+  if(!day) day=Math.min(13,Math.max(1,dToday||1));
+  const D=s.days[day-1];
+  const defs=[['temp','品温 ℃'],['be','Be（ボーメ）'],['ta','酸度'],['alc','alc %'],['biko','備考',{type:'text'}]];
+  app.innerHTML=`<div class="rc-days" id="rcDays">${s.days.map(x=>`<button data-d="${x.day}" class="${x.day===day?'on':(has(x.day)?'has':'')}">${x.day}日<small>${rcMD(x.date)}</small></button>`).join('')}</div>
+    <div class="card"><b style="font-size:16px">${day}日目　${djp(D.date)}</b>
+      <div class="rc-grid" style="margin-top:8px">${defs.map(([f,l,o])=>rcField('rc_'+f,l,D[f],o)).join('')}</div>
+      <div class="rc-status" id="rcStatus"></div>
+      <div class="rc-actions"><button class="rc-btn" id="rcSave">保存</button></div></div>
+    <div class="card"><div class="rc-grid">${rcField('rc_moto','酛卸日',s.motooroshi,{type:'date',hint:s.motooroshiPlan?'予定 '+rcMD(s.motooroshiPlan):''})}${rcField('rc_biko2','酒母の備考',s.biko,{type:'text'})}</div>
+      <div class="rc-actions"><button class="rc-btn" id="rcSave2">酛卸日・備考を保存</button></div></div>
+    <div class="rc-h">経過</div>
+    <table class="rc-kv"><tr><th>日</th><th>日付</th><th>品温</th><th>Be</th><th>酸度</th><th>alc</th><th>備考</th></tr>
+    ${s.days.filter(x=>has(x.day)).map(x=>`<tr class="${x.day===day?'on':''}" data-d="${x.day}"><td>${x.day}</td><td>${rcMD(x.date)}</td><td>${rcN(x.temp)}</td><td>${rcN(x.be)}</td><td>${rcN(x.ta)}</td><td>${rcN(x.alc)}</td><td style="text-align:left">${esc(x.biko||'')}</td></tr>`).join('')||'<tr><td colspan="7" class="muted">まだ入力がありません</td></tr>'}</table>
+    <p class="tl-note">項目は R7BY の分析酒母と同じ（日目1〜13の品温・Be・酸度・alc、酛卸日）。乳酸 ${m.nyusan||s.head.nyusan||'—'}ml。</p>`;
+  const dv=$('#rcDays'); const on=dv.querySelector('.on'); if(on) dv.scrollLeft=Math.max(0,on.offsetLeft-dv.clientWidth/2+30);
+  dv.querySelectorAll('button').forEach(x=>x.onclick=()=>shuboInput(no,Number(x.dataset.d)));
+  app.querySelectorAll('tr[data-d]').forEach(x=>x.onclick=()=>shuboInput(no,Number(x.dataset.d)));
+  $('#rcSave').onclick=async()=>{
+    const values={}; defs.forEach(([f])=>{ const v=$('#rc_'+f).value; if(String(v)!==String(D[f]??'')) values[f]=v; });
+    if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
+    $('#rcSave').disabled=true; rcStatus('保存中…');
+    try{ const res=await recApi({action:'shubo_save',no,day,values},40000);
+      if(res&&res.ok){ Object.assign(D,values); rcStatus(`${day}日目 を保存しました`); RC.shubo[no]=null; setTimeout(()=>shuboInput(no,day),500); }
+      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
+    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
+  };
+  $('#rcSave2').onclick=async()=>{
+    const body={action:'shubo_save',no}; const mo=$('#rc_moto').value, bk=$('#rc_biko2').value;
+    if(mo!==(s.motooroshi||'')) body.motooroshi=mo; if(bk!==(s.biko||'')) body.biko=bk;
+    if(!('motooroshi' in body)&&!('biko' in body)){ rcStatus('変わったところがありません'); return; }
+    rcStatus('保存中…');
+    try{ const res=await recApi(body,40000); if(res&&res.ok){ s.motooroshi=mo; s.biko=bk; rcStatus('保存しました'); } else rcStatus('保存できませんでした: '+(res&&res.err||''),true); }
+    catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); }
+  };
+}
+
+/* ========== 🍶 仕込み：一覧 → 仕込カルテ（吸水・麹・酒母・醪・上槽粕・最終分析・原酒評価） ========== */
+async function shikomiScreen(f){
+  if(f) RC.filter=f;
+  head('仕込み','仕込ごとのカルテ・上槽・原酒評価');
+  rcLoading('仕込の一覧を読み込んでいます…');
+  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
+  const today=dtoday();
+  const stateOf=m=>{ const t=st.today[m.no]||{}; if(t.state==='上槽済') return ['上槽済','done']; const d=rcMoromiDay(m,today); if(d>=1) return [`醪 ${d}日目`,'now']; const sd=rcShuboDay(m,today); if(sd>=1) return [`酒母 ${sd}日目`,'part']; return ['予定','']; };
+  const F=RC.filter; const list=st.master.map(m=>({m,s:stateOf(m)})).filter(x=>F==='all'||(F==='now'&&x.s[1]==='now')||(F==='shubo'&&x.s[1]==='part')||(F==='done'&&x.s[1]==='done')||(F==='plan'&&x.s[1]===''));
+  let h=`<div class="rc-bar">${[['now','醪中'],['shubo','酒母'],['plan','予定'],['done','上槽済'],['all','全部']].map(([k,l])=>`<button class="rc-chip ${F===k?'on':''}" data-f="${k}">${l}</button>`).join('')}<span style="flex:1"></span><button class="rc-ghost" id="rcReload">更新</button></div><div class="rc-status" id="rcStatus"></div>`;
+  h+=list.length?list.map(({m,s})=>{ const t=st.today[m.no]||{}; return `<button class="rc-row ${s[1]}" data-no="${m.no}"><span class="st"></span>
+      <span class="id">${m.no}<small>${esc(m.sym)} T${m.tank}</small></span>
+      <span class="mid"><span class="b">${esc(m.liquid)}</span><br><span class="d">酛立 ${rcMD(m.motodate)}・添 ${rcMD(m.soe)}・留 ${rcMD(m.tome)}・上槽予定 ${rcMD(m.joso)}</span>${t.warn?`<br><span class="rc-warn">${esc(t.warn)}</span>`:''}</span>
+      <span class="r"><b>${s[0]}</b><span>${t.smv!==''&&t.smv!==undefined?`日本酒度 ${rcN(t.smv)}`:''}</span></span></button>`; }).join(''):`<p class="muted" style="text-align:center;padding:20px 0">該当なし</p>`;
+  h+=`<p class="tl-note">印刷用の仕込カルテ・仕込一覧・資材予定は <a href="${REC_SS_MOROMI}" target="_blank" rel="noopener">醪管理R8BY（スプレッドシート）</a>。仕込計画が変わったら 造りex の帳票から作り直す（杜氏）。</p>`;
+  app.innerHTML=h;
+  app.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>shikomiScreen(b.dataset.f));
+  app.querySelectorAll('.rc-row[data-no]').forEach(b=>b.onclick=()=>go(()=>karteScreen(b.dataset.no)));
+  $('#rcReload').onclick=async()=>{ rcStatus('更新中…'); await recState(true); shikomiScreen(); };
+}
+async function karteScreen(no, force){
+  const m=rcMaster(no)||{};
+  head(`仕込カルテ 順号 ${no}`, `${m.sym||''}号　${m.liquid||''}　T${m.tank||''}`);
+  rcLoading('カルテを集めています…');
+  let k=force?null:RC.karte[no];
+  if(!k){ try{ const r=await recApi({action:'karte',no},50000); if(r&&r.ok){ k=r; RC.karte[no]=r; } }catch(e){} }
+  if(!k){ rcFail(); return; }
+  const M=k.master||m, t=k.today||{}, b=k.moromi, s=k.shubo, j=k.joso||{};
+  const sec=(t,body,extra)=>`<div class="rc-h">${t}${extra||''}</div><div class="card">${body}</div>`;
+  const kv=o=>`<div class="rc-calc">${o.map(([l,v])=>`<div>${l}<b>${v}</b></div>`).join('')}</div>`;
+  const has=x=>x.be!==''||x.alc!==''||x.tAM!==''||x.tPM!==''||x.oimizu!=='';
+  const mdays=b?b.days.filter(has):[]; const last=mdays[mdays.length-1]; const lc=last?(b.calc[last.day]||{}):{};
+  const kasu=(j['粕重量kg']&&M.soumai)?Math.round(j['粕重量kg']/M.soumai*1000)/10:'';
+  const avg=key=>{ const v=k.hyoka.map(x=>Number(x[key])).filter(x=>x>0); return v.length?Math.round(v.reduce((a,c)=>a+c,0)/v.length*10)/10:'—'; };
+  let h=sec('配合・日程', kv([['麹米',esc(M.kome||'—')],['掛米',esc(M.kake||'—')],['総米',(M.soumai||'—')+'kg'],['酵母',esc(M.yeast||'—')],['酒母T',esc(M.shuboT||'—')],['酒母記号',esc(M.shuboSym||'—')],
+      ['酛立',rcMD(M.motodate)],['添',rcMD(M.soe)],['仲',rcMD(M.naka)],['留',rcMD(M.tome)],['上槽予定',rcMD(M.joso)],['醪日数計画',(M.period||'—')+'日'],['追水計画',(M.oimizu||'—')+'L'],['四段',(M.yodan||'—')+'L'],['アル添',(M.alc||'—')+'L'],['最高温度',(M.tmax||'—')+'℃']]));
+  h+=sec('米の吸水', k.wash&&k.wash.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>段</th><th>米</th><th>品種</th><th>%</th><th>kg</th><th>洗米</th><th>浸漬</th><th>水温</th><th>吸水%</th></tr>${k.wash.map(w=>`<tr><td>${esc(w.stage)}</td><td>${esc(w.rice)}</td><td>${esc(w.kind)}</td><td>${w.ratio}</td><td>${w.kg}</td><td>${rcMD(w.date)}</td><td>${rcN(w.shinseki)}</td><td>${rcN(w.suion)}</td><td><b>${rcN(w.kyusui)}</b></td></tr>`).join('')}</table></div>`:'<p class="muted">洗米の記録なし</p>');
+  h+=sec('麹の出来', k.koji&&k.koji.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>麹</th><th>kg</th><th>種麹</th><th>吸水%</th><th>引込℃</th><th>盛後℃</th><th>仲℃</th><th>留℃</th><th>出麹℃</th><th>水分%</th><th>出麹kg</th><th>麹歩合</th><th>引→出h</th></tr>${k.koji.map(r=>`<tr><td>${esc(r['麹ID'])}</td><td>${r['麹米kg']}</td><td>${esc(r['種麹']||'')}</td><td>${rcN(r['吸水%'])}</td><td>${rcN(r['引込 品温'])}</td><td>${rcN(r['盛後 品温'])}</td><td>${rcN(r['仲仕事 品温'])}</td><td>${rcN(r['留仕事 品温'])}</td><td><b>${rcN(r['出麹 品温'])}</b></td><td>${rcN(r['出麹 水分%'])}</td><td>${rcN(r['出麹重量kg'])}</td><td>${rcN(r['麹歩合'])}</td><td>${rcN(r['引込→出麹 h'])}</td></tr>`).join('')}</table></div>`:'<p class="muted">麹の記録なし</p>');
+  const sdays=s?s.days.filter(x=>x.temp!==''||x.be!==''||x.ta!==''||x.alc!==''):[];
+  h+=sec('酒母の経過', (sdays.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>日</th><th>日付</th><th>品温</th><th>Be</th><th>酸度</th><th>alc</th><th>備考</th></tr>${sdays.map(x=>`<tr><td>${x.day}</td><td>${rcMD(x.date)}</td><td>${rcN(x.temp)}</td><td>${rcN(x.be)}</td><td>${rcN(x.ta)}</td><td>${rcN(x.alc)}</td><td style="text-align:left">${esc(x.biko||'')}</td></tr>`).join('')}</table></div>`:'<p class="muted">酒母の記録なし</p>')+`<p class="tl-note">酛卸日 ${s&&s.motooroshi?rcMD(s.motooroshi):'—'}${s&&s.biko?'　'+esc(s.biko):''}</p><div class="rc-actions"><button class="rc-ghost" id="goShubo">酒母を入力</button></div>`);
+  h+=sec('醪の経過', (last?kv([['最新',`${last.day===1?'留':last.day+'日目'} ${rcMD(last.date)}`],['日本酒度',rcN(lc.smv)],['alc',rcN(last.alc)+'%'],['酸度',rcN(last.ta)],['アミノ酸度',rcN(last.aa)],['BMD',`${rcN(lc.bmd)} <small style="font-size:11px;color:var(--sub)">標準${rcN(lc.bmdStd)}</small>`],['累計追水',rcN(t.oimizuSum)+'L'],['追水残',rcN(lc.rest)+'L'],['状態',esc(t.state||'—')]]):'<p class="muted">醪の記録なし</p>')
+    +(t.warn?`<p><span class="rc-warn">${esc(t.warn)}</span></p>`:'')+(mdays.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>日</th><th>Be</th><th>alc</th><th>酸</th><th>ｱﾐﾉ</th><th>追水</th><th>AM</th><th>PM</th><th>BMD</th></tr>${mdays.map(x=>{ const c=b.calc[x.day]||{}; return `<tr><td>${x.day===1?'留':x.day}</td><td>${rcN(x.be)}</td><td>${rcN(x.alc)}</td><td>${rcN(x.ta)}</td><td>${rcN(x.aa)}</td><td>${rcN(x.oimizu)}</td><td>${rcN(x.tAM)}</td><td>${rcN(x.tPM)}</td><td>${rcN(c.bmd)}</td></tr>`; }).join('')}</table></div>`:'')
+    +`<div class="rc-actions"><button class="rc-ghost" id="goMoromi">分析を入力</button></div>`);
+  const jd=[['上槽日','上槽日',{type:'date'}],['上槽前容量L','上槽前容量 L',{step:'1'}],['四段仕込日','四段仕込日',{type:'date'}],['四段払出L','四段払出 L',{step:'1'}],['アル添L(40%)','アル添 L（40%）',{step:'1'}],['上槽 日本酒度','上槽 日本酒度'],['上槽 alc','上槽 alc %'],['上槽 酸度','上槽 酸度'],['上槽 アミノ酸度','上槽 アミノ酸度'],['粕重量kg','粕重量 kg',{step:'1'}],['備考','備考',{type:'text'}]];
+  h+=sec('上槽・粕・最終分析値', `<div class="rc-calc"><div>醪日数<b>${j['醪日数']||'—'}<small style="font-size:11px;color:var(--sub)"> 計画${M.period||'—'}</small></b></div><div>粕歩合<b id="kasu">${kasu!==''?kasu+'%':'—'}</b></div><div>醪最終 日本酒度<b>${rcN(j['醪最終日 日本酒度'])}</b></div><div>醪最終 alc<b>${rcN(j['醪最終日 alc'])}</b></div></div>
+    <div class="rc-grid">${jd.map(([c,l,o])=>rcField(rcId(c),l,j[c],o)).join('')}</div><div class="rc-status" id="rcStatus"></div><div class="rc-actions"><button class="rc-btn" id="rcSaveJoso">上槽を保存</button></div><p class="tl-note">上槽日を入れると「今日の状況」が上槽済になり、タンク洗浄管理の期限計算にも使われる。正式値は rp2090（検定せん）。</p>`);
+  h+=sec('原酒評価', `<div class="rc-calc">${['sogo','kaori','aji','kire','atoaji','yoin','kuse'].map(key=>`<div>${RC_CRIT[key][0]}<b>${avg(RC_CRIT[key][0])}</b></div>`).join('')}<div>評価数<b>${k.hyoka.length}</b></div></div>
+    ${k.hyoka.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>日付</th><th>評価者</th><th>総合</th><th>香</th><th>味</th><th>キレ</th><th>後味</th><th>余韻</th><th>クセ</th><th>コメント</th></tr>${k.hyoka.map(x=>`<tr><td>${rcMD(x['評価日'])}</td><td style="text-align:left">${esc(x['評価者'])}</td><td><b>${x['総合']}</b></td><td>${x['香り']}</td><td>${x['味わい']}</td><td>${x['キレ']}</td><td>${x['後味']}</td><td>${x['余韻']}</td><td>${x['クセ']}</td><td style="text-align:left;white-space:normal;min-width:120px">${esc(x['コメント']||'')}</td></tr>`).join('')}</table></div>`:'<p class="muted">まだ評価がありません</p>'}
+    <div class="rc-actions"><button class="rc-btn" id="goHyoka">評価する（${esc(rcUser())}）</button></div>`);
+  h+=`<p class="tl-note">印刷用（グラフ付き）は <a href="${REC_SS_MOROMI}" target="_blank" rel="noopener">醪管理R8BY › 仕込カルテ</a> で順号 ${no} を選ぶ。</p>`;
+  app.innerHTML=h;
+  $('#goShubo').onclick=()=>go(()=>shuboInput(no)); $('#goMoromi').onclick=()=>go(()=>moromiInput(no)); $('#goHyoka').onclick=()=>go(()=>hyokaScreen(no));
+  const kEl=$('#'+rcId('粕重量kg')); kEl.oninput=()=>{ const v=Number(kEl.value); $('#kasu').textContent=(v&&M.soumai)?(Math.round(v/M.soumai*1000)/10)+'%':'—'; };
+  $('#rcSaveJoso').onclick=async()=>{
+    const values=rcDiff(jd,j); if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
+    $('#rcSaveJoso').disabled=true; rcStatus('保存中…');
+    try{ const res=await recApi({action:'joso_save',no,values},40000);
+      if(res&&res.ok){ rcStatus('上槽を保存しました'); RC.at=0; setTimeout(()=>karteScreen(no,true),600); }
+      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSaveJoso').disabled=false; }
+    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSaveJoso').disabled=false; }
+  };
+}
+function hyokaScreen(no){
+  const m=rcMaster(no)||{};
+  head(`原酒評価 順号 ${no}`, `${m.sym||''}号　${m.liquid||''}　評価者：${rcUser()}`);
+  const keys=['sogo','kaori','aji','kire','atoaji','yoin','kuse']; const sc={};
+  app.innerHTML=`<div class="card"><div class="rc-grid">${rcField('rc_hdate','評価日',dtoday(),{type:'date'})}<label class="rc-f ro"><span>評価者（ログイン名）</span><input type="text" value="${esc(rcUser())}" readonly></label></div></div>
+    ${keys.map(k=>`<div class="card" style="padding:10px 12px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>${RC_CRIT[k][0]}</b><span class="muted" style="font-size:11px">${esc(RC_CRIT[k][2])}</span></div>
+      <div class="rc-seg" id="seg_${k}" style="margin-top:6px">${[1,2,3,4,5].map(v=>`<button type="button" data-v="${v}">${v}</button>`).join('')}</div><div class="rc-crit" id="crit_${k}">1＝${RC_CRIT[k][1][0]}　…　5＝${RC_CRIT[k][1][4]}</div></div>`).join('')}
+    <div class="card">${rcField('rc_hcomment','コメント（なぜその点か、1行で）','',{type:'ta'})}</div>
+    <div class="rc-status" id="rcStatus"></div>
+    <div class="rc-actions"><button class="rc-ghost" id="rcCancel">やめる</button><button class="rc-btn" id="rcSave">この評価を記録</button></div>
+    <p class="tl-note">ものさしは全員共通（醪管理R8BY › 評価基準）。原則 常温・同じグラスで。記録は「原酒評価」に1行追加され、評価者と記録日時が自動で入る。</p>`;
+  keys.forEach(k=>{ const s=$('#seg_'+k); s.querySelectorAll('button').forEach(b=>b.onclick=()=>{ sc[k]=Number(b.dataset.v); s.querySelectorAll('button').forEach(x=>x.className=''); b.className='on'; $('#crit_'+k).textContent=b.dataset.v+'＝'+RC_CRIT[k][1][b.dataset.v-1]; }); });
+  $('#rcCancel').onclick=()=>hBack.click();
+  $('#rcSave').onclick=async()=>{
+    const miss=keys.filter(k=>!sc[k]); if(miss.length){ rcStatus('未入力: '+miss.map(k=>RC_CRIT[k][0]).join('・'),true); return; }
+    if(!rcUser()){ rcStatus('ログイン名がありません。ログインし直してください',true); return; }
+    $('#rcSave').disabled=true; rcStatus('記録中…');
+    try{ const res=await recApi({action:'hyoka_save',no,date:$('#rc_hdate').value,scores:sc,comment:$('#rc_hcomment').value},40000);
+      if(res&&res.ok){ RC.karte[no]=null; rcStatus('記録しました'); setTimeout(()=>hBack.click(),400); }
+      else { rcStatus('記録できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
+    }catch(e){ rcStatus('記録できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
+  };
 }
 </script>
 <!-- /tools -->
