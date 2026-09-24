@@ -526,6 +526,7 @@ function home(){
   $('#bWash').onclick=()=>go(washScreen);
   $('#bCalc').onclick=()=>go(calcHome);
   $('#bMan').onclick=()=>go(manualScreen);
+  setTimeout(()=>{ if(typeof wsPrefetch==='function') wsPrefetch(); }, 1500);
 }
 
 /* ========== 問題集（習熟度・コース・復習） ========== */
@@ -2494,18 +2495,38 @@ async function washApi(body, ms){
   } finally { if(t) clearTimeout(t); }
 }
 function wsApply(d){ WS.plan=d.plan||[]; WS.records=d.records||{}; if(d.staff&&d.staff.length) WS.staff=d.staff; WS.loadedAt=Date.now(); lsSet('tool.wash',{plan:WS.plan,records:WS.records,staff:WS.staff,at:WS.loadedAt}); }
-async function wsLoad(force){
-  if(!force && WS.plan.length && Date.now()-WS.loadedAt<60000) return true;
-  if(!WS.plan.length){ const c=lsGet('tool.wash',null); if(c&&c.plan){ WS.plan=c.plan; WS.records=c.records||{}; WS.staff=c.staff||[]; } }
-  try{ const j=await washApi({action:'wash_get'},25000); if(j&&j.ok){ wsApply(j.data); return true; } }catch(e){}
-  return false;
+/* 端末に保存してある前回の内容（あればすぐ表示に使う） */
+function wsFromCache(){
+  if(WS.plan.length) return;
+  const c=lsGet('tool.wash',null);
+  if(c&&c.plan){ WS.plan=c.plan; WS.records=c.records||{}; WS.staff=c.staff||[]; WS.loadedAt=c.at||0; }
 }
+/* サーバーから最新を取る（同時に何回呼ばれても1回だけ通信する） */
+let WS_BG=null;
+function wsFetch(){
+  if(WS_BG) return WS_BG;
+  WS_BG=(async()=>{ let ok=false; try{ const j=await washApi({action:'wash_get'},25000); if(j&&j.ok){ wsApply(j.data); ok=true; } }catch(e){} WS_BG=null; return ok; })();
+  return WS_BG;
+}
+async function wsLoad(force){
+  wsFromCache();
+  if(!force && WS.plan.length && Date.now()-WS.loadedAt<60000) return true;
+  return wsFetch();
+}
+/* ホームを開いたときに裏で取っておく（タンク洗浄を開いた瞬間に出せるように） */
+function wsPrefetch(){ try{ wsFromCache(); if(Date.now()-WS.loadedAt>5*60000) wsFetch(); }catch(e){} }
 function wsStatus(t,warn){ const s=$('#wsStatus'); if(!s)return; s.textContent=t; s.className='ws-status'+(warn?' warn':''); if(!warn) setTimeout(()=>{ if(s.textContent===t) s.textContent=''; },4000); }
 
 async function washScreen(){
   head('タンク洗浄管理','R8BY 醪タンク（期限＝酛下日）');
-  app.innerHTML='<p class="muted" style="margin-top:14px">洗浄の予定と記録を読み込んでいます…</p>';
-  const ok=await wsLoad(false);
+  wsFromCache();
+  let ok=true, bg=null;
+  if(!WS.plan.length){
+    app.innerHTML='<p class="muted" style="margin-top:14px">洗浄の予定と記録を読み込んでいます…</p>';
+    ok=await wsFetch();
+  }else if(Date.now()-WS.loadedAt>60000){
+    bg=wsFetch();          // 前回の内容をすぐ表示し、最新は裏で取る
+  }
   if(!WS.plan.length){ app.innerHTML=`<div class="tl-warn" style="margin-top:14px">洗浄の予定を読み込めませんでした。電波の届く所でもう一度開いてください。</div>`; return; }
   const draw=()=>{
     const f=WS.filter;
@@ -2531,7 +2552,7 @@ async function washScreen(){
       <div style="font-size:13px;margin-bottom:6px">担当者を1行に1人ずつ。全員の画面の選択肢に反映されます。</div>
       <textarea class="ws-ta" id="wsStaffTa">${esc(WS.staff.join('\n'))}</textarea>
       <div class="ws-actions"><button class="ws-ghost" id="wsStaffNo">閉じる</button><button class="ws-btn" id="wsStaffOk">保存</button></div></div>
-    <div class="ws-status" id="wsStatus">${ok?'':'（電波が無いため、端末に保存した内容を表示しています）'}</div>`;
+    <div class="ws-status${ok?'':' warn'}" id="wsStatus">${bg?'最新の内容を確認しています…':ok?'':'（電波が無いため、端末に保存した内容を表示しています）'}</div>`;
     if(!rows.length) h+=`<p class="muted" style="text-align:center;padding:24px 0">該当するタンクはありません</p>`;
     h+=rows.map(p=>{ const r=wsRec(p.id), s=wsStage(r), u=wsUrg(p,r), d=wsDays(p.deadline);
       const left=s===3?'完了':d<0?`${-d}日超過`:d===0?'今日まで':`あと${d}日`;
@@ -2545,7 +2566,7 @@ async function washScreen(){
     app.innerHTML=h;
     app.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{ WS.filter=b.dataset.f; draw(); });
     app.querySelectorAll('.ws-row').forEach(b=>b.onclick=()=>go(()=>washEdit(b.dataset.id)));
-    $('#wsReload').onclick=async()=>{ wsStatus('更新中…'); await wsLoad(true); draw(); };
+    $('#wsReload').onclick=async()=>{ wsStatus('更新中…'); ok=await wsFetch(); bg=null; draw(); };
     $('#wsStaff').onclick=()=>{ const x=$('#wsStaffBox'); x.style.display=x.style.display==='none'?'block':'none'; };
     $('#wsStaffNo').onclick=()=>{ $('#wsStaffBox').style.display='none'; };
     $('#wsStaffOk').onclick=async()=>{ const names=$('#wsStaffTa').value.split('\n').map(s=>s.trim()).filter(Boolean); if(!names.length)return;
@@ -2553,6 +2574,13 @@ async function washScreen(){
       try{ const j=await washApi({action:'wash_staff',names}); wsStatus(j&&j.ok?'担当者名を保存しました':'担当者名を保存できませんでした',!(j&&j.ok)); }catch(e){ wsStatus('担当者名を保存できませんでした',true); } };
   };
   draw();
+  if(bg){
+    ok=await bg; bg=null;
+    // まだこの画面を見ていて、担当者名の編集中でなければ描き直す
+    const box=$('#wsStaffBox');
+    if(document.getElementById('wsStatus') && !(box && box.style.display!=='none')) draw();
+    else if(!ok) wsStatus('最新の内容を取れませんでした（前回の内容を表示しています）',true);
+  }
 }
 
 function washEdit(id){
