@@ -191,7 +191,7 @@ const KEY='sakeWB2';
 let MEM=null, CANSAVE=true;
 (function(){ try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); }
   catch(e){ CANSAVE=false; } })();
-function fresh(){return{stats:{},logs:[],name:'',id:'',token:'',q:[],data:null}}
+function fresh(){return{stats:{},logs:[],name:'',id:'',token:'',q:[],data:null,dataVer:''}}
 function load(){try{return Object.assign(fresh(),JSON.parse(localStorage.getItem(KEY))||{})}catch(e){return MEM||fresh()}}
 function save(){ MEM=ST; try{localStorage.setItem(KEY,JSON.stringify(ST))}catch(e){CANSAVE=false} }
 let ST=load();
@@ -221,6 +221,15 @@ const ERRJP={
 };
 const errJP=e=>ERRJP[e]||('うまくいきませんでした（'+(e||'原因不明')+'）');
 
+/* ログインを速くする：端末に同じ版のデータがあれば送ってもらわない／学習記録が端末にあれば復元用を読まない */
+function loginBody(b){
+  if(ST.data&&ST.data.questions&&ST.data.questions.length&&ST.dataVer) b.have=ST.dataVer;
+  if(Object.keys(ST.stats||{}).length) b.hasLocal=true;
+  return b;
+}
+/* ログイン画面を出した時点でサーバーを起こしておく（ID・パスワードを打っている間に準備が済む） */
+let WARMED=false;
+function warmServer(){ if(WARMED||!ONLINE_OK)return; WARMED=true; try{ fetch(API_URL,{method:'GET',mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(e){} }
 function newSid(){return 's'+Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
 
 /* 未送信の記録をためて、順に送る */
@@ -358,6 +367,7 @@ async function apiT(body, ms){
 }
 function loginScreen(msg){
   head('製造ツール','ログイン');
+  warmServer();
   hBack.classList.add('hide');
   app.innerHTML=`
     <div class="card" style="margin-top:16px">
@@ -377,7 +387,7 @@ function loginScreen(msg){
     const b=$('#lgo'); b.disabled=true; b.textContent='確認しています…';
     const stop=waitHint(b,'確認しています');
     try{
-      const j=await apiT({action:'login',id:id,pw:pw},40000);
+      const j=await apiT(loginBody({action:'login',id:id,pw:pw}),40000);
       stop();
       if(!j.ok){ $('#lmsg').textContent=errJP(j.err); b.disabled=false; b.textContent='ログイン'; $('#lp').select(); return }
       afterLogin(j);
@@ -437,7 +447,8 @@ function registerScreen(msg){
 /** ログイン成功後の共通処理 */
 function afterLogin(j){
   ST.token=j.token; ST.id=j.id; ST.name=j.name;
-  if(j.data&&j.data.questions&&j.data.questions.length){ ST.data=j.data; }
+  if(j.data&&j.data.questions&&j.data.questions.length){ ST.data=j.data; ST.dataVer=j.dataVer||''; }
+  else if(j.same&&j.dataVer){ ST.dataVer=j.dataVer; }
   save();
   applyData(ST.data);
   const r=j.restore;
@@ -483,10 +494,9 @@ function home(){
   let h=`<div style="height:16px"></div>
   ${card('bCal','📅','製造カレンダー','出勤表・振休依頼／部署の予定・会社休日')}
   ${card('bRice','🌾','米管理','洗米チェック・在庫管理')}
+  ${card('bWash','🫧','タンク洗浄管理','醪タンクの洗浄期限と、洗浄・仕上げ・チェックの記録')}
   ${card('bLib','🧬','酵母・麹ライブラリ','全国の酵母・種麹から、造りたい酒に合うものを探す')}
-  ${card('bCap','🛢','容量計算','容器番号と寸法から容量（ℓ）')}
-  ${card('bFil','🧪','濾過計算','タンクを合わせたときの日本酒度・Alc・酸度・アミノ酸度')}
-  ${card('bAlc','🍶','アル添計算','目標の日本酒度とアルコール添加量')}
+  ${card('bCalc','🧮','各種計算ツール','容量計算・濾過計算・アル添計算')}
   <a class="crs" href="seishu-jiten.html" style="text-decoration:none;color:inherit;box-sizing:border-box">
     ${icon('📖')}
     <div style="flex:1"><div class="nm">逆引き検索</div>
@@ -506,9 +516,8 @@ function home(){
   $('#bCal').onclick=()=>go(()=>calendarScreen());
   $('#bLib').onclick=()=>go(()=>libScreen());
   $('#bRice').onclick=()=>go(riceScreen);
-  $('#bCap').onclick=()=>go(capacityScreen);
-  $('#bFil').onclick=()=>go(filterScreen);
-  $('#bAlc').onclick=()=>go(alcScreen);
+  $('#bWash').onclick=()=>go(washScreen);
+  $('#bCalc').onclick=()=>go(calcHome);
 }
 
 /* ========== 問題集（習熟度・コース・復習） ========== */
@@ -854,7 +863,7 @@ window.onerror=function(m,s,l,c){
     else if(ST.token){ 
       head('製造ツール','読み込んでいます…');
       app.innerHTML='<div class="card" style="margin-top:16px;text-align:center" class="muted">問題を読み込んでいます…</div>';
-      const j=await api({action:'login',token:ST.token});
+      const j=await api(loginBody({action:'login',token:ST.token}));
       if(j.ok) afterLogin(j); else logout(j.err==='bad_token');
     }
     else { nav=[]; loginScreen(); }
@@ -868,10 +877,10 @@ window.onerror=function(m,s,l,c){
 async function refreshData(){
   if(!ONLINE_OK||!ST.token)return;
   try{
-    const j=await api({action:'login',token:ST.token});
+    const j=await api(loginBody({action:'login',token:ST.token}));
     if(j&&j.ok&&j.data&&j.data.questions&&j.data.questions.length){
       const before=QUESTIONS.length;
-      ST.token=j.token||ST.token; ST.data=j.data; save(); applyData(ST.data);
+      ST.token=j.token||ST.token; ST.data=j.data; ST.dataVer=j.dataVer||''; save(); applyData(ST.data);
       if(QUESTIONS.length!==before && nav.length<=1) go(home,false);
     }else if(j&&j.err==='bad_token'){ logout(true) }
   }catch(e){}
@@ -1238,28 +1247,39 @@ const MFG_CSS = `
 .kn tr.hol td{background:#fdf1f0}
 .kn tr.hol td.dt{background:#fdf1f0}
 .sn{border-collapse:separate;border-spacing:0;font-size:11px;min-width:100%}
-.sn th,.sn td{border-bottom:1px solid #eee7d8;border-right:1px solid #f1ece1;padding:2px 3px;text-align:center;vertical-align:top}
+.sn th,.sn td{border-bottom:1px solid #eee7d8;border-right:1px solid #f1ece1;padding:1px 3px;text-align:center;vertical-align:top}
 .sn thead th{position:sticky;top:0;background:#f7f4ec;color:var(--navy);font-weight:700;z-index:2;
-  font-size:10.5px;line-height:1.25;white-space:nowrap;padding:4px 3px}
+  font-size:10.5px;line-height:1.2;white-space:nowrap;padding:3px 3px}
 .sn thead th.kj{background:#eef2e9}.sn thead th.kk{background:#f6efe2}
-.sn td.dt,.sn th.dt{position:sticky;left:0;background:#fff;z-index:1;text-align:left;padding:4px 5px;
-  min-width:44px;font-weight:700;color:var(--ink);white-space:nowrap;font-size:11.5px}
+.sn td.dt,.sn th.dt{position:sticky;left:0;background:#fff;z-index:1;text-align:left;padding:3px 4px;
+  min-width:32px;max-width:32px;font-weight:700;color:var(--ink);white-space:nowrap;font-size:12px;line-height:1.1}
+.sn td.dt .wd{font-weight:400;font-size:9.5px;color:var(--sub);margin-left:1px}
 .sn thead th.dt{z-index:3;background:#f7f4ec}
-.sn td.c{min-width:86px;max-width:86px}
-.sn .r2 .mf-prod{font-size:11px;padding:1px 4px;white-space:nowrap}
+.sn td.c{min-width:70px;max-width:70px;overflow:hidden}
+.sn .r2 .mf-prod{font-size:9.5px;padding:0 3px;white-space:nowrap;line-height:1.3;max-width:100%;
+  display:inline-block;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
 .sn td.c.e{background:#fcfbf7}
-.sn .r1{font-size:11.5px;font-weight:700;color:var(--ink);white-space:nowrap}
-.sn .r2{margin-top:1px}
-.sn .r3{margin-top:1px;font-size:11px;white-space:nowrap;color:var(--ink)}
-.sn .r3 b{font-size:12px}
-.sn .r4{margin-top:2px;font-size:10.5px;font-weight:700;color:#0f4a48;background:#e8f0ef;border-radius:4px;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sn .r4 .none{color:#b0a898;font-weight:400}
-.sn td.tt{background:#fff;min-width:58px;max-width:58px;font-weight:700;
-  color:var(--navy);font-size:12.5px;white-space:nowrap;vertical-align:middle}
+.sn .r1{font-size:10.5px;font-weight:700;color:var(--ink);white-space:nowrap;line-height:1.25;
+  display:flex;justify-content:center;align-items:center;gap:0}
+.sn .r1 .nm{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.sn .r1 .mf-bdg{font-size:10px!important;padding:0 3px;margin-left:3px;flex:0 0 auto;vertical-align:0}
+.sn .r2{line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sn .r3{font-size:10px;white-space:nowrap;color:var(--sub);line-height:1.2;overflow:hidden;text-overflow:ellipsis}
+.sn .r3 b{font-size:11.5px;color:var(--ink)}
+.sn .r4{font-size:9.5px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  color:#0f4a48;font-weight:700}
+.sn .r4 .none{color:#c3bbaa;font-weight:400}
+.sn td.tt{background:#fff;min-width:44px;max-width:44px;font-weight:700;
+  color:var(--navy);font-size:12px;white-space:nowrap;vertical-align:middle;padding:1px 2px}
+.yo-g{display:flex;gap:6px;margin:0 2px 8px}
+.yo-g button{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 0;
+  font-size:12.5px;font-weight:700;color:var(--sub);font-family:inherit}
+.yo-g button.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .sn tr.sel td{background:#fbf6e4}
 .sn tr.sel td.dt,.sn tr.sel td.tt{background:#fbf6e4}
 .sn tr.sun td.dt{color:#c62828}.sn tr.sat td.dt{color:#1f5fa8}
 .sn .mh td{background:#f2efe6;font-weight:700;color:var(--navy);text-align:left;padding:5px 6px;font-size:12px;position:sticky;left:0}
+.kn-wrap.tall{max-height:min(80vh,900px)}
 .kn tr.today td{background:#fff7d6!important}
 .kn tr.sel td{outline:2px solid var(--navy);outline-offset:-2px}
 .kn .red{color:#d11a1a;font-weight:700}
@@ -1618,7 +1638,7 @@ function libDetail(name){
 
 /* ---------- 洗米予定表（表で見る） ---------- */
 const YO_TAB = {v:'tbl'};
-let YO_YM = null, YO_SEL = null;
+let YO_YM = null, YO_SEL = null, YO_G = lsGet('tool.yoG','all');   // 'all' / '麹' / '掛'
 function yoteiTabs(on){
   return `<div class="mf-tabs"><button data-yt="tbl" class="${on==='tbl'?'on':''}">表</button><button data-yt="pdf" class="${on==='pdf'?'on':''}">PDF</button></div>`;
 }
@@ -1646,43 +1666,52 @@ function yoteiScreen(){
     const monTot = days.reduce((a,d)=>a + (S.days[d].e||[]).reduce((b,e)=>b+Number(e[6]||0),0), 0);
     h += `<div class="mf-nav" style="margin-bottom:8px">
       <button id="yPrev" ${i>0?'':'disabled'}>‹ 前の月</button>
-      <button disabled style="flex:1.3;color:var(--navy);font-weight:700">${Number(yy)}年${Number(mm)}月</button>
+      <button disabled style="flex:1.6;color:var(--navy);font-weight:700;line-height:1.2">${Number(yy)}年${Number(mm)}月
+        <span style="display:block;font-size:10.5px;font-weight:400;color:var(--sub)">洗米 ${days.length}日・総米 ${kgfmt(monTot)}kg</span></button>
       <button id="yNext" class="main" ${i<yms.length-1?'':'disabled'}>次の月 ›</button></div>`;
-    h += `<div class="tl-row" style="margin:0 2px 8px"><span style="color:var(--sub);font-size:13px;white-space:nowrap">この月の洗米 ${days.length}日</span><b style="white-space:nowrap">総米 ${kgfmt(monTot)} kg</b></div>`;
     h += riceShortView(YO_YM);
+    h += `<div class="yo-g">
+      <button data-yg="all" class="${YO_G==='all'?'on':''}">ぜんぶ</button>
+      <button data-yg="麹" class="${YO_G==='麹'?'on':''}">麹米だけ</button>
+      <button data-yg="掛" class="${YO_G==='掛'?'on':''}">掛米だけ</button></div>`;
 
     const cols = S.cols;
-    h += `<div class="kn-wrap"><table class="sn"><thead><tr><th class="dt">日</th>`;
-    cols.forEach(c=>{ h += `<th class="${c[1]==='麹'?'kj':'kk'}">${c[1]==='麹'?'麹':'掛'}<br>${esc(c[0])}</th>`; });
+    const use = cols.map((c,i)=>i).filter(i=>YO_G==='all'||cols[i][1]===YO_G);
+    h += `<div class="kn-wrap tall"><table class="sn"><thead><tr><th class="dt">日</th>`;
+    use.forEach(i=>{ const c=cols[i]; h += `<th class="${c[1]==='麹'?'kj':'kk'}">${c[1]==='麹'?'麹':'掛'}<br>${esc(c[0])}</th>`; });
     h += `<th class="tt">総米</th></tr></thead><tbody>`;
     for(const d of days){
       const x = S.days[d], dd = dparse(d), w = dd.getDay();
       const byCi = {}; (x.e||[]).forEach(e=>{ (byCi[e[0]] = byCi[e[0]] || []).push(e); });
       const tot = (x.e||[]).reduce((a,e)=>a+Number(e[6]||0),0);
+      const shown = use.reduce((a,i)=>a+((byCi[i]||[]).reduce((b,e)=>b+Number(e[6]||0),0)),0);
       h += `<tr data-yd="${d}" class="${d===YO_SEL?'sel':''} ${w===0?'sun':''} ${w===6?'sat':''}">
-        <td class="dt">${dd.getDate()}<br><span style="font-weight:400;font-size:10px">${WD[w]}</span></td>`;
-      cols.forEach((c,ci)=>{
+        <td class="dt">${dd.getDate()}<span class="wd">${WD[w]}</span></td>`;
+      use.forEach(ci=>{
         const list = byCi[ci];
         if(!list){ h += `<td class="c e"></td>`; return; }
         h += `<td class="c">` + list.map(e=>{
           const [,rice,ratio,code,prod,no,kg0] = e; const kg = Number(kg0||0);
           const y = yeastOf(prod, no);
-          return `<div class="r1">${esc(rice)}${ratioBadge(ratio)}</div>
+          return `<div class="r1"><span class="nm">${esc(rice)}</span>${ratioBadge(ratio)}</div>
             <div class="r2">${prodChip(prod)}</div>
-            <div class="r3">${code?esc(code)+' ':''}<b>${no}</b>（${kgfmt(kg)}）</div>
-            <div class="r4">${y?esc(y):'<span class="none">酵母</span>'}</div>`;
-        }).join('<div style="border-top:1px dotted #c9c2b2;margin:3px 0"></div>') + `</td>`;
+            <div class="r3">${code?esc(code):''}<b>${no}</b> ${kgfmt(kg)}</div>
+            <div class="r4">${y?esc(y):'<span class="none">酵母 未定</span>'}</div>`;
+        }).join('<div style="border-top:1px dotted #c9c2b2;margin:2px 0"></div>') + `</td>`;
       });
-      h += `<td class="tt">${kgfmt(tot)}</td></tr>`;
+      h += `<td class="tt">${kgfmt(shown)}${shown!==tot?`<div style="font-size:9.5px;font-weight:400;color:var(--sub)">計${kgfmt(tot)}</div>`:''}</td></tr>`;
     }
     h += `</tbody></table></div>
-      <p class="tl-note">液種の色・精米歩合の色は紙の予定表と同じです。カッコの中はkg、いちばん下の緑は酵母。薄い「酵母」の字は<b>まだ決めていない</b>ところで、造りex＼酵母割当 の表に書くとここに出ます。行を押すと、その日の洗米チェック（袋数つき）が下に出ます。</p>
+      <p class="tl-note">各マスは上から <b>品種＋精米歩合</b>／<b>液種</b>／<b>記号・仕込番号・kg</b>／<b style="color:#0f4a48">酵母</b> の4段です。色は紙の予定表と同じ。
+        「酵母 未定」は造りex＼酵母割当 の表に書くとここに出ます。<b>行を押す</b>と、その日の詳しい内容（袋数つき）が下に出ます。
+        <br><b>麹米だけ</b>に切り替えると横にずらさずに見られます。</p>
       <div id="yoDay"></div>`;
     app.innerHTML = h + mfgSrcInfo('senmai','造りex 洗米予定表');
     bindYoTabs();
     const yp=$('#yPrev'), yn=$('#yNext');
     if(yp) yp.onclick=()=>{ YO_YM=yms[i-1]; YO_SEL=null; yoRender(); };
     if(yn) yn.onclick=()=>{ YO_YM=yms[i+1]; YO_SEL=null; yoRender(); };
+    app.querySelectorAll('[data-yg]').forEach(b=>b.onclick=()=>{ YO_G=b.dataset.yg; lsSet('tool.yoG',YO_G); yoRender(); });
     app.querySelectorAll('tr[data-yd]').forEach(tr=>tr.onclick=()=>{
       YO_SEL = tr.dataset.yd;
       app.querySelectorAll('tr.sel').forEach(x=>x.classList.remove('sel'));
@@ -2361,6 +2390,222 @@ function furikyuForm(day){
   render();
 }
 
+
+/* ===================================================================
+   各種計算ツール（まとめ画面）＋ タンク洗浄管理  2026-09-24 追加
+   タンク洗浄管理のデータは Apps Script「タンク洗浄チェック R8BY」
+   （スプレッドシート「タンク洗浄記録_R8BY」）と読み書きする。
+   =================================================================== */
+
+/* ---------- 各種計算ツール：容量・濾過・アル添の入口 ---------- */
+function calcHome(){
+  head('各種計算ツール','容量計算・濾過計算・アル添計算');
+  const icon=t=>`<div style="width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto">${t}</div>`;
+  const card=(id,ic,nm,ds)=>`<button class="crs" id="${id}">${icon(ic)}<div style="flex:1"><div class="nm">${nm}</div><div class="ds">${ds}</div></div><div class="go">›</div></button>`;
+  app.innerHTML=`<div style="height:16px"></div>
+    ${card('bCap','🛢','容量計算','容器番号と寸法から容量（ℓ）')}
+    ${card('bFil','🧪','濾過計算','タンクを合わせたときの日本酒度・Alc・酸度・アミノ酸度')}
+    ${card('bAlc','🍶','アル添計算','目標の日本酒度とアルコール添加量')}
+    <p class="tl-note">計算はすべて端末の中で行います（電波が無くても使えます）。</p>`;
+  $('#bCap').onclick=()=>go(capacityScreen);
+  $('#bFil').onclick=()=>go(filterScreen);
+  $('#bAlc').onclick=()=>go(alcScreen);
+}
+
+/* ---------- タンク洗浄管理 ---------- */
+const WASH_URL = "https://script.google.com/macros/s/AKfycbzoeOALiv27YFlsvQlKSrQpv100mqUu354URy2yV0gRTiYot8iLy0d1WOTMA9tj9_nZ/exec";
+const WASH_CSS = `
+.ws-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0 10px}
+.ws-sum button{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 8px;text-align:left;font-family:inherit;color:inherit;display:flex;flex-direction:column;gap:2px;cursor:pointer}
+.ws-sum button.on{border-color:var(--navy);box-shadow:inset 0 0 0 1px var(--navy)}
+.ws-sum .k{font-size:11px;color:var(--sub)}
+.ws-sum .v{font-size:22px;font-weight:700;line-height:1.1;color:var(--navy)}
+.ws-sum .v.bad{color:var(--ng)} .ws-sum .v.warn{color:#a8761e} .ws-sum .v.ok{color:var(--ok)}
+.ws-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.ws-chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px;font-family:inherit;color:var(--sub);cursor:pointer}
+.ws-chip.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}
+.ws-status{font-size:12px;color:var(--sub);min-height:1.2em;margin:0 0 6px}
+.ws-status.warn{color:var(--ng)}
+.ws-row{width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px 10px 0;margin-bottom:8px;display:grid;grid-template-columns:6px 60px 1fr auto;gap:0 10px;align-items:center;text-align:left;font-family:inherit;color:inherit;cursor:pointer;overflow:hidden}
+.ws-row .st{align-self:stretch;border-radius:12px 0 0 12px;background:var(--line)}
+.ws-row.bad .st{background:var(--ng)} .ws-row.warn .st{background:#c08a2a} .ws-row.done .st{background:var(--ok)}
+.ws-row .tk{font-size:24px;font-weight:700;line-height:1;color:var(--navy)}
+.ws-row .tk small{display:block;font-size:11px;font-weight:500;color:var(--sub);margin-top:2px}
+.ws-row .mid{min-width:0}
+.ws-row .b{font-weight:600;font-size:15px}
+.ws-row .d{font-size:12px;color:var(--sub)}
+.ws-row .dl{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.ws-row .date{font-weight:700;font-size:14px}
+.ws-row .left{font-size:12px;color:var(--sub)}
+.ws-row .left.bad{color:var(--ng);font-weight:700} .ws-row .left.warn{color:#a8761e;font-weight:700}
+.ws-steps{display:flex;gap:4px}
+.ws-steps span{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line);font-size:11px;display:grid;place-items:center;color:var(--sub)}
+.ws-steps span.on{background:#e1efe4;border-color:var(--ok);color:var(--ok);font-weight:700}
+.ws-tl{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:12px 0}
+.ws-tl div{background:#eef1f5;border-radius:8px;padding:6px 8px;font-size:12px;color:var(--sub)}
+.ws-tl div b{display:block;color:var(--ink);font-size:14px}
+.ws-tl div.hot b{color:var(--ng)}
+.ws-fs{border:1px solid var(--line);border-radius:12px;padding:10px 12px 12px;margin:0 0 10px;min-width:0;background:var(--card)}
+.ws-fs.on{border-color:var(--ok);background:#e9f3ec}
+.ws-fs legend{padding:0 6px;font-weight:700}
+.ws-fs legend label{display:flex;gap:8px;align-items:center;cursor:pointer}
+.ws-fs legend input{width:22px;height:22px;accent-color:var(--ok)}
+.ws-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.ws-f{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ws-f span{font-size:11px;color:var(--sub)}
+.ws-f input,.ws-f select{font:inherit;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:42px;width:100%}
+.ws-seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.ws-seg button{flex:1;border:0;background:#fff;padding:9px 4px;font-size:14px;font-family:inherit;color:inherit;cursor:pointer}
+.ws-seg button+button{border-left:1px solid var(--line)}
+.ws-seg button.ok{background:var(--ok);color:#fff} .ws-seg button.ng{background:var(--ng);color:#fff}
+.ws-hint{font-size:11px;color:var(--sub)} .ws-hint.bad{color:var(--ng);font-weight:700}
+.ws-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+.ws-btn{background:var(--navy);color:#fff;border:0;border-radius:10px;padding:12px 20px;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer}
+.ws-ghost{border:1px solid var(--line);background:transparent;border-radius:8px;padding:6px 10px;font-size:13px;font-family:inherit;color:inherit;cursor:pointer}
+.ws-ta{width:100%;min-height:70px;font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;color:var(--ink)}
+@media(max-width:480px){.ws-sum{grid-template-columns:repeat(2,1fr)} .ws-row{grid-template-columns:6px 52px 1fr auto;gap:0 8px} .ws-row .tk{font-size:21px} .ws-row .d{display:none}}
+`;
+(function(){ const s=document.createElement('style'); s.textContent=WASH_CSS; document.head.appendChild(s); })();
+
+const WS = { plan:[], records:{}, staff:[], filter:'todo', loadedAt:0 };
+const wsPad=n=>String(n).padStart(2,'0');
+const wsToday=()=>{const d=new Date();return `${d.getFullYear()}-${wsPad(d.getMonth()+1)}-${wsPad(d.getDate())}`};
+const wsNow=()=>{const d=new Date();return `${wsPad(d.getHours())}:${wsPad(d.getMinutes())}`};
+const wsMD=s=>s?`${+s.slice(5,7)}/${+s.slice(8,10)}`:'—';
+const wsJD=s=>s?`${+s.slice(5,7)}月${+s.slice(8,10)}日`:'';
+const wsDays=s=>Math.round((new Date(s+'T00:00:00')-new Date(wsToday()+'T00:00:00'))/86400000);
+function wsRec(id){ return WS.records[id]||{}; }
+function wsStage(r){ return ((r.wash&&r.wash.done)?1:0)+((r.finish&&r.finish.done)?1:0)+((r.check&&r.check.done)?1:0); }
+function wsUrg(p,r){ if(wsStage(r)===3)return 'done'; const d=wsDays(p.deadline); if(d<=3)return 'bad'; if(d<=14)return 'warn'; return ''; }
+async function washApi(body, ms){
+  const ctl = typeof AbortController!=='undefined' ? new AbortController() : null;
+  const t = ctl ? setTimeout(()=>ctl.abort(), ms||30000) : null;
+  try{
+    const r=await fetch(WASH_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow',signal:ctl?ctl.signal:undefined});
+    return await r.json();
+  } finally { if(t) clearTimeout(t); }
+}
+function wsApply(d){ WS.plan=d.plan||[]; WS.records=d.records||{}; if(d.staff&&d.staff.length) WS.staff=d.staff; WS.loadedAt=Date.now(); lsSet('tool.wash',{plan:WS.plan,records:WS.records,staff:WS.staff,at:WS.loadedAt}); }
+async function wsLoad(force){
+  if(!force && WS.plan.length && Date.now()-WS.loadedAt<60000) return true;
+  if(!WS.plan.length){ const c=lsGet('tool.wash',null); if(c&&c.plan){ WS.plan=c.plan; WS.records=c.records||{}; WS.staff=c.staff||[]; } }
+  try{ const j=await washApi({action:'wash_get'},25000); if(j&&j.ok){ wsApply(j.data); return true; } }catch(e){}
+  return false;
+}
+function wsStatus(t,warn){ const s=$('#wsStatus'); if(!s)return; s.textContent=t; s.className='ws-status'+(warn?' warn':''); if(!warn) setTimeout(()=>{ if(s.textContent===t) s.textContent=''; },4000); }
+
+async function washScreen(){
+  head('タンク洗浄管理','R8BY 醪タンク（期限＝酛下日）');
+  app.innerHTML='<p class="muted" style="margin-top:14px">洗浄の予定と記録を読み込んでいます…</p>';
+  const ok=await wsLoad(false);
+  if(!WS.plan.length){ app.innerHTML=`<div class="tl-warn" style="margin-top:14px">洗浄の予定を読み込めませんでした。電波の届く所でもう一度開いてください。</div>`; return; }
+  const draw=()=>{
+    const f=WS.filter;
+    let over=0,soon=0,todo=0,done=0;
+    WS.plan.forEach(p=>{ const s=wsStage(wsRec(p.id)); if(s===3){done++;return;} todo++; const d=wsDays(p.deadline); if(d<0)over++; else if(d<=14)soon++; });
+    const vis=p=>{ const s=wsStage(wsRec(p.id)), d=wsDays(p.deadline);
+      if(f==='all')return true; if(f==='done')return s===3; if(f==='todo')return s<3; if(f==='soon')return s<3&&d<=14; if(f==='over')return s<3&&d<0; return true; };
+    const rows=WS.plan.filter(vis).sort((a,b)=>a.deadline.localeCompare(b.deadline)||a.n-b.n);
+    let h=`<div class="ws-sum">
+      <button data-f="over"><span class="k">期限超過</span><span class="v ${over?'bad':''}">${over}</span></button>
+      <button data-f="soon"><span class="k">14日以内</span><span class="v ${soon?'warn':''}">${soon}</span></button>
+      <button data-f="todo"><span class="k">未完了</span><span class="v">${todo}</span></button>
+      <button data-f="done"><span class="k">完了</span><span class="v ok">${done}</span></button></div>
+    <div class="ws-bar">
+      <button class="ws-chip ${f==='todo'?'on':''}" data-f="todo">未完了</button>
+      <button class="ws-chip ${f==='soon'?'on':''}" data-f="soon">14日以内</button>
+      <button class="ws-chip ${f==='done'?'on':''}" data-f="done">完了</button>
+      <button class="ws-chip ${f==='all'?'on':''}" data-f="all">全部</button>
+      <span style="flex:1"></span>
+      <button class="ws-ghost" id="wsStaff">担当者名</button>
+      <button class="ws-ghost" id="wsReload">更新</button></div>
+    <div id="wsStaffBox" class="card" style="display:none">
+      <div style="font-size:13px;margin-bottom:6px">担当者を1行に1人ずつ。全員の画面の選択肢に反映されます。</div>
+      <textarea class="ws-ta" id="wsStaffTa">${esc(WS.staff.join('\n'))}</textarea>
+      <div class="ws-actions"><button class="ws-ghost" id="wsStaffNo">閉じる</button><button class="ws-btn" id="wsStaffOk">保存</button></div></div>
+    <div class="ws-status" id="wsStatus">${ok?'':'（電波が無いため、端末に保存した内容を表示しています）'}</div>`;
+    if(!rows.length) h+=`<p class="muted" style="text-align:center;padding:24px 0">該当するタンクはありません</p>`;
+    h+=rows.map(p=>{ const r=wsRec(p.id), s=wsStage(r), u=wsUrg(p,r), d=wsDays(p.deadline);
+      const left=s===3?'完了':d<0?`${-d}日超過`:d===0?'今日まで':`あと${d}日`;
+      return `<button class="ws-row ${u}" data-id="${p.id}"><span class="st"></span>
+        <span class="tk">${p.tank}<small>No.${p.n} ${esc(p.kigo)}</small></span>
+        <span class="mid"><span class="b">${esc(p.brand)}</span><br><span class="d">添 ${wsMD(p.soe)}・留 ${wsMD(p.tome)}・上槽 ${wsMD(p.josou)}${p.prev?`　前回上槽 ${wsMD(p.prev)}`:''}</span></span>
+        <span class="dl"><span class="date">${wsMD(p.deadline)}まで</span><span class="left ${u==='done'?'':u}">${left}</span>
+          <span class="ws-steps"><span class="${r.wash&&r.wash.done?'on':''}">洗</span><span class="${r.finish&&r.finish.done?'on':''}">仕</span><span class="${r.check&&r.check.done?'on':''}">確</span></span></span></button>`; }).join('');
+    h+=`<p class="tl-note">記録はスプレッドシート「タンク洗浄記録_R8BY」に保存されます。印刷用の表は
+      <a href="${WASH_URL}" target="_blank" rel="noopener">こちら（印刷ボタン付き）</a>。仕込計画が変わったら予定表を作り直します。</p>`;
+    app.innerHTML=h;
+    app.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{ WS.filter=b.dataset.f; draw(); });
+    app.querySelectorAll('.ws-row').forEach(b=>b.onclick=()=>go(()=>washEdit(b.dataset.id)));
+    $('#wsReload').onclick=async()=>{ wsStatus('更新中…'); await wsLoad(true); draw(); };
+    $('#wsStaff').onclick=()=>{ const x=$('#wsStaffBox'); x.style.display=x.style.display==='none'?'block':'none'; };
+    $('#wsStaffNo').onclick=()=>{ $('#wsStaffBox').style.display='none'; };
+    $('#wsStaffOk').onclick=async()=>{ const names=$('#wsStaffTa').value.split('\n').map(s=>s.trim()).filter(Boolean); if(!names.length)return;
+      WS.staff=names; $('#wsStaffBox').style.display='none'; wsStatus('担当者名を保存中…');
+      try{ const j=await washApi({action:'wash_staff',names}); wsStatus(j&&j.ok?'担当者名を保存しました':'担当者名を保存できませんでした',!(j&&j.ok)); }catch(e){ wsStatus('担当者名を保存できませんでした',true); } };
+  };
+  draw();
+}
+
+function washEdit(id){
+  const p=WS.plan.find(x=>x.id===id); if(!p){ go(washScreen,false); return; }
+  const r=JSON.parse(JSON.stringify(wsRec(id))); r.wash=r.wash||{}; r.finish=r.finish||{}; r.check=r.check||{};
+  head(`タンク ${p.tank}`, `${p.brand}　仕込No.${p.n}（記号 ${p.kigo}）`);
+  const d=wsDays(p.deadline);
+  const opt=(cur)=>`<option value="">—</option>`+WS.staff.map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');
+  app.innerHTML=`
+    <div class="ws-tl">
+      <div>${p.prev?'前回上槽':'今期初使用'}<b>${p.prev?wsJD(p.prev):'—'}</b></div>
+      <div class="${d<=3&&wsStage(r)<3?'hot':''}">洗浄期限（酛下日）<b>${wsJD(p.deadline)}</b></div>
+      <div>添仕込<b>${wsJD(p.soe)}</b></div></div>
+    <fieldset class="ws-fs ${r.wash.done?'on':''}" id="fsWash"><legend><label><input type="checkbox" id="wDone" ${r.wash.done?'checked':''}>洗浄</label></legend>
+      <div class="ws-grid">
+        <label class="ws-f"><span>日付</span><input type="date" id="wDate" value="${esc(r.wash.date||'')}"></label>
+        <label class="ws-f"><span>時刻</span><input type="time" id="wTime" value="${esc(r.wash.time||'')}"></label>
+        <label class="ws-f"><span>測定方法</span><select id="wMethod"><option ${!r.wash.method||r.wash.method==='酸素濃度計'?'selected':''}>酸素濃度計</option><option ${r.wash.method==='その他'?'selected':''}>その他</option></select></label>
+        <label class="ws-f"><span>酸素濃度（%）</span><input type="number" id="wO2" inputmode="decimal" step="0.1" min="0" max="25" placeholder="20.9" value="${r.wash.o2??''}"><span class="ws-hint" id="o2hint"></span></label>
+        <label class="ws-f"><span>担当</span><select id="wBy">${opt(r.wash.by)}</select></label></div></fieldset>
+    <fieldset class="ws-fs ${r.finish.done?'on':''}" id="fsFin"><legend><label><input type="checkbox" id="fDone" ${r.finish.done?'checked':''}>仕上げ</label></legend>
+      <div class="ws-grid">
+        <label class="ws-f"><span>日付</span><input type="date" id="fDate" value="${esc(r.finish.date||'')}"></label>
+        <label class="ws-f"><span>担当</span><select id="fBy">${opt(r.finish.by)}</select></label></div></fieldset>
+    <fieldset class="ws-fs ${r.check.done?'on':''}" id="fsChk"><legend><label><input type="checkbox" id="cDone" ${r.check.done?'checked':''}>チェック</label></legend>
+      <div class="ws-grid">
+        <div class="ws-f"><span>臭い</span><div class="ws-seg" id="segSmell"><button type="button" data-v="OK" class="${r.check.smell==='OK'?'ok':''}">なし</button><button type="button" data-v="NG" class="${r.check.smell==='NG'?'ng':''}">あり</button></div></div>
+        <div class="ws-f"><span>汚れ</span><div class="ws-seg" id="segDirt"><button type="button" data-v="OK" class="${r.check.dirt==='OK'?'ok':''}">なし</button><button type="button" data-v="NG" class="${r.check.dirt==='NG'?'ng':''}">あり</button></div></div>
+        <label class="ws-f"><span>確認者</span><select id="cBy">${opt(r.check.by)}</select></label></div></fieldset>
+    <label class="ws-f"><span>備考</span><input type="text" id="wsNote" value="${esc(r.note||'')}" placeholder="やり直し・気付きなど"></label>
+    <div class="ws-status" id="wsStatus" style="margin-top:8px"></div>
+    <div class="ws-actions"><button class="ws-ghost" id="wsCancel">やめる</button><button class="ws-btn" id="wsSave">保存</button></div>`;
+  const cur={smell:r.check.smell||'',dirt:r.check.dirt||''};
+  const seg=(id,key)=>{ const s=$('#'+id); s.querySelectorAll('button').forEach(b=>b.onclick=()=>{ cur[key]=b.dataset.v; s.querySelectorAll('button').forEach(x=>x.className=''); b.className=b.dataset.v==='OK'?'ok':'ng'; }); };
+  seg('segSmell','smell'); seg('segDirt','dirt');
+  const o2=()=>{ const v=parseFloat($('#wO2').value), h=$('#o2hint'); if(isNaN(v)){h.textContent='';h.className='ws-hint';return;} if(v<18){h.textContent='18%未満 — 立入不可、再換気';h.className='ws-hint bad';} else {h.textContent='18%以上 OK';h.className='ws-hint';} };
+  $('#wO2').oninput=o2; o2();
+  $('#wDone').onchange=e=>{ $('#fsWash').classList.toggle('on',e.target.checked); if(e.target.checked){ if(!$('#wDate').value)$('#wDate').value=wsToday(); if(!$('#wTime').value)$('#wTime').value=wsNow(); if(!$('#wBy').value&&ST.name&&WS.staff.includes(ST.name))$('#wBy').value=ST.name; } };
+  $('#fDone').onchange=e=>{ $('#fsFin').classList.toggle('on',e.target.checked); if(e.target.checked){ if(!$('#fDate').value)$('#fDate').value=wsToday(); if(!$('#fBy').value&&ST.name&&WS.staff.includes(ST.name))$('#fBy').value=ST.name; } };
+  $('#cDone').onchange=e=>{ $('#fsChk').classList.toggle('on',e.target.checked); if(e.target.checked){ if(!cur.smell){cur.smell='OK';$('#segSmell button[data-v=OK]').className='ok';} if(!cur.dirt){cur.dirt='OK';$('#segDirt button[data-v=OK]').className='ok';} if(!$('#cBy').value&&ST.name&&WS.staff.includes(ST.name))$('#cBy').value=ST.name; } };
+  $('#wsCancel').onclick=()=>hBack.click();
+  $('#wsSave').onclick=async()=>{
+    const data={
+      wash:{done:$('#wDone').checked,date:$('#wDate').value,time:$('#wTime').value,method:$('#wMethod').value,o2:$('#wO2').value===''?null:parseFloat($('#wO2').value),by:$('#wBy').value},
+      finish:{done:$('#fDone').checked,date:$('#fDate').value,by:$('#fBy').value},
+      check:{done:$('#cDone').checked,smell:cur.smell,dirt:cur.dirt,by:$('#cBy').value},
+      note:$('#wsNote').value };
+    const miss=[];
+    if(data.wash.done&&!data.wash.by)miss.push('洗浄の担当');
+    if(data.wash.done&&data.wash.o2===null)miss.push('酸素濃度');
+    if(data.finish.done&&!data.finish.by)miss.push('仕上げの担当');
+    if(data.check.done&&!data.check.by)miss.push('確認者');
+    if(miss.length){ wsStatus('未入力: '+miss.join('・'),true); return; }
+    $('#wsSave').disabled=true; wsStatus('保存中…');
+    try{
+      const j=await washApi({action:'wash_save',id,data},30000);
+      if(j&&j.ok){ wsApply(j.data); wsStatus(`タンク${p.tank} を保存しました`); setTimeout(()=>hBack.click(),400); }
+      else { wsStatus('保存できませんでした: '+(j&&j.error||''),true); $('#wsSave').disabled=false; }
+    }catch(e){ wsStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#wsSave').disabled=false; }
+  };
+}
 </script>
 <!-- /tools -->
 </body>
