@@ -1166,6 +1166,7 @@ const MFG_CSS = `
 .mf-rice{font-size:15px;font-weight:700}
 .mf-bdg{display:inline-block;color:#fff!important;border-radius:5px;padding:0 5px;font-size:12px!important;margin-left:4px;vertical-align:1px}
 .mf-prod{font-size:12.5px;font-weight:700;border-radius:5px;padding:1px 6px;display:inline-block}
+.yb{font-size:11.5px;font-weight:700;border-radius:5px;padding:1px 6px;display:inline-block;background:#e8f0ef;color:#0f4a48}
 .mf-kg{text-align:right;font-size:18px;font-weight:700;color:var(--navy);white-space:nowrap}
 .mf-bag{text-align:right;font-size:13.5px;color:var(--ink);white-space:nowrap}
 .mf-bag b{font-size:16px}
@@ -1174,6 +1175,23 @@ const MFG_CSS = `
 .mf-neg{color:var(--ng)!important}
 .mf-info{font-size:11.5px;color:var(--sub);margin:14px 0 0;line-height:1.6}
 .mf-warn{background:#fff4e5;border:1px solid #f0c78a;border-radius:10px;padding:9px 11px;font-size:13px;margin:10px 0}
+.mf-err{background:#fdecea;border:2px solid #d9534f;border-radius:12px;padding:11px 12px;margin:12px 0}
+.mf-err .ti{font-weight:700;color:#b02a26;font-size:15px;margin-bottom:6px}
+.mf-err .ro{font-size:13px;padding:4px 0;border-top:1px solid #f4cfcd;line-height:1.7}
+.mf-err .ro:first-of-type{border-top:0}
+.mf-err .lk{color:#b02a26;font-weight:700;white-space:nowrap}
+.mf-err .q{color:var(--sub)}
+.mf-err .nt{font-size:11.5px;color:#8a4340;margin-top:7px;line-height:1.6}
+.zx{color:#b02a26;font-weight:700;cursor:pointer;margin-left:2px}
+.hk{border-collapse:separate;border-spacing:0;font-size:12px;min-width:100%}
+.hk th,.hk td{border-bottom:1px solid #eee7d8;border-right:1px solid #f1ece1;padding:4px 6px;text-align:center;white-space:nowrap}
+.hk thead th{position:sticky;top:0;background:#f7f4ec;color:var(--navy);font-weight:700;z-index:2;font-size:11px;line-height:1.3}
+.hk td.dt,.hk th.dt{position:sticky;left:0;background:#fff;z-index:1;text-align:left;font-weight:700;min-width:58px;color:var(--ink)}
+.hk thead th.dt{z-index:3;background:#f7f4ec}
+.hk td.n{font-weight:700;color:var(--navy)}
+.hk td.z{color:#ddd8cc}
+.hk tr.past td{opacity:.5}
+.hk tr.past td.dt{opacity:.5}
 .mf-tabs{display:flex;gap:6px;margin:12px 0 10px}
 .mf-tabs button{flex:1;padding:10px;border:1px solid var(--line);background:#fff;border-radius:10px;font-family:inherit;font-size:14px;color:var(--sub);cursor:pointer}
 .mf-tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700}
@@ -1228,6 +1246,8 @@ const MFG_CSS = `
 .sn .r2{margin-top:1px}
 .sn .r3{margin-top:1px;font-size:11px;white-space:nowrap;color:var(--ink)}
 .sn .r3 b{font-size:12px}
+.sn .r4{margin-top:2px;font-size:10.5px;font-weight:700;color:#0f4a48;background:#e8f0ef;border-radius:4px;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sn .r4 .none{color:#b0a898;font-weight:400}
 .sn td.tt{background:#fff;min-width:58px;max-width:58px;font-weight:700;
   color:var(--navy);font-size:12.5px;white-space:nowrap;vertical-align:middle}
 .sn tr.sel td{background:#fbf6e4}
@@ -1285,6 +1305,11 @@ function bags(kg){
   return (neg?'−':'')+t;
 }
 const nrm = s=>String(s||'').replace(/[\s　]/g,'');
+/* 酵母割当（造りex\酵母割当\*.xlsx）。液種の指定が優先、なければ仕込番号 */
+function yeastOf(prod, no){
+  const Y = MFG && MFG.yeast; if(!Y) return '';
+  return (Y.byProd && Y.byProd[prod]) || (Y.byNo && Y.byNo[String(no)]) || '';
+}
 function prodChip(p){ const c=MFG_PROD_COLORS[p]||['#eef0f3','#333']; return `<span class="mf-prod" style="background:${c[0]};color:${c[1]}">${esc(p)}</span>`; }
 function ratioBadge(r){ return `<span class="mf-bdg" style="background:${MFG_RATIO_COLORS[r]||'#555'}">${r}%</span>`; }
 
@@ -1349,7 +1374,8 @@ function riceScreen(){
     ${card('bSen','🚿','洗米チェック','その日の洗米数量（麹米・掛米）を30kg袋で')}
     ${card('bZai','📦','在庫管理','品種・精米歩合ごとのその日の在庫')}
     ${card('bPdf','📄','洗米予定表','ひと月ぶんの予定表を表で見る（PDFも開けます）')}
-    <p class="tl-note">造りexの洗米予定表・品種受払が更新されると、数分でここに反映されます。</p>`;
+    <p class="tl-note">造りexの洗米予定表・品種受払が更新されると、数分でここに反映されます。</p>
+    ${riceShortView(dtoday())}`;
   $('#bSen').onclick=()=>go(()=>senmaiScreen());
   $('#bZai').onclick=()=>go(()=>zaikoScreen());
   $('#bPdf').onclick=()=>go(()=>yoteiScreen());
@@ -1617,6 +1643,7 @@ function yoteiScreen(){
       <button disabled style="flex:1.3;color:var(--navy);font-weight:700">${Number(yy)}年${Number(mm)}月</button>
       <button id="yNext" class="main" ${i<yms.length-1?'':'disabled'}>次の月 ›</button></div>`;
     h += `<div class="tl-row" style="margin:0 2px 8px"><span style="color:var(--sub);font-size:13px;white-space:nowrap">この月の洗米 ${days.length}日</span><b style="white-space:nowrap">総米 ${kgfmt(monTot)} kg</b></div>`;
+    h += riceShortView(YO_YM);
 
     const cols = S.cols;
     h += `<div class="kn-wrap"><table class="sn"><thead><tr><th class="dt">日</th>`;
@@ -1633,15 +1660,17 @@ function yoteiScreen(){
         if(!list){ h += `<td class="c e"></td>`; return; }
         h += `<td class="c">` + list.map(e=>{
           const [,rice,ratio,code,prod,no,kg0] = e; const kg = Number(kg0||0);
+          const y = yeastOf(prod, no);
           return `<div class="r1">${esc(rice)}${ratioBadge(ratio)}</div>
             <div class="r2">${prodChip(prod)}</div>
-            <div class="r3">${code?esc(code)+' ':''}<b>${no}</b>（${kgfmt(kg)}）</div>`;
+            <div class="r3">${code?esc(code)+' ':''}<b>${no}</b>（${kgfmt(kg)}）</div>
+            <div class="r4">${y?esc(y):'<span class="none">酵母</span>'}</div>`;
         }).join('<div style="border-top:1px dotted #c9c2b2;margin:3px 0"></div>') + `</td>`;
       });
       h += `<td class="tt">${kgfmt(tot)}</td></tr>`;
     }
     h += `</tbody></table></div>
-      <p class="tl-note">液種の色・精米歩合の色は紙の予定表と同じです。カッコの中はkg。行を押すと、その日の洗米チェック（袋数つき）が下に出ます。横にスクロールすると掛米・総米まで見られます。</p>
+      <p class="tl-note">液種の色・精米歩合の色は紙の予定表と同じです。カッコの中はkg、いちばん下の緑は酵母。薄い「酵母」の字は<b>まだ決めていない</b>ところで、造りex＼酵母割当 の表に書くとここに出ます。行を押すと、その日の洗米チェック（袋数つき）が下に出ます。</p>
       <div id="yoDay"></div>`;
     app.innerHTML = h + mfgSrcInfo('senmai','造りex 洗米予定表');
     bindYoTabs();
@@ -1672,7 +1701,8 @@ function yoDay(d){
     const list = ents.filter(e=>e.grp===g); if(!list.length) return;
     h += `<div class="mf-sec" style="margin-top:6px">${g==='麹'?'麹米':'掛米'}<span>${kgfmt(list.reduce((a,e)=>a+e.kg,0))} kg</span></div>`;
     list.forEach(e=>{
-      h += `<div class="tl-row"><span style="font-size:13px"><b>${esc(e.kubun)}</b>　${esc(e.rice)}${ratioBadge(e.ratio)} ${prodChip(e.prod)} <b>${e.no}</b></span>
+      const y = yeastOf(e.prod, e.no);
+      h += `<div class="tl-row"><span style="font-size:13px"><b>${esc(e.kubun)}</b>　${esc(e.rice)}${ratioBadge(e.ratio)} ${prodChip(e.prod)} <b>${e.no}</b>${y?` <span class="yb">${esc(y)}</span>`:''}</span>
         <span style="white-space:nowrap"><b>${kgfmt(e.kg)}</b>kg　<span style="font-size:12px">${bags(e.kg)}</span></span></div>`;
     });
   });
@@ -1754,6 +1784,7 @@ function senmaiScreen(day){
     const S = MFG && MFG.senmai;
     let h = mfgErrView();
     h += dayNav(SEN_DAY);
+    h += riceShortView(SEN_DAY);
     if(!S){ app.innerHTML = h + '<div class="card">洗米予定表のデータがこの端末にまだありません。<button class="btn p" style="margin-top:10px" onclick="mfgReload()">もう一度読み込む</button></div>' + mfgSrcInfo('senmai','造りex 洗米予定表'); bindDayNav(senmaiScreen); return; }
     const x = S.days[SEN_DAY];
     if(!x){
@@ -1776,10 +1807,11 @@ function senmaiScreen(day){
       let s = `<div class="mf-sec">${label}<span>${list.length?kgfmt(sum)+' kg':'なし'}</span></div>`;
       if(!list.length) return s + `<div class="muted" style="padding:4px 2px 6px">この日はありません</div>`;
       for(const e of list){
+        const y = yeastOf(e.prod, e.no);
         s += `<div class="mf-item"><div class="mf-kb ${g==='掛'?'kake':''}">${e.kubun}</div>
           <div><span class="mf-rice">${esc(e.rice)}</span>${ratioBadge(e.ratio)} <span class="muted">${esc(e.code)}</span></div>
           <div class="mf-kg">${kgfmt(e.kg)}<small style="font-size:12px;font-weight:400"> kg</small></div>
-          <div>${prodChip(e.prod)} <span style="font-size:13px;font-weight:700">No.${e.no}</span></div>
+          <div>${prodChip(e.prod)} <span style="font-size:13px;font-weight:700">No.${e.no}</span>${y?` <span class="yb">${esc(y)}</span>`:''}</div>
           <div class="mf-bag">${bags(e.kg)}</div></div>`;
       }
       return s;
@@ -1814,6 +1846,134 @@ function bindDayNav(fn){
   $('#dToday').onclick=()=>fn(dtoday());
 }
 
+/* ---------- 米引き取り予定（在庫管理の一番下） ---------- */
+function hikitoriView(){
+  const H = MFG && MFG.hikitori, Z = MFG && MFG.zaiko;
+  if(!H || !H.days || !Object.keys(H.days).length){
+    return `<div class="mf-sec">米引き取り予定</div>
+      <div class="card" style="color:var(--sub);font-size:13px">引取予定のデータがまだ届いていません。<br>
+      会社PCの「AI参照データ＼米引き取り予定」に予定表のExcelを置くと、数分でここに出ます。</div>`;
+  }
+  const days = Object.keys(H.days).sort();
+  // 出てくる品種だけを、品種受払と同じ並びで
+  const used = {}; days.forEach(d=>Object.keys(H.days[d]).forEach(v=>used[v]=1));
+  const vars = ((Z&&Z.vars)||[]).filter(v=>used[v]).concat(Object.keys(used).filter(v=>!(Z&&Z.vars||[]).includes(v)));
+  const td = dtoday();
+  const bag = H.bag || BAG_KG;
+  const tot = {}; days.forEach(d=>Object.keys(H.days[d]).forEach(v=>tot[v]=(tot[v]||0)+H.days[d][v]));
+  const totAll = Object.values(tot).reduce((a,b)=>a+b,0);
+  let h = `<div class="mf-sec">米引き取り予定<span>${H.first?dshort(H.first):''}〜${H.last?dshort(H.last):''}　計 ${fnum(totAll,0)}袋</span></div>`;
+  h += `<div class="kn-wrap"><table class="hk"><thead><tr><th class="dt">日付</th>`;
+  vars.forEach(v=>{ const m=v.match(/^(.+?)(\d+)%$/); h += `<th>${m?esc(m[1])+'<br>'+m[2]+'%':esc(v)}</th>`; });
+  h += `<th>計</th></tr></thead><tbody>`;
+  days.forEach(d=>{
+    const x = H.days[d], dd = dparse(d);
+    const sum = Object.values(x).reduce((a,b)=>a+b,0);
+    h += `<tr class="${d<td?'past':''}"><td class="dt">${dd.getMonth()+1}/${dd.getDate()}<span style="font-weight:400;color:var(--sub)">(${WD[dd.getDay()]})</span></td>`;
+    vars.forEach(v=>{ h += x[v] ? `<td class="n">${fnum(x[v],0)}</td>` : `<td class="z">・</td>`; });
+    h += `<td class="n" style="background:#faf8f2">${fnum(sum,0)}</td></tr>`;
+  });
+  h += `<tr style="background:#f2efe6"><td class="dt" style="background:#f2efe6">合計</td>`;
+  vars.forEach(v=>{ h += `<td class="n">${tot[v]?fnum(tot[v],0):''}</td>`; });
+  h += `<td class="n">${fnum(totAll,0)}</td></tr></tbody></table></div>
+    <p class="tl-note">数字は<b>袋数</b>です（1袋＝${bag}kg）。${H.last?`引取予定が入っているのは <b>${djp(H.last)}</b> までです。それより先は不足の判定をしていません。`:''}</p>`;
+  return h;
+}
+
+/* ===== 米の見通し（引取予定 × 品種受払 × 洗米予定） =====
+   見通し在庫 ＝ 品種受払で最後に受入がある日の在庫 ＋ それ以降の引取予定 − それ以降の払出
+   不足の判定は「前日までの在庫」だけで見る（当日の引取は当てにしない）。 */
+let RICE = null, RICE_AT = 0;
+function riceCalc(){
+  const Z = MFG && MFG.zaiko, H = MFG && MFG.hikitori, S = MFG && MFG.senmai;
+  if(!Z || !Z.vars) return null;
+  if(RICE && RICE_AT === (MFG._at||0)) return RICE;
+  const vars = Z.vars, idx = {}; vars.forEach((v,i)=>idx[v]=i);
+  const zk = Object.keys(Z.days).sort();
+  let R = null; zk.forEach(d=>{ if((Z.days[d].i||[]).some(v=>v>0)) R = d; });
+  const base = R ? Z.days[R].s.slice() : vars.map(()=>0);
+  const bag = (H && H.bag) || BAG_KG;
+
+  // 洗米予定表から、その日に要る量（kg）を品種・歩合ごとに
+  const need = {};
+  if(S && S.days) Object.keys(S.days).forEach(d=>{
+    const o = {};
+    (S.days[d].e||[]).forEach(e=>{ const v = e[1]+e[2]+'%'; o[v] = (o[v]||0) + Number(e[6]||0); });
+    if(Object.keys(o).length) need[d] = o;
+  });
+
+  const dates = {};
+  zk.forEach(d=>{ if(!R || d>R) dates[d]=1; });
+  if(H && H.days) Object.keys(H.days).forEach(d=>{ if(!R || d>R) dates[d]=1; });
+  Object.keys(need).forEach(d=>{ if(!R || d>R) dates[d]=1; });
+  const ds = Object.keys(dates).sort();
+
+  const bal = {}, cur = base.slice();
+  ds.forEach(d=>{
+    const hk = (H && H.days && H.days[d]) || {};
+    Object.keys(hk).forEach(v=>{ if(idx[v]!==undefined) cur[idx[v]] += hk[v]*bag; });
+    const zd = Z.days[d];
+    if(zd) (zd.o||[]).forEach((v,i)=>{ cur[i] -= (v||0); });
+    bal[d] = cur.slice();
+  });
+  const balAt = d => { const k = ds.filter(x=>x<d).pop(); return k ? bal[k] : base; };
+
+  // 不足：洗米日ごとに、前日までの在庫で足りるか
+  const short = [], tight = [];
+  Object.keys(need).sort().forEach(d=>{
+    if(H && H.last && d > H.last) return;      // 引取予定がまだ無い期間は判定しない
+    const prev = balAt(d);
+    Object.keys(need[d]).forEach(v=>{
+      const k = idx[v];
+      const have = (k===undefined) ? null : (prev[k]||0);
+      const want = need[d][v];
+      if(k===undefined) short.push({d, v, want, have:null, lack:want, unknown:true});
+      else if(have < want - 0.05) short.push({d, v, want, have, lack: want-have});
+      else if(have - want < bag) tight.push({d, v, want, have, margin: have-want});
+    });
+  });
+  RICE = {vars, base, R, bal, ds, balAt, need, short, tight, coverTo: (H&&H.last)||null, from: (H&&H.first)||null, bag};
+  RICE_AT = MFG._at||0;
+  return RICE;
+}
+/* 品種受払の「在庫」欄と、前日在庫＋受入−払出 が合っているか */
+function zaiDiff(d){
+  const Z = MFG && MFG.zaiko; if(!Z) return null;
+  const ks = Object.keys(Z.days).sort(), i = ks.indexOf(d);
+  if(i <= 0) return null;
+  const prev = Z.days[ks[i-1]].s, x = Z.days[d];
+  return Z.vars.map((v,k)=>{
+    const calc = (prev[k]||0) + (x.i[k]||0) - (x.o[k]||0);
+    return {v, s:(x.s[k]||0), calc, inn:(x.i[k]||0), out:(x.o[k]||0), prev:(prev[k]||0), diff:(x.s[k]||0)-calc};
+  }).filter(r=>Math.abs(r.diff) > 0.05);
+}
+function riceShortView(day){
+  const R = riceCalc(); if(!R) return '';
+  const soon = R.short.filter(x=>x.d >= dtoday()).slice(0,6);
+  if(!soon.length) return riceTightView();
+  const near = soon.filter(x=>x.d <= dadd(dtoday(),3));
+  let h = `<div class="mf-err"><div class="ti">⚠ 洗米の日に米が足りません（${R.short.filter(x=>x.d>=dtoday()).length}件）</div>`;
+  soon.forEach(x=>{
+    h += `<div class="ro"><b>${dshort(x.d)}</b>　${esc(x.v)}　要 <b>${kgfmt(x.want)}</b>kg／前日在庫 ${x.unknown?'<span class="q">品種受払に無い</span>':`<b>${kgfmt(x.have)}</b>kg`}
+      <span class="lk">${x.unknown?'':'不足 '+kgfmt(x.lack)+'kg（'+bags(x.lack).replace(/<\/?b>/g,'')+'）'}</span></div>`;
+  });
+  h += `<div class="nt">前日までの在庫だけで見ています（当日の引取は数えていません）。引取予定を入れ直すか、洗米予定をずらしてください。</div></div>`;
+  return h + riceTightView();
+}
+/* 足りてはいるが、余裕が1袋未満の日 */
+function riceTightView(){
+  const R = riceCalc(); if(!R || !R.tight) return '';
+  const soon = R.tight.filter(x=>x.d >= dtoday()).slice(0,5);
+  if(!soon.length) return '';
+  let h = `<div class="mf-warn" style="border-width:2px"><b>余裕が少ない日があります（前日在庫 − 必要量 が1袋未満）</b>`;
+  soon.forEach(x=>{
+    h += `<div style="font-size:13px;padding:3px 0;line-height:1.7"><b>${dshort(x.d)}</b>　${esc(x.v)}　要 ${kgfmt(x.want)}kg／前日在庫 ${kgfmt(x.have)}kg
+      　<b style="color:#b8570b">余り ${kgfmt(x.margin)}kg</b></div>`;
+  });
+  h += `<div style="font-size:11.5px;color:#8a6d1f;margin-top:5px">引取が1日でも遅れると足りなくなります。</div></div>`;
+  return h;
+}
+
 /* ---------- 在庫管理（品種受払） ---------- */
 let ZAI_DAY = null;
 function zaikoScreen(day){
@@ -1832,20 +1992,30 @@ function zaikoScreen(day){
     // その先7日の払出予定
     const fut = Z.vars.map(()=>0);
     keys.filter(d=>d>ZAI_DAY && d<=dadd(ZAI_DAY,7)).forEach(d=>Z.days[d].o.forEach((v,i)=>fut[i]+=v));
+    h += riceShortView(ZAI_DAY);
+    const dif = zaiDiff(ZAI_DAY), difMap = {};
+    if(dif) dif.forEach(r=>difMap[r.v]=r);
     h += `<div class="mf-sec">${djp(ZAI_DAY)} 終わりの在庫<span>1袋＝${BAG_KG}kg</span></div>
-      <div class="tl-scroll"><table class="tl-tbl" style="width:100%"><thead><tr><th>品種・歩合</th><th>在庫</th><th>袋</th><th>受入</th><th>払出</th><th>7日先まで払出</th></tr></thead><tbody>`;
-    let tS=0,tI=0,tO=0,tF=0;
+      <div class="tl-scroll"><table class="tl-tbl" style="width:100%"><thead><tr><th>品種・歩合</th><th>在庫</th><th>見通し</th><th>袋（見通し）</th><th>受入</th><th>払出</th><th>7日先まで払出</th></tr></thead><tbody>`;
+    let tS=0,tI=0,tO=0,tF=0,tM=0;
+    const RC = riceCalc();
+    const mib = RC ? RC.balAt(dadd(ZAI_DAY,1)) : null;   // 引取予定を足した見通し（この日の終わり）
     Z.vars.forEach((v,i)=>{
       const m=v.match(/^(.+?)(\d+)%$/); const lab = m?`<b>${esc(m[1])}</b>${ratioBadge(Number(m[2]))}`:esc(v);
-      const s=st[i]||0, dim = !s && !inn[i] && !out[i] && !fut[i];
-      tS+=s; tI+=inn[i]||0; tO+=out[i]||0; tF+=fut[i];
+      const s=st[i]||0, mi = mib ? (mib[i]||0) : null;
+      const dim = !s && !inn[i] && !out[i] && !fut[i] && !mi;
+      tS+=s; tI+=inn[i]||0; tO+=out[i]||0; tF+=fut[i]; tM+=(mi||0);
+      const dq = difMap[v];
       h += `<tr style="${dim?'opacity:.4':''}"><td style="white-space:nowrap">${lab}</td>
-        <td class="${s<0?'mf-neg':''}" style="font-weight:700">${kgfmt(s)}</td>
-        <td class="${s<0?'mf-neg':''}" style="white-space:nowrap;font-size:12px">${s?bags(s):'—'}</td>
+        <td class="${s<0?'mf-neg':''}" style="font-weight:700">${kgfmt(s)}${dq?`<span class="zx" data-zdif="${esc(v)}">※</span>`:''}</td>
+        <td class="${mi!==null&&mi<0?'mf-neg':''}" style="font-weight:700;color:${mi!==null&&mi<0?'':'#0f4a48'}">${mi===null?'—':kgfmt(mi)}</td>
+        <td class="${mi!==null&&mi<0?'mf-neg':''}" style="white-space:nowrap;font-size:12px">${mi?bags(mi):'—'}</td>
         <td>${inn[i]?kgfmt(inn[i]):''}</td><td>${out[i]?kgfmt(out[i]):''}</td><td style="color:var(--sub)">${fut[i]?kgfmt(fut[i]):''}</td></tr>`;
     });
-    h += `<tr class="tot"><td>合計</td><td class="${tS<0?'mf-neg':''}">${kgfmt(tS)}</td><td></td><td>${tI?kgfmt(tI):''}</td><td>${tO?kgfmt(tO):''}</td><td>${tF?kgfmt(tF):''}</td></tr></tbody></table></div>
-      <p class="tl-note">単位はkg。在庫がマイナス（赤字）のものは、品種受払にまだ受入が入っていないか、払出が受入を上回っています。</p>`;
+    h += `<tr class="tot"><td>合計</td><td class="${tS<0?'mf-neg':''}">${kgfmt(tS)}</td><td class="${tM<0?'mf-neg':''}">${mib?kgfmt(tM):''}</td><td></td><td>${tI?kgfmt(tI):''}</td><td>${tO?kgfmt(tO):''}</td><td>${tF?kgfmt(tF):''}</td></tr></tbody></table></div>
+      <p class="tl-note">単位はkg。<b>在庫</b>＝品種受払の在庫欄そのまま。<b>見通し</b>＝引取予定を足し、払出を引いて計算した数（受入がまだ入力されていなくても正しく出ます）。
+      ${dif&&dif.length?`<br><b style="color:#b02a26">※</b> は前日の在庫・受入・払出から計算した数と合わないところです。押すと内訳が出ます。`:''}</p>
+      <div id="zdifBox"></div>`;
     if(Z.first && ZAI_DAY<Z.first) h += `<div class="mf-warn">この日は品種受払の期間（${djp(Z.first,true)}〜）より前です。</div>`;
     if(Z.last && ZAI_DAY>Z.last) h += `<div class="mf-warn">この日は品種受払の期間（〜${djp(Z.last,true)}）より後です。最終日の在庫を表示しています。</div>`;
     // 在庫チェック（誰がいつ確認したか）
@@ -1863,9 +2033,23 @@ function zaikoScreen(day){
         <button class="btn p" id="zChk" style="background:var(--ok);border-color:var(--ok)">確認</button>`;
     }
     h += `<button class="tl-link" id="zHist">確認の履歴を見る ›</button>`;
+    h += hikitoriView();
     app.innerHTML = h + mfgSrcInfo('zaiko','造りex 仕込調整 品種受払');
     bindDayNav(zaikoScreen);
     $('#zHist').onclick=()=>go(zcheckScreen);
+    app.querySelectorAll('[data-zdif]').forEach(b=>b.onclick=()=>{
+      const r = difMap[b.dataset.zdif]; const box = $('#zdifBox'); if(!r||!box) return;
+      box.innerHTML = `<div class="mf-day"><div style="font-weight:700;color:var(--navy);margin-bottom:6px">${esc(r.v)}　${djp(ZAI_DAY)}</div>
+        <div class="tl-row"><span>前日の在庫</span><b>${kgfmt(r.prev)} kg</b></div>
+        <div class="tl-row"><span>＋ この日の受入</span><b>${kgfmt(r.inn)} kg</b></div>
+        <div class="tl-row"><span>− この日の払出</span><b>${kgfmt(r.out)} kg</b></div>
+        <div class="tl-row" style="border-top:1px solid var(--line)"><span>＝ 計算すると</span><b>${kgfmt(r.calc)} kg</b></div>
+        <div class="tl-row"><span>品種受払の在庫欄</span><b>${kgfmt(r.s)} kg</b></div>
+        <div class="tl-row" style="border-top:2px solid #d9534f"><span style="color:#b02a26;font-weight:700">ちがい</span>
+          <b style="color:#b02a26;font-size:17px">${r.diff>0?'＋':''}${kgfmt(r.diff)} kg（${bags(Math.abs(r.diff)).replace(/<\/?b>/g,'')}）</b></div>
+        <p class="tl-note" style="margin-top:8px">${r.diff>0?'在庫欄のほうが多い':'在庫欄のほうが少ない'}です。受入の入れ忘れ・二重計上・端数の丸めなどが考えられます。造りexの品種受払でご確認ください。</p></div>`;
+      box.scrollIntoView({behavior:'smooth',block:'nearest'});
+    });
     const zact=async(body,btn,label)=>{
       btn.disabled=true; btn.textContent='送信しています…';
       try{
