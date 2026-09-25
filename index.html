@@ -3222,8 +3222,38 @@ async function manualScreen(){
   draw();
   await manFetchList();
   if(nav.length && nav[nav.length-1] && document.getElementById('mnQ')) draw();
+  // 一覧を開いた時点で、新しい写真から裏で先に取っておく（はじめての端末でも待たせない）
+  if(typeof manWarm==='function' && MAN_LIST && MAN_LIST.files){
+    try{
+      const ids=MAN_LIST.files.slice().sort((a,b)=>String(b.mtime).localeCompare(String(a.mtime))).map(f=>f.id);
+      setTimeout(()=>manWarm(ids), 400);
+    }catch(e){}
+  }
 }
 function manB64ToBytes(b64){ const s=atob(b64), u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; }
+const MAN_FETCHING = new Map();     // id → 取得中の約束（同じものを二重に取らない）
+/* マニュアル1件の中身を出す。①この画面で持っている ②端末の控え（IndexedDB）
+   ③どちらも無ければサーバー。取れたら端末に控えるので、次からは待たせない。 */
+async function manGetBody(v){
+  const inMem = MAN_BODY.get(v.id);
+  if(inMem) return inMem;
+  if(typeof PC!=='undefined'){
+    try{
+      const c=await PC.get('man:'+v.id);
+      if(c && c.mtime===v.mtime && c.bytes) return { ext:c.ext, bytes:c.bytes };
+    }catch(e){}
+  }
+  if(MAN_FETCHING.has(v.id)) return MAN_FETCHING.get(v.id);
+  const pr=(async()=>{
+    const j=await apiT({action:'mfg_man_get', token:ST.token, id:v.id}, 90000);
+    if(!j || !j.ok) throw new Error(j&&j.err==='bad_token'?'ログインし直してください。':j&&j.err==='not_found'?'このマニュアルは会社PCから消されたようです。一覧に戻って開き直してください。':'読み込めませんでした（'+(j&&j.err||'原因不明')+'）');
+    const b={ ext:String(j.ext||v.ext).toLowerCase(), bytes:manB64ToBytes(j.b64) };
+    if(typeof PC!=='undefined'){ try{ PC.set('man:'+v.id, { mtime:v.mtime, ext:b.ext, bytes:b.bytes }); }catch(e){} }
+    return b;
+  })();
+  MAN_FETCHING.set(v.id, pr);
+  try{ return await pr; } finally { MAN_FETCHING.delete(v.id); }
+}
 function manMime(ext){ return ({docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',heic:'image/heic',webp:'image/webp',doc:'application/msword',xls:'application/vnd.ms-excel'})[ext]||'application/octet-stream'; }
 async function manualView(g, vi){
@@ -3237,20 +3267,24 @@ async function manualView(g, vi){
   app.innerHTML=top+`<div class="mn-doc" id="mnDoc" style="text-align:center;color:var(--sub)">読み込んでいます…</div><div class="mn-foot" id="mnFoot"></div>`;
   app.querySelectorAll('.mn-vers button').forEach(b=>b.onclick=()=>manualView(g, Number(b.dataset.i)));
   const doc=$('#mnDoc');
-  let body=MAN_BODY.get(v.id);
+  if(typeof useAdd==='function'){ try{ useAdd('man', v.id); }catch(e){} }
+  let body;
   try{
-    if(!body){
-      const j=await apiT({action:'mfg_man_get', token:ST.token, id:v.id}, 90000);
-      if(!j || !j.ok) throw new Error(j&&j.err==='bad_token'?'ログインし直してください。':j&&j.err==='not_found'?'このマニュアルは会社PCから消されたようです。一覧に戻って開き直してください。':'読み込めませんでした（'+(j&&j.err||'原因不明')+'）');
-      body={ ext:String(j.ext||v.ext).toLowerCase(), bytes:manB64ToBytes(j.b64) };
-      MAN_BODY.set(v.id, body);
-      if(MAN_BODY.size>6){ MAN_BODY.delete(MAN_BODY.keys().next().value); }
-    }
+    body = await manGetBody(v);
+    MAN_BODY.set(v.id, body);
+    if(MAN_BODY.size>6){ MAN_BODY.delete(MAN_BODY.keys().next().value); }
   }catch(e){
     doc.innerHTML=`<div class="mf-warn">${esc(e&&e.name==='AbortError'?'時間がかかりすぎました。電波の良い場所でもう一度お試しください。':(e.message||'読み込めませんでした。'))}</div>`;
     return;
   }
   if(!document.getElementById('mnDoc')) return;   // 読み込み中に別の画面へ移った
+  // 同じジャンルの写真を裏で先に取っておく（次をめくったとき待たせない）
+  if(typeof manWarm==='function'){
+    try{
+      const gs=manGroups(MAN_LIST&&MAN_LIST.files||[]).find(x=>x.name===g.genre);
+      if(gs){ const ids=gs.items.map(it=>it.vers[0]&&it.vers[0].id).filter(x=>x&&x!==v.id); setTimeout(()=>manWarm(ids), 400); }
+    }catch(e){}
+  }
   const blob=new Blob([body.bytes],{type:manMime(body.ext)}), url=URL.createObjectURL(blob);
   const fname=v.title+'.'+body.ext;
   $('#mnFoot').innerHTML=`<a class="btn o" href="${url}" download="${esc(fname)}">ファイルを保存</a><a class="btn o" href="${url}" target="_blank" rel="noopener">別の画面で開く</a>`;
@@ -3516,11 +3550,12 @@ function kyusuiEdit(date, key){
 /* ========== 🧪 分析：醪・酒母の分析値入力（入れた瞬間に BMD・推奨追水・警告が返る） ========== */
 async function bunsekiScreen(tab){
   if(tab) RC.btab=tab;
-  head('分析','醪・酒母の分析値（醪管理R8BY）');
+  head('分析','酒母・醪の分析値（醪管理R8BY）');
   rcLoading('仕込の一覧を読み込んでいます…');
   const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
   const today=dtoday();
-  let h=`<div class="rc-tabs"><button class="${RC.btab==='moromi'?'on':''}" data-t="moromi">醪</button><button class="${RC.btab==='shubo'?'on':''}" data-t="shubo">酒母</button></div><div class="rc-status" id="rcStatus"></div>`;
+  // タブの並びは 酒母 → 醪（造りの順。2026-09-25 泰広さん指示で入れ替え）
+  let h=`<div class="rc-tabs"><button class="${RC.btab==='shubo'?'on':''}" data-t="shubo">酒母</button><button class="${RC.btab==='moromi'?'on':''}" data-t="moromi">醪</button></div><div class="rc-status" id="rcStatus"></div>`;
   if(RC.btab==='moromi'){
     const list=st.master.map(m=>({m,t:st.today[m.no]||{},d:rcMoromiDay(m,today)})).filter(x=>x.d!==null && x.t.state!=='上槽済' && x.d>=-2).sort((a,b)=>a.m.tome.localeCompare(b.m.tome));
     const done=st.master.filter(m=>(st.today[m.no]||{}).state==='上槽済');
@@ -3884,20 +3919,45 @@ async function pfTanks(){
     }
   }
 }
+const MAN_PHOTO_EXT = ['jpg','jpeg','png','gif','webp','heic'];
 async function pfManuals(){
-  // よく開くマニュアル上位3つの本文を端末に保存（内容が変わっていなければ取らない）
+  // ① よく開くマニュアル上位6つ ② 写真のマニュアル（新しい順）を、合計12件・8MBまで先に取っておく。
+  //    内容が変わっていなければ取り直さない。データ節約モードの端末は①だけ。
   if(!MAN_LIST || !MAN_LIST.files) await manFetchList();
   if(!MAN_LIST || !MAN_LIST.files) return;
-  const ids=useRank('man').slice(0,3);
-  for(const id of ids){
-    const f=MAN_LIST.files.find(x=>x.id===id); if(!f) continue;
-    const c=await PC.get('man:'+id); if(c && c.mtime===f.mtime) continue;
-    try{
-      const j=await apiT({action:'mfg_man_get', token:ST.token, id}, 90000);
-      if(j && j.ok) await PC.set('man:'+id, { mtime:f.mtime, ext:String(j.ext||f.ext).toLowerCase(), bytes:manB64ToBytes(j.b64) });
-    }catch(e){}
+  const saveData = navigator.connection && navigator.connection.saveData;
+  const ids = useRank('man').slice(0, 6);
+  if(!saveData){
+    MAN_LIST.files.slice()
+      .filter(f=>MAN_PHOTO_EXT.indexOf(String(f.ext||'').toLowerCase())>=0)
+      .sort((a,b)=>String(b.mtime).localeCompare(String(a.mtime)))
+      .forEach(f=>{ if(ids.indexOf(f.id)<0) ids.push(f.id); });
   }
+  await manWarm(ids, 12, 8*1024*1024, true);
   lsSet('fast.manAt',Date.now());
+}
+/* マニュアルの写真を裏で取っておく（一覧を開いたとき・見ている間）。
+   すでに端末にあるもの・写真以外は飛ばす。多くても6件・6MBまで。 */
+let MAN_WARMING = false;
+async function manWarm(ids, maxN, maxB, anyType){
+  if(MAN_WARMING || !ids || !ids.length) return;
+  if(!ST.token || !MAN_LIST || !MAN_LIST.files) return;
+  if(navigator.connection && navigator.connection.saveData) return;   // データ節約モードでは取らない
+  MAN_WARMING = true;
+  try{
+    let bytes=0, n=0;
+    for(const id of ids){
+      if(n>=(maxN||6) || bytes>(maxB||6*1024*1024)) break;
+      const f=MAN_LIST.files.find(x=>x.id===id); if(!f) continue;
+      if(!anyType && MAN_PHOTO_EXT.indexOf(String(f.ext||'').toLowerCase())<0) continue;
+      try{
+        const c=await PC.get('man:'+id); if(c && c.mtime===f.mtime) continue;
+        if(MAN_FETCHING.has(id)) continue;                 // 今まさに開かれている分は任せる
+        const b=await manGetBody(f);
+        if(b && b.bytes){ bytes+=b.bytes.length; n++; }
+      }catch(e){}
+    }
+  } finally { MAN_WARMING=false; }
 }
 async function pfLibs(){
   // Word・Excelを表示する部品（サービスワーカーが端末に持つ）

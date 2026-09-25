@@ -1,5 +1,5 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>生産本部製造ツール 逆引き検索</title>
+<title>製造ツール 逆引き検索</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
@@ -220,7 +220,7 @@ ul.cau li::before{content:"";position:absolute;left:4px;top:10px;width:5px;heigh
 <div class="bar">
   <div class="bar-inner">
     <div class="brand">
-      <h1>生産本部製造ツール　逆引き検索</h1>
+      <h1>製造ツール　逆引き検索</h1>
       <span class="sub">KIRINZAN / 生産本部製造</span>
     </div>
     <div class="search">
@@ -244,7 +244,7 @@ ul.cau li::before{content:"";position:absolute;left:4px;top:10px;width:5px;heigh
 
 <script>
 /* =====================================================================
-   辞書データ — 生産本部製造ツールのサーバーから、ログインした人にだけ届く。
+   辞書データ — 製造ツールのサーバーから、ログインした人にだけ届く。
    元データは保管庫のノート → build_dictionary.py で dictionary.json を生成
    → Googleドライブの受け渡しフォルダ → Apps Script「辞書配信.gs」が問題データに取り込む
    （醸造ナレッジベース/辞書データ更新_作業指示書.md）。ここは直さない。
@@ -513,7 +513,7 @@ const FALLBACK_DICT = {
 };
 
 let DICT = FALLBACK_DICT;
-/* 辞書データは生産本部製造ツールのサーバーから、ログインした人にだけ届く（問題データと同じ仕組み）。
+/* 辞書データは製造ツールのサーバーから、ログインした人にだけ届く（問題データと同じ仕組み）。
    学習帳と同じ場所（同じURLのフォルダ）に置くことで、学習帳のログイン情報をそのまま使う。 */
 const API_URL = "https://script.google.com/macros/s/AKfycbwVyR-kBMHw8V2Co258MK6u9XCTWb4vQMGF20an9BXNGeH-H_4Fe_5JD_2JG8cmiXNX/exec";
 const WB_KEY = 'sakeWB2';                       // 学習帳が端末に保存している内容
@@ -543,8 +543,8 @@ function readWB(){ try { return JSON.parse(localStorage.getItem(WB_KEY) || 'null
 function writeWB(st){ try { localStorage.setItem(WB_KEY, JSON.stringify(st)); } catch (_) {} }
 function loginWall(msg){
   document.getElementById('app').innerHTML = `<div class="notice" style="margin-top:18px"><span>🔒</span><span><b>${esc(msg)}</b><br>
-    逆引き検索は、生産本部製造ツールにログインした人だけが見られます。<br>
-    <a href="./" style="display:inline-block;margin-top:10px;font-weight:700">生産本部製造ツールを開いてログインする →</a></span></div>`;
+    逆引き検索は、製造ツールにログインした人だけが見られます。<br>
+    <a href="./" style="display:inline-block;margin-top:10px;font-weight:700">製造ツールを開いてログインする →</a></span></div>`;
 }
 let firstDone = false;
 function firstView(){ if (firstDone) return; firstDone = true; if (!DICT.entries.length && S.view === 'flow') S.view = 'mat'; }
