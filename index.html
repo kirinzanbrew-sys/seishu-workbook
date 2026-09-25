@@ -130,7 +130,7 @@ h2{font-size:15px;margin:22px 0 10px;font-weight:600;color:var(--navy);
 .hx-today span{animation:hxUp .42s ease-out both;animation-delay:calc(440ms + var(--i,0) * 70ms)}
 
 @media (prefers-reduced-motion:reduce){
-  .hx .hxb,.hx .hxw,.hxb .sheen,.hxn,.hx-today span{animation:none!important}
+  .hx .hxb,.hx .hxw,.hxb .sheen,.hxn,.hx-today span,.hxtag{animation:none!important}
   .hxb .sheen{display:none}
 }
 .hxb .e{font-size:clamp(20px,6.4vw,26px);line-height:1;position:relative;z-index:1}
@@ -139,6 +139,13 @@ h2{font-size:15px;margin:22px 0 10px;font-weight:600;color:var(--navy);
 .hxb .sm{display:block;font-weight:400;font-size:.86em;opacity:.7}
 .hxw{position:relative;flex:0 0 auto;width:var(--w);aspect-ratio:1 / 1.1547}
 .hxw .hxb{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto}
+/* 在庫未確認の赤い帯（16:45以降。米管理の六角形の中に重ねる） */
+@keyframes hxBlink{0%,100%{opacity:1}50%{opacity:.3}}
+.hxtag{position:absolute;left:6%;right:6%;bottom:17%;z-index:3;background:#d62b22;color:#fff;
+  font-size:9.5px;font-weight:700;text-align:center;border-radius:4px;padding:2.5px 0;
+  letter-spacing:.01em;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.25);
+  animation:hxBlink 1.1s ease-in-out infinite}
+.hx-today span.w.bl{animation:hxUp .42s ease-out both,hxBlink 1.1s ease-in-out 1s infinite}
 .hxn{position:absolute;top:8%;right:7%;z-index:3;background:#d62b22;color:#fff;
   font-size:11px;font-weight:700;min-width:21px;height:21px;border-radius:99px;
   display:flex;align-items:center;justify-content:center;padding:0 6px;
@@ -593,6 +600,24 @@ function homeRiceLeft(){
   Z.vars.forEach((v,k)=>{ if(((st[k]||0)||(x.i[k]||0)||(x.o[k]||0)) && !done[v]) n++; });
   return n;
 }
+/* 在庫未確認の知らせを出す時刻（泰広さん指定 16:45）。
+   この時刻をすぎて、まだ確認がすんでいない品種があれば、米管理に赤い帯を出す。
+   品種受払に動きが無い日は homeRiceLeft() が 0 を返すので、何も出ない。 */
+const RICE_ALERT_H = 16, RICE_ALERT_M = 45;
+function riceAlertOn(){
+  const n=new Date();
+  return (n.getHours()*60+n.getMinutes()) >= (RICE_ALERT_H*60+RICE_ALERT_M);
+}
+function riceAlert(){ return riceAlertOn() && homeRiceLeft()>0; }
+/* まだ16:45前なら、その時刻になった瞬間にホームを描き直す（開きっぱなしでも切り替わる） */
+let RICE_TIMER=null;
+function riceAlertTimer(redraw){
+  if(RICE_TIMER){ clearTimeout(RICE_TIMER); RICE_TIMER=null; }
+  if(riceAlertOn()) return;
+  const n=new Date(), t=new Date(n); t.setHours(RICE_ALERT_H,RICE_ALERT_M,5,0);
+  const ms=t-n; if(ms<=0 || ms>13*3600000) return;
+  RICE_TIMER=setTimeout(()=>{ try{ redraw(); }catch(e){} }, ms);
+}
 function homeBadge(kind){
   const M=homeMfg(); if(!M) return 0;
   if(kind==='rice') return homeRiceLeft();
@@ -613,7 +638,9 @@ function homeToday(){
     out.push(`<span>きょうの洗米 <b>${e.length}件・${Math.round(kg).toLocaleString('ja-JP')}kg</b></span>`);
   }
   const left=homeRiceLeft();
-  if(left) out.push(`<span class="w">在庫チェック 残り <b>${left}品種</b></span>`);
+  if(left) out.push(riceAlertOn()
+    ? `<span class="w bl">⚠ 在庫未確認 <b>${left}品種</b></span>`
+    : `<span class="w">在庫チェック 残り <b>${left}品種</b></span>`);
   const cal=homeBadge('cal');
   if(cal) out.push(`<span>振休の承認待ち <b>${cal}件</b></span>`);
   if(!out.length) return '';
@@ -684,7 +711,7 @@ function home(){
   // 稲そのものの色。上が実った穂の黄金、下へいくほど葉の青田。模様も 穂 → 籾 → 葉。
   const hexes = [
     {id:'bCal',  e:'📅', lb:'製造<br>カレンダー', c:['#eed469','#d8bd4b'], t:'ho',   n:homeBadge('cal')},
-    {id:'bRice', e:'🌾', lb:'米管理',             c:['#f4de7b','#dfc75c'], t:'ho',   n:homeBadge('rice')},
+    {id:'bRice', e:'🌾', lb:'米管理',             c:['#f4de7b','#dfc75c'], t:'ho',   n:homeBadge('rice'), tag:riceAlert()?'在庫未確認':''},
     {id:'bKoji', e:'🍚', lb:'麹',                 c:['#e5c85a','#cfb141'], t:'ho'},
     {id:'bBun',  e:'🧪', lb:'分析',               c:['#dcc45f','#c6ad46'], t:'ho'},
     {id:'bShk',  e:'🍶', lb:'仕込み',             c:['#d9cc6a','#c2b44f'], t:'momi'},
@@ -702,7 +729,11 @@ function home(){
     const b = x.href
       ? `<a class="hxb" href="${x.href}" style="${st}">${inner}</a>`
       : `<button class="hxb" id="${x.id}" style="${st}">${inner}</button>`;
-    return x.n ? `<span class="hxw" style="--i:${i}">${b}<span class="hxn">${x.n}</span></span>` : b;
+    if(!x.n && !x.tag) return b;
+    return `<span class="hxw" style="--i:${i}">${b}`
+      + (x.tag ? `<span class="hxtag">${x.tag}</span>` : '')
+      + (x.n ? `<span class="hxn">${x.n}</span>` : '')
+      + `</span>`;
   };
   let rows='';
   for(let r=0;r<4;r++) rows += `<div class="row">${hexes.slice(r*3,r*3+3).map((x,i)=>hex(x,r*3+i)).join('')}</div>`;
@@ -715,6 +746,7 @@ function home(){
     Safari や Chrome で開き直してください。</div>`}
   app.innerHTML=h;
   kirinzanBind();
+  riceAlertTimer(()=>{ if(nav[nav.length-1]===home) go(home,false); });
   $('#bQuiz').onclick=()=>go(quizHome);
   $('#bCal').onclick=()=>go(()=>calendarScreen());
   $('#bLib').onclick=()=>go(()=>libScreen());
@@ -2581,6 +2613,8 @@ function kinmuScreen(){
     // 承認待ち（管理者）
     const pend = reqs.filter(r=>r.status==='申請中').sort((a,b)=>a.date<b.date?-1:1);
     h += `<button class="btn p" id="bReq" style="background:#b21b1b;border-color:#b21b1b">✋ 振休依頼</button>`;
+    // 権限のある人だけ：日付を押さなくても、ここから直せる
+    if(me.admin) h += `<button class="btn o" id="bEdit" style="margin-top:-4px">✏️ 出勤表を直す</button>`;
     if(me.admin && pend.length){
       h += `<div class="mf-sec">承認待ち<span>${pend.length}件</span></div>`;
       for(const r of pend) h += reqRow(r, 'admin');
@@ -2627,6 +2661,7 @@ function kinmuScreen(){
     app.innerHTML = h + mfgSrcInfo('shukkin','出勤表Excel');
     bindCalTabs();
     $('#bReq').onclick=()=>go(()=>furikyuForm());
+    const be=$('#bEdit'); if(be) be.onclick=()=>go(()=>kinmuEditForm(KN_SEL||dtoday()));
     const mp=$('#mPrev'), mn=$('#mNext');
     if(mp) mp.onclick=()=>{ KN_YM=yms[i-1]; KN_SEL=null; knRender(); };
     if(mn) mn.onclick=()=>{ KN_YM=yms[i+1]; KN_SEL=null; knRender(); };
@@ -2718,48 +2753,6 @@ function kinmuEditForm(day, staff0){
   };
   render();
 }
-function reqRow(r, mode){
-  const st = r.status==='申請中'?'p':r.status==='承認'?'a':'x';
-  let bt = '';
-  if(mode==='admin') bt = `<button class="ok" data-ok="${r.id}">承認</button><button data-ng="${r.id}">却下</button>`;
-  else if(r.status==='申請中') bt = `<button data-cx="${r.id}">取り消す</button>`;
-  const sync = reqActive(r) && r.excel!==reqWant(r) ? '<div class="muted" style="font-size:11px">出勤表へ反映待ち</div>' : '';
-  if(isEdit(r)){
-    const mk = String(r.mark||'');
-    return `<div class="mf-req"><span class="st a">直した</span>
-      <div><b>${esc(nrm(r.staff))}</b>　${dshort(r.date)}　→ <b style="font-size:15px">${mk?esc(mk):'<span class="muted">空</span>'}</b>${r.memo?`<div class="muted" style="font-size:12px">${esc(r.memo)}</div>`:''}
-        <div class="muted" style="font-size:11px">${esc(nrm(r.applicant))}${sync?'':'　出勤表に反映済み'}</div>${sync}</div>
-      <div class="bt"><button data-cx="${r.id}">元に戻す</button></div></div>`;
-  }
-  return `<div class="mf-req"><span class="st ${st}">${esc(r.status)}</span>
-    <div><b>${esc(nrm(r.staff))}</b>　${dshort(r.date)}　${esc(r.kind)}${r.memo?`<div class="muted" style="font-size:12px">${esc(r.memo)}</div>`:''}${mode==='admin'&&r.applicant&&nrm(r.applicant)!==nrm(r.staff)?`<div class="muted" style="font-size:11px">申請：${esc(r.applicant)}</div>`:''}${sync}</div>
-    <div class="bt">${bt}</div></div>`;
-}
-function bindReqButtons(rerender){
-  const act = async(body, btn)=>{
-    btn.disabled=true; btn.textContent='…';
-    try{
-      const j = await api(Object.assign({token:ST.token}, body));
-      if(j && j.ok){ if(j.requests){ MFG.requests=j.requests.map(x=>Object.assign({},x)); lsSet('mfg.cache',MFG); } }
-      else alert(mfgErrJP(j&&j.err));
-    }catch(e){ alert('通信できませんでした。電波の良い場所でもう一度お試しください。'); }
-    rerender();
-  };
-  app.querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>act({action:'mfg_decide', id:b.dataset.ok, ok:true}, b));
-  app.querySelectorAll('[data-ng]').forEach(b=>b.onclick=()=>{ if(confirm('この依頼を却下しますか？')) act({action:'mfg_decide', id:b.dataset.ng, ok:false}, b); });
-  app.querySelectorAll('[data-cx]').forEach(b=>b.onclick=()=>{
-    const r = ((MFG&&MFG.requests)||[]).find(x=>x.id===b.dataset.cx);
-    const msg = (r && isEdit(r)) ? 'この変更を取り消して、出勤表を元の値に戻しますか？' : 'この依頼を取り消しますか？';
-    if(confirm(msg)) act({action:'mfg_cancel', id:b.dataset.cx}, b);
-  });
-}
-function mfgErrJP(e){
-  return ({dup:'この日・この人の振休依頼はすでに出ています。', bad_kind:'区分を選んでください。', bad_date:'日付を選んでください。',
-    bad_staff:'対象者を選んでください。', cannot:'この依頼はもう変更できません。', not_yours:'自分の依頼だけ取り消せます。',
-    not_admin:'これができるのは権限のある人だけです。', bad_token:'ログインし直してください。', not_found:'記録が見つかりませんでした。',
-    bad_mark:'記号を選んでください。', bad_var:'品種を選んでください。', bad_mode:'確認か現状維持かを選んでください。'}[e]) || ('うまくいきませんでした（'+(e||'原因不明')+'）');
-}
-
 function reqRow(r, mode){
   const st = r.status==='申請中'?'p':r.status==='承認'?'a':'x';
   let bt = '';
