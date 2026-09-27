@@ -1518,6 +1518,8 @@ const MFG_CSS = `
 .yo-g button.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .sn tr.sel td{background:#fbf6e4}
 .sn tr.none td{background:#f7f5f0}
+.yo-al{display:flex;align-items:center;gap:6px;background:none;border:0;padding:2px 2px 8px;margin:0;color:#c62828;font-weight:700;font-size:13px;font-family:inherit;cursor:pointer}
+.yo-al span{font-size:10px}
 .sn tr.none td.nw{color:#b3ab9a;font-size:11px;text-align:left;padding:4px 8px;letter-spacing:.1em}
 .sn tr.none td.tt{color:#c3bbaa;font-weight:400}
 .sn tr.tdy td.dt{box-shadow:inset 3px 0 0 #d4a017}
@@ -1655,7 +1657,7 @@ function riceScreen(){
   app.innerHTML=`<div style="height:16px"></div>
     ${card('bSen','🚿','洗米チェック','その日の洗米数量（麹米・掛米）を30kg袋で')}
     ${card('bZai','📦','在庫管理','品種・精米歩合ごとのその日の在庫')}
-    ${card('bPdf','📄','洗米予定表','ひと月ぶんの予定表を表で見る（PDFも開けます）')}
+    ${card('bPdf','📄','洗米予定表','ひと月ぶんの予定表を表で見る')}
     <p class="tl-note">造りexの洗米予定表・品種受払が更新されると、数分でここに反映されます。</p>
     ${riceShortView(dtoday())}`;
   $('#bSen').onclick=()=>go(()=>senmaiScreen());
@@ -1911,18 +1913,17 @@ function yoteiTabs(on){
 }
 function bindYoTabs(){ app.querySelectorAll('[data-yt]').forEach(b=>b.onclick=()=>{ YO_TAB.v=b.dataset.yt; yoteiScreen(); }); }
 function yoteiScreen(){
-  if(YO_TAB.v==='pdf'){ senmaiPdfScreen(); return; }
   const render=function yoRender(){
     app.dataset.mfg='yoRender';
     head('洗米予定表','ひと月ぶんをまとめて見る');
     document.body.classList.add('yo-wide');   // 横にしたとき画面いっぱいに広げる（ほかの画面に移ると head() で外れる）
     const S = MFG && MFG.senmai;
-    let h = yoteiTabs('tbl') + mfgErrView();
+    let h = mfgErrView();   // 表だけ（PDFのタブは 2026-09-28 に廃止）
     if(!S || !S.days || !Object.keys(S.days).length){
       app.innerHTML = h + `<div class="card">洗米予定表のデータがこの端末にまだありません。
         <button class="btn p" style="margin-top:10px" onclick="mfgReload()">もう一度読み込む</button></div>`
         + mfgSrcInfo('senmai','造りex 洗米予定表');
-      bindYoTabs(); return;
+      return;
     }
     const all = Object.keys(S.days).sort();
     const cur = dtoday().slice(0,7);
@@ -1940,11 +1941,13 @@ function yoteiScreen(){
       <button disabled style="flex:1.6;color:var(--navy);font-weight:700;line-height:1.2">${Number(yy)}年${Number(mm)}月
         <span style="display:block;font-size:10.5px;font-weight:400;color:var(--sub)">洗米 ${dataDays.length}日・総米 ${kgfmt(monTot)}kg</span></button>
       <button id="yNext" class="main" ${i<yms.length-1?'':'disabled'}>次の月 ›</button></div>`;
-    h += riceShortView(YO_YM);
-    h += `<div class="yo-g">
-      <button data-yg="all" class="${YO_G==='all'?'on':''}">ぜんぶ</button>
-      <button data-yg="麹" class="${YO_G==='麹'?'on':''}">麹米だけ</button>
-      <button data-yg="掛" class="${YO_G==='掛'?'on':''}">掛米だけ</button></div>`;
+    const yoAl = riceShortView(YO_YM);
+    if(yoAl){
+      const lack = yoAl.indexOf('mf-err')>=0;
+      h += `<button class="yo-al" id="yoAlBtn">${lack?'※米が足りない日があります':'※余裕が少ない日があります'}<span>▼</span></button>
+        <div id="yoAl" style="display:none">${yoAl}</div>`;
+    }
+    YO_G = 'all';   // 「ぜんぶ／麹米だけ／掛米だけ」の切り替えは 2026-09-28 に廃止（いつも全部）
 
     const cols = S.cols;
     const use = cols.map((c,i)=>i).filter(i=>YO_G==='all'||cols[i][1]===YO_G);
@@ -1981,14 +1984,14 @@ function yoteiScreen(){
     h += `</tbody></table></div>
       <p class="tl-note">各マスは上から <b>品種＋精米歩合</b>／<b>液種</b>／<b>記号・仕込番号・kg</b>／<b style="color:#0f4a48">酵母</b> の4段です。色は紙の予定表と同じ。
         「酵母 未定」は造りex＼酵母割当 の表に書くとここに出ます。<b>行を押す</b>と、その日の詳しい内容（袋数つき）が下に出ます。
-        <br><b>麹米だけ</b>に切り替えると横にずらさずに見られます。スマホを<b>横にする</b>と、画面いっぱいに広げて見られます。</p>
+        <br>スマホを<b>横にする</b>と、画面いっぱいに広げて見られます。</p>
       <div id="yoDay"></div>`;
     app.innerHTML = h + mfgSrcInfo('senmai','造りex 洗米予定表');
-    bindYoTabs();
+    const ab=$('#yoAlBtn');
+    if(ab) ab.onclick=()=>{ const x=$('#yoAl'), open=x.style.display==='none'; x.style.display=open?'block':'none'; ab.querySelector('span').textContent=open?'▲':'▼'; };
     const yp=$('#yPrev'), yn=$('#yNext');
     if(yp) yp.onclick=()=>{ YO_YM=yms[i-1]; YO_SEL=null; yoRender(); };
     if(yn) yn.onclick=()=>{ YO_YM=yms[i+1]; YO_SEL=null; yoRender(); };
-    app.querySelectorAll('[data-yg]').forEach(b=>b.onclick=()=>{ YO_G=b.dataset.yg; lsSet('tool.yoG',YO_G); yoRender(); });
     app.querySelectorAll('tr[data-yd]').forEach(tr=>tr.onclick=()=>{
       YO_SEL = tr.dataset.yd;
       app.querySelectorAll('tr.sel').forEach(x=>x.classList.remove('sel'));
