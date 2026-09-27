@@ -1517,6 +1517,21 @@ const MFG_CSS = `
   font-size:12.5px;font-weight:700;color:var(--sub);font-family:inherit}
 .yo-g button.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .sn tr.sel td{background:#fbf6e4}
+.sn tr.none td{background:#f7f5f0}
+.sn tr.none td.nw{color:#b3ab9a;font-size:11px;text-align:left;padding:4px 8px;letter-spacing:.1em}
+.sn tr.none td.tt{color:#c3bbaa;font-weight:400}
+.sn tr.tdy td.dt{box-shadow:inset 3px 0 0 #d4a017}
+/* 横にしたとき（洗米予定表）：幅の上限を外し、表を画面いっぱいに */
+body.yo-wide .wrap, body.yo-wide header .hin{max-width:none}
+@media (orientation:landscape){
+  body.yo-wide header{position:static}   /* 横のときは上の帯を固定しない（表を広く） */
+  body.yo-wide .kn-wrap.tall{max-height:calc(100vh - 12px);max-height:calc(100dvh - 12px)}
+  body.yo-wide .wrap{padding-left:max(8px,env(safe-area-inset-left));padding-right:max(8px,env(safe-area-inset-right))}
+  body.yo-wide .sn{font-size:12px}
+  body.yo-wide .sn td.c{min-width:92px;max-width:140px}
+  body.yo-wide .sn .r1{font-size:12px}
+  body.yo-wide .sn .r3 b{font-size:13px}
+}
 .sn tr.sel td.dt,.sn tr.sel td.tt{background:#fbf6e4}
 .sn tr.sun td.dt{color:#c62828}.sn tr.sat td.dt{color:#1f5fa8}
 .sn .mh td{background:#f2efe6;font-weight:700;color:var(--navy);text-align:left;padding:5px 6px;font-size:12px;position:sticky;left:0}
@@ -1878,6 +1893,17 @@ function libDetail(name){
 }
 
 /* ---------- 洗米予定表（表で見る） ---------- */
+(function(){
+  const _head = head;
+  head = function(){ document.body.classList.remove('yo-wide'); return _head.apply(this, arguments); };
+  // 洗米予定表を見ているときにスマホを横にしたら、表が画面いっぱいに入る位置まで送る
+  const onRot = ()=>{ setTimeout(()=>{
+    if(!document.body.classList.contains('yo-wide')) return;
+    if(window.innerWidth > window.innerHeight){ const t=app.querySelector('.kn-wrap.tall'); if(t) t.scrollIntoView({block:'start'}); }
+  }, 350); };
+  window.addEventListener('orientationchange', onRot);
+  if(window.matchMedia) { const mq=matchMedia('(orientation: landscape)'); if(mq.addEventListener) mq.addEventListener('change', onRot); }
+})();
 const YO_TAB = {v:'tbl'};
 let YO_YM = null, YO_SEL = null, YO_G = lsGet('tool.yoG','all');   // 'all' / '麹' / '掛'
 function yoteiTabs(on){
@@ -1889,6 +1915,7 @@ function yoteiScreen(){
   const render=function yoRender(){
     app.dataset.mfg='yoRender';
     head('洗米予定表','ひと月ぶんをまとめて見る');
+    document.body.classList.add('yo-wide');   // 横にしたとき画面いっぱいに広げる（ほかの画面に移ると head() で外れる）
     const S = MFG && MFG.senmai;
     let h = yoteiTabs('tbl') + mfgErrView();
     if(!S || !S.days || !Object.keys(S.days).length){
@@ -1898,17 +1925,20 @@ function yoteiScreen(){
       bindYoTabs(); return;
     }
     const all = Object.keys(S.days).sort();
-    const yms = [...new Set(all.map(d=>d.slice(0,7)))];
     const cur = dtoday().slice(0,7);
+    const yms = [...new Set(all.map(d=>d.slice(0,7)).concat([cur]))].sort();
     if(!YO_YM || yms.indexOf(YO_YM)<0) YO_YM = yms.indexOf(cur)>=0 ? cur : (yms.filter(y=>y<=cur).pop() || yms[0]);
     const i = yms.indexOf(YO_YM);
-    const days = all.filter(d=>d.slice(0,7)===YO_YM);
     const [yy,mm] = YO_YM.split('-');
-    const monTot = days.reduce((a,d)=>a + (S.days[d].e||[]).reduce((b,e)=>b+Number(e[6]||0),0), 0);
+    // 洗米の無い日も含めて、その月の1日〜末日を全部出す（2026-09-27）
+    const lastD = new Date(Number(yy), Number(mm), 0).getDate();
+    const days = Array.from({length:lastD}, (_,k)=>YO_YM+'-'+String(k+1).padStart(2,'0'));
+    const dataDays = days.filter(d=>S.days[d] && (S.days[d].e||[]).length);
+    const monTot = dataDays.reduce((a,d)=>a + (S.days[d].e||[]).reduce((b,e)=>b+Number(e[6]||0),0), 0);
     h += `<div class="mf-nav" style="margin-bottom:8px">
       <button id="yPrev" ${i>0?'':'disabled'}>‹ 前の月</button>
       <button disabled style="flex:1.6;color:var(--navy);font-weight:700;line-height:1.2">${Number(yy)}年${Number(mm)}月
-        <span style="display:block;font-size:10.5px;font-weight:400;color:var(--sub)">洗米 ${days.length}日・総米 ${kgfmt(monTot)}kg</span></button>
+        <span style="display:block;font-size:10.5px;font-weight:400;color:var(--sub)">洗米 ${dataDays.length}日・総米 ${kgfmt(monTot)}kg</span></button>
       <button id="yNext" class="main" ${i<yms.length-1?'':'disabled'}>次の月 ›</button></div>`;
     h += riceShortView(YO_YM);
     h += `<div class="yo-g">
@@ -1922,11 +1952,17 @@ function yoteiScreen(){
     use.forEach(i=>{ const c=cols[i]; h += `<th class="${c[1]==='麹'?'kj':'kk'}">${c[1]==='麹'?'麹':'掛'}<br>${esc(c[0])}</th>`; });
     h += `<th class="tt">総米</th></tr></thead><tbody>`;
     for(const d of days){
-      const x = S.days[d], dd = dparse(d), w = dd.getDay();
+      const x = S.days[d] || {e:[]}, dd = dparse(d), w = dd.getDay();
+      if(!(x.e||[]).length){
+        h += `<tr data-yd="${d}" class="none ${d===YO_SEL?'sel':''} ${w===0?'sun':''} ${w===6?'sat':''} ${d===dtoday()?'tdy':''}">
+          <td class="dt">${dd.getDate()}<span class="wd">${WD[w]}</span></td>
+          <td class="nw" colspan="${use.length}">洗米なし</td><td class="tt">—</td></tr>`;
+        continue;
+      }
       const byCi = {}; (x.e||[]).forEach(e=>{ (byCi[e[0]] = byCi[e[0]] || []).push(e); });
       const tot = (x.e||[]).reduce((a,e)=>a+Number(e[6]||0),0);
       const shown = use.reduce((a,i)=>a+((byCi[i]||[]).reduce((b,e)=>b+Number(e[6]||0),0)),0);
-      h += `<tr data-yd="${d}" class="${d===YO_SEL?'sel':''} ${w===0?'sun':''} ${w===6?'sat':''}">
+      h += `<tr data-yd="${d}" class="${d===YO_SEL?'sel':''} ${w===0?'sun':''} ${w===6?'sat':''} ${d===dtoday()?'tdy':''}">
         <td class="dt">${dd.getDate()}<span class="wd">${WD[w]}</span></td>`;
       use.forEach(ci=>{
         const list = byCi[ci];
@@ -1945,7 +1981,7 @@ function yoteiScreen(){
     h += `</tbody></table></div>
       <p class="tl-note">各マスは上から <b>品種＋精米歩合</b>／<b>液種</b>／<b>記号・仕込番号・kg</b>／<b style="color:#0f4a48">酵母</b> の4段です。色は紙の予定表と同じ。
         「酵母 未定」は造りex＼酵母割当 の表に書くとここに出ます。<b>行を押す</b>と、その日の詳しい内容（袋数つき）が下に出ます。
-        <br><b>麹米だけ</b>に切り替えると横にずらさずに見られます。</p>
+        <br><b>麹米だけ</b>に切り替えると横にずらさずに見られます。スマホを<b>横にする</b>と、画面いっぱいに広げて見られます。</p>
       <div id="yoDay"></div>`;
     app.innerHTML = h + mfgSrcInfo('senmai','造りex 洗米予定表');
     bindYoTabs();
@@ -1966,7 +2002,9 @@ function yoteiScreen(){
 /* 行を押したときに出す、その日のまとめ */
 function yoDay(d){
   const box = $('#yoDay'); if(!box) return;
-  const S = MFG && MFG.senmai; const x = S && S.days[d]; if(!x) { box.innerHTML=''; return; }
+  const S = MFG && MFG.senmai; if(!S) { box.innerHTML=''; return; }
+  const x = S.days[d];
+  if(!x || !(x.e||[]).length){ box.innerHTML=`<div class="mf-day"><div style="font-weight:700;color:var(--navy)">${djp(d)}</div><div style="margin-top:6px;color:var(--sub)">この日は洗米がありません。</div></div>`; return; }
   const cols = S.cols;
   const ents = (x.e||[]).map(e=>({ci:e[0], kubun:cols[e[0]][0], grp:cols[e[0]][1], rice:e[1], ratio:e[2], code:e[3], prod:e[4], no:e[5], kg:Number(e[6]||0)}))
                         .sort((a,b)=>a.ci-b.ci || a.no-b.no);
