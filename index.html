@@ -3485,6 +3485,15 @@ function rcField(id,label,val,opt){ opt=opt||{}; const hint=opt.hint?`<i>${esc(o
 function rcDiff(defs, orig){ const out={}; defs.forEach(([c])=>{ const el=$('#'+rcId(c)); if(!el)return; const v=el.value; if(String(v)!==String(orig[c]??'')) out[c]=v; }); return out; }
 const rcId=c=>'rc_'+c.replace(/[^\w]/g,m=>m.charCodeAt(0).toString(16));
 
+/* 麹室の室温・湿度（おんどとり → 醸造記録 R8BY が10分ごとに取得。2026-09-29 追加） */
+function rcRoomCard(rm){
+  if(!rm||(!rm.r1&&!rm.r2)) return '';
+  const one=(x,l)=>{ if(!x) return `<div><span class="k">${l}</span><span class="v">—</span></div>`;
+    if(x.stale) return `<div style="background:#fdecec"><span class="k">${l}</span><span class="v" style="color:#b23b3b;font-size:14px">停止中<small> ${esc(x.time||'')}から</small></span></div>`;
+    return `<div><span class="k">${l}</span><span class="v">${x.temp!=null?x.temp:'—'}<small>℃　${x.hum!=null?x.hum+'%':''}</small></span></div>`; };
+  return `<div class="rc-sum" style="grid-template-columns:repeat(2,1fr)">${one(rm.r1,'1号室（引込）いま')}${one(rm.r2,'2号室（盛・出麹）いま')}</div>
+    <p class="tl-note" style="margin:-6px 0 8px">おんどとり ${esc(rm.at||'')} 取得</p>`;
+}
 /* ========== 🍚 麹：今日の作業（出麹→盛→引込→洗米）と配置図 ========== */
 async function kojiScreen(day){
   RC.kday = day || RC.kday || dtoday();
@@ -3517,6 +3526,7 @@ async function kojiScreen(day){
   let h=`<div class="rc-nav"><button id="kPrev">‹ 前日</button><span class="d">${djp(date)}</span><button id="kNext">翌日 ›</button><button id="kToday">今日</button></div>
     <div class="rc-sum"><div><span class="k">出麹</span><span class="v">${out.length}<small> 本 ${kgfmt(kg(out))}kg</small></span></div><div><span class="k">盛（仲・留仕事）</span><span class="v">${mori.length}<small> 本 ${kgfmt(kg(mori))}kg</small></span></div>
       <div><span class="k">引込（種切・切返し）</span><span class="v">${hik.length}<small> 本 ${kgfmt(kg(hik))}kg</small></span></div><div><span class="k">洗米（麹米）</span><span class="v">${wash.length}<small> 口 ${kgfmt(wash.reduce((s,w)=>s+(Number(w.kg)||0),0))}kg</small></span></div></div>
+    ${rcRoomCard(j.room)}
     <div class="rc-status" id="rcStatus"></div>`;
   h+=sec('出麹','朝いちばん。品温・水分・重量を記録',out.sort((a,b)=>(a['出麹 順番']||99)-(b['出麹 順番']||99)),r=>row(r,'出麹'));
   h+=sec('盛・仲仕事・留仕事','盛の順番と棚を決めて記録',mori.sort((a,b)=>(a['盛 順番']||99)-(b['盛 順番']||99)),r=>row(r,'盛'));
