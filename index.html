@@ -3423,6 +3423,15 @@ const REC_CSS = `
 .rc-btn:disabled{opacity:.5}
 .rc-ghost{border:1px solid var(--line);background:transparent;border-radius:8px;padding:7px 11px;font-size:13px;font-family:inherit;color:inherit;cursor:pointer}
 .rc-map{display:grid;gap:4px;margin:4px 0 8px}
+.rc-map2{display:flex;gap:10px;margin:4px 0 8px}
+.rc-map2 .g{display:flex;flex:1;min-width:0}
+.rc-map2 .bx{flex:1;min-width:0;border:1.5px solid #333;margin-left:-1.5px;display:flex;flex-direction:column;text-align:center;background:#fff}
+.rc-map2 .bx:first-child{margin-left:0}
+.rc-map2 .bx b{font-size:10px;color:var(--sub);border-bottom:1px solid #ddd;padding:1px 0}
+.rc-map2 .up,.rc-map2 .dn{min-height:30px;display:flex;flex-direction:column;justify-content:center;padding:1px}
+.rc-map2 .up{border-bottom:1px solid #333}
+.rc-map2 em{font-style:normal;font-weight:700;font-size:10.5px;line-height:1.15;color:#222;word-break:break-all}
+.rc-prb{display:block;color:#1d5fa8!important;font-weight:700}
 .rc-map div{background:#fff;border:1px solid var(--line);border-radius:7px;min-height:44px;padding:3px 4px;font-size:11px;text-align:center;display:flex;flex-direction:column;justify-content:center}
 .rc-map div b{color:var(--sub);font-size:10px;font-weight:600}
 .rc-map div.on{background:#e9f3ec;border-color:var(--ok)} .rc-map div.on b{color:var(--ok)}
@@ -3490,9 +3499,70 @@ function rcRoomCard(rm){
   if(!rm||(!rm.r1&&!rm.r2)) return '';
   const one=(x,l)=>{ if(!x) return `<div><span class="k">${l}</span><span class="v">—</span></div>`;
     if(x.stale) return `<div style="background:#fdecec"><span class="k">${l}</span><span class="v" style="color:#b23b3b;font-size:14px">停止中<small> ${esc(x.time||'')}から</small></span></div>`;
-    return `<div><span class="k">${l}</span><span class="v">${x.temp!=null?x.temp:'—'}<small>℃　${x.hum!=null?x.hum+'%':''}</small></span></div>`; };
+    return `<div><span class="k">${l}</span><span class="v">${x.temp!=null?x.temp:'—'}<small>℃</small>　${x.hum!=null?x.hum:'—'}<small>%</small></span></div>`; };
   return `<div class="rc-sum" style="grid-template-columns:repeat(2,1fr)">${one(rm.r1,'1号室（引込）いま')}${one(rm.r2,'2号室（盛・出麹）いま')}</div>
     <p class="tl-note" style="margin:-6px 0 8px">おんどとり ${esc(rm.at||'')} 取得</p>`;
+}
+/* 品温計 No1〜No4（おんどとり）の今の値と、どの麹に付いているか（2026-09-29） */
+function rcProbeCard(pr){
+  if(!pr) return '';
+  const cell=n=>{ const x=pr[n]||{}; const t=(x.temp!=null&&!x.stale)?`${x.temp}<small>℃</small>`:'<small>—</small>';
+    return `<div${x.id?' style="background:#eef6ff"':''}><span class="k">No${n}${x.id?` ・ <b>${esc(x.id)}</b>`:''}</span><span class="v">${t}</span></div>`; };
+  return `<div class="rc-sum">${[1,2,3,4].map(cell).join('')}</div><p class="tl-note" style="margin:-6px 0 8px">品温計は各麹の画面で「付ける／外す」。付けている間の温度経過が残ります。</p>`;
+}
+/* 2号室の配置図：各マスの上半分＝この日に出麹する麹（午前の盛では使えない）、下半分＝この日に盛る麹 */
+const RC_KCOL={留:'#CC99FF',仲:'#B4C6E7',添:'#C5E0B3',酛:'#FFE598'};
+function rcMap2(out,mori){
+  const ids=(list,pc,pl)=>list.filter(r=>r[pc]===pl).map(r=>r['麹ID']);
+  const half=(a,cls)=>`<div class="${cls}" style="${a.length?`background:${RC_KCOL[String(a[0]).charAt(0)]||'#e9f3ec'}`:''}">${a.map(x=>`<em>${esc(x)}</em>`).join('')}</div>`;
+  const box=(lb,pl)=>{ const o=ids(out,'出麹 場所',pl), m=ids(mori,'盛 場所',pl);
+    return `<div class="bx"><b>${lb}</b>${half(o,'up')}${half(m,'dn')}</div>`; };
+  const grp=a=>`<div class="g">${a.join('')}</div>`;
+  const T=n=>box(n,'麹棚'+n), M=n=>box(n,'天幕'+n);
+  const free=[...Array(10)].map((_,i)=>'麹棚'+(i+1)).concat(['L1','L2','L3','L4','L5','R1','R2','R3','R4','R5'].map(x=>'天幕'+x))
+    .filter(pl=>!ids(out,'出麹 場所',pl).length && !ids(mori,'盛 場所',pl).length).length;
+  return `<div class="tl-note">麹棚</div><div class="rc-map2">${grp([10,9,8,7].map(T))}${grp([6,5].map(T))}${grp([4,3,2,1].map(T))}</div>
+    <div class="tl-note">天幕</div><div class="rc-map2">${grp(['L5','L4','L3','L2','L1'].map(M))}${grp(['R5','R4','R3','R2','R1'].map(M))}</div>
+    <p class="tl-note" style="margin:2px 0 0">上＝出麹まで箱が埋まっている（午前の盛では使えない）　下＝この日に盛る麹　空き ${free} か所</p>`;
+}
+/* 麹の画面：品温計の付け外しと温度経過のグラフ */
+async function rcProbeSection(date,id){
+  const el=$('#rcProbe'); if(!el) return;
+  const j=RC.koji[date]||{}; const pr=j.probes||{};
+  const mine=Object.entries(pr).find(([n,x])=>x&&x.id===id);
+  el.innerHTML=`<div class="rc-h" style="margin-top:6px">品温計（おんどとり）<small>付けている間、10分ごとの温度が残る</small></div>
+    <div class="card"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+    ${[1,2,3,4].map(n=>{ const x=pr[n]||{}; const on=mine&&mine[0]==String(n); const other=x.id&&x.id!==id;
+      return `<button class="rc-chip ${on?'on':''}" data-pn="${n}" style="min-width:74px">No${n}${x.temp!=null&&!x.stale?` ${x.temp}℃`:''}${other?`<br><small>${esc(x.id)}に付いている</small>`:''}</button>`; }).join('')}
+    ${mine?`<button class="rc-ghost" id="pOff">外す（No${mine[0]}）</button>`:''}</div>
+    <p class="tl-note" style="margin:6px 0 0">${mine?`No${mine[0]} を ${esc(mine[1].since)} から付けています。`:'番号を押すとこの麹に付けたことになります（ほかの麹に付いていた場合はそちらから外れます）。'}</p>
+    <div id="pChart" style="margin-top:8px"><p class="muted" style="font-size:12px">温度経過を読み込んでいます…</p></div></div>`;
+  el.querySelectorAll('[data-pn]').forEach(b=>b.onclick=async()=>{
+    const n=b.dataset.pn; if(mine&&mine[0]==n) return;
+    if(pr[n]&&pr[n].id&&pr[n].id!==id&&!confirm(`No${n} は ${pr[n].id} に付いています。${id} に付け替えますか？`)) return;
+    rcStatus('記録中…'); try{ const r=await recApi({action:'probe_attach',id,no:Number(n)},30000);
+      if(r&&r.ok){ j.probes=r.probes; rcStatus(`No${n} を ${id} に付けました`); rcProbeSection(date,id); } else rcStatus('記録できませんでした: '+(r&&r.err||''),true);
+    }catch(e){ rcStatus('記録できませんでした。電波を確認してください',true); } });
+  const off=$('#pOff'); if(off) off.onclick=async()=>{ rcStatus('記録中…'); try{ const r=await recApi({action:'probe_detach',id},30000);
+      if(r&&r.ok){ j.probes=r.probes; rcStatus('外しました'); rcProbeSection(date,id); } else rcStatus('記録できませんでした: '+(r&&r.err||''),true);
+    }catch(e){ rcStatus('記録できませんでした。電波を確認してください',true); } };
+  try{ const s=await recApi({action:'probe_series',id},30000); const c=$('#pChart'); if(!c) return;
+    if(!s||!s.ok||!s.points||!s.points.length){ c.innerHTML=`<p class="muted" style="font-size:12px">${s&&s.segs&&s.segs.length?'まだ記録がありません（10分ごとに増えます）':'この麹にはまだ品温計を付けていません'}</p>`; return; }
+    c.innerHTML=rcProbeChart(s.points)+`<details style="margin-top:6px"><summary style="font-size:12px;color:var(--sub)">数字で見る（${s.points.length}件）</summary><table class="tl-tbl"><tr><th style="text-align:left">時刻</th><th>品温</th><th>室温</th></tr>${s.points.slice().reverse().map(p=>`<tr><td style="text-align:left">${esc(p.t)}</td><td>${p.v}</td><td>${p.room??'—'}</td></tr>`).join('')}</table></details>`;
+  }catch(e){ const c=$('#pChart'); if(c) c.innerHTML='<p class="muted" style="font-size:12px">温度経過を読み込めませんでした</p>'; }
+}
+function rcProbeChart(pts){
+  const W=320,H=150,L=30,R=6,T=8,B=20; const xs=pts.map(p=>p.ms), vs=pts.map(p=>p.v).concat(pts.filter(p=>p.room!=null).map(p=>p.room));
+  const x0=Math.min(...xs), x1=Math.max(...xs)||x0+1, lo=Math.floor(Math.min(...vs)-1), hi=Math.ceil(Math.max(...vs)+1);
+  const X=t=>L+(W-L-R)*((t-x0)/((x1-x0)||1)), Y=v=>T+(H-T-B)*(1-(v-lo)/((hi-lo)||1));
+  const line=(a,k,col,w)=>{ const q=a.filter(p=>p[k]!=null); return q.length?`<polyline fill="none" stroke="${col}" stroke-width="${w}" points="${q.map(p=>X(p.ms).toFixed(1)+','+Y(p[k]).toFixed(1)).join(' ')}"/>`:''; };
+  const ticks=[]; for(let v=lo; v<=hi; v+=Math.max(1,Math.round((hi-lo)/4))) ticks.push(v);
+  const f=ms=>{ const d=new Date(ms); return (d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+('0'+d.getMinutes()).slice(-2); };
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="品温の経過">
+    ${ticks.map(v=>`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e6e1d6"/><text x="${L-4}" y="${Y(v)+3}" font-size="9" text-anchor="end" fill="#8a8272">${v}</text>`).join('')}
+    ${line(pts,'room','#b9b2a3',1.2)}${line(pts,'v','#b23b3b',2)}
+    <text x="${L}" y="${H-5}" font-size="9" fill="#8a8272">${f(x0)}</text><text x="${W-R}" y="${H-5}" font-size="9" text-anchor="end" fill="#8a8272">${f(x1)}</text></svg>
+    <div class="tl-note" style="display:flex;gap:12px"><span><span style="display:inline-block;width:14px;height:2px;background:#b23b3b;vertical-align:middle"></span> 品温</span><span><span style="display:inline-block;width:14px;height:2px;background:#b9b2a3;vertical-align:middle"></span> 1号室 室温</span></div>`;
 }
 /* ========== 🍚 麹：今日の作業（出麹→盛→引込→洗米）と配置図 ========== */
 async function kojiScreen(day){
@@ -3506,13 +3576,14 @@ async function kojiScreen(day){
   const rows=j.koji||[], wash=j.wash||[], tg=j.targets||{};
   const out=rows.filter(r=>r['出麹日']===date), mori=rows.filter(r=>r['盛日']===date), hik=rows.filter(r=>r['引込日']===date);
   const kg=a=>a.reduce((s,r)=>s+(Number(r['麹米kg'])||0),0);
-  const pl=(n,p)=>(n||p)?`<span class="rc-pl">${esc(n?('①②③④⑤⑥⑦⑧⑨⑩'[n-1]||n):'')}${esc(p||'')}</span>`:`<span class="rc-pl no">場所未定</span>`;
+  const pl=(n,p)=>(n||p)?`<span class="rc-pl">${esc(n?(n+'番 '):'')}${esc(p||'')}</span>`:`<span class="rc-pl no">場所未定</span>`;
+  const prb={}; Object.entries(j.probes||{}).forEach(([n,x])=>{ if(x&&x.id) prb[x.id]=n; });
   const row=(r,stage)=>{
     const map={出麹:['出麹 順番','出麹 場所',r['出麹 品温']!==''?'done':'', r['出麹 品温']!==''?`出麹 ${rcN(r['出麹 品温'])}℃`:'未',`${r['出麹 時刻']||'—'} 目標${tg['出麹']?tg['出麹'].temp:''}℃`],
       盛:['盛 順番','盛 場所',(r['留仕事 品温']!==''?'done':(r['盛 時刻']!==''?'part':'')), r['留仕事 品温']!==''?`留仕事 ${rcN(r['留仕事 品温'])}℃`:(r['仲仕事 品温']!==''?`仲仕事 ${rcN(r['仲仕事 品温'])}℃`:(r['盛 時刻']!==''?`盛 ${r['盛 時刻']}`:'未')),`盛${tg['盛後']?tg['盛後'].time:''}→仲${tg['仲仕事']?tg['仲仕事'].time:''}→留${tg['留仕事']?tg['留仕事'].time:''}`],
       引込:['引込 順番','引込 場所',(r['切返し 品温']!==''?'done':(r['引込 時刻']!==''?'part':'')), r['切返し 品温']!==''?`切返し ${rcN(r['切返し 品温'])}℃`:(r['種切 品温']!==''?`種切 ${rcN(r['種切 品温'])}℃`:(r['引込 時刻']!==''?`引込 ${r['引込 時刻']}`:'未')),`引込${tg['引込']?tg['引込'].time:''} 目標${tg['引込']?tg['引込'].temp:''}℃`]}[stage];
     return `<button class="rc-row ${map[2]}" data-id="${esc(r['麹ID'])}" data-st="${stage}"><span class="st"></span>
-      <span class="id">${esc(r['麹ID'])}<small>${esc(r['記号'])} ${r['麹米kg']}kg</small></span>
+      <span class="id">${esc(r['麹ID'])}<small>${esc(r['記号'])} ${r['麹米kg']}kg</small>${prb[r['麹ID']]?`<small class="rc-prb">品温計 No${prb[r['麹ID']]}</small>`:''}</span>
       <span class="mid">${pl(r[map[0]],r[map[1]])}<span class="b">${esc(r['液種'])}</span><br><span class="d">${esc(r['品種'])} ${r['精米歩合']}%${r['種麹']?'・'+esc(r['種麹']):''}${r['使用日']?'・使用 '+rcMD(r['使用日']):''}${r['注意']?' ・'+esc(r['注意']):''}</span></span>
       <span class="r"><b>${map[3]}</b><span>${map[4]}</span></span></button>`; };
   const wrow=w=>`<button class="rc-row ${w.kyusui!==''?'done':''}" data-key="${esc(w.key)}"><span class="st"></span>
@@ -3526,14 +3597,14 @@ async function kojiScreen(day){
   let h=`<div class="rc-nav"><button id="kPrev">‹ 前日</button><span class="d">${djp(date)}</span><button id="kNext">翌日 ›</button><button id="kToday">今日</button></div>
     <div class="rc-sum"><div><span class="k">出麹</span><span class="v">${out.length}<small> 本 ${kgfmt(kg(out))}kg</small></span></div><div><span class="k">盛（仲・留仕事）</span><span class="v">${mori.length}<small> 本 ${kgfmt(kg(mori))}kg</small></span></div>
       <div><span class="k">引込（種切・切返し）</span><span class="v">${hik.length}<small> 本 ${kgfmt(kg(hik))}kg</small></span></div><div><span class="k">洗米（麹米）</span><span class="v">${wash.length}<small> 口 ${kgfmt(wash.reduce((s,w)=>s+(Number(w.kg)||0),0))}kg</small></span></div></div>
-    ${rcRoomCard(j.room)}
+    ${rcRoomCard(j.room)}${rcProbeCard(j.probes)}
     <div class="rc-status" id="rcStatus"></div>`;
   h+=sec('出麹','朝いちばん。品温・水分・重量を記録',out.sort((a,b)=>(a['出麹 順番']||99)-(b['出麹 順番']||99)),r=>row(r,'出麹'));
   h+=sec('盛・仲仕事・留仕事','盛の順番と棚を決めて記録',mori.sort((a,b)=>(a['盛 順番']||99)-(b['盛 順番']||99)),r=>row(r,'盛'));
   h+=sec('引込み・種切・切返し','1号室の置き場所を決めて記録',hik.sort((a,b)=>(a['引込 順番']||99)-(b['引込 順番']||99)),r=>row(r,'引込'));
   h+=sec('洗米（麹米）の吸水','米温・水温・浸漬・吸水%',wash,wrow);
   h+=`<div class="rc-h">配置図<small>どの麹をどこに置いたか（順番・場所は各麹の画面で入れる）</small></div>
-    <div class="card"><b style="font-size:13px">1号室（引込み）</b>${map1(hik,'引込 場所')}<b style="font-size:13px">2号室（盛）</b>${map2(mori,'盛 場所')}<b style="font-size:13px;display:block;margin-top:8px">2号室（出麹）</b>${map2(out,'出麹 場所')}</div>
+    <div class="card"><b style="font-size:13px">1号室（引込み）</b>${map1(hik,'引込 場所')}<b style="font-size:13px">2号室（上＝出麹で埋まっている箱／下＝盛）</b>${rcMap2(out,mori)}</div>
     <p class="tl-note">目標品温・標準時刻は「麹管理R8BY › 設定」。印刷・履歴分析・週間予定は <a href="${REC_SS_KOJI}" target="_blank" rel="noopener">スプレッドシート（PC）</a>。</p>`;
   app.innerHTML=h;
   $('#kPrev').onclick=()=>kojiScreen(dadd(date,-1)); $('#kNext').onclick=()=>kojiScreen(dadd(date,1)); $('#kToday').onclick=()=>kojiScreen(dtoday());
@@ -3560,8 +3631,10 @@ function kojiEdit(date, id, stage){
     <div class="card"><div class="rc-grid">${defs.map(([c,l,o])=>{ o=Object.assign({},o||{}); if(o.tg&&tg[o.tg]){ o.hint=(o.type==='time'?'標準 '+(tg[o.tg].time||'—'):'目標 '+(tg[o.tg].temp??'—')+'℃'); } return rcField(rcId(c),l,r[c],o); }).join('')}</div></div>
     <div class="rc-status" id="rcStatus"></div>
     <div class="rc-actions"><button class="rc-ghost" id="rcCancel">やめる</button><button class="rc-btn" id="rcSave">保存</button></div>
-    <p class="tl-note">保存すると「麹管理R8BY › 麹DB」に書き込まれ、入力者（${esc(rcUser())}）が入力ログに残ります。</p>`;
+    <p class="tl-note">保存すると「麹管理R8BY › 麹DB」に書き込まれ、入力者（${esc(rcUser())}）が入力ログに残ります。</p>
+    <div id="rcProbe"></div>`;
   app.innerHTML=h;
+  rcProbeSection(date,id);
   $('#rcCancel').onclick=()=>hBack.click();
   $('#rcSave').onclick=async()=>{
     const values=rcDiff(defs,r); if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
