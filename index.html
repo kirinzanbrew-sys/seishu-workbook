@@ -3433,6 +3433,15 @@ const REC_CSS = `
 .rc-map2 em{font-style:normal;font-weight:700;font-size:10.5px;line-height:1.15;color:#222;word-break:break-all}
 .rc-prb{display:block;color:#1d5fa8!important;font-weight:700}
 .rc-multi{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.rc-multi.rc-pick{display:block}
+.rc-pick .rc-map2 .g{gap:0}
+.rc-pick button.pk{flex:1;min-width:0;padding:0;border:1.5px solid #333;margin-left:-1.5px;border-radius:0;background:#fff;display:flex;flex-direction:column;font-family:inherit;color:#222}
+.rc-pick .g button.pk:first-child{margin-left:0}
+.rc-pick button.pk b{font-size:11px;color:var(--sub);border-bottom:1px solid #ddd;padding:2px 0;display:block}
+.rc-pick button.pk span{min-height:22px;font-size:9.5px;font-weight:700;line-height:1.15;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #ccc;word-break:break-all}
+.rc-pick button.pk span:last-child{border-bottom:0}
+.rc-pick button.pk.on{outline:3px solid var(--navy);outline-offset:-3px;background:#e8eef8}
+.rc-pick button.pk.on b{background:var(--navy);color:#fff}
 .rc-multi button{min-width:46px;padding:7px 8px;border:1px solid var(--line);background:#fff;border-radius:8px;font-family:inherit;font-size:13px;color:var(--ink)}
 .rc-multi button.on{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:700}
 .rc-map2 i.pb,.rc-map i.pb{font-style:normal;display:inline-block;margin:1px auto 0;background:#1d5fa8;color:#fff;border-radius:4px;font-size:9.5px;font-weight:700;padding:0 3px}
@@ -3496,6 +3505,7 @@ function rcMultiBind(){ app.querySelectorAll('.rc-multi').forEach(box=>{ const i
 function rcField(id,label,val,opt){ opt=opt||{}; const hint=opt.hint?`<i>${esc(opt.hint)}</i>`:'';
   if(opt.type==='select') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><select id="${id}"><option value="">—</option>${opt.options.map(o=>`<option ${String(o)===String(val)?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`;
   if(opt.type==='text') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><input type="text" id="${id}" value="${esc(val??'')}"></label>`;
+  if(opt.type==='multi'&&opt.layout==='room2') return rcRoom2Picker(id,label,val,opt.occ||{});
   if(opt.type==='multi'){ const cur=rcPlaces(val);
     return `<div class="rc-f" style="grid-column:1/-1"><span>${esc(label)} <i>いくつでも選べます（量に合わせて箱の数を）</i></span><input type="hidden" id="${id}" value="${esc(cur.join(', '))}">
       <div class="rc-multi" data-for="${id}">${opt.options.map(o=>`<button type="button" class="${cur.includes(o)?'on':''}" data-v="${esc(o)}">${esc(String(o).replace('麹棚','棚').replace('天幕',''))}</button>`).join('')}</div></div>`; }
@@ -3524,20 +3534,37 @@ function rcProbeCard(pr){
 }
 /* 2号室の配置図：各マスの上半分＝この日に出麹する麹（午前の盛では使えない）、下半分＝この日に盛る麹 */
 const RC_KCOL={留:'#CC99FF',仲:'#B4C6E7',添:'#C5E0B3',酛:'#FFE598'};
+/* 2号室の箱を選ぶ（配置図と同じ並び）。occ={箱:{out:[出麹で埋まっている麹],mori:[ほかに盛る麹]}}。出麹が1つも無い日は上下に分けない */
+function rcRoom2Picker(id,label,val,occ){
+  const cur=rcPlaces(val), anyOut=Object.values(occ).some(o=>o.out&&o.out.length);
+  const cell=(a)=>a&&a.length?`<span style="background:${RC_KCOL[String(a[0]).charAt(0)]||'#e9f3ec'}">${a.map(x=>esc(x)).join('<br>')}</span>`:'<span></span>';
+  const bx=(lb,pl)=>{ const o=occ[pl]||{}; return `<button type="button" class="pk ${cur.includes(pl)?'on':''}" data-v="${esc(pl)}"><b>${lb}</b>${anyOut?cell(o.out):''}${cell(o.mori)}</button>`; };
+  const grp=a=>`<div class="g">${a.join('')}</div>`, T=n=>bx(n,'麹棚'+n), M=n=>bx(n,'天幕'+n);
+  return `<div class="rc-f" style="grid-column:1/-1"><span>${esc(label)} <i>押した箱が選ばれます（いくつでも）${anyOut?'・上段＝出麹で埋まっている箱':''}</i></span><input type="hidden" id="${id}" value="${esc(cur.join(', '))}">
+    <div class="rc-multi rc-pick" data-for="${id}"><div class="tl-note">麹棚</div><div class="rc-map2">${grp([10,9,8,7].map(T))}${grp([6,5].map(T))}${grp([4,3,2,1].map(T))}</div>
+    <div class="tl-note">天幕</div><div class="rc-map2">${grp(['L5','L4','L3','L2','L1'].map(M))}${grp(['R5','R4','R3','R2','R1'].map(M))}</div></div></div>`;
+}
+function rcOcc(j,date,selfId){
+  const occ={}, add=(pl,k,x)=>{ (occ[pl]=occ[pl]||{out:[],mori:[]})[k].push(x); };
+  (j.koji||[]).forEach(r=>{ const id=r['麹ID']; if(id===selfId) return;
+    if(r['出麹日']===date){ (rcPlaces(r['出麹 場所']).length?rcPlaces(r['出麹 場所']):rcPlaces(r['盛 場所'])).forEach(pl=>add(pl,'out',id)); }
+    if(r['盛日']===date){ rcPlaces(r['盛 場所']).forEach(pl=>add(pl,'mori',id)); } });
+  return occ;
+}
 function rcMap2(out,mori,probes){
   const oPl=r=>rcPlaces(r['出麹 場所']).length?rcPlaces(r['出麹 場所']):rcPlaces(r['盛 場所']);
   const ids=(list,fn,pl)=>list.filter(r=>fn(r).includes(pl)).map(r=>r['麹ID']);
   const pb=(pl,a)=>Object.entries(probes||{}).filter(([n,x])=>x&&x.id&&x.place===pl&&a.includes(x.id)).map(([n])=>n);
   const half=(a,cls,pl)=>{ const p=pb(pl,a); return `<div class="${cls}" style="${a.length?`background:${RC_KCOL[String(a[0]).charAt(0)]||'#e9f3ec'}`:''}">${a.map(x=>`<em>${esc(x)}</em>`).join('')}${p.map(n=>`<i class="pb">No${n}</i>`).join('')}</div>`; };
   const box=(lb,pl)=>{ const o=ids(out,oPl,pl), m=ids(mori,r=>rcPlaces(r['盛 場所']),pl);
-    return `<div class="bx"><b>${lb}</b>${half(o,'up',pl)}${half(m,'dn',pl)}</div>`; };
+    return `<div class="bx"><b>${lb}</b>${out.length?half(o,'up',pl):''}${half(m,'dn',pl)}</div>`; };
   const grp=a=>`<div class="g">${a.join('')}</div>`;
   const T=n=>box(n,'麹棚'+n), M=n=>box(n,'天幕'+n);
   const free=[...Array(10)].map((_,i)=>'麹棚'+(i+1)).concat(['L1','L2','L3','L4','L5','R1','R2','R3','R4','R5'].map(x=>'天幕'+x))
     .filter(pl=>!ids(out,oPl,pl).length && !ids(mori,r=>rcPlaces(r['盛 場所']),pl).length).length;
   return `<div class="tl-note">麹棚</div><div class="rc-map2">${grp([10,9,8,7].map(T))}${grp([6,5].map(T))}${grp([4,3,2,1].map(T))}</div>
     <div class="tl-note">天幕</div><div class="rc-map2">${grp(['L5','L4','L3','L2','L1'].map(M))}${grp(['R5','R4','R3','R2','R1'].map(M))}</div>
-    <p class="tl-note" style="margin:2px 0 0">上＝出麹まで箱が埋まっている（午前の盛では使えない）　下＝この日に盛る麹　空き ${free} か所</p>`;
+    <p class="tl-note" style="margin:2px 0 0">${out.length?'上＝出麹まで箱が埋まっている（午前の盛では使えない）　下＝この日に盛る麹':'この日は出麹なし（箱＝この日に盛る麹）'}　空き ${free} か所</p>`;
 }
 /* 麹の画面：品温計の付け外しと温度経過のグラフ */
 async function rcProbeSection(date,id){
@@ -3625,7 +3652,7 @@ async function kojiScreen(day){
   h+=sec('引込み・種切・切返し','1号室の置き場所を決めて記録',hik.sort((a,b)=>(a['引込 順番']||99)-(b['引込 順番']||99)),r=>row(r,'引込'));
   h+=sec('洗米（麹米）の吸水','米温・水温・浸漬・吸水%',wash,wrow);
   h+=`<div class="rc-h">配置図<small>どの麹をどこに置いたか（順番・場所は各麹の画面で入れる）</small></div>
-    <div class="card"><b style="font-size:13px">1号室（引込み）</b>${map1(hik,'引込 場所')}<b style="font-size:13px">2号室（上＝出麹で埋まっている箱／下＝盛）</b>${rcMap2(out,mori,j.probes)}</div>
+    <div class="card"><b style="font-size:13px">1号室（引込み）</b>${map1(hik,'引込 場所')}<b style="font-size:13px">2号室${out.length?'（上＝出麹で埋まっている箱／下＝盛）':'（盛）'}</b>${rcMap2(out,mori,j.probes)}</div>
     <p class="tl-note">目標品温・標準時刻は「麹管理R8BY › 設定」。印刷・履歴分析・週間予定は <a href="${REC_SS_KOJI}" target="_blank" rel="noopener">スプレッドシート（PC）</a>。</p>`;
   app.innerHTML=h;
   $('#kPrev').onclick=()=>kojiScreen(dadd(date,-1)); $('#kNext').onclick=()=>kojiScreen(dadd(date,1)); $('#kToday').onclick=()=>kojiScreen(dtoday());
@@ -3637,10 +3664,10 @@ const KOJI_FIELDS = {
     ['引込 時刻','引込 時刻',{type:'time',tg:'引込'}],['引込 品温','引込 品温 ℃',{tg:'引込'}],['引込 水分%','引込 水分 %'],['引込 DRY','引込 DRY'],['引込 WET','引込 WET'],
     ['種切 時刻','種切 時刻',{type:'time',tg:'種切'}],['種切 品温','種切 品温 ℃',{tg:'種切'}],['種切 水分%','種切 水分 %'],['ねせ h','ねせ 時間 h'],['ねせ 品温','ねせ 品温 ℃'],
     ['切返し 時刻','切返し 時刻',{type:'time',tg:'切返し'}],['切返し 品温','切返し 品温 ℃',{tg:'切返し'}],['切返し DRY','切返し DRY'],['切返し WET','切返し WET'],['備考','備考',{type:'ta'}]],
-  盛:[['盛 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['盛 場所','箱（2号室）',{type:'multi',options:RC_PLACE2}],
+  盛:[['盛 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['盛 場所','箱（2号室）',{type:'multi',layout:'room2',options:RC_PLACE2}],
     ['盛前 品温','盛前 品温 ℃',{tg:'盛前'}],['盛 時刻','盛 時刻',{type:'time',tg:'盛後'}],['盛後 品温','盛後 品温 ℃',{tg:'盛後'}],['盛 DRY','盛 DRY'],['盛 WET','盛 WET'],
     ['仲仕事 時刻','仲仕事 時刻',{type:'time',tg:'仲仕事'}],['仲仕事 品温','仲仕事 品温 ℃',{tg:'仲仕事'}],['留仕事 時刻','留仕事 時刻',{type:'time',tg:'留仕事'}],['留仕事 品温','留仕事 品温 ℃',{tg:'留仕事'}],['備考','備考',{type:'ta'}]],
-  出麹:[['出麹 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['出麹 場所','箱（2号室）※盛と同じなら空のままでよい',{type:'multi',options:RC_PLACE2}],
+  出麹:[['出麹 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['出麹 場所','箱（2号室）※盛と同じなら空のままでよい',{type:'multi',layout:'room2',options:RC_PLACE2}],
     ['出麹 時刻','出麹 時刻',{type:'time',tg:'出麹'}],['出麹 品温','出麹 品温 ℃',{tg:'出麹'}],['出麹 水分%','出麹 水分 %'],['出麹 DRY','出麹 DRY'],['出麹 WET','出麹 WET'],['出麹重量kg','出麹重量 kg'],['備考','備考',{type:'ta'}]] };
 function kojiEdit(date, id, stage){
   const j=RC.koji[date]; const r=j&&j.koji.find(x=>x['麹ID']===id); if(!r){ go(()=>kojiScreen(date),false); return; }
@@ -3649,7 +3676,7 @@ function kojiEdit(date, id, stage){
   const defs=KOJI_FIELDS[stage];
   let h=`<div class="rc-calc"><div>洗米<b>${rcMD(r['洗米日'])}</b></div><div>引込<b>${rcMD(r['引込日'])}</b></div><div>盛<b>${rcMD(r['盛日'])}</b></div><div>出麹<b>${rcMD(r['出麹日'])}</b></div><div>使用日<b>${rcMD(r['使用日'])}</b></div>
     <div>種麹<b>${esc(r['種麹']||'—')} ${r['種麹g']!==''?r['種麹g']+'g':''}</b></div><div>吸水<b>${rcN(r['吸水%'])}%</b></div>${stage!=='引込'?`<div>引込 品温<b>${rcN(r['引込 品温'])}℃</b></div>`:''}${stage==='出麹'?`<div>留仕事 品温<b>${rcN(r['留仕事 品温'])}℃</b></div>`:''}</div>
-    <div class="card"><div class="rc-grid">${defs.map(([c,l,o])=>{ o=Object.assign({},o||{}); if(o.tg&&tg[o.tg]){ o.hint=(o.type==='time'?'標準 '+(tg[o.tg].time||'—'):'目標 '+(tg[o.tg].temp??'—')+'℃'); } return rcField(rcId(c),l,r[c],o); }).join('')}</div></div>
+    <div class="card"><div class="rc-grid">${defs.map(([c,l,o])=>{ o=Object.assign({},o||{}); if(o.layout==='room2') o.occ=rcOcc(j,date,id); if(o.tg&&tg[o.tg]){ o.hint=(o.type==='time'?'標準 '+(tg[o.tg].time||'—'):'目標 '+(tg[o.tg].temp??'—')+'℃'); } return rcField(rcId(c),l,r[c],o); }).join('')}</div></div>
     <div class="rc-status" id="rcStatus"></div>
     <div class="rc-actions"><button class="rc-ghost" id="rcCancel">やめる</button><button class="rc-btn" id="rcSave">保存</button></div>
     <p class="tl-note">保存すると「麹管理R8BY › 麹DB」に書き込まれ、入力者（${esc(rcUser())}）が入力ログに残ります。</p>
