@@ -712,8 +712,8 @@ function home(){
   const hexes = [
     {id:'bCal',  e:'📅', lb:'製造<br>カレンダー', c:['#eed469','#d8bd4b'], t:'ho',   n:homeBadge('cal')},
     {id:'bRice', e:'🌾', lb:'米管理',             c:['#f4de7b','#dfc75c'], t:'ho',   n:homeBadge('rice'), tag:riceAlert()?'在庫未確認':''},
-    {id:'bKoji', e:'🍚', lb:'麹',                 c:['#e5c85a','#cfb141'], t:'ho'},
-    {id:'bBun',  e:'🧪', lb:'分析',               c:['#dcc45f','#c6ad46'], t:'ho'},
+    {id:'bKoji', e:'🍚', lb:'麹',                 c:['#e5c85a','#cfb141'], t:'ho', tag:(typeof o2KojiAlert==='function'&&o2KojiAlert())?'O₂未測定':''},
+    {id:'bShubo',e:'🧫', lb:'酒母',               c:['#dcc45f','#c6ad46'], t:'ho'},
     {id:'bShk',  e:'🍶', lb:'仕込み',             c:['#d9cc6a','#c2b44f'], t:'momi'},
     {id:'bWash', e:'🫧', lb:'タンク<br>洗浄管理', c:['#cbe075','#b1c95c'], t:'momi'},
     {id:'bCalc', e:'🧮', lb:'各種<br>計算ツール', c:['#c5da68','#abc351'], t:'momi'},
@@ -737,7 +737,7 @@ function home(){
   };
   let rows='';
   for(let r=0;r<4;r++) rows += `<div class="row">${hexes.slice(r*3,r*3+3).map((x,i)=>hex(x,r*3+i)).join('')}</div>`;
-  let h=`${kirinzanBand()}
+  let h=(typeof dpHome==='function')?dpHome(hexes):`${kirinzanBand()}
   <div style="height:12px"></div>
   <div class="hx">${rows}</div>
   ${homeToday()}`;
@@ -752,8 +752,8 @@ function home(){
   $('#bLib').onclick=()=>go(()=>libScreen());
   $('#bRice').onclick=()=>go(riceScreen);
   $('#bKoji').onclick=()=>go(()=>kojiScreen());
-  $('#bBun').onclick=()=>go(()=>bunsekiScreen());
-  $('#bShk').onclick=()=>go(()=>shikomiScreen());
+  $('#bShubo').onclick=()=>go(()=>shuboHome());
+  $('#bShk').onclick=()=>go(()=>moromiHome());
   $('#bWash').onclick=()=>go(washScreen);
   $('#bCalc').onclick=()=>go(calcHome);
   $('#bMan').onclick=()=>go(manualScreen);
@@ -4244,6 +4244,14 @@ const O2_CSS = `
 .o2-open small{display:block;font-size:12px;color:var(--sub);margin-top:1px}
 .o2-open .go{margin-left:auto;font-size:22px;color:#1f6fa8}
 .o2-open:active{background:#d8ebf8}
+.o2-open.ng{background:#fdecec;border:2px solid #d62b22;animation:o2Blink 1.6s ease-in-out infinite}
+.o2-open.ng .ic{background:#d62b22}
+.o2-open.ng b{color:#b31b14}
+.o2-open.ng small{color:#b31b14;font-weight:700}
+.o2-open.ng .go{color:#d62b22}
+@keyframes o2Blink{0%,100%{box-shadow:0 0 0 0 rgba(214,43,34,.0)}50%{box-shadow:0 0 0 5px rgba(214,43,34,.25)}}
+@media (prefers-reduced-motion:reduce){.o2-open.ng{animation:none}}
+.o2-miss{background:#fdecec;border:1px solid #e7a19c;color:#b31b14;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:14px;font-weight:700}
 .o2-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 14px 14px;margin-top:14px}
 .o2-row{width:100%;display:flex;align-items:center;gap:10px;padding:14px 2px;border:0;border-bottom:1px solid var(--line);background:none;font-family:inherit;color:var(--ink);text-align:left}
 button.o2-row{cursor:pointer}
@@ -4291,6 +4299,11 @@ button.o2-row:active{background:#f6f3ea}
 /* 入口のボタン（各作業の画面に置く） */
 function o2Btn(area){
   const a=O2_AREAS[area]; if(!a) return '';
+  // 麹：今日が麹の作業日で、まだ測っていなければ赤く点滅（2026-09-30 泰広さん指示）
+  if(area==='koji' && (!RC.kday || RC.kday===dtoday())){
+    setTimeout(o2KojiRefresh, 300);
+    if(o2KojiMissing()) return `<button class="o2-open ng" data-o2="koji" type="button"><span class="ic">O<sub>2</sub></span><span><b>酸素濃度測定</b><small>⚠ 今日はまだ測定していません（麹の作業日）</small></span><span class="go">›</span></button>`;
+  }
   return `<button class="o2-open" data-o2="${area}" type="button"><span class="ic">O<sub>2</sub></span><span><b>酸素濃度測定</b><small>${esc(a.sub)}を記録（記録表へ）</small></span><span class="go">›</span></button>`;
 }
 document.addEventListener('click', e=>{
@@ -4410,6 +4423,7 @@ function o2Screen(area){
     const room = '';
     const inWork = by && S.work.some(n=>o2Same(n,by));
     let h='';
+    if(area==='koji' && o2KojiMissing()) h+=`<div class="o2-miss">⚠ 今日は麹の作業日です。酸素濃度をまだ測定していません。</div>`;
     if(!O2_URL) h+=`<div class="tl-warn" style="margin-top:14px">記録先（Apps Script）の設定がまだ済んでいません。いまは「確定」しても送れません。</div>`;
     h+=`<div class="o2-card">
       <div class="o2-row"><span class="k">測定日時</span><span class="v">${djp(dtoday())} ${hhmm}<small>「確定」を押した時刻で記録します・測定方法：酸素濃度計</small></span></div>`;
@@ -4532,6 +4546,617 @@ function o2WashPick(){
   const items=[]; for(let x=Math.round(O2_MAX*10); x>=Math.round(O2_MIN*10); x--){ const v=x/10; items.push({v, label:v.toFixed(1)+' %', sub:v===O2_DEF?'基本':''}); }
   o2Pick('酸素濃度（%）を選ぶ', items, inp.value===''?O2_DEF:Number(inp.value), true).then(v=>{ if(v==null) return; inp.value=v.toFixed(1); inp.dispatchEvent(new Event('input')); const b=$('#wO2b'); if(b) b.textContent=v.toFixed(1)+' %'; });
 }
+
+
+/* ---------- 麹の作業日に測定していなければ知らせる（2026-09-30） ----------
+   作業日＝麹管理R8BYの今日の予定に 引込・盛・出麹 のどれかがある日（koji_today）。
+   測定済み＝酸素濃度測定記録の「麹室」シートに今日の行がある（端末に預かり中の分も含む）。
+   ホームの「麹」の六角形には O2_ALERT_H 時をすぎたら赤い帯「O₂未測定」、麹の画面のボタンは時刻に関係なく赤。 */
+const O2_ALERT_H = 9;
+function o2KojiWork(date){
+  const j=RC&&RC.koji&&RC.koji[date]; if(!j||!j.koji) return null;          // まだ分からない
+  return j.koji.some(r=>r['引込日']===date||r['盛日']===date||r['出麹日']===date);
+}
+function o2Measured(area,date){
+  return o2Cached(area).some(r=>String(r.date)===date) || o2Queue().some(x=>x.area===area&&x.date===date);
+}
+function o2KojiMissing(){ const d=dtoday(); return o2KojiWork(d)===true && !o2Measured('koji',d); }
+function o2KojiAlert(){ return new Date().getHours()>=O2_ALERT_H && o2KojiMissing(); }
+/* 裏で「今日の麹の予定」と「麹室の記録」を取り直し、変わったら表示を直す */
+let O2_KCHK=null;
+function o2KojiRefresh(){
+  if(O2_KCHK) return O2_KCHK;
+  O2_KCHK=(async()=>{
+    const before=o2KojiMissing(), d=dtoday();
+    try{
+      if(!(RC.koji&&RC.koji[d])){
+        let r=null;
+        try{ const c=await PC.get(recKey({action:'koji_today',date:d})); if(c&&c.s) r=JSON.parse(c.s); }catch(e){}
+        if(!r){ try{ r=await recApi({action:'koji_today',date:d},40000); }catch(e){} }
+        if(r&&r.ok) RC.koji[d]=r;
+      }
+      if(O2_URL && o2KojiWork(d) && Date.now()-(O2.at.koji||0)>3*60000){
+        if(o2Queue().length) await o2Flush();
+        try{ const j=await o2Api({action:'o2_get',area:'koji'},25000); if(j&&j.ok) o2Store('koji',j); }catch(e){}
+      }
+    }catch(e){}
+    O2_KCHK=null;
+    if(o2KojiMissing()!==before){
+      const b=document.querySelector('.o2-open[data-o2="koji"]');
+      if(b){ const t=document.createElement('div'); t.innerHTML=o2Btn('koji'); b.replaceWith(t.firstElementChild); }
+      if(app.querySelector('.hx') && nav[nav.length-1]===home) go(home,false);
+    }
+  })();
+  return O2_KCHK;
+}
+/* ホームを描いたら裏で確かめる（ホームの描き直しは、状態が変わったときだけ） */
+(function(){
+  const _h=home;
+  home=function(){ const r=_h.apply(this, arguments); setTimeout(()=>{ try{ o2KojiRefresh(); }catch(e){} }, 1500); return r; };
+  for(let i=0;i<nav.length;i++){ if(nav[i]===_h) nav[i]=home; }
+  if(app.querySelector('.hx')) setTimeout(()=>{ try{ o2KojiRefresh(); }catch(e){} }, 1500);
+})();
+
+</script>
+<script>
+/* ================= 🧫 酒母・🍶 仕込み（スプレッドシートと同じ見え方）2026-09-30 =================
+   ホームの「分析」を「酒母」と「仕込み」に分けた（泰広さん了承の案B＋案②）。
+   酒母  : 今日の一覧 → 1本ずつ「分析酒母」シートと同じ表（横＝1〜13日、縦＝項目）＋グラフ（ボーメ・品温）
+   仕込み: 今日の一覧 → 1本ずつ「分析醪」シートと同じ表（横＝留・2〜36日、縦＝項目）＋グラフ（BMD・品温）
+   表の列（日）を押すと、今までの入力画面（shuboInput / moromiInput）がその日で開く。
+   データは今まで通り 醸造記録 R8BY（recState / shubo_get / bunseki_get）。サーバー側の変更はなし。
+   控え：seishu-workbook_github\_src_sheet.js
+   ======================================================================================== */
+const SH_CSS = `
+.sh-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0 8px}
+.sh-tiles div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 4px;text-align:center}
+.sh-tiles small{display:block;font-size:10px;color:var(--sub)}
+.sh-tiles b{font-size:17px}
+.sh-tiles .w b{color:var(--ng)}
+.sh-chart{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 6px 2px;margin-bottom:8px}
+.sh-tw{overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.sh-t{border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap}
+.sh-t th,.sh-t td{border-bottom:1px solid #eee7d8;border-right:1px solid #f1ecdf;padding:6px 5px;text-align:center;min-width:36px}
+.sh-t th{background:#f3efe4;color:var(--sub);font-weight:600;font-size:11px}
+.sh-t .k{position:sticky;left:0;z-index:1;background:#faf7ef;text-align:left;font-weight:700;color:var(--navy);min-width:48px}
+.sh-t th.k{background:#efe9da}
+.sh-t td.v{font-weight:700}
+.sh-t .td{background:#fff4c9!important}
+.sh-t td.miss.td{outline:2px dashed #d8a100;outline-offset:-3px}
+.sh-t [data-d]{cursor:pointer}
+.sh-t .wn{color:var(--ng);font-weight:700}
+.sh-t .pm{display:block;color:var(--sub);font-size:10px;font-weight:400}
+.sh-note{font-size:11px;color:var(--sub);margin:6px 2px 0;line-height:1.55}
+.sh-row{width:100%;display:grid;grid-template-columns:6px 54px 1fr 50px 50px 56px;gap:0 6px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 8px 9px 0;margin-bottom:7px;font-family:inherit;color:inherit;text-align:left;cursor:pointer;overflow:hidden}
+.sh-row .st{align-self:stretch;background:#d8d2c2;border-radius:0 3px 3px 0}
+.sh-row.now .st{background:#2f7d5d}
+.sh-row .id{font-weight:800;color:var(--navy);font-size:17px;line-height:1.1}
+.sh-row .id small{display:block;font-size:10px;color:var(--sub);font-weight:400}
+.sh-row .mid{font-size:13px;line-height:1.35;min-width:0}
+.sh-row .mid small{display:block;font-size:11px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sh-row .c{text-align:center;font-size:15px;font-weight:700}
+.sh-row .c small{display:block;font-size:10px;color:var(--sub);font-weight:400}
+.sh-row .c.miss{color:#c8a34a}
+.sh-row .wn{color:var(--ng);font-size:11px;font-weight:700}
+.sh-link{display:flex;align-items:center;gap:10px;width:100%;background:var(--card);border:1px solid var(--navy);color:var(--navy);border-radius:12px;padding:12px;margin:12px 0 4px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;text-align:left}
+.sh-link span{margin-left:auto}
+.sh-setup{width:100%;display:flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 8px;margin:0 0 8px;font-family:inherit;color:inherit;cursor:pointer;text-align:center}
+.sh-setup .t{font-size:11px;font-weight:700;color:var(--navy);writing-mode:vertical-rl;letter-spacing:.1em}
+.sh-setup span{flex:1}.sh-setup small{display:block;font-size:10px;color:var(--sub)}.sh-setup b{font-size:14px}.sh-setup i{font-style:normal;font-size:10px;color:var(--sub);margin-left:1px}
+.sh-setup .go{flex:0 0 auto;color:var(--sub);font-size:18px}
+.sh-setup.ng{border:2px solid var(--ng);background:#fdf3f2}.sh-setup.ng b{color:var(--ng)}
+.sh-st{margin:0 0 8px}
+.sh-st .sh-t td,.sh-st .sh-t th{min-width:54px}
+@media(max-width:380px){.sh-row{grid-template-columns:6px 48px 1fr 44px 44px 50px}.sh-tiles b{font-size:15px}}
+`;
+(function(){ const s=document.createElement('style'); s.textContent=SH_CSS; document.head.appendChild(s); })();
+try{ HOME_KEYS.bShubo='bun'; }catch(e){}
+
+const shN=v=>(v===''||v===null||v===undefined||isNaN(Number(v)))?null:Number(v);
+const shF=(v,d=1)=>{ const n=shN(v); return n===null?'':(Math.round(n*Math.pow(10,d))/Math.pow(10,d)).toFixed(d); };
+function shLast(days,f){ for(let i=days.length-1;i>=0;i--){ const v=shN(days[i][f]); if(v!==null) return {v,day:days[i].day}; } return null; }
+
+/* ---- 折れ線（左軸・右軸の2本まで。今日の縦線つき） ---- */
+function shChart(n, labels, series, todayIdx){
+  const W=360,H=160,L=34,R=34,T=12,B=26, pw=W-L-R, ph=H-T-B;
+  const x=i=>L+(n<=1?pw/2:pw*i/(n-1));
+  const rng=vals=>{ const a=vals.filter(v=>v!==null); if(!a.length) return null; let lo=Math.min(...a), hi=Math.max(...a); if(hi-lo<1){ lo-=0.5; hi+=0.5; } const p=(hi-lo)*0.08; return [lo-p,hi+p]; };
+  let g=`<rect x="${L}" y="${T}" width="${pw}" height="${ph}" fill="#faf8f2"/><!--B-->`;
+  if(todayIdx>=0&&todayIdx<n) g+=`<line x1="${x(todayIdx)}" y1="${T}" x2="${x(todayIdx)}" y2="${T+ph}" stroke="#d8a100" stroke-width="1.5"/><text x="${x(todayIdx)+3}" y="${T+10}" font-size="10" fill="#9a7400">今日</text>`;
+  const step=Math.max(1,Math.ceil(n/8));
+  for(let i=0;i<n;i+=step) g+=`<text x="${x(i)}" y="${H-12}" font-size="9" fill="#6b7280" text-anchor="middle">${labels[i]}</text>`;
+  let leg='', lx=L;
+  const grp={}; series.forEach(s=>{ const k=s.axis; (grp[k]=grp[k]||[]).push(...s.vals); });
+  series.forEach(s=>{
+    if(!s.vals.some(v=>v!==null)) return;
+    const r=rng(grp[s.axis]); if(!r) return;
+    const y=v=>T+ph-(v-r[0])/(r[1]-r[0])*ph;
+    const ax=s.axis==='R'?W-R+3:L-3, anc=s.axis==='R'?'start':'end';
+    if(s.std){ let d=''; s.vals.forEach((v,i)=>{ if(v===null) return; d+=(d?' L':'M')+x(i).toFixed(1)+','+y(v).toFixed(1); });
+      g=g.replace('<!--B-->',`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="8" stroke-opacity=".2" stroke-linecap="round" stroke-linejoin="round"/><!--B-->`);
+      leg+=`<rect x="${lx}" y="${H-7}" width="10" height="5" fill="${s.color}" fill-opacity=".3"/><text x="${lx+13}" y="${H-2}" font-size="10" fill="#6b7280">${esc(s.name)}</text>`; lx+=16+s.name.length*11; return; }
+    g+=`<text x="${ax}" y="${T+8}" font-size="9" fill="${s.color}" text-anchor="${anc}">${shF(r[1],1)}</text><text x="${ax}" y="${T+ph}" font-size="9" fill="${s.color}" text-anchor="${anc}">${shF(r[0],1)}</text>`;
+    let d='', pts='';
+    s.vals.forEach((v,i)=>{ if(v===null) return; d+=(d?' L':'M')+x(i).toFixed(1)+','+y(v).toFixed(1); pts+=`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${s.dash?2:2.6}" fill="${s.color}"/>`; });
+    g+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.dash?1.8:2.4}" ${s.dash?'stroke-dasharray="4 3"':''}/>${pts}`;
+    leg+=`<rect x="${lx}" y="${H-6}" width="10" height="3" fill="${s.color}"/><text x="${lx+13}" y="${H-2}" font-size="10" fill="${s.color}">${esc(s.name)}</text>`; lx+=16+s.name.length*11;
+  });
+  return `<div class="sh-chart"><svg viewBox="0 0 ${W} ${H+4}" width="100%" role="img" aria-label="経過グラフ">${g}${leg}</svg></div>`;
+}
+/* ---- 表（横＝日、縦＝項目）。rows=[[見出し, 日ごとの値の関数, {req:true なら今日の空欄を点線}]] ---- */
+function shTable(days, head1, rows, todayDay){
+  let h=`<div class="sh-tw" id="shTw"><table class="sh-t"><tr><th class="k">日</th>${days.map(x=>`<th data-d="${x.day}" class="${x.day===todayDay?'td':''}">${head1(x)}</th>`).join('')}</tr>
+    <tr><th class="k">日付</th>${days.map(x=>`<th data-d="${x.day}" class="${x.day===todayDay?'td':''}">${rcMD(x.date)}</th>`).join('')}</tr>`;
+  rows.forEach(([k,fn,o])=>{ o=o||{};
+    h+=`<tr><td class="k">${k}</td>${days.map(x=>{ const v=fn(x); const e=(v===''||v===null||v===undefined);
+      return `<td data-d="${x.day}" class="${e?(o.req?'miss':''):'v'} ${x.day===todayDay?'td':''}">${e?'':v}</td>`; }).join('')}</tr>`; });
+  return h+`</table></div>`;
+}
+function shBindTable(open){
+  app.querySelectorAll('.sh-t [data-d]').forEach(c=>c.onclick=()=>open(Number(c.dataset.d)));
+  const tw=$('#shTw'), on=tw&&tw.querySelector('th.td');
+  if(on) tw.scrollLeft=Math.max(0,on.offsetLeft-tw.clientWidth/2+on.offsetWidth/2);
+}
+/* 何本もの経過を裏で取る（3本ずつ）。取れたら onEach を呼ぶ */
+async function shFetchMany(nos, action, store, onEach){
+  let i=0;
+  const worker=async()=>{ while(i<nos.length){ const no=nos[i++];
+    try{ const r=await recApi({action,no},40000); if(r&&r.ok){ store[no]=r; onEach(no); } }catch(e){} } };
+  await Promise.all([worker(),worker(),worker()]);
+}
+
+/* ================= 🧫 酒母 ================= */
+function shuboList(st){
+  const today=dtoday();
+  return st.master.filter(m=>m.motodate).map(m=>({m,d:rcShuboDay(m,today)}))
+    .filter(x=>x.d>=-3 && x.d<=rcDays(x.m.motodate,x.m.tome)+1).sort((a,b)=>a.m.motodate.localeCompare(b.m.motodate)||a.m.no-b.m.no);
+}
+function shuboRowHTML(m,d){
+  const s=RC.shubo[m.no], dd=s&&s.days||[];
+  const be=shLast(dd,'be'), ta=shLast(dd,'ta'), td=d>=1&&dd[d-1];
+  const temp=td?shN(td.temp):null;
+  return `<button class="sh-row ${d>=1?'now':''}" data-no="${m.no}"><span class="st"></span>
+    <span class="id">${m.no}<small>${esc(m.shuboSym||m.sym||'')}${m.shuboT?' T'+esc(m.shuboT):''}</small></span>
+    <span class="mid">${esc(m.liquid||'')}<small>${d>=1?d+'日目':'酛立まで'+(1-d)+'日'}・酵母 ${esc(m.yeast||'—')}</small>${s&&d>=1&&shSetupMissing(s).length?'<span class="wn">仕込時の値 未入力</span>':''}</span>
+    <span class="c"><small>Be</small>${s?(be?shF(be.v):'—'):'…'}</span>
+    <span class="c"><small>酸度</small>${s?(ta?shF(ta.v):'—'):'…'}</span>
+    <span class="c ${d>=1&&s&&temp===null?'miss':''}"><small>今日の品温</small>${d<1?'—':!s?'…':temp===null?'未':shF(temp)}</span></button>`;
+}
+async function shuboHome(){
+  head('酒母','分析酒母（今日の一覧 → 1本ずつの経過表）');
+  rcLoading('酒母の一覧を読み込んでいます…');
+  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
+  const list=shuboList(st);
+  let h=(typeof o2Btn==='function'?o2Btn('shubo'):'')+`<div class="rc-status" id="rcStatus"></div>`;
+  h+=list.length?list.map(({m,d})=>shuboRowHTML(m,d)).join(''):`<p class="muted" style="text-align:center;padding:20px 0">育成中の酒母はありません</p>`;
+  h+=`<div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="rcReload">更新</button><span class="tl-note" style="margin:0">「未」＝今日の品温がまだ。押すとその酒母の経過表（分析酒母シートと同じ並び）が開きます。</span></div>`;
+  app.innerHTML=h;
+  const bind=()=>app.querySelectorAll('.sh-row[data-no]').forEach(b=>b.onclick=()=>go(()=>shuboSheet(b.dataset.no)));
+  bind();
+  $('#rcReload').onclick=async()=>{ rcStatus('更新中…'); await recState(true); list.forEach(({m})=>RC.shubo[m.no]=null); shuboHome(); };
+  const myTop=nav[nav.length-1];
+  shFetchMany(list.filter(({m})=>!RC.shubo[m.no]).map(({m})=>m.no),'shubo_get',RC.shubo,no=>{
+    if(nav[nav.length-1]!==myTop) return;
+    const b=app.querySelector(`.sh-row[data-no="${no}"]`), x=list.find(y=>String(y.m.no)===String(no));
+    if(b&&x){ const t=document.createElement('div'); t.innerHTML=shuboRowHTML(x.m,x.d); b.replaceWith(t.firstElementChild); bind(); }
+  });
+}
+/* 酒母の仕込時の値（必須） */
+const SH_SETUP = [['shaku','仕込尺','mm','1'],['ryo','仕込量','L','1'],['mizukoji','水麹','℃','0.1'],['mushi','蒸米','℃','0.1']];
+function shSetupMissing(s){ const u=s&&s.setup; if(!u) return [];   /* サーバー（醸造記録 R8BY）が古いときは止めない */ return SH_SETUP.filter(([f])=>shN(u[f])===null).map(x=>x[1]); }
+async function shuboSheet(no){
+  const m=rcMaster(no)||{};
+  head(`酒母 順号 ${no}　${m.shuboSym||m.sym||''}`, `${m.liquid||''}　${m.shuboT?'T'+m.shuboT:'酒母タンク未設定'}　酵母 ${m.yeast||'—'}`);
+  let s=RC.shubo[no];
+  if(!s){ rcLoading('酒母経過を読み込んでいます…'); try{ const r=await recApi({action:'shubo_get',no},40000); if(r&&r.ok){ s=r; RC.shubo[no]=r; } }catch(e){} }
+  if(!s){ rcFail(); return; }
+  const days=s.days||[], dT=rcShuboDay(m,dtoday());
+  const be=shLast(days,'be'), ta=shLast(days,'ta');
+  const oro=s.motooroshi||s.motooroshiPlan||'';
+  const left=oro?rcDays(dtoday(),oro):null;
+  const miss=shSetupMissing(s), u=s.setup||{};
+  let h=`<div class="sh-tiles"><div><small>${dT>=1?'今日':'酛立まで'}</small><b>${dT>=1?dT+'日目':(1-dT)+'日'}</b></div>
+    <div><small>Be${be?'（'+be.day+'日）':''}</small><b>${be?shF(be.v):'—'}</b></div>
+    <div><small>酸度${ta?'（'+ta.day+'日）':''}</small><b>${ta?shF(ta.v):'—'}</b></div>
+    <div><small>${s.motooroshi?'酛卸':'酛卸予定'}</small><b>${oro?rcMD(oro):'—'}</b></div></div>`;
+  h+=`<button class="sh-setup ${miss.length&&dT>=1?'ng':''}" id="shSet"><span class="t">仕込時</span>
+    ${SH_SETUP.map(([f,l,un])=>`<span><small>${l}</small><b>${shN(u[f])!==null?shF(u[f],un==='℃'?1:0)+'<i>'+un+'</i>':'未'}</b></span>`).join('')}<span class="go">›</span></button>`;
+  if(miss.length&&dT>=1) h+=`<div class="tl-warn" style="margin:0 0 8px">仕込時の値（${miss.join('・')}）が未入力です。押して入れてください（入れるまで日々の分析は保存できません）。</div>`;
+  h+=shChart(days.length, days.map(x=>x.day), [
+    {name:'ボーメ', color:'#1f5fa8', axis:'L', vals:days.map(x=>shN(x.be))},
+    {name:'品温AM', color:'#c0392b', axis:'R', dash:true, vals:days.map(x=>shN(x.temp))},
+    {name:'PM', color:'#e08a1e', axis:'R', dash:true, vals:days.map(x=>shN(x.tPM))}], dT-1);
+  h+=shTable(days, x=>x.day, [
+    ['Be', x=>shF(x.be)], ['alc', x=>shF(x.alc)], ['酸度', x=>shF(x.ta)],
+    ['品温', x=>{ const a=shF(x.temp), p=shF(x.tPM); return a||p?`${a||'—'}<span class="pm">${p||'—'}</span>`:''; }, {req:true}],
+    ['備考', x=>x.biko?`<span style="font-weight:400;font-size:11px">${esc(String(x.biko).slice(0,8))}</span>`:'']], dT);
+  h+=`<p class="sh-note">品温は上段＝午前・下段(小)＝午後。表の日（列）を押すと、その日の入力画面が開きます。乳酸 ${esc(m.nyusan||(s.head&&s.head.nyusan)||'—')}ml${left!==null&&left>=0?`・酛卸まであと${left}日`:''}${s.biko?'・備考：'+esc(s.biko):''}。</p>`;
+  app.innerHTML=h;
+  shBindTable(d=>go(()=>shuboInput(no,d)));
+  $('#shSet').onclick=()=>go(()=>shuboInput(no, Math.min(13,Math.max(1,dT||1)), 'setup'));
+}
+/* 酒母の入力（今までの画面を差し替え：品温 午前・午後、仕込時の値） */
+shuboInput = async function(no, day, focus){
+  const m=rcMaster(no)||{};
+  head(`酒母 順号 ${no}　${m.shuboSym||m.sym||''}`, `${m.liquid||''}　${m.shuboT?'T'+m.shuboT:'酒母タンク未設定'}　酵母 ${m.yeast||'—'}`);
+  let s=RC.shubo[no];
+  if(!s){ rcLoading('酒母経過を読み込んでいます…'); try{ const r=await recApi({action:'shubo_get',no},40000); if(r&&r.ok){ s=r; RC.shubo[no]=r; } }catch(e){} }
+  if(!s){ rcFail(); return; }
+  const dToday=rcShuboDay(m,dtoday());
+  const has=d=>{ const x=s.days[d-1]; return x&&(x.temp!==''||x.tPM!==''&&x.tPM!==undefined||x.be!==''||x.ta!==''||x.alc!==''||x.biko); };
+  if(!day) day=Math.min(13,Math.max(1,dToday||1));
+  const D=s.days[day-1], u=s.setup||{}, miss=shSetupMissing(s);
+  const defs=[['temp','品温 午前 ℃'],['tPM','品温 午後 ℃'],['be','Be（ボーメ）'],['ta','酸度'],['alc','alc %'],['biko','備考',{type:'text'}]];
+  const setupCard=`<div class="card" id="shSetCard" style="${miss.length?'border:2px solid var(--ng)':''}"><b style="font-size:15px">仕込時の値</b> <span class="muted" style="font-size:12px">${miss.length?'<b style="color:var(--ng)">必須・未入力あり</b>':'入力済み'}</span>
+      <div class="rc-grid" style="margin-top:8px">${SH_SETUP.map(([f,l,un,st])=>rcField('sh_'+f,`${l} ${un}`,u[f],{step:st})).join('')}</div>
+      <div class="rc-actions"><button class="rc-btn" id="shSetSave">仕込時の値を保存</button></div></div>`;
+  const dayCard=`<div class="card"><b style="font-size:16px">${day}日目　${djp(D.date)}</b>
+      <div class="rc-grid" style="margin-top:8px">${defs.map(([f,l,o])=>rcField('rc_'+f,l,D[f],o)).join('')}</div>
+      <div class="rc-status" id="rcStatus"></div>
+      <div class="rc-actions"><button class="rc-btn" id="rcSave">保存</button></div></div>`;
+  app.innerHTML=`<div class="rc-days" id="rcDays">${s.days.map(x=>`<button data-d="${x.day}" class="${x.day===day?'on':(has(x.day)?'has':'')}">${x.day}日<small>${rcMD(x.date)}</small></button>`).join('')}</div>
+    ${(miss.length||focus==='setup')?setupCard+dayCard:dayCard+setupCard}
+    <div class="card"><div class="rc-grid">${rcField('rc_moto','酛卸日',s.motooroshi,{type:'date',hint:s.motooroshiPlan?'予定 '+rcMD(s.motooroshiPlan):''})}${rcField('rc_biko2','酒母の備考',s.biko,{type:'text'})}</div>
+      <div class="rc-actions"><button class="rc-btn" id="rcSave2">酛卸日・備考を保存</button></div></div>
+    <p class="tl-note">経過の表・グラフは前の画面（酒母 → 順号）で見られます。乳酸 ${esc(m.nyusan||(s.head&&s.head.nyusan)||'—')}ml。</p>`;
+  const dv=$('#rcDays'); const on=dv.querySelector('.on'); if(on) dv.scrollLeft=Math.max(0,on.offsetLeft-dv.clientWidth/2+30);
+  dv.querySelectorAll('button').forEach(x=>x.onclick=()=>shuboInput(no,Number(x.dataset.d)));
+  if(focus==='setup'){ const c=$('#shSetCard'); if(c) c.scrollIntoView({block:'start'}); }
+  const again=()=>{ RC.shubo[no]=null; setTimeout(()=>shuboInput(no,day),400); };
+  $('#shSetSave').onclick=async()=>{
+    const setup={}; SH_SETUP.forEach(([f])=>{ const v=$('#sh_'+f).value; if(String(v)!==String(u[f]??'')) setup[f]=v; });
+    const after=SH_SETUP.filter(([f])=>(f in setup?setup[f]:u[f])===''||(f in setup?setup[f]:u[f])==null).map(x=>x[1]);
+    if(!Object.keys(setup).length){ rcStatus(after.length?'未入力：'+after.join('・'):'変わったところがありません',!!after.length); return; }
+    $('#shSetSave').disabled=true; rcStatus('保存中…');
+    try{ const res=await recApi({action:'shubo_save',no,setup},40000);
+      if(res&&res.ok){ rcStatus(after.length?'保存しました（まだ未入力：'+after.join('・')+'）':'仕込時の値を保存しました',!!after.length); again(); }
+      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#shSetSave').disabled=false; }
+    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#shSetSave').disabled=false; }
+  };
+  $('#rcSave').onclick=async()=>{
+    if(miss.length){ rcStatus('先に「仕込時の値」（'+miss.join('・')+'）を入れて保存してください',true); const c=$('#shSetCard'); if(c) c.scrollIntoView({behavior:'smooth',block:'start'}); return; }
+    const values={}; defs.forEach(([f])=>{ const v=$('#rc_'+f).value; if(String(v)!==String(D[f]??'')) values[f]=v; });
+    if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
+    $('#rcSave').disabled=true; rcStatus('保存中…');
+    try{ const res=await recApi({action:'shubo_save',no,day,values},40000);
+      if(res&&res.ok){ rcStatus(`${day}日目 を保存しました`); again(); }
+      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
+    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
+  };
+  $('#rcSave2').onclick=async()=>{
+    const body={action:'shubo_save',no}; const mo=$('#rc_moto').value, bk=$('#rc_biko2').value;
+    if(mo!==(s.motooroshi||'')) body.motooroshi=mo; if(bk!==(s.biko||'')) body.biko=bk;
+    if(!('motooroshi' in body)&&!('biko' in body)){ rcStatus('変わったところがありません'); return; }
+    rcStatus('保存中…');
+    try{ const res=await recApi(body,40000); if(res&&res.ok){ s.motooroshi=mo; s.biko=bk; rcStatus('保存しました'); RC.shubo[no]=null; } else rcStatus('保存できませんでした: '+(res&&res.err||''),true); }
+    catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); }
+  };
+};
+
+/* ================= 🍶 仕込み（醪） ================= */
+function moromiList(st){
+  const today=dtoday();
+  return st.master.map(m=>({m,t:st.today[m.no]||{},d:rcMoromiDay(m,today)}))
+    .filter(x=>x.d!==null && x.t.state!=='上槽済' && x.d>=-2).sort((a,b)=>a.m.tome.localeCompare(b.m.tome)||a.m.no-b.m.no);
+}
+function moromiRowHTML(m,t,d){
+  const b=RC.bun[m.no], dd=b&&b.days||[], td=d>=1&&dd[d-1];
+  const tAM=td?shN(td.tAM):null;
+  return `<button class="sh-row ${d>=1?'now':''}" data-no="${m.no}"><span class="st"></span>
+    <span class="id">${m.no}<small>${esc(m.sym||'')} T${esc(m.tank||'')}</small></span>
+    <span class="mid">${esc(m.liquid||'')}<small>${d>=1?d+'日目':'留まで'+(1-d)+'日'}・上槽予定 ${rcMD(m.joso)}</small>${t.warn?`<span class="wn">${esc(t.warn)}</span>`:''}</span>
+    <span class="c"><small>日本酒度</small>${t.smv!==''&&t.smv!==undefined?rcN(t.smv):'—'}</span>
+    <span class="c"><small>alc</small>${t.alc!==''&&t.alc!==undefined?rcN(t.alc):'—'}</span>
+    <span class="c ${d>=1&&b&&tAM===null?'miss':''}"><small>今日の品温</small>${d<1?'—':!b?'…':tAM===null?'未':shF(tAM)}</span></button>`;
+}
+async function moromiHome(){
+  head('仕込み','分析醪（今日の一覧 → 1本ずつの経過表）・仕込カルテ');
+  rcLoading('醪の一覧を読み込んでいます…');
+  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
+  const list=moromiList(st);
+  const done=st.master.filter(m=>(st.today[m.no]||{}).state==='上槽済').length;
+  let h=`<div class="rc-status" id="rcStatus"></div>`;
+  h+=list.length?list.map(({m,t,d})=>moromiRowHTML(m,t,d)).join(''):`<p class="muted" style="text-align:center;padding:20px 0">醪中の仕込はありません</p>`;
+  h+=`<button class="sh-link" id="shKarte">📋 仕込カルテ（予定・上槽済・原酒評価）<span>›</span></button>
+    <div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="rcReload">更新</button><span class="tl-note" style="margin:0">「未」＝今日の品温（AM）がまだ。押すとその醪の経過表（分析醪シートと同じ並び）が開きます。${done?`上槽済 ${done}本はカルテから。`:''}</span></div>`;
+  app.innerHTML=h;
+  const bind=()=>app.querySelectorAll('.sh-row[data-no]').forEach(b=>b.onclick=()=>go(()=>moromiSheet(b.dataset.no)));
+  bind();
+  $('#shKarte').onclick=()=>go(()=>shikomiScreen());
+  $('#rcReload').onclick=async()=>{ rcStatus('更新中…'); await recState(true); list.forEach(({m})=>RC.bun[m.no]=null); moromiHome(); };
+  const myTop=nav[nav.length-1];
+  shFetchMany(list.filter(({m,d})=>d>=1&&!RC.bun[m.no]).map(({m})=>m.no),'bunseki_get',RC.bun,no=>{
+    if(nav[nav.length-1]!==myTop) return;
+    const b=app.querySelector(`.sh-row[data-no="${no}"]`), x=list.find(y=>String(y.m.no)===String(no));
+    if(b&&x){ const t=document.createElement('div'); t.innerHTML=moromiRowHTML(x.m,x.t,x.d); b.replaceWith(t.firstElementChild); bind(); }
+  });
+}
+async function moromiSheet(no){
+  const m=rcMaster(no)||{};
+  head(`順号 ${no}　${m.sym||''}号`, `${m.liquid||''}　T${m.tank||''}　酵母 ${m.yeast||'—'}　総米 ${m.soumai||''}kg`);
+  let b=RC.bun[no];
+  if(!b){ rcLoading('分析値を読み込んでいます…'); try{ const r=await recApi({action:'bunseki_get',no},40000); if(r&&r.ok){ b=r; RC.bun[no]=r; } }catch(e){} }
+  if(!b){ rcFail(); return; }
+  const days=b.days||[], calc=b.calc||{}, dT=rcMoromiDay(m,dtoday());
+  const be=shLast(days,'be'), alc=shLast(days,'alc');
+  const bm=(()=>{ for(let i=days.length;i>=1;i--){ const v=shN((calc[i]||{}).bmd); if(v!==null) return {v,day:i}; } return null; })();
+  const t=(RC.state&&RC.state.today&&RC.state.today[no])||{};
+  const dl=d=>d===1?'留':d;
+  let h=`<div class="sh-tiles"><div><small>${dT>=1?'今日':'留まで'}</small><b>${dT>=1?dT+'日目':(1-dT)+'日'}</b></div>
+    <div><small>Be/日本酒度${be?'（'+dl(be.day)+'）':''}</small><b>${be?shF(be.v):'—'}</b></div>
+    <div><small>alc${alc?'（'+dl(alc.day)+'）':''}</small><b>${alc?shF(alc.v):'—'}</b></div>
+    <div class="${t.warn?'w':''}"><small>BMD${bm?'（'+dl(bm.day)+'）':''}</small><b>${bm?shF(bm.v):'—'}</b></div></div>`;
+  if(t.warn) h+=`<div class="tl-warn" style="margin:0 0 8px">${esc(t.warn)}</div>`;
+  const last=Math.max(dT||1, ...days.filter(x=>shN(x.be)!==null||shN(x.tAM)!==null).map(x=>x.day), 1);
+  const upto=Math.min(days.length, Math.max(last+3, 12));
+  const dd=days.slice(0,upto);
+  h+=shChart(dd.length, dd.map(x=>dl(x.day)), [
+    {name:'標準BMD', color:'#1f5fa8', axis:'L', std:true, vals:dd.map(x=>shN((calc[x.day]||{}).bmdStd))},
+    {name:'標準品温', color:'#c0392b', axis:'R', std:true, vals:dd.map(x=>shN((calc[x.day]||{}).tStd))},
+    {name:'BMD', color:'#1f5fa8', axis:'L', vals:dd.map(x=>shN((calc[x.day]||{}).bmd))},
+    {name:'品温', color:'#c0392b', axis:'R', dash:true, vals:dd.map(x=>shN(x.tAM))}], dT-1);
+  h+=moromiSetupTable(b);
+  h+=shTable(dd, x=>dl(x.day), [
+    ['Be/度', x=>shF(x.be)], ['alc', x=>shF(x.alc)], ['酸', x=>shF(x.ta)], ['ｱﾐﾉ', x=>shF(x.aa)], ['追水', x=>shF(x.oimizu,0)],
+    ['品温', x=>{ const a=shF(x.tAM), p=shF(x.tPM); return a||p?`${a||'—'}${p?`<span class="pm">${p}</span>`:''}`:''; }, {req:true}],
+    ['BMD', x=>shF((calc[x.day]||{}).bmd)],
+    ['注意', x=>{ const k=calc[x.day]||{}; return k.warn?`<span class="wn">!</span>`:(k.rec?`<span style="font-size:10px">追${rcN(k.rec)}</span>`:''); }]], dT);
+  h+=`<p class="sh-note">グラフの薄い帯＝醪DBの標準BMD・標準品温。横＝留・2日目…（${upto}日目まで表示。入力が進むと伸びます）、品温は上段＝AM・下段(小)＝PM。表の日（列）を押すと、その日の入力画面（保存すると BMD・追水の推奨を計算）が開きます。Be は3.0未満になったら日本酒度で入力（R7BYと同じ）。追水計画 ${esc(m.oimizu||'—')}L／四段 ${esc(m.yodan||'—')}L／アル添 ${esc(m.alc||'—')}L。</p>
+    <button class="sh-link" id="shKarte">📋 この仕込のカルテ（麹・酒母・上槽・原酒評価）<span>›</span></button>`;
+  app.innerHTML=h;
+  shBindTable(d=>go(()=>moromiInput(no,d)));
+  app.querySelectorAll('[data-st]').forEach(c=>c.onclick=()=>go(()=>moromiSetup(no,c.dataset.st)));
+  $('#shKarte').onclick=()=>go(()=>karteScreen(no));
+}
+
+/* ---- 醪：添・踊・仲・留 の仕込み時の値（分析醪の 添H・踊K・仲M・留P 列） ---- */
+const MR_STAGES=[['soe','添'],['odori','踊'],['naka','仲'],['tome','留']];
+const MR_SETUP=[['shaku','尺','mm','1'],['ryo','量','L','1'],['kumi','汲水','L','1'],['kori','氷','L','1'],['mizukoji','水麹','℃','0.1'],['mushi','蒸米','℃','0.1'],['hin','品温','℃','0.1']];
+const MR_ODORI=[['be','Be','','0.1'],['ta','酸度','','0.1'],['aa','ｱﾐﾉ','','0.1'],['hin','品温','℃','0.1']];
+function moromiSetupTable(b){
+  const S=b.setup||{}, today=dtoday();
+  const cell=(st,f)=>{ const v=shN((S[st]||{})[f]); return v===null?'':shF(v,/shaku|ryo|kumi|kori/.test(f)?0:1); };
+  let h=`<div class="rc-h" style="margin-top:4px">仕込み時<small>押すと入力（分析醪シートの 添・踊・仲・留）</small></div><div class="sh-st"><div class="sh-tw"><table class="sh-t"><tr><th class="k"></th>${MR_STAGES.map(([st,l])=>`<th data-st="${st}">${l}<br><span style="font-weight:400">${rcMD((S[st]||{}).date)}</span></th>`).join('')}</tr>`;
+  const rows=[['尺','shaku'],['量','ryo'],['汲水','kumi'],['氷','kori'],['水麹','mizukoji'],['蒸米','mushi'],['品温','hin'],['Be','be'],['酸度','ta'],['ｱﾐﾉ','aa']];
+  rows.forEach(([l,f])=>{
+    h+=`<tr><td class="k">${l}</td>${MR_STAGES.map(([st])=>{ const ok=st==='odori'?MR_ODORI.some(x=>x[0]===f):MR_SETUP.some(x=>x[0]===f);
+      if(!ok) return `<td data-st="${st}" style="background:#f6f3ea"></td>`;
+      const v=cell(st,f), due=(S[st]||{}).date && (S[st]||{}).date<=today;
+      return `<td data-st="${st}" class="${v?'v':(due&&f!=='kori'?'miss':'')}" ${!v&&due&&f!=='kori'?'style="background:#fff7e0"':''}>${v}</td>`; }).join('')}</tr>`; });
+  return h+`</table></div></div>`;
+}
+async function moromiSetup(no, st){
+  const m=rcMaster(no)||{}, L=(MR_STAGES.find(x=>x[0]===st)||[])[1]||st;
+  head(`順号 ${no}　${L}の仕込み時`, `${m.liquid||''}　T${m.tank||''}　（分析醪シートの ${L} 列）`);
+  let b=RC.bun[no];
+  if(!b){ rcLoading('読み込んでいます…'); try{ const r=await recApi({action:'bunseki_get',no},40000); if(r&&r.ok){ b=r; RC.bun[no]=r; } }catch(e){} }
+  if(!b){ rcFail(); return; }
+  const S=(b.setup||{})[st]||{}, defs=st==='odori'?MR_ODORI:MR_SETUP;
+  app.innerHTML=`<div class="rc-tabs">${MR_STAGES.map(([k,l])=>`<button class="${k===st?'on':''}" data-t="${k}">${l}</button>`).join('')}</div>
+    <div class="card"><b style="font-size:16px">${L}　${S.date?djp(S.date):''}</b>
+      <div class="rc-grid" style="margin-top:8px">${defs.map(([f,l,un,step])=>rcField('mr_'+f,`${l}${un?' '+un:''}`,S[f],{step})).join('')}</div>
+      <div class="rc-status" id="rcStatus"></div>
+      <div class="rc-actions"><button class="rc-btn" id="mrSave">保存</button></div></div>
+    <p class="tl-note">${st==='odori'?'踊は添の翌日の分析（Be・酸度・アミノ酸度・品温）。':'尺＝仕込み後の尺(mm)、量＝容量(L)。汲水は計画値が最初から入っています（実際と違えば直す）。'}${st==='tome'?'留の品温は、醪の「留（1日目）」の品温と同じ欄です。':''}</p>`;
+  app.querySelectorAll('.rc-tabs button').forEach(x=>x.onclick=()=>moromiSetup(no,x.dataset.t));
+  $('#mrSave').onclick=async()=>{
+    const values={}; defs.forEach(([f])=>{ const v=$('#mr_'+f).value; if(String(v)!==String(S[f]??'')) values[f]=v; });
+    if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
+    $('#mrSave').disabled=true; rcStatus('保存中…');
+    try{ const res=await recApi({action:'bunseki_save',no,setup:{stage:st,values}},50000);
+      if(res&&res.ok){ if(res.all) RC.bun[no]=res.all; else RC.bun[no]=null; rcStatus(`${L} を保存しました`); setTimeout(()=>moromiSetup(no,st),400); }
+      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#mrSave').disabled=false; }
+    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#mrSave').disabled=false; }
+  };
+}
+
+</script>
+<script>
+/* ================= 📋 ホーム「本日の予定」（2026-09-30） =================
+   泰広さん指示：1日の予定を枠の中で（横＝時刻）。カレンダーの予定はその下に箇条書き。アイコンは角丸。
+   ・レーン：麹／酒母／仕込み／洗米／上槽・粕（予定のある作業だけ出す）。今の時刻に赤線
+   ・予定を押すと下から詳細 →「〇〇の画面を開く」
+   ・もと：麹＝麹管理R8BY（koji_today、時刻は麹管理の設定）／酒母・仕込み・上槽＝醪管理R8BY 仕込マスタ（recState）／
+           洗米・上槽・粕・備考＝出勤表・洗米予定表（MFG）／カレンダー＝酸素濃度測定記録の Apps Script（予定.gs：cal_day）
+   ・時刻は画面に出さない（2026-09-30 泰広さん指示）。DP_T の時刻は左からの並び順を決めるためだけに使う
+   ・ろ過・火入はデータの置き場が決まったら足す
+   控え：seishu-workbook_github\_src_day.js
+   ======================================================================== */
+const DP_T = {
+  shuboShikomi:['10:00','11:00'], motooroshi:['15:00','16:00'],
+  shikomi:['09:00','10:30'], senmai:['13:30','15:30'], joso:['08:00','12:00'], kasu:['13:00','15:00'],
+  koji:{ 盛:['08:30',50], 仲仕事:[null,15], 留仕事:[null,15], 引込:['09:40',50], 種切:[null,15], 切返し:[null,15], 出麹:['13:00',50] }
+};
+const DP_LANES = [['koji','麹'],['shubo','酒母'],['shk','仕込み'],['sen','洗米'],['joso','上槽・粕']];
+const DP_CSS = `
+.dp{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:10px 0 0;padding:8px 8px 6px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.dp-h{display:flex;align-items:baseline;gap:6px;font-weight:800;color:var(--navy);font-size:15px;margin:0 2px 6px}
+.dp-h small{font-weight:400;color:var(--sub);font-size:12px}
+.dp-h span{margin-left:auto;font-size:11px;font-weight:400;color:var(--sub)}
+.dp-g{position:relative;display:grid;grid-template-columns:46px 1fr;font-size:11px}
+.dp-g .ln{height:30px;display:flex;align-items:center;font-weight:700;color:var(--navy);font-size:11px;border-top:1px solid #f1ecdf;padding-left:2px}
+.dp-g .ax{height:16px}
+.dp-a{position:relative;border-left:1px solid var(--line)}
+.dp-a .hr{position:absolute;top:0;font-size:9px;color:var(--sub);transform:translateX(-50%)}
+.dp-a .gl{position:absolute;top:16px;bottom:0;width:1px;background:#f1ecdf}
+.dp-a .row{position:absolute;left:0;right:0;height:30px;border-top:1px solid #f1ecdf}
+.dp-b{position:absolute;height:24px;border-radius:6px;border-left:3px solid;font-size:10.5px;font-weight:700;line-height:24px;padding:0 3px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;cursor:pointer;max-width:70%;color:#2a2a2a;font-family:inherit;text-align:left;border-top:0;border-right:0;border-bottom:0}
+.dp-b.s{padding:0 1px;text-align:center;font-weight:600;font-size:9.5px}
+.dp-b.done{opacity:.72}
+.dp-now{position:absolute;top:14px;bottom:0;border-left:2px solid #d62b22;z-index:2;pointer-events:none}
+.dp-now:before{content:attr(data-t);position:absolute;top:-13px;left:-12px;white-space:nowrap;background:#d62b22;color:#fff;font-size:9px;border-radius:4px;padding:0 3px}
+.dp-empty{color:var(--sub);font-size:13px;text-align:center;padding:16px 0}
+.dp-k{background:#fbf3d2;border-color:#d8b43c}.dp-s{background:#fde8e4;border-color:#d0806e}.dp-m{background:#e7f0fb;border-color:#5a8fd0}
+.dp-w{background:#eaf6e0;border-color:#6aa84f}.dp-j{background:#ece6f7;border-color:#8a6cc8}.dp-u{background:#f1ede6;border-color:#9a8a70}
+.dp-o{background:#e3f4ea;border-color:#2f7d5d}.dp-on{background:#fdecec;border-color:#d62b22;color:#b31b14}
+.dp-cal{margin:8px 2px 0;padding:6px 0 0;border-top:1px dashed var(--line);font-size:13px}
+.dp-cal .t{font-size:11px;color:var(--sub);font-weight:700;margin-bottom:2px}
+.dp-cal ul{margin:0;padding-left:1.1em}.dp-cal li{margin:2px 0;line-height:1.4}
+.dp-cal li b{color:var(--navy);margin-right:4px;font-variant-numeric:tabular-nums}
+.dp-cal li small{color:var(--sub)}
+.dp-ics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 6px;margin:16px 0 4px}
+.dp-ic{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:0;padding:0;font-family:inherit;color:var(--ink);text-decoration:none;cursor:pointer}
+.dp-ic .ico{width:56px;height:56px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:27px;box-shadow:0 2px 5px rgba(84,72,24,.18),inset 0 -2px 0 rgba(0,0,0,.06)}
+.dp-ic .lb{font-size:11px;font-weight:700;line-height:1.2;text-align:center;color:#26210f}
+.dp-ic .lb small{display:block;font-weight:400;color:var(--sub);font-size:10px}
+.dp-ic:active .ico{transform:scale(.92)}
+.dp-ic .n{position:absolute;top:-5px;right:calc(50% - 34px);background:#d62b22;color:#fff;font-size:11px;font-weight:700;border-radius:999px;min-width:18px;height:18px;line-height:18px;text-align:center;padding:0 4px;box-shadow:0 0 0 2px var(--paper)}
+.dp-ic .tg{background:#d62b22;color:#fff;font-size:9.5px;font-weight:700;border-radius:4px;padding:1px 4px;margin-top:-2px;animation:dpBl 1.4s ease-in-out infinite}
+@keyframes dpBl{50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce){.dp-ic .tg{animation:none}}
+.dp-sh h3{margin:0 0 8px;font-size:16px;color:var(--navy)}
+.dp-sh .tm{font-size:12px;color:var(--sub);margin:-4px 0 8px}
+.dp-sh ul{margin:0 0 8px;padding-left:1.1em;font-size:14px;line-height:1.5}
+.dp-sh .go{display:block;width:100%;margin-top:6px;padding:12px;border:0;border-radius:10px;background:var(--navy);color:#fff;font-size:15px;font-weight:700;font-family:inherit}
+`;
+(function(){ const s=document.createElement('style'); s.textContent=DP_CSS; document.head.appendChild(s); })();
+
+const dpMin=t=>{ const m=String(t||'').match(/^(\d{1,2}):(\d{2})/); return m?(+m[1])*60+(+m[2]):null; };
+const dpHM=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
+function dpState(){ if(RC.state&&RC.state.master) return RC.state; const c=lsGet('rec.state',null); return c&&c.master?c:null; }
+function dpShukkinDay(date){ const K=MFG&&MFG.shukkin; const M=K&&K.months&&K.months[date.slice(0,7)]; return M?(M.days||[]).find(x=>x.d===date)||null:null; }
+
+/* ---- その日の作業を集める ---- */
+function dpItems(date){
+  const out=[]; const add=(lane,s,e,label,cls,d,small)=>{ const a=dpMin(s), b=typeof e==='number'?a+e:dpMin(e); if(a===null) return; out.push({lane,s:a,e:Math.max(b||a+30,a+10),label,cls,d,small}); };
+  // 麹
+  const j=RC.koji&&RC.koji[date];
+  if(j&&j.koji){
+    const tg=j.targets||{}, rows=j.koji;
+    const pl=r=>String(r['盛 場所']||r['引込 場所']||'').replace(/麹棚/g,'棚').replace(/天幕/g,'');
+    const line=r=>`${r['麹ID']}　${r['液種']||''} ${r['品種']||''}${r['精米歩合']?r['精米歩合']+'%':''}　${r['麹米kg']||''}kg${pl(r)?'　'+pl(r):''}`;
+    const kst=(k,list)=>{ if(!list.length) return; const T=DP_T.koji[k]; const t=(tg[k==='盛'?'盛後':k]||{}).time||T[0]; if(!t) return;
+      add('koji',t,T[1],(T[1]<20?k.slice(0,1):`${k}${list.length}`),'dp-k',{title:`麹　${k}（${list.length}本）`,time:t,lines:list.map(line),open:()=>kojiScreen(date),openL:'麹の画面を開く'},T[1]<20); };
+    const mori=rows.filter(r=>r['盛日']===date), hik=rows.filter(r=>r['引込日']===date), dek=rows.filter(r=>r['出麹日']===date);
+    kst('盛',mori); kst('仲仕事',mori); kst('留仕事',mori); kst('引込',hik); kst('種切',hik); kst('切返し',hik); kst('出麹',dek);
+    if((mori.length||hik.length||dek.length) && typeof o2Measured==='function'){
+      const ok=o2Measured('koji',date), r=(o2Cached('koji')||[]).find(x=>x.date===date);
+      add('koji', ok&&r&&r.time?r.time:'08:00', 15, 'O₂', ok?'dp-o':'dp-on', {title:'酸素濃度測定（麹室）', time:ok&&r?r.time:'', lines:[ok?(r?`測定済み　${Number(r.o2).toFixed(1)}%（${r.by}）`:'測定済み（送信待ち）'):'まだ測定していません'], open:()=>o2Screen('koji'), openL:'酸素濃度測定を開く'}, true);
+    }
+  }
+  // 酒母・仕込み・上槽（仕込マスタ）
+  const st=dpState();
+  if(st){
+    const M=st.master||[];
+    const nm=m=>`No.${m.no} ${m.sym||''}　${m.liquid||''}`;
+    const sh=M.filter(m=>m.motodate===date);
+    if(sh.length) add('shubo',DP_T.shuboShikomi[0],DP_T.shuboShikomi[1],`仕込${sh.map(m=>m.no).join('・')}`,'dp-s',{title:'酒母仕込',time:DP_T.shuboShikomi.join('〜')+'（目安）',lines:sh.map(m=>`${nm(m)}${m.shuboT?'　T'+m.shuboT:''}${m.yeast?'　酵母 '+m.yeast:''}`),open:()=>shuboHome(),openL:'酒母の画面を開く'});
+    const mo=M.filter(m=>m.soe&&dadd(m.soe,-1)===date);
+    if(mo.length) add('shubo',DP_T.motooroshi[0],DP_T.motooroshi[1],`酛卸${mo.map(m=>m.no).join('・')}`,'dp-s',{title:'酛卸',time:DP_T.motooroshi.join('〜')+'（目安・添の前日）',lines:mo.map(m=>`${nm(m)}${m.shuboT?'　T'+m.shuboT:''} → T${m.tank||''}`),open:()=>shuboHome(),openL:'酒母の画面を開く'});
+    const soe=M.filter(m=>m.soe===date), naka=M.filter(m=>m.soe&&dadd(m.soe,2)===date), tome=M.filter(m=>m.tome===date);
+    if(soe.length||naka.length||tome.length){
+      const lb=[soe.length?'添'+soe.map(m=>m.no).join('・'):'',naka.length?'仲'+naka.map(m=>m.no).join('・'):'',tome.length?'留'+tome.map(m=>m.no).join('・'):''].filter(Boolean).join(' ');
+      add('shk',DP_T.shikomi[0],DP_T.shikomi[1],lb,'dp-m',{title:'仕込み',time:DP_T.shikomi.join('〜')+'（目安）',
+        lines:[...soe.map(m=>`添　${nm(m)}　T${m.tank||''}`),...naka.map(m=>`仲　${nm(m)}　T${m.tank||''}`),...tome.map(m=>`留　${nm(m)}　T${m.tank||''}`)],open:()=>moromiHome(),openL:'仕込みの画面を開く'});
+    }
+    const jo=M.filter(m=>m.joso===date);
+    if(jo.length) add('joso',DP_T.joso[0],DP_T.joso[1],`上槽${jo.map(m=>m.no).join('・')}`,'dp-j',{title:'上槽',time:DP_T.joso.join('〜')+'（目安）',lines:jo.map(m=>`${nm(m)}　T${m.tank||''}`),open:()=>moromiHome(),openL:'仕込みの画面を開く'});
+  }
+  // 出勤表（上槽・粕）と洗米予定表
+  const kd=dpShukkinDay(date);
+  if(kd){
+    if(kd.j && !out.some(x=>x.lane==='joso'&&x.label.indexOf('上槽')===0)) add('joso',DP_T.joso[0],DP_T.joso[1],`上槽 ${kd.j}`,'dp-j',{title:'上槽',time:DP_T.joso.join('〜')+'（目安）',lines:[`出勤表：${kd.j}`],open:()=>moromiHome(),openL:'仕込みの画面を開く'});
+    if(kd.k) add('joso',DP_T.kasu[0],DP_T.kasu[1],`粕 ${kd.k}`,'dp-u',{title:'粕',time:DP_T.kasu.join('〜')+'（目安）',lines:[`出勤表：${kd.k}`]});
+  }
+  const S=MFG&&MFG.senmai, sd=S&&S.days&&S.days[date];
+  if(sd&&sd.e&&sd.e.length){
+    const cols=S.cols||[]; const ents=sd.e.map(e=>({kb:(cols[e[0]]||[])[0]||'',g:(cols[e[0]]||[])[1]||'',rice:e[1],ratio:e[2],prod:e[4],no:e[5],kg:Number(e[6]||0)}));
+    const kg=ents.reduce((a,x)=>a+x.kg,0);
+    add('sen',DP_T.senmai[0],DP_T.senmai[1],`洗米${ents.length}件`,'dp-w',{title:`洗米（${ents.length}件・${Math.round(kg).toLocaleString('ja-JP')}kg）`,time:DP_T.senmai.join('〜')+'（目安）',
+      lines:ents.map(x=>`${x.g}${x.kb}　${x.rice} ${x.ratio}%　${x.prod||''} No.${x.no}　${kgfmt(x.kg)}kg`),open:()=>senmaiScreen(date),openL:'洗米チェックを開く'});
+  }
+  return out;
+}
+
+/* ---- 横の時刻軸の表 ---- */
+function dpPlanHTML(){
+  const date=dtoday(), items=dpItems(date);
+  const d=dparse(date);
+  let h=`<div class="dp-h">本日の予定<small>${d.getMonth()+1}月${d.getDate()}日（${WD[d.getDay()]}）</small><span>左から作業の順・押すと詳細</span></div>`;
+  if(!items.length){ h+=`<div class="dp-empty">${dpState()||(RC.koji&&RC.koji[date])?'今日の作業予定はありません':'予定を読み込んでいます…'}</div>`; return h; }
+  let lo=7*60, hi=17*60; items.forEach(x=>{ lo=Math.min(lo,Math.floor(x.s/60)*60); hi=Math.max(hi,Math.ceil(x.e/60)*60); });
+  const span=hi-lo, px=v=>((v-lo)/span*100).toFixed(2)+'%';
+  const lanes=DP_LANES.filter(([k])=>items.some(x=>x.lane===k));
+  h+=`<div class="dp-g"><div><div class="ax"></div>${lanes.map(([k,l])=>`<div class="ln">${l}</div>`).join('')}</div><div class="dp-a" style="height:${16+30*lanes.length}px">`;
+  lanes.forEach(([k],i)=>{ h+=`<div class="row" style="top:${16+30*i}px"></div>`; });
+  const now=new Date(), nm=now.getHours()*60+now.getMinutes();
+  items.forEach((x,idx)=>{ const i=lanes.findIndex(l=>l[0]===x.lane); const w=Math.max((x.e-x.s)/span*100, x.small?5.5:12);
+    h+=`<button type="button" class="dp-b ${x.cls} ${x.small?'s':''} ${x.e<nm&&x.cls!=='dp-on'?'done':''}" data-dp="${idx}" style="top:${16+30*i+3}px;left:${px(x.s)};min-width:${w.toFixed(2)}%">${esc(x.label)}</button>`; });
+  if(nm>=lo&&nm<=hi) h+=`<span class="dp-now" style="left:${px(nm)}" data-t="いま"></span>`;
+  h+=`</div></div>`;
+  DP_LAST=items;
+  return h;
+}
+let DP_LAST=[];
+
+/* ---- カレンダーの予定（箇条書き） ---- */
+function dpCalHTML(){
+  const date=dtoday(), c=lsGet('dp.cal',null), ev=(c&&c.date===date&&c.events)||null;
+  const kd=dpShukkinDay(date);
+  let li='';
+  if(ev) li=ev.slice().sort((a,b)=>(a.allDay?'0':'1'+a.start).localeCompare(b.allDay?'0':'1'+b.start)).map(x=>`<li>${x.allDay?'<b>終日</b>':`<b>${esc(x.start)}${x.end?'〜'+esc(x.end):''}</b>`}${esc(x.title)}${x.place?` <small>（${esc(x.place)}）</small>`:''}</li>`).join('');
+  else if(kd&&kd.n) li=String(kd.n).split(/[\/／]/).map(s=>s.trim()).filter(Boolean).map(s=>`<li>${esc(s)} <small>（出勤表の備考）</small></li>`).join('');
+  if(!li) return `<div class="dp-cal"><div class="t">カレンダーの予定</div><div style="color:var(--sub);font-size:12px">${ev||!O2_URL?'今日の予定はありません':'読み込んでいます…'}</div></div>`;
+  return `<div class="dp-cal"><div class="t">カレンダーの予定</div><ul>${li}</ul></div>`;
+}
+
+/* ---- ホーム全体（home() から呼ばれる。六角形の代わりに角丸アイコン） ---- */
+function dpHome(hexes){
+  const ic=x=>{ const lb=String(x.lb).replace(/<br>/g,'').replace('<span class="sm">','<small>').replace('</span>','</small>');
+    const bg=`background:linear-gradient(160deg,${x.c[0]},${x.c[1]})`;
+    const inner=`<span class="ico" style="${bg}">${x.e}</span><span class="lb">${lb}</span>${x.n?`<span class="n">${x.n}</span>`:''}${x.tag?`<span class="tg">${x.tag}</span>`:''}`;
+    return x.href?`<a class="dp-ic" href="${x.href}">${inner}</a>`:`<button type="button" class="dp-ic" id="${x.id}">${inner}</button>`; };
+  setTimeout(dpAfterHome, 50);
+  return `${kirinzanBand()}<div class="hx" style="display:none"></div>
+    <div class="dp" id="dpBox"><div id="dpPlan">${dpPlanHTML()}</div><div id="dpCal">${dpCalHTML()}</div></div>
+    ${homeToday()}
+    <div class="dp-ics">${hexes.map(ic).join('')}</div>`;
+}
+
+/* ---- 詳細（下から出る） ---- */
+function dpSheet(x){
+  const m=document.createElement('div'); m.className='o2-mask';
+  m.innerHTML=`<div class="o2-sheet dp-sh" style="padding:16px 16px calc(16px + env(safe-area-inset-bottom))"><h3>${esc(x.d.title)}</h3>
+    <ul>${(x.d.lines||[]).map(l=>`<li>${esc(l)}</li>`).join('')}</ul>${x.d.open?`<button class="go" type="button">${esc(x.d.openL||'画面を開く')} ›</button>`:''}</div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) m.remove(); };
+  const g=m.querySelector('.go'); if(g) g.onclick=()=>{ m.remove(); go(x.d.open); };
+}
+document.addEventListener('click', e=>{
+  const b=e.target.closest && e.target.closest('.dp-b[data-dp]'); if(!b) return;
+  const x=DP_LAST[+b.dataset.dp]; if(x) dpSheet(x);
+});
+/* 角丸アイコンを押した回数（先読みの順番づけ。六角形のときと同じ記録） */
+document.addEventListener('click', e=>{
+  const el=e.target.closest && e.target.closest('#app .dp-ic'); if(!el) return;
+  try{ const href=el.getAttribute('href')||''; const k=HOME_KEYS[el.id]||(href.indexOf('seishu-jiten')>=0?'jiten':href.indexOf('voice')>=0?'voice':''); if(k) useAdd('f',k); }catch(x){}
+}, true);
+
+/* ---- 裏で最新を取り、予定の枠だけ描き直す ---- */
+let DP_BUSY=null, DP_TICK=null;
+function dpRedraw(){ const p=document.getElementById('dpPlan'), c=document.getElementById('dpCal'); if(p) p.innerHTML=dpPlanHTML(); if(c) c.innerHTML=dpCalHTML(); }
+function dpAfterHome(){
+  if(!document.getElementById('dpBox')) return;
+  clearInterval(DP_TICK); DP_TICK=setInterval(()=>{ if(document.getElementById('dpBox')) dpRedraw(); else clearInterval(DP_TICK); }, 60000);
+  if(DP_BUSY) return;
+  DP_BUSY=(async()=>{
+    const d=dtoday();
+    const tasks=[];
+    if(!(RC.koji&&RC.koji[d])) tasks.push((async()=>{ let r=null;
+      try{ const c=await PC.get(recKey({action:'koji_today',date:d})); if(c&&c.s) r=JSON.parse(c.s); }catch(e){}
+      if(!r){ try{ r=await recApi({action:'koji_today',date:d},40000); }catch(e){} }
+      if(r&&r.ok) RC.koji[d]=r; })());
+    if(!RC.state || Date.now()-(RC.at||0)>5*60000) tasks.push(recState(false).catch(()=>{}));
+    const c=lsGet('dp.cal',null);
+    if(O2_URL && !(c&&c.date===d&&Date.now()-(c.at||0)<10*60000)) tasks.push((async()=>{ try{ const j=await o2Api({action:'cal_day',date:d},20000); if(j&&j.ok&&j.events) lsSet('dp.cal',{date:d,events:j.events,at:Date.now()}); }catch(e){} })());
+    await Promise.all(tasks);
+    if(!(MFG&&MFG.shukkin) && typeof mfgRefresh==='function' && ST.token) { try{ await mfgRefresh(); }catch(e){} }
+    DP_BUSY=null;
+    dpRedraw();
+  })();
+}
+/* ツールの読み込み前に描かれたホーム（六角形）を、角丸の形で描き直す */
+try{ if(ST && ST.token && typeof app!=='undefined' && app.querySelector('.hx') && !document.getElementById('dpBox') && nav[nav.length-1]===home) go(home,false); }catch(e){}
 
 </script>
 <!-- /tools -->
