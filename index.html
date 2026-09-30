@@ -3548,10 +3548,10 @@ function rcRoom2Picker(id,label,val,occ){
   const cur=rcPlaces(val), anyOut=Object.values(occ).some(o=>o.out&&o.out.length);
   const cell=(a)=>a&&a.length?`<span style="background:${RC_KCOL[String(a[0]).charAt(0)]||'#e9f3ec'}">${a.map(x=>esc(x)).join('<br>')}</span>`:'<span></span>';
   const bx=(lb,pl)=>{ const o=occ[pl]||{}; return `<button type="button" class="pk ${cur.includes(pl)?'on':''}" data-v="${esc(pl)}"><b>${lb}</b>${anyOut?cell(o.out):''}${cell(o.mori)}</button>`; };
-  const grp=a=>`<div class="g">${a.join('')}</div>`, T=n=>bx(n,'麹棚'+n), M=n=>bx(n,'天幕'+n);
+  const grp=a=>`<div class="g" style="flex:${a.length} 1 0">${a.join('')}</div>`, T=n=>bx(n,'麹棚'+n), M=n=>bx(n,'天幕'+n);
   return `<div class="rc-f" style="grid-column:1/-1"><span>${esc(label)} <i>押した箱が選ばれます（いくつでも）${anyOut?'・上段＝出麹で埋まっている箱':''}</i></span><input type="hidden" id="${id}" value="${esc(cur.join(', '))}">
     <div class="rc-multi rc-pick" data-for="${id}"><div class="tl-note">麹棚</div><div class="rc-map2">${grp([10,9,8,7].map(T))}${grp([6,5].map(T))}${grp([4,3,2,1].map(T))}</div>
-    <div class="tl-note">天幕</div><div class="rc-map2">${grp(['L5','L4','L3','L2','L1'].map(M))}${grp(['R5','R4','R3','R2','R1'].map(M))}</div></div></div>`;
+    <div class="tl-note">天幕</div><div class="rc-map2">${grp(['L1','L2','L3','L4','L5'].map(M))}${grp(['R5','R4','R3','R2','R1'].map(M))}</div></div></div>`;
 }
 function rcOcc(j,date,selfId){
   const occ={}, add=(pl,k,x)=>{ (occ[pl]=occ[pl]||{out:[],mori:[]})[k].push(x); };
@@ -3567,12 +3567,12 @@ function rcMap2(out,mori,probes){
   const half=(a,cls,pl)=>{ const p=pb(pl,a); return `<div class="${cls}" style="${a.length?`background:${RC_KCOL[String(a[0]).charAt(0)]||'#e9f3ec'}`:''}">${a.map(x=>`<em>${esc(x)}</em>`).join('')}${p.map(n=>`<i class="pb">No${n}</i>`).join('')}</div>`; };
   const box=(lb,pl)=>{ const o=ids(out,oPl,pl), m=ids(mori,r=>rcPlaces(r['盛 場所']),pl);
     return `<div class="bx"><b>${lb}</b>${out.length?half(o,'up',pl):''}${half(m,'dn',pl)}</div>`; };
-  const grp=a=>`<div class="g">${a.join('')}</div>`;
+  const grp=a=>`<div class="g" style="flex:${a.length} 1 0">${a.join('')}</div>`;
   const T=n=>box(n,'麹棚'+n), M=n=>box(n,'天幕'+n);
   const free=[...Array(10)].map((_,i)=>'麹棚'+(i+1)).concat(['L1','L2','L3','L4','L5','R1','R2','R3','R4','R5'].map(x=>'天幕'+x))
     .filter(pl=>!ids(out,oPl,pl).length && !ids(mori,r=>rcPlaces(r['盛 場所']),pl).length).length;
   return `<div class="tl-note">麹棚</div><div class="rc-map2">${grp([10,9,8,7].map(T))}${grp([6,5].map(T))}${grp([4,3,2,1].map(T))}</div>
-    <div class="tl-note">天幕</div><div class="rc-map2">${grp(['L5','L4','L3','L2','L1'].map(M))}${grp(['R5','R4','R3','R2','R1'].map(M))}</div>
+    <div class="tl-note">天幕</div><div class="rc-map2">${grp(['L1','L2','L3','L4','L5'].map(M))}${grp(['R5','R4','R3','R2','R1'].map(M))}</div>
     <p class="tl-note" style="margin:2px 0 0">${out.length?'上＝出麹まで箱が埋まっている（午前の盛では使えない）　下＝この日に盛る麹':'この日は出麹なし（箱＝この日に盛る麹）'}　空き ${free} か所</p>`;
 }
 /* 麹の画面：品温計の付け外しと温度経過のグラフ */
