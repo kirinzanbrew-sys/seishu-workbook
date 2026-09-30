@@ -1538,6 +1538,19 @@ body.yo-wide .wrap, body.yo-wide header .hin{max-width:none}
 .sn tr.sun td.dt{color:#c62828}.sn tr.sat td.dt{color:#1f5fa8}
 .sn .mh td{background:#f2efe6;font-weight:700;color:var(--navy);text-align:left;padding:5px 6px;font-size:12px;position:sticky;left:0}
 .kn-wrap.tall{max-height:min(80vh,900px)}
+/* 出勤表：スマホを横にしたら表だけを画面いっぱいに（2026-09-30）。パソコン・タブレットは対象外（高さ600px以下の横向きだけ） */
+.kn-cap{display:none}
+@media (orientation:landscape) and (max-height:600px){
+  .kn-wrap.kn-full{position:fixed;inset:0;z-index:9000;max-height:none;height:100vh;height:100dvh;border:0;border-radius:0;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:#fff}
+  .kn-full .kn-cap{display:block;position:fixed;right:calc(8px + env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom));z-index:9001;
+    background:rgba(27,42,65,.88);color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:4px 12px;pointer-events:none}
+  .kn-full .kn-cap span{font-weight:400;opacity:.85;font-size:11px}
+  .kn-full .kn{font-size:12.5px}
+  .kn-full .kn th.nm{width:auto;max-width:none;min-width:34px;font-size:11px}
+  .kn-full .kn td.c>div{width:auto;min-width:30px}
+  .kn-full .kn th,.kn-full .kn td{height:30px}
+}
 .kn tr.today td{background:#fff7d6!important}
 .kn tr.sel td{outline:2px solid var(--navy);outline-offset:-2px}
 .kn .red{color:#d11a1a;font-weight:700}
@@ -2683,7 +2696,7 @@ function kinmuScreen(){
     const byCell = {};
     for(const r of reqs){ if(r.date.slice(0,7)===KN_YM) (byCell[r.date+'|'+nrm(r.staff)] = byCell[r.date+'|'+nrm(r.staff)]||[]).push(r); }
     const td = dtoday();
-    h += `<div class="kn-wrap" id="knWrap"><table class="kn"><thead><tr><th class="dt">日</th>`;
+    h += `<div class="kn-wrap kn-full" id="knWrap"><div class="kn-cap">${yy}年${mm}月　<span>縦にすると元の画面に戻ります</span></div><table class="kn"><thead><tr><th class="dt">日</th>`;
     M.staff.forEach((s,k)=>{ h += `<th class="nm ${k===mine?'me':''}">${knHead(s)}</th>`; });
     h += `<th class="nt">備考</th></tr></thead><tbody>`;
     for(const d of M.days){
