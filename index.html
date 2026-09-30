@@ -1542,6 +1542,13 @@ body.yo-wide .wrap, body.yo-wide header .hin{max-width:none}
 .kn tr.sel td{outline:2px solid var(--navy);outline-offset:-2px}
 .kn .red{color:#d11a1a;font-weight:700}
 .kn .pend{outline:1.5px dashed #d11a1a;outline-offset:-3px;border-radius:4px}
+.kn-ed{border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:6px}
+.kn-ed summary{padding:10px 12px;font-size:14px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px}
+.kn-ed summary::-webkit-details-marker{display:none}
+.kn-ed summary::after{content:'›';margin-left:auto;color:var(--sub);transition:transform .2s}
+.kn-ed[open] summary::after{transform:rotate(90deg)}
+.kn-ed summary small{color:var(--sub);margin-left:8px}
+.kn-ed>*:not(summary){margin:0 8px 8px}
 .kn .gone{color:#aaa;text-decoration:line-through}
 .kn td.c.me{background:#fffaf0}
 .mf-day{border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 12px;margin-top:10px;font-size:13.5px}
@@ -2666,10 +2673,6 @@ function kinmuScreen(){
       for(const r of my) h += reqRow(r, 'mine');
     }
     const eds = reqs.filter(r=>isEdit(r) && r.status==='承認').sort((a,b)=>a.at<b.at?1:-1).slice(0,5);
-    if(me.admin && eds.length){
-      h += `<div class="mf-sec">アプリから直した分<span>最近${eds.length}件</span></div>`;
-      for(const r of eds) h += reqRow(r, 'edit');
-    }
     // 月の切り替え
     const i = yms.indexOf(KN_YM);
     const [yy,mm] = KN_YM.split('-').map(Number);
@@ -2699,6 +2702,12 @@ function kinmuScreen(){
     h += `</tbody></table></div>
       <p class="tl-note"><span style="color:#d11a1a;font-weight:700">赤×</span>＝振休の申請中／黒×＝承認済み。点線の枠は、まだ出勤表Excelに書き込まれていないもの（会社PCが数分以内に反映します）。行を押すとその日の詳しい内容が出ます。</p>
       <div id="knDay"></div>`;
+    // アプリから直した分は一番下に、1行ずつ（押すと詳しい内容と「元に戻す」が出る）2026-09-30
+    if(me.admin && eds.length){
+      const md=s=>`${+String(s).slice(5,7)}/${+String(s).slice(8,10)}`;
+      h += `<div class="mf-sec" style="margin-top:18px">アプリから直した分<span>最近${eds.length}件・押すと詳しく</span></div>`
+        + eds.map(r=>`<details class="kn-ed"><summary><b>${md(r.date)}</b>　${esc(nrm(r.staff))} → <b>${r.mark?esc(r.mark):'空'}</b><small>${esc(nrm(r.applicant||''))}</small></summary>${reqRow(r,'edit')}</details>`).join('');
+    }
     app.innerHTML = h + mfgSrcInfo('shukkin','出勤表Excel');
     bindCalTabs();
     $('#bReq').onclick=()=>go(()=>furikyuForm());
