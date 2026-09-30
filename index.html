@@ -4954,7 +4954,7 @@ async function moromiSetup(no, st){
 <script>
 /* ================= 📋 ホーム「本日の予定」（2026-09-30） =================
    泰広さん指示：1日の予定を枠の中で（横＝時刻）。カレンダーの予定はその下に箇条書き。アイコンは角丸。
-   ・レーン：麹／酒母／仕込み／洗米／上槽・粕（予定のある作業だけ出す）。今の時刻に赤線
+   ・レーン：麹／酒母／仕込み／洗米／上槽・粕（ヤブタ準備＝上槽前日）／清掃（月末清掃＝月の最後の出勤日）。予定のある作業だけ出す
    ・予定を押すと下から詳細 →「〇〇の画面を開く」
    ・もと：麹＝麹管理R8BY（koji_today、時刻は麹管理の設定）／酒母・仕込み・上槽＝醪管理R8BY 仕込マスタ（recState）／
            洗米・上槽・粕・備考＝出勤表・洗米予定表（MFG）／カレンダー＝酸素濃度測定記録の Apps Script（予定.gs：cal_day）
@@ -4964,15 +4964,19 @@ async function moromiSetup(no, st){
    ======================================================================== */
 const DP_T = {
   shuboShikomi:['10:00','11:00'], motooroshi:['15:00','16:00'],
-  shikomi:['09:00','10:30'], senmai:['13:30','15:30'], joso:['08:00','12:00'], kasu:['13:00','15:00'],
+  shikomi:['09:00','10:30'], senmai:['13:30','15:30'], joso:['08:00','12:00'], kasu:['13:00','15:00'], yabuta:['15:00','16:00'], seisou:['15:30','17:00'],
   koji:{ 盛:['08:30',50], 仲仕事:[null,15], 留仕事:[null,15], 引込:['09:40',50], 種切:[null,15], 切返し:[null,15], 出麹:['13:00',50] }
 };
-const DP_LANES = [['koji','麹'],['shubo','酒母'],['shk','仕込み'],['sen','洗米'],['joso','上槽・粕']];
+const DP_LANES = [['koji','麹'],['shubo','酒母'],['shk','仕込み'],['sen','洗米'],['joso','上槽・粕'],['etc','清掃']];
 const DP_CSS = `
 .dp{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:10px 0 0;padding:8px 8px 6px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .dp-h{display:flex;align-items:baseline;gap:6px;font-weight:800;color:var(--navy);font-size:15px;margin:0 2px 6px}
 .dp-h small{font-weight:400;color:var(--sub);font-size:12px}
 .dp-h span{margin-left:auto;font-size:11px;font-weight:400;color:var(--sub)}
+.dp-tabs{display:flex;gap:6px;margin:0 2px 6px}
+.dp-tabs button{flex:1;border:1px solid var(--line);background:#faf7ef;border-radius:999px;padding:6px 0;font-family:inherit;font-size:13px;font-weight:700;color:var(--sub);cursor:pointer}
+.dp-tabs button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.dp-note{font-size:10.5px;color:var(--sub);text-align:right;margin:-2px 2px 4px}
 .dp-g{position:relative;display:grid;grid-template-columns:46px 1fr;font-size:11px}
 .dp-g .ln{height:30px;display:flex;align-items:center;font-weight:700;color:var(--navy);font-size:11px;border-top:1px solid #f1ecdf;padding-left:2px}
 .dp-g .ax{height:16px}
@@ -5029,10 +5033,6 @@ function dpItems(date){
       add('koji',t,T[1],(T[1]<20?k.slice(0,1):`${k}${list.length}`),'dp-k',{title:`麹　${k}（${list.length}本）`,time:t,lines:list.map(line),open:()=>kojiScreen(date),openL:'麹の画面を開く'},T[1]<20); };
     const mori=rows.filter(r=>r['盛日']===date), hik=rows.filter(r=>r['引込日']===date), dek=rows.filter(r=>r['出麹日']===date);
     kst('盛',mori); kst('仲仕事',mori); kst('留仕事',mori); kst('引込',hik); kst('種切',hik); kst('切返し',hik); kst('出麹',dek);
-    if((mori.length||hik.length||dek.length) && typeof o2Measured==='function'){
-      const ok=o2Measured('koji',date), r=(o2Cached('koji')||[]).find(x=>x.date===date);
-      add('koji', ok&&r&&r.time?r.time:'08:00', 15, 'O₂', ok?'dp-o':'dp-on', {title:'酸素濃度測定（麹室）', time:ok&&r?r.time:'', lines:[ok?(r?`測定済み　${Number(r.o2).toFixed(1)}%（${r.by}）`:'測定済み（送信待ち）'):'まだ測定していません'], open:()=>o2Screen('koji'), openL:'酸素濃度測定を開く'}, true);
-    }
   }
   // 酒母・仕込み・上槽（仕込マスタ）
   const st=dpState();
@@ -5052,6 +5052,16 @@ function dpItems(date){
     const jo=M.filter(m=>m.joso===date);
     if(jo.length) add('joso',DP_T.joso[0],DP_T.joso[1],`上槽${jo.map(m=>m.no).join('・')}`,'dp-j',{title:'上槽',time:DP_T.joso.join('〜')+'（目安）',lines:jo.map(m=>`${nm(m)}　T${m.tank||''}`),open:()=>moromiHome(),openL:'仕込みの画面を開く'});
   }
+  // ヤブタ準備＝上槽予定日の前日（2026-09-30 泰広さん指示）
+  if(st){
+    const yb=(st.master||[]).filter(m=>m.joso&&dadd(m.joso,-1)===date);
+    if(yb.length) add('joso',DP_T.yabuta[0],DP_T.yabuta[1],'ヤブタ準備','dp-u',{title:'ヤブタ準備',lines:yb.map(m=>`明日 上槽　No.${m.no} ${m.sym||''}　${m.liquid||''}　T${m.tank||''}`),open:()=>moromiHome(),openL:'仕込みの画面を開く'});
+  }
+  // 月末清掃＝その月の最後の出勤日の15:30以降（会社休日は飛ばす）
+  const hol=new Set(((MFG&&MFG.shukkin&&MFG.shukkin.holidays)||[]));
+  let last=dadd(date.slice(0,7)+'-01',0); { const d0=dparse(date); last=dstr(new Date(d0.getFullYear(),d0.getMonth()+1,0)); }
+  while(hol.has(last)) last=dadd(last,-1);
+  if(date===last) add('etc',DP_T.seisou[0],DP_T.seisou[1],'月末清掃','dp-u',{title:'月末清掃',lines:['15:30以降']});
   // 出勤表（上槽・粕）と洗米予定表
   const kd=dpShukkinDay(date);
   if(kd){
@@ -5069,11 +5079,16 @@ function dpItems(date){
 }
 
 /* ---- 横の時刻軸の表 ---- */
+/* 本日／明日（2026-09-30 泰広さん指示：明日の予定のボタン） */
+let DP_OFF=0;
+const dpDate=()=>dadd(dtoday(),DP_OFF);
 function dpPlanHTML(){
-  const date=dtoday(), items=dpItems(date);
-  const d=dparse(date);
-  let h=`<div class="dp-h">本日の予定<small>${d.getMonth()+1}月${d.getDate()}日（${WD[d.getDay()]}）</small><span>左から作業の順・押すと詳細</span></div>`;
-  if(!items.length){ h+=`<div class="dp-empty">${dpState()||(RC.koji&&RC.koji[date])?'今日の作業予定はありません':'予定を読み込んでいます…'}</div>`; return h; }
+  const date=dpDate(), items=dpItems(date);
+  const d=dparse(date), nx=dparse(dadd(dtoday(),1)), td=dparse(dtoday());
+  const md=x=>`${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`;
+  let h=`<div class="dp-tabs"><button type="button" data-dpd="0" class="${DP_OFF===0?'on':''}">本日の予定 ${md(td)}</button><button type="button" data-dpd="1" class="${DP_OFF===1?'on':''}">明日の予定 ${md(nx)}</button></div>
+    <div class="dp-note">左から作業の順・押すと詳細</div>`;
+  if(!items.length){ h+=`<div class="dp-empty">${dpState()||(RC.koji&&RC.koji[date])?(DP_OFF?'明日':'今日')+'の作業予定はありません':'予定を読み込んでいます…'}</div>`; DP_LAST=[]; return h; }
   let lo=7*60, hi=17*60; items.forEach(x=>{ lo=Math.min(lo,Math.floor(x.s/60)*60); hi=Math.max(hi,Math.ceil(x.e/60)*60); });
   const span=hi-lo, px=v=>((v-lo)/span*100).toFixed(2)+'%';
   const lanes=DP_LANES.filter(([k])=>items.some(x=>x.lane===k));
@@ -5081,8 +5096,7 @@ function dpPlanHTML(){
   lanes.forEach(([k],i)=>{ h+=`<div class="row" style="top:${16+30*i}px"></div>`; });
   const now=new Date(), nm=now.getHours()*60+now.getMinutes();
   items.forEach((x,idx)=>{ const i=lanes.findIndex(l=>l[0]===x.lane); const w=Math.max((x.e-x.s)/span*100, x.small?5.5:12);
-    h+=`<button type="button" class="dp-b ${x.cls} ${x.small?'s':''} ${x.e<nm&&x.cls!=='dp-on'?'done':''}" data-dp="${idx}" style="top:${16+30*i+3}px;left:${px(x.s)};min-width:${w.toFixed(2)}%">${esc(x.label)}</button>`; });
-  if(nm>=lo&&nm<=hi) h+=`<span class="dp-now" style="left:${px(nm)}" data-t="いま"></span>`;
+    h+=`<button type="button" class="dp-b ${x.cls} ${x.small?'s':''} ${DP_OFF===0&&x.e<nm&&x.cls!=='dp-on'?'done':''}" data-dp="${idx}" style="top:${16+30*i+3}px;left:${Math.max(0,Math.min((x.s-lo)/span*100, 100-Math.max(w, x.label.length*3.7+2))).toFixed(2)}%;min-width:${w.toFixed(2)}%">${esc(x.label)}</button>`; });
   h+=`</div></div>`;
   DP_LAST=items;
   return h;
@@ -5091,12 +5105,12 @@ let DP_LAST=[];
 
 /* ---- カレンダーの予定（箇条書き） ---- */
 function dpCalHTML(){
-  const date=dtoday(), c=lsGet('dp.cal',null), ev=(c&&c.date===date&&c.events)||null;
+  const date=dpDate(), c=(lsGet('dp.cal2',{})||{})[date], ev=(c&&c.events)||null;
   const kd=dpShukkinDay(date);
   let li='';
   if(ev) li=ev.slice().sort((a,b)=>(a.allDay?'0':'1'+a.start).localeCompare(b.allDay?'0':'1'+b.start)).map(x=>`<li>${x.allDay?'<b>終日</b>':`<b>${esc(x.start)}${x.end?'〜'+esc(x.end):''}</b>`}${esc(x.title)}${x.place?` <small>（${esc(x.place)}）</small>`:''}</li>`).join('');
   else if(kd&&kd.n) li=String(kd.n).split(/[\/／]/).map(s=>s.trim()).filter(Boolean).map(s=>`<li>${esc(s)} <small>（出勤表の備考）</small></li>`).join('');
-  if(!li) return `<div class="dp-cal"><div class="t">カレンダーの予定</div><div style="color:var(--sub);font-size:12px">${ev||!O2_URL?'今日の予定はありません':'読み込んでいます…'}</div></div>`;
+  if(!li) return `<div class="dp-cal"><div class="t">カレンダーの予定</div><div style="color:var(--sub);font-size:12px">${ev||!O2_URL?(DP_OFF?'明日':'今日')+'の予定はありません':'読み込んでいます…'}</div></div>`;
   return `<div class="dp-cal"><div class="t">カレンダーの予定</div><ul>${li}</ul></div>`;
 }
 
@@ -5133,28 +5147,36 @@ document.addEventListener('click', e=>{
 }, true);
 
 /* ---- 裏で最新を取り、予定の枠だけ描き直す ---- */
-let DP_BUSY=null, DP_TICK=null;
+let DP_TICK=null;
 function dpRedraw(){ const p=document.getElementById('dpPlan'), c=document.getElementById('dpCal'); if(p) p.innerHTML=dpPlanHTML(); if(c) c.innerHTML=dpCalHTML(); }
 function dpAfterHome(){
   if(!document.getElementById('dpBox')) return;
   clearInterval(DP_TICK); DP_TICK=setInterval(()=>{ if(document.getElementById('dpBox')) dpRedraw(); else clearInterval(DP_TICK); }, 60000);
-  if(DP_BUSY) return;
-  DP_BUSY=(async()=>{
-    const d=dtoday();
+  dpLoad(dpDate());
+}
+const DP_LOADING={};
+function dpLoad(d){
+  if(DP_LOADING[d]) return DP_LOADING[d];
+  return DP_LOADING[d]=(async()=>{
     const tasks=[];
     if(!(RC.koji&&RC.koji[d])) tasks.push((async()=>{ let r=null;
       try{ const c=await PC.get(recKey({action:'koji_today',date:d})); if(c&&c.s) r=JSON.parse(c.s); }catch(e){}
       if(!r){ try{ r=await recApi({action:'koji_today',date:d},40000); }catch(e){} }
       if(r&&r.ok) RC.koji[d]=r; })());
     if(!RC.state || Date.now()-(RC.at||0)>5*60000) tasks.push(recState(false).catch(()=>{}));
-    const c=lsGet('dp.cal',null);
-    if(O2_URL && !(c&&c.date===d&&Date.now()-(c.at||0)<10*60000)) tasks.push((async()=>{ try{ const j=await o2Api({action:'cal_day',date:d},20000); if(j&&j.ok&&j.events) lsSet('dp.cal',{date:d,events:j.events,at:Date.now()}); }catch(e){} })());
+    const cm=lsGet('dp.cal2',{})||{}, c=cm[d];
+    if(O2_URL && !(c&&Date.now()-(c.at||0)<10*60000)) tasks.push((async()=>{ try{ const j=await o2Api({action:'cal_day',date:d},20000);
+      if(j&&j.ok&&j.events){ const m=lsGet('dp.cal2',{})||{}; Object.keys(m).forEach(k=>{ if(k<dtoday()) delete m[k]; }); m[d]={events:j.events,at:Date.now()}; lsSet('dp.cal2',m); } }catch(e){} })());
     await Promise.all(tasks);
     if(!(MFG&&MFG.shukkin) && typeof mfgRefresh==='function' && ST.token) { try{ await mfgRefresh(); }catch(e){} }
-    DP_BUSY=null;
-    dpRedraw();
+    delete DP_LOADING[d];
+    if(dpDate()===d) dpRedraw();
   })();
 }
+document.addEventListener('click', e=>{
+  const b=e.target.closest && e.target.closest('[data-dpd]'); if(!b) return;
+  DP_OFF=+b.dataset.dpd; dpRedraw(); dpLoad(dpDate());
+});
 /* ツールの読み込み前に描かれたホーム（六角形）を、角丸の形で描き直す */
 try{ if(ST && ST.token && typeof app!=='undefined' && app.querySelector('.hx') && !document.getElementById('dpBox') && nav[nav.length-1]===home) go(home,false); }catch(e){}
 
