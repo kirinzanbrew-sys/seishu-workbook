@@ -3089,7 +3089,7 @@ function washEdit(id){
         <label class="ws-f"><span>日付</span><input type="date" id="wDate" value="${esc(r.wash.date||'')}"></label>
         <label class="ws-f"><span>時刻</span><input type="time" id="wTime" value="${esc(r.wash.time||'')}"></label>
         <label class="ws-f"><span>測定方法</span><select id="wMethod"><option ${!r.wash.method||r.wash.method==='酸素濃度計'?'selected':''}>酸素濃度計</option><option ${r.wash.method==='その他'?'selected':''}>その他</option></select></label>
-        <label class="ws-f"><span>酸素濃度（%）</span><input type="number" id="wO2" inputmode="decimal" step="0.1" min="0" max="25" placeholder="20.9" value="${r.wash.o2??''}"><span class="ws-hint" id="o2hint"></span></label>
+        <label class="ws-f"><span>酸素濃度（%）</span><input type="hidden" id="wO2" value="${r.wash.o2??''}"><button type="button" class="ws-ghost" id="wO2b" style="font-size:18px;font-weight:700;padding:8px 14px;text-align:left" onclick="o2WashPick()">${(r.wash.o2!==null&&r.wash.o2!==undefined&&r.wash.o2!=='')?Number(r.wash.o2).toFixed(1)+' %':'選ぶ（基本 20.1）'}</button><span class="ws-hint" id="o2hint"></span></label>
         <label class="ws-f"><span>担当</span><select id="wBy">${opt(r.wash.by)}</select></label></div></fieldset>
     <fieldset class="ws-fs ${r.finish.done?'on':''}" id="fsFin"><legend><label><input type="checkbox" id="fDone" ${r.finish.done?'checked':''}>仕上げ</label></legend>
       <div class="ws-grid">
@@ -3108,7 +3108,7 @@ function washEdit(id){
   seg('segSmell','smell'); seg('segDirt','dirt');
   const o2=()=>{ const v=parseFloat($('#wO2').value), h=$('#o2hint'); if(isNaN(v)){h.textContent='';h.className='ws-hint';return;} if(v<18){h.textContent='18%未満 — 立入不可、再換気';h.className='ws-hint bad';} else {h.textContent='18%以上 OK';h.className='ws-hint';} };
   $('#wO2').oninput=o2; o2();
-  $('#wDone').onchange=e=>{ $('#fsWash').classList.toggle('on',e.target.checked); if(e.target.checked){ if(!$('#wDate').value)$('#wDate').value=wsToday(); if(!$('#wTime').value)$('#wTime').value=wsNow(); if(!$('#wBy').value&&ST.name&&WS.staff.includes(ST.name))$('#wBy').value=ST.name; } };
+  $('#wDone').onchange=e=>{ $('#fsWash').classList.toggle('on',e.target.checked); if(e.target.checked){ if(!$('#wDate').value)$('#wDate').value=wsToday(); if(!$('#wTime').value)$('#wTime').value=wsNow(); if(!$('#wBy').value){ const n=(typeof o2WashBy==='function')?o2WashBy(WS.staff):''; if(n) $('#wBy').value=n; else if(ST.name&&WS.staff.includes(ST.name)) $('#wBy').value=ST.name; } if($('#wO2').value===''&&typeof O2_DEF!=='undefined'){ $('#wO2').value=O2_DEF.toFixed(1); $('#wO2b').textContent=O2_DEF.toFixed(1)+' %'; o2(); } } };
   $('#fDone').onchange=e=>{ $('#fsFin').classList.toggle('on',e.target.checked); if(e.target.checked){ if(!$('#fDate').value)$('#fDate').value=wsToday(); if(!$('#fBy').value&&ST.name&&WS.staff.includes(ST.name))$('#fBy').value=ST.name; } };
   $('#cDone').onchange=e=>{ $('#fsChk').classList.toggle('on',e.target.checked); if(e.target.checked){ if(!cur.smell){cur.smell='OK';$('#segSmell button[data-v=OK]').className='ok';} if(!cur.dirt){cur.dirt='OK';$('#segDirt button[data-v=OK]').className='ok';} if(!$('#cBy').value&&ST.name&&WS.staff.includes(ST.name))$('#cBy').value=ST.name; } };
   $('#wsCancel').onclick=()=>hBack.click();
@@ -3127,7 +3127,7 @@ function washEdit(id){
     $('#wsSave').disabled=true; wsStatus('保存中…');
     try{
       const j=await washApi({action:'wash_save',id,data},30000);
-      if(j&&j.ok){ wsApply(j.data); wsStatus(`タンク${p.tank} を保存しました`); setTimeout(()=>hBack.click(),400); }
+      if(j&&j.ok){ wsApply(j.data); if(typeof o2FromWash==='function'){ if(data.wash.by) lsSet('o2.last.wash',data.wash.by); o2FromWash(p,data.wash).catch(()=>{}); } wsStatus(`タンク${p.tank} を保存しました${data.wash.done&&data.wash.o2!==null?'（酸素濃度測定記録にも記録）':''}`); setTimeout(()=>hBack.click(),400); }
       else { wsStatus('保存できませんでした: '+(j&&j.error||''),true); $('#wsSave').disabled=false; }
     }catch(e){ wsStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#wsSave').disabled=false; }
   };
@@ -3666,7 +3666,7 @@ async function kojiScreen(day){
   let h=`<div class="rc-nav"><button id="kPrev">‹ 前日</button><span class="d">${djp(date)}</span><button id="kNext">翌日 ›</button><button id="kToday">今日</button></div>
     <div class="rc-sum"><div><span class="k">出麹</span><span class="v">${out.length}<small> 本 ${kgfmt(kg(out))}kg</small></span></div><div><span class="k">盛（仲・留仕事）</span><span class="v">${mori.length}<small> 本 ${kgfmt(kg(mori))}kg</small></span></div>
       <div><span class="k">引込（種切・切返し）</span><span class="v">${hik.length}<small> 本 ${kgfmt(kg(hik))}kg</small></span></div><div><span class="k">洗米（麹米）</span><span class="v">${wash.length}<small> 口 ${kgfmt(wash.reduce((s,w)=>s+(Number(w.kg)||0),0))}kg</small></span></div></div>
-    ${rcRoomCard(j.room)}${rcProbeCard(j.probes)}
+    ${typeof o2Btn==='function'?o2Btn('koji'):''}${rcRoomCard(j.room)}${rcProbeCard(j.probes)}
     <div class="rc-status" id="rcStatus"></div>`;
   h+=sec('出麹','朝いちばん。品温・水分・重量を記録',out.sort((a,b)=>(a['出麹 順番']||99)-(b['出麹 順番']||99)),r=>row(r,'出麹'));
   h+=sec('盛・仲仕事・留仕事','盛の順番と棚を決めて記録',mori.sort((a,b)=>(a['盛 順番']||99)-(b['盛 順番']||99)),r=>row(r,'盛'));
@@ -3747,6 +3747,7 @@ async function bunsekiScreen(tab){
         <span class="r"><b>${now?d+'日目':'留まで'+(1-d)+'日'}</b><span>${last}</span></span></button>`; }).join(''):`<p class="muted" style="text-align:center;padding:20px 0">醪中の仕込はありません</p>`;
     if(done.length) h+=`<p class="tl-note">上槽済：${done.map(m=>m.no).join('、')}（「仕込み」から見られます）</p>`;
   }else{
+    if(typeof o2Btn==='function') h+=o2Btn('shubo');
     const list=st.master.filter(m=>m.motodate).map(m=>({m,d:rcShuboDay(m,today)})).filter(x=>x.d>=-3 && x.d<=rcDays(x.m.motodate,x.m.tome)+1).sort((a,b)=>a.m.motodate.localeCompare(b.m.motodate));
     h+=list.length?list.map(({m,d})=>`<button class="rc-row ${d>=1?'now':''}" data-no="${m.no}"><span class="st"></span>
         <span class="id">${m.no}<small>酒母${esc(m.shuboSym||'')}${m.shuboT?' T'+esc(m.shuboT):''}</span></span>
@@ -4195,6 +4196,320 @@ if('serviceWorker' in navigator){
 /* ここまで読み込めたので、米管理・出勤表のデータ（MFG）が使えるようになった。
    ホームを開いたままなら、赤い丸と「きょう」の行を出すために一度だけ描き直す。 */
 try{ if(ST && ST.token && nav.length<=1 && typeof app!=='undefined' && app.querySelector('.hx')) go(home,false); }catch(e){}
+
+</script>
+<script>
+/* ================= 🫁 酸素濃度測定（2026-09-30） =================
+   「麹」「分析 › 酒母」「タンク洗浄管理」の画面にある「酸素濃度測定」ボタンから開く。
+   担当者＝今日の出勤表から自動で選ぶ（押すと一覧から変更）、酸素濃度＝19.0〜22.0（0.1刻み・既定20.1）。
+   「確定」で Apps Script「酸素濃度測定記録 R8BY」（O2_URL）へ送り、専用スプレッドシートの
+   麹室／酒母室／タンク洗浄 の各シートに1行ずつ残す。労基署へ出すときは「印刷用の表」を開いて印刷。
+   電波が無いときは端末に預かり、次に開いたとき・電波が戻ったときに自動で送る。
+   控え：seishu-workbook_github\_src_o2.js　／　裏側の控え：AI参照データ\酸素濃度測定\gas\Code.gs
+   ================================================================ */
+const O2_URL = "https://script.google.com/macros/s/AKfycbyQcDDDwzvAzFn1yoSQaQqXFOsQdqZ6uCQ7rB9DiwIA_nkKEWUKuBlLVsl5rlN7W5FN/exec";   // ← Apps Script「酸素濃度測定記録 R8BY」をデプロイしたURL（/exec）を入れる
+const O2_AREAS = {
+  koji:  { label:'麹室',       sub:'麹室の酸素濃度',               places:['麹室'] },
+  shubo: { label:'酒母室',     sub:'酒母室の酸素濃度',             places:['酒母室'] },
+  wash:  { label:'タンク洗浄', sub:'タンクに入る前の酸素濃度',     places:null }
+};
+const O2_MIN = 19.0, O2_MAX = 22.0, O2_DEF = 20.1;
+const O2_CSS = `
+.o2-open{width:100%;display:flex;align-items:center;gap:12px;background:#eaf4fb;border:1px solid #9cc7e4;border-radius:12px;padding:10px 12px;margin:10px 0;font-family:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.o2-open .ic{width:40px;height:40px;border-radius:50%;background:#1f6fa8;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex:0 0 auto}
+.o2-open .ic sub{font-size:10px}
+.o2-open b{display:block;font-size:16px;color:#16507a}
+.o2-open small{display:block;font-size:12px;color:var(--sub);margin-top:1px}
+.o2-open .go{margin-left:auto;font-size:22px;color:#1f6fa8}
+.o2-open:active{background:#d8ebf8}
+.o2-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 14px 14px;margin-top:14px}
+.o2-row{width:100%;display:flex;align-items:center;gap:10px;padding:14px 2px;border:0;border-bottom:1px solid var(--line);background:none;font-family:inherit;color:var(--ink);text-align:left}
+button.o2-row{cursor:pointer}
+button.o2-row:active{background:#f6f3ea}
+.o2-row .k{font-size:13px;color:var(--sub);width:78px;flex:0 0 auto}
+.o2-row .v{flex:1;font-size:18px;font-weight:700}
+.o2-row .v small{display:block;font-size:11px;font-weight:400;color:var(--sub);margin-top:2px}
+.o2-row .ch{font-size:12px;color:#1f6fa8;border:1px solid #9cc7e4;border-radius:999px;padding:3px 10px;flex:0 0 auto}
+.o2-row.big .v{font-size:40px;letter-spacing:.02em;color:#16507a}
+.o2-row.big .v span{font-size:18px;margin-left:4px;color:var(--ink)}
+.o2-ok{display:block;width:100%;margin-top:14px;padding:16px;border:0;border-radius:12px;background:#1f6fa8;color:#fff;font-size:18px;font-weight:800;font-family:inherit;cursor:pointer;letter-spacing:.2em}
+.o2-ok[disabled]{opacity:.45}
+.o2-st{min-height:20px;margin:8px 2px 0;font-size:13px;color:var(--ok);font-weight:600}
+.o2-st.warn{color:var(--ng)}
+.o2-h{display:flex;align-items:center;gap:8px;margin:20px 0 6px;font-weight:700;color:var(--navy)}
+.o2-h .n{margin-left:auto;display:flex;gap:6px}
+.o2-h .n button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font-family:inherit;font-size:13px;color:inherit}
+.o2-h .n button[disabled]{opacity:.35}
+.o2-tw{overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.o2-t{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+.o2-t th,.o2-t td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:center}
+.o2-t th{background:#f3f0e8;font-size:11px;color:var(--sub);font-weight:600}
+.o2-t td.o{font-weight:800;color:#16507a}
+.o2-t tr.new td{background:#fff7d6}
+.o2-t tr.pend td{color:var(--sub);font-style:italic}
+.o2-t .del{border:1px solid var(--line);background:none;border-radius:6px;padding:2px 7px;font-size:11px;color:var(--sub);font-family:inherit}
+.o2-t .del.sure{border-color:var(--ng);color:#fff;background:var(--ng)}
+.o2-links{display:flex;gap:8px;margin:12px 0 4px}
+.o2-links a{flex:1;text-align:center;text-decoration:none;border:1px solid var(--navy);color:var(--navy);border-radius:10px;padding:11px 6px;font-size:14px;font-weight:600;background:var(--card)}
+.o2-mask{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:999;display:flex;align-items:flex-end;justify-content:center}
+.o2-sheet{background:var(--card);width:100%;max-width:520px;max-height:78vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
+.o2-sheet .t{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:700}
+.o2-sheet .t button{margin-left:auto;border:0;background:none;font-size:15px;color:#1f6fa8;font-family:inherit}
+.o2-sheet .l{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 0 10px}
+.o2-sheet .g{font-size:11px;color:var(--sub);padding:10px 16px 4px;font-weight:700}
+.o2-sheet .i{display:flex;align-items:center;width:100%;border:0;background:none;padding:13px 16px;font-size:17px;font-family:inherit;color:var(--ink);text-align:left;border-bottom:1px solid #f1ede3}
+.o2-sheet .i small{margin-left:auto;font-size:12px;color:var(--sub)}
+.o2-sheet .i.on{background:#e6f1fa;color:#16507a;font-weight:800}
+.o2-sheet .i.on::after{content:'✓';margin-left:10px;color:#1f6fa8}
+.o2-sheet.num .i{justify-content:center;font-size:22px;padding:11px 16px}
+.o2-sheet.num .i small{margin-left:10px}
+`;
+(function(){ const s=document.createElement('style'); s.textContent=O2_CSS; document.head.appendChild(s); })();
+
+/* 入口のボタン（各作業の画面に置く） */
+function o2Btn(area){
+  const a=O2_AREAS[area]; if(!a) return '';
+  return `<button class="o2-open" data-o2="${area}" type="button"><span class="ic">O<sub>2</sub></span><span><b>酸素濃度測定</b><small>${esc(a.sub)}を記録（記録表へ）</small></span><span class="go">›</span></button>`;
+}
+document.addEventListener('click', e=>{
+  const b=e.target.closest && e.target.closest('[data-o2]'); if(!b) return;
+  e.preventDefault(); const area=b.dataset.o2; go(()=>o2Screen(area));
+});
+
+/* ---------- 出勤表から「今日の出勤者」 ---------- */
+function o2Off(v){
+  const t=String(v||'').trim(); if(!t) return false;
+  if(/0\.5/.test(t)) return false;                               // 半休は出勤している
+  if(/^[＼\\／\/]/.test(t)) return true;                         // 休み（＼・／・＼当）
+  if(t==='×'||t==='アグリ') return true;                         // 希望休・アグリ勤務
+  return false;                                                  // 空欄・泊・当・３F・文字の予定＝出勤
+}
+function o2Staff(){
+  const td=dtoday(), K=MFG&&MFG.shukkin;
+  let all=[], work=[], fromKn=false;
+  if(K&&K.months){
+    const M=K.months[td.slice(0,7)];
+    if(M&&M.staff){
+      const day=(M.days||[]).find(x=>x.d===td);
+      M.staff.forEach((s,k)=>{ const n=nrm(s); if(!n) return; all.push(n); if(day && !o2Off(day.c&&day.c[k])) work.push(n); });
+      fromKn=!!day;
+    }
+  }
+  // 出勤表がまだ届いていない端末：タンク洗浄の担当者名と自分
+  if(!all.length){ (WS.staff||[]).forEach(n=>{ n=nrm(n); if(n&&!all.includes(n)) all.push(n); }); }
+  const me=nrm((MFG&&MFG.me&&MFG.me.name)||ST.name);
+  if(me && !all.some(n=>o2Same(n,me))) all.push(me);
+  return { all, work, fromKn, me };
+}
+function o2Same(a,b){ a=nrm(a); b=nrm(b); return !!a && !!b && (a===b || a.startsWith(b) || b.startsWith(a)); }
+function o2Find(list,name){ return list.find(n=>o2Same(n,name)); }
+function o2DefaultBy(area, S){
+  const last=lsGet('o2.last.'+area,'');
+  // 自分が今日出勤 → 前回この場所を測った人が今日出勤 → 今日の出勤者の先頭 → 自分
+  return o2Find(S.work,S.me) || (last && o2Find(S.work,last)) || S.work[0] || o2Find(S.all,S.me) || last || S.all[0] || '';
+}
+
+/* ---------- 測定箇所 ---------- */
+function o2Places(area){
+  if(area!=='wash') return (O2_AREAS[area].places||[]).map(p=>({v:p,label:p}));
+  wsFromCache();
+  const seen=new Set(), out=[];
+  const plan=(WS.plan||[]).slice().sort((a,b)=>a.deadline.localeCompare(b.deadline)||a.n-b.n);
+  const todo=plan.filter(p=>!(wsRec(p.id).wash&&wsRec(p.id).wash.done));
+  todo.concat(plan).forEach(p=>{ if(seen.has(String(p.tank))) return; seen.add(String(p.tank));
+    out.push({v:p.tank+'号タンク', label:p.tank+'号タンク', sub:`No.${p.n} ${p.brand||''}・期限 ${wsMD(p.deadline)}`, g:todo.includes(p)?'これから洗浄するタンク（期限の近い順）':'ほかのタンク'}); });
+  return out;
+}
+
+/* ---------- 選択リスト（下から出る一覧） ---------- */
+function o2Pick(title, items, cur, num){
+  return new Promise(res=>{
+    const m=document.createElement('div'); m.className='o2-mask';
+    let g='', h='';
+    items.forEach((x,i)=>{ if(x.g && x.g!==g){ g=x.g; h+=`<div class="g">${esc(g)}</div>`; }
+      h+=`<button class="i ${String(x.v)===String(cur)?'on':''}" data-i="${i}">${esc(x.label)}${x.sub?`<small>${esc(x.sub)}</small>`:''}</button>`; });
+    m.innerHTML=`<div class="o2-sheet ${num?'num':''}"><div class="t">${esc(title)}<button type="button">閉じる</button></div><div class="l">${h}</div></div>`;
+    document.body.appendChild(m);
+    const done=v=>{ m.remove(); res(v); };
+    m.onclick=e=>{ if(e.target===m) done(null); };
+    m.querySelector('.t button').onclick=()=>done(null);
+    m.querySelectorAll('.i').forEach(b=>b.onclick=()=>done(items[+b.dataset.i].v));
+    const on=m.querySelector('.i.on'), l=m.querySelector('.l');
+    if(on) l.scrollTop=Math.max(0,on.offsetTop-l.clientHeight/2+on.offsetHeight/2);
+  });
+}
+
+/* ---------- 通信・端末の控え ---------- */
+const O2 = { rows:{}, at:{}, sheet:'', ym:{}, fresh:{}, busy:false };
+async function o2Api(body, ms){
+  if(!O2_URL) throw new Error('no_url');
+  const ctl = typeof AbortController!=='undefined' ? new AbortController() : null;
+  const t = ctl ? setTimeout(()=>ctl.abort(), ms||25000) : null;
+  try{
+    const r=await fetch(O2_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow',signal:ctl?ctl.signal:undefined});
+    return await r.json();
+  } finally { if(t) clearTimeout(t); }
+}
+function o2Cached(area){ if(!O2.rows[area]){ const c=lsGet('o2.rows.'+area,null); if(c){ O2.rows[area]=c.rows||[]; O2.at[area]=c.at||0; if(c.sheet) O2.sheet=c.sheet; } } return O2.rows[area]||[]; }
+function o2Store(area, j){ O2.rows[area]=j.rows||[]; O2.at[area]=Date.now(); if(j.sheetUrl) O2.sheet=j.sheetUrl; lsSet('o2.rows.'+area,{rows:O2.rows[area],at:O2.at[area],sheet:O2.sheet}); }
+const o2Queue=()=>lsGet('o2.q',[]);
+/* 電波が無くて預かった分を送る（同じ記録は id で見分けるので、二重には残らない） */
+let O2_FLUSH=null;
+function o2Flush(){
+  if(O2_FLUSH) return O2_FLUSH;
+  O2_FLUSH=(async()=>{ let sent=0;
+    try{ let q=o2Queue();
+      for(const it of q.slice()){
+        try{ const j=await o2Api(it,25000); if(j&&j.ok){ o2Store(it.area,j); q=o2Queue().filter(x=>x.cid!==it.cid); lsSet('o2.q',q); sent++; } else break; }
+        catch(e){ break; }
+      } }catch(e){}
+    O2_FLUSH=null; return sent; })();
+  return O2_FLUSH;
+}
+window.addEventListener('online', ()=>{ if(o2Queue().length) o2Flush().then(n=>{ if(n && typeof O2_REDRAW==='function') O2_REDRAW(); }); });
+let O2_REDRAW=null;
+
+/* ---------- 画面 ---------- */
+function o2Screen(area){
+  const A=O2_AREAS[area]; if(!A){ go(home,false); return; }
+  head('酸素濃度測定', A.label+'（記録は「'+A.label+'」シートへ）');
+  if(!MFG && typeof mfgRefresh==='function' && ST.token) mfgRefresh().then(()=>{ if(O2_REDRAW===draw) { if(!byTouched) by=o2DefaultBy(area,o2Staff()); draw(); } });
+  if(area==='wash' && !(WS.plan||[]).length){ wsFetch().then(()=>{ if(O2_REDRAW===draw){ if(!plTouched){ const p=o2Places('wash'); place=p[0]?p[0].v:''; } draw(); } }); }
+  const places=o2Places(area);
+  let place = area==='wash' ? (places[0]?places[0].v:'') : (lsGet('o2.place.'+area,'') && places.some(p=>p.v===lsGet('o2.place.'+area,'')) ? lsGet('o2.place.'+area,'') : (places[0]?places[0].v:A.label));
+  let by=o2DefaultBy(area,o2Staff()), val=O2_DEF, byTouched=false, plTouched=false, newId='', delId='', msg='', warn=false;
+  O2.ym[area]=O2.ym[area]||dtoday().slice(0,7);
+  o2Cached(area);
+
+  function draw(){
+    O2_REDRAW=draw;
+    const S=o2Staff(), now=new Date();
+    const hhmm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    const room = '';
+    const inWork = by && S.work.some(n=>o2Same(n,by));
+    let h='';
+    if(!O2_URL) h+=`<div class="tl-warn" style="margin-top:14px">記録先（Apps Script）の設定がまだ済んでいません。いまは「確定」しても送れません。</div>`;
+    h+=`<div class="o2-card">
+      <div class="o2-row"><span class="k">測定日時</span><span class="v">${djp(dtoday())} ${hhmm}<small>「確定」を押した時刻で記録します・測定方法：酸素濃度計</small></span></div>`;
+    if(places.length>1 || area==='wash')
+      h+=`<button class="o2-row" id="o2Pl" type="button"><span class="k">測定箇所</span><span class="v">${esc(place||'（タンクを選ぶ）')}${room!==''?`<small>室温 ${room}℃（おんどとり）</small>`:''}</span><span class="ch">変更</span></button>`;
+    else
+      h+=`<div class="o2-row"><span class="k">測定箇所</span><span class="v">${esc(place)}</span></div>`;
+    h+=`<button class="o2-row" id="o2By" type="button"><span class="k">担当者</span><span class="v">${esc(by||'（選んでください）')}<small>${!S.fromKn?'今日の出勤表がまだ届いていません':(inWork?'今日の出勤表から自動で選択':'今日の出勤表では休みの人です')}</small></span><span class="ch">変更</span></button>
+      <button class="o2-row big" id="o2Val" type="button"><span class="k">酸素濃度</span><span class="v">${val.toFixed(1)}<span>%</span></span><span class="ch">変更</span></button>
+      <button class="o2-ok" id="o2Ok" type="button" ${O2.busy?'disabled':''}>確　定</button>
+      <div class="o2-st ${warn?'warn':''}" id="o2St">${msg}</div></div>`;
+    // 記録表（その月）
+    const ym=O2.ym[area], rows=o2Cached(area), q=o2Queue().filter(x=>x.area===area);
+    const yms=[...new Set(rows.map(r=>String(r.date||'').slice(0,7)).filter(Boolean).concat([dtoday().slice(0,7)]))].sort();
+    const list=rows.filter(r=>String(r.date).slice(0,7)===ym).map(r=>Object.assign({},r))
+      .concat(q.filter(x=>x.date.slice(0,7)===ym).map(x=>({id:x.cid,date:x.date,time:x.time,place:x.place,room:x.room,o2:x.o2,by:x.by,pend:true})))
+      .sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+    const [yy,mm]=ym.split('-').map(Number), i=yms.indexOf(ym);
+    h+=`<div class="o2-h">記録表（${esc(A.label)}）<span class="n"><button id="o2Prev" ${i<=0?'disabled':''}>‹</button><span style="align-self:center;font-weight:600">${yy}年${mm}月</span><button id="o2Next" ${i<0||i>=yms.length-1?'disabled':''}>›</button></span></div>
+      <div class="o2-tw"><table class="o2-t"><tr><th>日</th><th>時刻</th><th>測定箇所</th><th>結果</th><th>測定実施者</th><th></th></tr>`;
+    const td=dtoday();
+    h+=list.length?list.map(r=>`<tr class="${r.id===newId?'new':''} ${r.pend?'pend':''}"><td>${+String(r.date).slice(5,7)}/${+String(r.date).slice(8,10)}</td><td>${esc(r.time)}</td><td>${esc(r.place)}</td><td class="o">${r.o2!==''&&r.o2!=null?Number(r.o2).toFixed(1):''}</td><td>${esc(r.by)}</td>
+        <td>${r.pend?'送信待ち':(r.date===td&&r.id?`<button class="del ${delId===r.id?'sure':''}" data-del="${esc(r.id)}">${delId===r.id?'取り消す':'取消'}</button>`:'')}</td></tr>`).join('')
+      :`<tr><td colspan="6" style="color:var(--sub);padding:18px">この月の記録はまだありません</td></tr>`;
+    h+=`</table></div>`;
+    if(q.length) h+=`<p class="tl-note">送信待ち ${q.length}件（電波が入ると自動で送ります）　<a href="#" id="o2Re">いま送る</a></p>`;
+    if(O2_URL) h+=`<div class="o2-links"><a href="${O2_URL}?area=${area}&ym=${ym}" target="_blank" rel="noopener">🖨 印刷用の表</a>${O2.sheet?`<a href="${esc(O2.sheet)}" target="_blank" rel="noopener">スプレッドシート</a>`:''}</div>`;
+    h+=`<p class="tl-note">取り消せるのは今日の記録だけです（取り消した内容もスプレッドシートの「取消の記録」に残ります）。前の日の分・換気口・防止措置の概要はスプレッドシートで直せます。</p>`;
+    app.innerHTML=h;
+
+    $('#o2By').onclick=async()=>{
+      const S2=o2Staff();
+      const rest=S2.all.filter(n=>!S2.work.includes(n));
+      const items=S2.work.map(n=>({v:n,label:n,g:'今日の出勤者'})).concat(rest.map(n=>({v:n,label:n,g:S2.fromKn?'今日は休み・その他':'担当者'})));
+      const v=await o2Pick('担当者を選ぶ', items, by); if(v!=null){ by=v; byTouched=true; msg=''; draw(); }
+    };
+    $('#o2Val').onclick=async()=>{
+      const items=[]; for(let x=Math.round(O2_MAX*10); x>=Math.round(O2_MIN*10); x--){ const v=x/10; items.push({v, label:v.toFixed(1)+' %', sub:v===O2_DEF?'基本':''}); }
+      const v=await o2Pick('酸素濃度（%）を選ぶ', items, val, true); if(v!=null){ val=v; msg=''; draw(); }
+    };
+    const pl=$('#o2Pl'); if(pl) pl.onclick=async()=>{
+      const items=o2Places(area);
+      if(!items.length){ msg='タンクの一覧を読み込み中です。少し待ってからもう一度押してください'; warn=true; draw(); return; }
+      const v=await o2Pick('測定箇所を選ぶ', items, place); if(v!=null){ place=v; plTouched=true; msg=''; draw(); }
+    };
+    $('#o2Ok').onclick=o2Commit;
+    const pv=$('#o2Prev'), nx=$('#o2Next');
+    if(pv) pv.onclick=()=>{ O2.ym[area]=yms[i-1]; draw(); };
+    if(nx) nx.onclick=()=>{ O2.ym[area]=yms[i+1]; draw(); };
+    const re=$('#o2Re'); if(re) re.onclick=e=>{ e.preventDefault(); o2Flush().then(()=>draw()); };
+    app.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+      const id=b.dataset.del;
+      if(delId!==id){ delId=id; draw(); return; }        // 1回目は確認、2回目で取り消し
+      delId=''; msg='取り消しています…'; warn=false; draw();
+      try{ const j=await o2Api({action:'o2_del',area,id,user:rcUser()},25000);
+        if(j&&j.rows) o2Store(area,j);
+        msg=j&&j.ok?'取り消しました':('取り消せませんでした：'+((j&&j.error)||'')); warn=!(j&&j.ok);
+      }catch(e){ msg='取り消せませんでした（電波を確認してください）'; warn=true; }
+      draw();
+    });
+  }
+
+  async function o2Commit(){
+    if(O2.busy) return;
+    if(!by){ msg='担当者を選んでください'; warn=true; draw(); return; }
+    if(!place){ msg='測定箇所を選んでください'; warn=true; draw(); return; }
+    if(!O2_URL){ msg='記録先の設定がまだ済んでいないため送れません'; warn=true; draw(); return; }
+    const now=new Date();
+    const body={ action:'o2_add', area, cid:'o2-'+now.getTime().toString(36)+'-'+Math.random().toString(36).slice(2,7),
+      date:dtoday(), time:String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'),
+      method:'酸素濃度計', place, room:'', o2:val, by,
+      user:rcUser(), device:(navigator.userAgent.match(/iPhone|iPad|Android|Windows|Mac/)||[''])[0] };
+    lsSet('o2.last.'+area, by); if(area!=='wash') lsSet('o2.place.'+area, place);
+    O2.busy=true; msg='送信しています…'; warn=false; O2.ym[area]=dtoday().slice(0,7); draw();
+    // 先に端末へ預ける（途中で電波が切れても消えない）
+    lsSet('o2.q', o2Queue().concat([body]));
+    let ok=false;
+    try{ const j=await o2Api(body,25000);
+      if(j&&j.ok){ o2Store(area,j); lsSet('o2.q', o2Queue().filter(x=>x.cid!==body.cid)); ok=true; }
+      else { lsSet('o2.q', o2Queue().filter(x=>x.cid!==body.cid)); msg='記録できませんでした：'+((j&&j.error)||''); warn=true; }
+    }catch(e){ msg=`電波が無いため端末に預かりました（${body.time} ${by} ${val.toFixed(1)}%）。電波が入ると自動で送ります`; warn=true; }
+    O2.busy=false;
+    if(ok){ newId=body.cid; msg=`記録しました（${body.time}　${by}　${val.toFixed(1)}%）`; warn=false; val=O2_DEF; }
+    if(O2_REDRAW===draw && app.querySelector('#o2Ok')) draw();
+  }
+
+  draw();
+  // 開いたら：預かり分を送り、最新の記録表を取る（前回の内容はすぐ表示済み）
+  (async()=>{
+    if(!O2_URL) return;
+    if(o2Queue().length) await o2Flush();
+    try{ const j=await o2Api({action:'o2_get',area},25000); if(j&&j.ok) o2Store(area,j); }catch(e){}
+    if(O2_REDRAW===draw && app.querySelector('#o2Ok') && !document.querySelector('.o2-mask')) draw();
+  })();
+}
+
+
+/* ---------- タンク洗浄管理の「洗浄」の記録を、そのまま酸素濃度測定記録（タンク洗浄シート）へ ----------
+   洗浄の酸素濃度・担当・日時を入れて保存すると、同じ内容が酸素濃度測定記録にも1行残る（2026-09-30 泰広さん指示「入力は一つで」）。
+   id は 'wash-<計画id>' 固定なので、あとで直して保存し直すと同じ行が書き換わる（二重に増えない）。 */
+function o2FromWash(p, w){
+  if(!w || !w.done || w.o2===null || w.o2===undefined || w.o2==='' || !w.by) return Promise.resolve(false);
+  const now=new Date();
+  const body={ action:'o2_add', upsert:true, area:'wash', cid:'wash-'+p.id,
+    date:w.date||dtoday(), time:w.time||(String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')),
+    method:w.method||'酸素濃度計', place:p.tank+'号タンク', room:'', o2:Number(w.o2), by:w.by,
+    user:rcUser(), device:(navigator.userAgent.match(/iPhone|iPad|Android|Windows|Mac/)||[''])[0] };
+  lsSet('o2.q', o2Queue().filter(x=>x.cid!==body.cid).concat([body]));   // 先に預ける
+  if(!O2_URL) return Promise.resolve(false);
+  return o2Flush().then(n=>n>0);
+}
+/* 洗浄の担当：今日の出勤表から（担当者名の一覧にいる人だけ） */
+function o2WashBy(names){
+  const S=o2Staff(), pick=n=>names.find(x=>o2Same(x,n));
+  return (S.me && S.work.some(n=>o2Same(n,S.me)) && pick(S.me)) || (lsGet('o2.last.wash','') && S.work.some(n=>o2Same(n,lsGet('o2.last.wash',''))) && pick(lsGet('o2.last.wash',''))) || S.work.map(pick).find(Boolean) || pick(S.me) || '';
+}
+/* 洗浄の酸素濃度：数字を打たずに一覧（19.0〜22.0・既定20.1）から選ぶ */
+function o2WashPick(){
+  const inp=$('#wO2'); if(!inp) return;
+  const items=[]; for(let x=Math.round(O2_MAX*10); x>=Math.round(O2_MIN*10); x--){ const v=x/10; items.push({v, label:v.toFixed(1)+' %', sub:v===O2_DEF?'基本':''}); }
+  o2Pick('酸素濃度（%）を選ぶ', items, inp.value===''?O2_DEF:Number(inp.value), true).then(v=>{ if(v==null) return; inp.value=v.toFixed(1); inp.dispatchEvent(new Event('input')); const b=$('#wO2b'); if(b) b.textContent=v.toFixed(1)+' %'; });
+}
 
 </script>
 <!-- /tools -->
