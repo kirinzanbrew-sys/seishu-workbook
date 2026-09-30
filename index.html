@@ -3612,15 +3612,36 @@ function rcProbeChart(pts){
     <text x="${L}" y="${H-5}" font-size="9" fill="#8a8272">${f(x0)}</text><text x="${W-R}" y="${H-5}" font-size="9" text-anchor="end" fill="#8a8272">${f(x1)}</text></svg>
     <div class="tl-note" style="display:flex;gap:12px">${nos.map(n=>`<span><span style="display:inline-block;width:14px;height:2px;background:${PCOL[n-1]};vertical-align:middle"></span> No${n}</span>`).join('')}<span><span style="display:inline-block;width:14px;height:2px;background:#b9b2a3;vertical-align:middle"></span> 1号室 室温</span></div>`;
 }
+/* 待たせない保存（2026-09-30）：送る内容を端末に控え、裏で送る。送れなかった分は次に麹の画面を開いたとき自動で送り直す */
+function recQ(){ return lsGet('rec.q',[])||[]; }
+function rcToast(t,warn){ let el=document.getElementById('rcToast'); if(!el){ el=document.createElement('div'); el.id='rcToast';
+    el.style.cssText='position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9999;max-width:92vw;padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.18);transition:opacity .3s'; document.body.appendChild(el); }
+  el.textContent=t; el.style.background=warn?'#b23b3b':'#1b2a41'; el.style.color='#fff'; el.style.opacity='1';
+  clearTimeout(el._t); el._t=setTimeout(()=>{ el.style.opacity='0'; }, warn?6000:2500); }
+function recSaveBg(body,label){ const q=recQ(); q.push({body,label,at:Date.now()}); lsSet('rec.q',q); rcToast(`${label} を保存しています…`); recFlush(); }
+async function recFlush(){ if(RC.qBusy) return; RC.qBusy=true;
+  try{ let q=recQ();
+    while(q.length){ const it=q[0]; let res=null;
+      try{ res=await recApi(it.body,60000); }catch(e){ rcToast(`電波が弱いため未送信が${q.length}件あります。あとで自動で送ります`,true); break; }
+      q.shift(); lsSet('rec.q',q);
+      if(res&&res.ok){ rcToast(`${it.label} を保存しました`); }
+      else { rcToast(`${it.label} を保存できませんでした：${(res&&res.err)||''}`,true); }
+    }
+  } finally { RC.qBusy=false; } }
 /* ========== 🍚 麹：今日の作業（出麹→盛→引込→洗米）と配置図 ========== */
 async function kojiScreen(day){
   RC.kday = day || RC.kday || dtoday();
   const date = RC.kday;
   head('麹', '今日の作業と記録（麹管理R8BY）');
-  rcLoading('麹の予定を読み込んでいます…');
-  let j = RC.koji[date];
-  try{ const r=await recApi({action:'koji_today',date},40000); if(r&&r.ok){ j=r; RC.koji[date]=r; } }catch(e){}
-  if(!j){ rcFail(); return; }
+  let j = RC.koji[date]; RC.kFresh=RC.kFresh||{};
+  if(!j){ rcLoading('麹の予定を読み込んでいます…');
+    try{ const r=await recApi({action:'koji_today',date},40000); if(r&&r.ok){ j=r; RC.koji[date]=r; RC.kFresh[date]=Date.now(); } }catch(e){}
+    if(!j){ rcFail(); return; } }
+  else if(!(Date.now()-(RC.kFresh[date]||0)<20000)){   // 前回の内容をすぐ出し、最新は裏で取って描き直す（2026-09-30）
+    RC.kFresh[date]=Date.now();
+    recApi({action:'koji_today',date},40000).then(r=>{ if(!(r&&r.ok)) return; RC.koji[date]=r;
+      const ae=document.activeElement; if(RC.kday===date&&$('#kToday')&&!(ae&&ae.matches&&ae.matches('input,select,textarea'))) kojiScreen(date); }).catch(()=>{}); }
+  recFlush();
   const rows=j.koji||[], wash=j.wash||[], tg=j.targets||{};
   const out=rows.filter(r=>r['出麹日']===date), mori=rows.filter(r=>r['盛日']===date), hik=rows.filter(r=>r['引込日']===date);
   const kg=a=>a.reduce((s,r)=>s+(Number(r['麹米kg'])||0),0);
@@ -3687,11 +3708,8 @@ function kojiEdit(date, id, stage){
   $('#rcCancel').onclick=()=>hBack.click();
   $('#rcSave').onclick=async()=>{
     const values=rcDiff(defs,r); if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
-    $('#rcSave').disabled=true; rcStatus('保存中…');
-    try{ const res=await recApi({action:'koji_save',id,values},40000);
-      if(res&&res.ok){ Object.assign(r,values); rcStatus(`${id} を保存しました（${res.changed}項目）`); setTimeout(()=>hBack.click(),400); }
-      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
-    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
+    // 待たせない保存：画面の値をすぐ直して戻り、送信は裏で行う（届かなければ電波が戻ったとき自動で送り直す）
+    Object.assign(r,values); recSaveBg({action:'koji_save',id,values},id); hBack.click();
   };
 }
 function kyusuiEdit(date, key){
@@ -3705,11 +3723,7 @@ function kyusuiEdit(date, key){
   $('#rcCancel').onclick=()=>hBack.click();
   $('#rcSave').onclick=async()=>{
     const values=rcDiff(defs,w); if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
-    $('#rcSave').disabled=true; rcStatus('保存中…');
-    try{ const res=await recApi({action:'kyusui_save',key,values},40000);
-      if(res&&res.ok){ Object.assign(w,values); rcStatus('保存しました'); setTimeout(()=>hBack.click(),400); }
-      else { rcStatus('保存できませんでした: '+(res&&res.err||''),true); $('#rcSave').disabled=false; }
-    }catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); $('#rcSave').disabled=false; }
+    Object.assign(w,values); recSaveBg({action:'kyusui_save',key,values},`洗米 ${w.stage}${w.no}`); hBack.click();
   };
 }
 
