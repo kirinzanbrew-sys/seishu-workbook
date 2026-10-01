@@ -691,7 +691,7 @@ function kirinzanBand(){
       <path d="M0,132 L0,116 C44,110 88,122 132,115 C176,108 220,120 264,113 C308,106 350,118 390,111 L390,132 Z" fill="#5a93bb" opacity=".95"/>
     </svg>
     <div class="fade"></div>
-    <div class="cap">名峰 <b>麒麟山</b>（海抜195m）と <b>常浪川</b>　／　2010年から ブナと杉 <b>5,000本</b></div>
+    <div class="cap">名峰 <b>麒麟山</b>（海抜195m）と <b>常浪川</b></div>
   </div>`;
 }
 function kirinzanBind(){
@@ -3690,7 +3690,7 @@ async function kojiScreen(day){
       <div><span class="k">引込（種切・切返し）</span><span class="v">${hik.length}<small> 本 ${kgfmt(kg(hik))}kg</small></span></div><div><span class="k">洗米（麹米）</span><span class="v">${wash.length}<small> 口 ${kgfmt(wash.reduce((s,w)=>s+(Number(w.kg)||0),0))}kg</small></span></div></div>
     ${typeof o2Btn==='function'?o2Btn('koji'):''}${rcRoomCard(j.room)}${rcProbeCard(j.probes)}
     <div class="rc-status" id="rcStatus"></div>`;
-  h+=sec('出麹','朝いちばん。品温・水分・重量を記録',out.sort((a,b)=>(a['出麹 順番']||99)-(b['出麹 順番']||99)),r=>row(r,'出麹'));
+  h+=sec('出麹','朝いちばん。品温・重量を記録',out.sort((a,b)=>(a['出麹 順番']||99)-(b['出麹 順番']||99)),r=>row(r,'出麹'));
   h+=sec('盛・仲仕事・留仕事','盛の順番と棚を決めて記録',mori.sort((a,b)=>(a['盛 順番']||99)-(b['盛 順番']||99)),r=>row(r,'盛'));
   h+=sec('引込み・種切・切返し','1号室の置き場所を決めて記録',hik.sort((a,b)=>(a['引込 順番']||99)-(b['引込 順番']||99)),r=>row(r,'引込'));
   h+=sec('洗米（麹米）の吸水','米温・水温・浸漬・吸水%',wash,wrow);
@@ -3704,19 +3704,20 @@ async function kojiScreen(day){
 }
 const KOJI_FIELDS = {
   引込:[['引込 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['引込 場所','場所（1号室）',{type:'select',options:RC_PLACE1}],['種麹','種麹',{type:'text'}],['割合%','種麹の割合 %',{step:'1'}],
-    ['引込 時刻','引込 時刻',{type:'time',tg:'引込'}],['引込 品温','引込 品温 ℃',{tg:'引込'}],['引込 水分%','引込 水分 %'],['引込 DRY','引込 DRY'],['引込 WET','引込 WET'],
-    ['種切 時刻','種切 時刻',{type:'time',tg:'種切'}],['種切 品温','種切 品温 ℃',{tg:'種切'}],['種切 水分%','種切 水分 %'],['ねせ h','ねせ 時間 h'],['ねせ 品温','ねせ 品温 ℃'],
-    ['切返し 時刻','切返し 時刻',{type:'time',tg:'切返し'}],['切返し 品温','切返し 品温 ℃',{tg:'切返し'}],['切返し DRY','切返し DRY'],['切返し WET','切返し WET'],['備考','備考',{type:'ta'}]],
+    ['引込 時刻','引込 時刻',{type:'time',tg:'引込'}],['引込 品温','引込 品温 ℃',{tg:'引込'}],
+    ['種切 時刻','種切 時刻',{type:'time',tg:'種切'}],['種切 品温','種切 品温 ℃',{tg:'種切'}],['種切 水分%','種切 水分 %（輝のみ）',{kagayaki:true}],['ねせ h','ねせ 時間 h'],['ねせ 品温','ねせ 品温 ℃'],
+    ['切返し 時刻','切返し 時刻',{type:'time',tg:'切返し'}],['切返し 品温','切返し 品温 ℃',{tg:'切返し'}],['備考','備考',{type:'ta'}]],
   盛:[['盛 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['盛 場所','箱（2号室）',{type:'multi',layout:'room2',options:RC_PLACE2}],
-    ['盛前 品温','盛前 品温 ℃',{tg:'盛前'}],['盛 時刻','盛 時刻',{type:'time',tg:'盛後'}],['盛後 品温','盛後 品温 ℃',{tg:'盛後'}],['盛 DRY','盛 DRY'],['盛 WET','盛 WET'],
+    ['盛前 品温','盛前 品温 ℃',{tg:'盛前'}],['盛 時刻','盛 時刻',{type:'time',tg:'盛後'}],['盛後 品温','盛後 品温 ℃',{tg:'盛後'}],
     ['仲仕事 時刻','仲仕事 時刻',{type:'time',tg:'仲仕事'}],['仲仕事 品温','仲仕事 品温 ℃',{tg:'仲仕事'}],['留仕事 時刻','留仕事 時刻',{type:'time',tg:'留仕事'}],['留仕事 品温','留仕事 品温 ℃',{tg:'留仕事'}],['備考','備考',{type:'ta'}]],
   出麹:[['出麹 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['出麹 場所','箱（2号室）※盛と同じなら空のままでよい',{type:'multi',layout:'room2',options:RC_PLACE2}],
-    ['出麹 時刻','出麹 時刻',{type:'time',tg:'出麹'}],['出麹 品温','出麹 品温 ℃',{tg:'出麹'}],['出麹 水分%','出麹 水分 %'],['出麹 DRY','出麹 DRY'],['出麹 WET','出麹 WET'],['出麹重量kg','出麹重量 kg'],['備考','備考',{type:'ta'}]] };
+    ['出麹 時刻','出麹 時刻',{type:'time',tg:'出麹'}],['出麹 品温','出麹 品温 ℃',{tg:'出麹'}],['出麹重量kg','出麹重量 kg'],['備考','備考',{type:'ta'}]] };
 function kojiEdit(date, id, stage){
   const j=RC.koji[date]; const r=j&&j.koji.find(x=>x['麹ID']===id); if(!r){ go(()=>kojiScreen(date),false); return; }
   const tg=j.targets||{};
   head(`${id}（${stage}）`, `${r['液種']}　${r['品種']} ${r['精米歩合']}%　麹米 ${r['麹米kg']}kg`);
-  const defs=KOJI_FIELDS[stage];
+  // 2026-10-01 泰広さん指示：DRY・WETは記録しない／水分は種切だけ・輝のみ
+  const defs=KOJI_FIELDS[stage].filter(d=>!(d[2]&&d[2].kagayaki)||/輝/.test([r['液種'],r['記号'],r['品種']].join('')));
   let h=`<div class="rc-calc"><div>洗米<b>${rcMD(r['洗米日'])}</b></div><div>引込<b>${rcMD(r['引込日'])}</b></div><div>盛<b>${rcMD(r['盛日'])}</b></div><div>出麹<b>${rcMD(r['出麹日'])}</b></div><div>使用日<b>${rcMD(r['使用日'])}</b></div>
     <div>種麹<b>${esc(r['種麹']||'—')} ${r['種麹g']!==''?r['種麹g']+'g':''}</b></div><div>吸水<b>${rcN(r['吸水%'])}%</b></div>${stage!=='引込'?`<div>引込 品温<b>${rcN(r['引込 品温'])}℃</b></div>`:''}${stage==='出麹'?`<div>留仕事 品温<b>${rcN(r['留仕事 品温'])}℃</b></div>`:''}</div>
     <div class="card"><div class="rc-grid">${defs.map(([c,l,o])=>{ o=Object.assign({},o||{}); if(o.layout==='room2') o.occ=rcOcc(j,date,id); if(o.tg&&tg[o.tg]){ o.hint=(o.type==='time'?'標準 '+(tg[o.tg].time||'—'):'目標 '+(tg[o.tg].temp??'—')+'℃'); } return rcField(rcId(c),l,r[c],o); }).join('')}</div></div>
@@ -3910,7 +3911,7 @@ async function karteScreen(no, force){
   let h=sec('配合・日程', kv([['麹米',esc(M.kome||'—')],['掛米',esc(M.kake||'—')],['総米',(M.soumai||'—')+'kg'],['酵母',esc(M.yeast||'—')],['酒母T',esc(M.shuboT||'—')],['酒母記号',esc(M.shuboSym||'—')],
       ['酛立',rcMD(M.motodate)],['添',rcMD(M.soe)],['仲',rcMD(M.naka)],['留',rcMD(M.tome)],['上槽予定',rcMD(M.joso)],['醪日数計画',(M.period||'—')+'日'],['追水計画',(M.oimizu||'—')+'L'],['四段',(M.yodan||'—')+'L'],['アル添',(M.alc||'—')+'L'],['最高温度',(M.tmax||'—')+'℃']]));
   h+=sec('米の吸水', k.wash&&k.wash.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>段</th><th>米</th><th>品種</th><th>%</th><th>kg</th><th>洗米</th><th>浸漬</th><th>水温</th><th>吸水%</th></tr>${k.wash.map(w=>`<tr><td>${esc(w.stage)}</td><td>${esc(w.rice)}</td><td>${esc(w.kind)}</td><td>${w.ratio}</td><td>${w.kg}</td><td>${rcMD(w.date)}</td><td>${rcN(w.shinseki)}</td><td>${rcN(w.suion)}</td><td><b>${rcN(w.kyusui)}</b></td></tr>`).join('')}</table></div>`:'<p class="muted">洗米の記録なし</p>');
-  h+=sec('麹の出来', k.koji&&k.koji.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>麹</th><th>kg</th><th>種麹</th><th>吸水%</th><th>引込℃</th><th>盛後℃</th><th>仲℃</th><th>留℃</th><th>出麹℃</th><th>水分%</th><th>出麹kg</th><th>麹歩合</th><th>引→出h</th></tr>${k.koji.map(r=>`<tr><td>${esc(r['麹ID'])}</td><td>${r['麹米kg']}</td><td>${esc(r['種麹']||'')}</td><td>${rcN(r['吸水%'])}</td><td>${rcN(r['引込 品温'])}</td><td>${rcN(r['盛後 品温'])}</td><td>${rcN(r['仲仕事 品温'])}</td><td>${rcN(r['留仕事 品温'])}</td><td><b>${rcN(r['出麹 品温'])}</b></td><td>${rcN(r['出麹 水分%'])}</td><td>${rcN(r['出麹重量kg'])}</td><td>${rcN(r['麹歩合'])}</td><td>${rcN(r['引込→出麹 h'])}</td></tr>`).join('')}</table></div>`:'<p class="muted">麹の記録なし</p>');
+  h+=sec('麹の出来', k.koji&&k.koji.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>麹</th><th>kg</th><th>種麹</th><th>吸水%</th><th>引込℃</th><th>盛後℃</th><th>仲℃</th><th>留℃</th><th>出麹℃</th><th>出麹kg</th><th>麹歩合</th><th>引→出h</th></tr>${k.koji.map(r=>`<tr><td>${esc(r['麹ID'])}</td><td>${r['麹米kg']}</td><td>${esc(r['種麹']||'')}</td><td>${rcN(r['吸水%'])}</td><td>${rcN(r['引込 品温'])}</td><td>${rcN(r['盛後 品温'])}</td><td>${rcN(r['仲仕事 品温'])}</td><td>${rcN(r['留仕事 品温'])}</td><td><b>${rcN(r['出麹 品温'])}</b></td><td>${rcN(r['出麹重量kg'])}</td><td>${rcN(r['麹歩合'])}</td><td>${rcN(r['引込→出麹 h'])}</td></tr>`).join('')}</table></div>`:'<p class="muted">麹の記録なし</p>');
   const sdays=s?s.days.filter(x=>x.temp!==''||x.be!==''||x.ta!==''||x.alc!==''):[];
   h+=sec('酒母の経過', (sdays.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th>日</th><th>日付</th><th>品温</th><th>Be</th><th>酸度</th><th>alc</th><th>備考</th></tr>${sdays.map(x=>`<tr><td>${x.day}</td><td>${rcMD(x.date)}</td><td>${rcN(x.temp)}</td><td>${rcN(x.be)}</td><td>${rcN(x.ta)}</td><td>${rcN(x.alc)}</td><td style="text-align:left">${esc(x.biko||'')}</td></tr>`).join('')}</table></div>`:'<p class="muted">酒母の記録なし</p>')+`<p class="tl-note">酛卸日 ${s&&s.motooroshi?rcMD(s.motooroshi):'—'}${s&&s.biko?'　'+esc(s.biko):''}</p><div class="rc-actions"><button class="rc-ghost" id="goShubo">酒母を入力</button></div>`);
   h+=sec('醪の経過', (last?kv([['最新',`${last.day===1?'留':last.day+'日目'} ${rcMD(last.date)}`],['日本酒度',rcN(lc.smv)],['alc',rcN(last.alc)+'%'],['酸度',rcN(last.ta)],['アミノ酸度',rcN(last.aa)],['BMD',`${rcN(lc.bmd)} <small style="font-size:11px;color:var(--sub)">標準${rcN(lc.bmdStd)}</small>`],['累計追水',rcN(t.oimizuSum)+'L'],['追水残',rcN(lc.rest)+'L'],['状態',esc(t.state||'—')]]):'<p class="muted">醪の記録なし</p>')
@@ -4959,7 +4960,9 @@ async function moromiSetup(no, st){
    ・もと：麹＝麹管理R8BY（koji_today、時刻は麹管理の設定）／酒母・仕込み・上槽＝醪管理R8BY 仕込マスタ（recState）／
            洗米・上槽・粕・備考＝出勤表・洗米予定表（MFG）／カレンダー＝酸素濃度測定記録の Apps Script（予定.gs：cal_day）
    ・時刻は画面に出さない（2026-09-30 泰広さん指示）。DP_T の時刻は左からの並び順を決めるためだけに使う
+   ・勤務予定：出勤表（MFG.shukkin）のその日の出勤・休みの氏名を予定の下に小さく（2026-10-01）
    ・ろ過・火入はデータの置き場が決まったら足す
+   ・分析本数（2026-10-01 泰広さん指示）：その日の本数を小さく出す。16:30以降、明日の本数が18本を超えるときは赤い帯を点滅（酒母＝酛立の翌日〜酛卸（添の前日）、醪＝留を1日目として3日目〜上槽予定日）
    控え：seishu-workbook_github\_src_day.js
    ======================================================================== */
 const DP_T = {
@@ -4993,6 +4996,9 @@ const DP_CSS = `
 .dp-k{background:#fbf3d2;border-color:#d8b43c}.dp-s{background:#fde8e4;border-color:#d0806e}.dp-m{background:#e7f0fb;border-color:#5a8fd0}
 .dp-w{background:#eaf6e0;border-color:#6aa84f}.dp-j{background:#ece6f7;border-color:#8a6cc8}.dp-u{background:#f1ede6;border-color:#9a8a70}
 .dp-o{background:#e3f4ea;border-color:#2f7d5d}.dp-on{background:#fdecec;border-color:#d62b22;color:#b31b14}
+.dp-kn{margin:6px 2px 0;padding:5px 0 0;border-top:1px dashed var(--line);font-size:11px;line-height:1.55;color:var(--ink)}
+.dp-kn div{display:flex;gap:6px}.dp-kn b{flex:none;color:var(--navy);font-weight:700;min-width:3.6em}
+.dp-kn .off b{color:#b31b14}.dp-kn small{color:var(--sub);font-size:10px}
 .dp-cal{margin:8px 2px 0;padding:6px 0 0;border-top:1px dashed var(--line);font-size:13px}
 .dp-cal .t{font-size:11px;color:var(--sub);font-weight:700;margin-bottom:2px}
 .dp-cal ul{margin:0;padding-left:1.1em}.dp-cal li{margin:2px 0;line-height:1.4}
@@ -5007,7 +5013,11 @@ const DP_CSS = `
 .dp-ic .n{position:absolute;top:-5px;right:calc(50% - 34px);background:#d62b22;color:#fff;font-size:11px;font-weight:700;border-radius:999px;min-width:18px;height:18px;line-height:18px;text-align:center;padding:0 4px;box-shadow:0 0 0 2px var(--paper)}
 .dp-ic .tg{background:#d62b22;color:#fff;font-size:9.5px;font-weight:700;border-radius:4px;padding:1px 4px;margin-top:-2px;animation:dpBl 1.4s ease-in-out infinite}
 @keyframes dpBl{50%{opacity:.45}}
-@media (prefers-reduced-motion:reduce){.dp-ic .tg{animation:none}}
+.dp-al{display:block;width:100%;box-sizing:border-box;background:#fdecec;border:1px solid #d62b22;color:#b31b14;border-radius:10px;padding:7px 10px;margin:0 0 6px;font-family:inherit;font-size:13px;font-weight:800;text-align:left;cursor:pointer;animation:dpBl 1.4s ease-in-out infinite}
+.dp-al small{display:block;font-weight:400;font-size:11px;color:#b31b14}
+.dp-bn{font-size:11px;color:var(--sub);margin:-2px 2px 4px}
+.dp-bn b{color:var(--navy)}.dp-bn b.ov{color:#b31b14}
+@media (prefers-reduced-motion:reduce){.dp-ic .tg,.dp-al{animation:none}}
 .dp-sh h3{margin:0 0 8px;font-size:16px;color:var(--navy)}
 .dp-sh .tm{font-size:12px;color:var(--sub);margin:-4px 0 8px}
 .dp-sh ul{margin:0 0 8px;padding-left:1.1em;font-size:14px;line-height:1.5}
@@ -5078,6 +5088,40 @@ function dpItems(date){
   return out;
 }
 
+/* ---- 分析本数（2026-10-01 泰広さん指示） ----
+   酒母：酛立（motodate）の翌日から 酛卸＝添の前日 まで／醪：留（tome）を1日目として3日目から 上槽予定（joso）まで
+   前日の16:30から、明日の本数が DP_BUN_MAX を超えるときに赤い帯（本数を減らす調整をするため） */
+const DP_BUN_MAX=18, DP_BUN_AT=16*60+30;
+function dpBunseki(date){
+  const st=dpState(); if(!st) return null; const M=st.master||[];
+  const sb=M.filter(m=>m.motodate && m.motodate<date && (!m.soe || date<=dadd(m.soe,-1)));
+  const mr=M.filter(m=>m.tome && dadd(m.tome,2)<=date && (!m.joso || date<=m.joso));
+  return {sb,mr,n:sb.length+mr.length};
+}
+function dpBunAlert(){
+  const now=new Date(); if(now.getHours()*60+now.getMinutes()<DP_BUN_AT) return null;
+  const date=dadd(dtoday(),1), b=dpBunseki(date); return b&&b.n>DP_BUN_MAX?Object.assign({date},b):null;
+}
+let DP_BUN=null;
+function dpBunHTML(){
+  let h='';
+  const al=dpBunAlert(); DP_BUN=al;
+  if(al){ const d=dparse(al.date);
+    h+=`<button type="button" class="dp-al" data-dpal="1">⚠ 明日 ${d.getMonth()+1}/${d.getDate()} の分析 ${al.n}本<small>酒母${al.sb.length}・醪${al.mr.length}　${DP_BUN_MAX}本を超えています。本数を減らす調整を（押すと内訳）</small></button>`; }
+  const b=dpBunseki(dpDate());
+  if(b&&b.n) h+=`<div class="dp-bn">分析 <b class="${b.n>DP_BUN_MAX?'ov':''}">${b.n}本</b>（酒母${b.sb.length}・醪${b.mr.length}）</div>`;
+  return h;
+}
+document.addEventListener('click', e=>{
+  const b=e.target.closest && e.target.closest('[data-dpal]'); if(!b||!DP_BUN) return;
+  const x=DP_BUN, nm=m=>`No.${m.no} ${m.sym||''}　${m.liquid||''}${m.tank?'　T'+m.tank:''}`;
+  dpSheet({d:{title:`明日の分析 ${x.n}本（酒母${x.sb.length}・醪${x.mr.length}）`,
+    lines:[`${DP_BUN_MAX}本を超えています。20本で3時間半〜4時間かかるので、本数を減らす調整をしてください`,
+      ...x.sb.map(m=>`酒母　${nm(m)}（酛卸 ${m.soe?rcMD(dadd(m.soe,-1)):'—'}）`),
+      ...x.mr.map(m=>`醪　${nm(m)}（留 ${rcMD(m.tome)}・上槽予定 ${m.joso?rcMD(m.joso):'—'}）`)],
+    open:()=>moromiHome(), openL:'仕込みの画面を開く'}});
+});
+
 /* ---- 横の時刻軸の表 ---- */
 /* 本日／明日（2026-09-30 泰広さん指示：明日の予定のボタン） */
 let DP_OFF=0;
@@ -5087,7 +5131,7 @@ function dpPlanHTML(){
   const d=dparse(date), nx=dparse(dadd(dtoday(),1)), td=dparse(dtoday());
   const md=x=>`${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`;
   let h=`<div class="dp-tabs"><button type="button" data-dpd="0" class="${DP_OFF===0?'on':''}">本日の予定 ${md(td)}</button><button type="button" data-dpd="1" class="${DP_OFF===1?'on':''}">明日の予定 ${md(nx)}</button></div>
-    <div class="dp-note">左から作業の順・押すと詳細</div>`;
+    <div class="dp-note">予定を押すと詳細</div>${dpBunHTML()}`;
   if(!items.length){ h+=`<div class="dp-empty">${dpState()||(RC.koji&&RC.koji[date])?(DP_OFF?'明日':'今日')+'の作業予定はありません':'予定を読み込んでいます…'}</div>`; DP_LAST=[]; return h; }
   let lo=7*60, hi=17*60; items.forEach(x=>{ lo=Math.min(lo,Math.floor(x.s/60)*60); hi=Math.max(hi,Math.ceil(x.e/60)*60); });
   const span=hi-lo, px=v=>((v-lo)/span*100).toFixed(2)+'%';
@@ -5102,6 +5146,24 @@ function dpPlanHTML(){
   return h;
 }
 let DP_LAST=[];
+
+/* ---- 勤務予定（出勤・休みの氏名。2026-10-01 泰広さん指示：本日の予定の下部に小さく） ---- */
+function dpKinmuHTML(){
+  const date=dpDate(), K=MFG&&MFG.shukkin, M=K&&K.months&&K.months[date.slice(0,7)];
+  const day=M&&(M.days||[]).find(x=>x.d===date);
+  if(!M||!M.staff||!day) return '';
+  const on=[], off=[], agri=[];
+  M.staff.forEach((s,k)=>{ const n=nrm(s); if(!n) return; const v=String((day.c&&day.c[k])||'').trim();
+    if(v==='アグリ'){ agri.push(esc(n)); return; }
+    if(/^[＼\\／\/×]/.test(v) && !/0\.5/.test(v)){ off.push(esc(n)+(/当/.test(v)?'<small>（当番）</small>':'')); return; }
+    let note='';
+    if(/a0\.5|ａ0\.5/i.test(v)) note='午前休'; else if(/p0\.5|ｐ0\.5/i.test(v)) note='午後休'; else if(v && !/^(泊|当|３F|3F)$/.test(v)) note=v;
+    on.push(esc(n)+(note?`<small>（${esc(note)}）</small>`:'')); });
+  if(!on.length&&!off.length&&!agri.length) return '';
+  return `<div class="dp-kn"><div><b>出勤 ${on.length}</b><span>${on.join('・')||'—'}</span></div>`
+    +`<div class="off"><b>休み ${off.length}</b><span>${off.join('・')||'—'}</span></div>`
+    +(agri.length?`<div><b>アグリ</b><span>${agri.join('・')}</span></div>`:'')+`</div>`;
+}
 
 /* ---- カレンダーの予定（箇条書き） ---- */
 function dpCalHTML(){
@@ -5122,7 +5184,7 @@ function dpHome(hexes){
     return x.href?`<a class="dp-ic" href="${x.href}">${inner}</a>`:`<button type="button" class="dp-ic" id="${x.id}">${inner}</button>`; };
   setTimeout(dpAfterHome, 50);
   return `${kirinzanBand()}<div class="hx" style="display:none"></div>
-    <div class="dp" id="dpBox"><div id="dpPlan">${dpPlanHTML()}</div><div id="dpCal">${dpCalHTML()}</div></div>
+    <div class="dp" id="dpBox"><div id="dpPlan">${dpPlanHTML()}</div><div id="dpKn">${dpKinmuHTML()}</div><div id="dpCal">${dpCalHTML()}</div></div>
     ${homeToday()}
     <div class="dp-ics">${hexes.map(ic).join('')}</div>`;
 }
@@ -5148,7 +5210,7 @@ document.addEventListener('click', e=>{
 
 /* ---- 裏で最新を取り、予定の枠だけ描き直す ---- */
 let DP_TICK=null;
-function dpRedraw(){ const p=document.getElementById('dpPlan'), c=document.getElementById('dpCal'); if(p) p.innerHTML=dpPlanHTML(); if(c) c.innerHTML=dpCalHTML(); }
+function dpRedraw(){ const p=document.getElementById('dpPlan'), c=document.getElementById('dpCal'), k=document.getElementById('dpKn'); if(p) p.innerHTML=dpPlanHTML(); if(k) k.innerHTML=dpKinmuHTML(); if(c) c.innerHTML=dpCalHTML(); }
 function dpAfterHome(){
   if(!document.getElementById('dpBox')) return;
   clearInterval(DP_TICK); DP_TICK=setInterval(()=>{ if(document.getElementById('dpBox')) dpRedraw(); else clearInterval(DP_TICK); }, 60000);
