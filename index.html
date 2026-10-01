@@ -691,7 +691,6 @@ function kirinzanBand(){
       <path d="M0,132 L0,116 C44,110 88,122 132,115 C176,108 220,120 264,113 C308,106 350,118 390,111 L390,132 Z" fill="#5a93bb" opacity=".95"/>
     </svg>
     <div class="fade"></div>
-    <div class="cap">名峰 <b>麒麟山</b>（海抜195m）と <b>常浪川</b></div>
   </div>`;
 }
 function kirinzanBind(){
@@ -5154,6 +5153,8 @@ function dpKinmuHTML(){
   if(!M||!M.staff||!day) return '';
   const on=[], off=[], agri=[];
   M.staff.forEach((s,k)=>{ const n=nrm(s); if(!n) return; const v=String((day.c&&day.c[k])||'').trim();
+    /* 2026-10-01 泰広さん指示：出勤表の「研修」列は載せない。ただし ／＼× 以外の名前（例：辻）が入っていればその人を出勤に入れる */
+    if(/研修/.test(n)){ const w=nrm(v); if(w && !/^[＼\\／\/×]/.test(w)) on.push(esc(w)); return; }
     if(v==='アグリ'){ agri.push(esc(n)); return; }
     if(/^[＼\\／\/×]/.test(v) && !/0\.5/.test(v)){ off.push(esc(n)+(/当/.test(v)?'<small>（当番）</small>':'')); return; }
     let note='';
