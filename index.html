@@ -712,7 +712,8 @@ function home(){
     {id:'bCal',  e:'📅', lb:'製造<br>カレンダー', c:['#eed469','#d8bd4b'], t:'ho',   n:homeBadge('cal')},
     {id:'bRice', e:'🌾', lb:'米管理',             c:['#f4de7b','#dfc75c'], t:'ho',   n:homeBadge('rice'), tag:riceAlert()?'在庫未確認':''},
     {id:'bKoji', e:'🍚', lb:'麹',                 c:['#e5c85a','#cfb141'], t:'ho', tag:(typeof o2KojiAlert==='function'&&o2KojiAlert())?'O₂未測定':''},
-    {id:'bShubo',e:'🧫', lb:'酒母',               c:['#dcc45f','#c6ad46'], t:'ho'},
+    {id:'bBun',  e:'🧪', lb:'分析',               c:['#dcc45f','#c6ad46'], t:'ho'},
+    {id:'bShubo',e:'🧫', lb:'酒母',               c:['#dac862','#c4b048'], t:'ho'},
     {id:'bShk',  e:'🍶', lb:'仕込み',             c:['#d9cc6a','#c2b44f'], t:'momi'},
     {id:'bWash', e:'🫧', lb:'タンク<br>洗浄管理', c:['#cbe075','#b1c95c'], t:'momi'},
     {id:'bCalc', e:'🧮', lb:'各種<br>計算ツール', c:['#c5da68','#abc351'], t:'momi'},
@@ -752,6 +753,7 @@ function home(){
   $('#bRice').onclick=()=>go(riceScreen);
   $('#bKoji').onclick=()=>go(()=>kojiScreen());
   $('#bShubo').onclick=()=>go(()=>shuboHome());
+  $('#bBun').onclick=()=>go(()=>bunHome(dtoday()));
   $('#bShk').onclick=()=>go(()=>moromiHome());
   $('#bWash').onclick=()=>go(washScreen);
   $('#bCalc').onclick=()=>go(calcHome);
@@ -5703,6 +5705,276 @@ moromiSheet=async function(no){
 
 </script>
 <!-- /shikomi -->
+<!-- bunseki -->
+<script>
+/* ================= 🧪 分析（その日に分析する全タンクを1枚の表で入力・経過はボタンで） 2026-10-02 =================
+   ・対象はホーム「分析◯本」と同じ決まり：酒母＝酛立の翌日〜酛卸（添の前日）、醪＝留を1日目として3日目〜上槽予定日
+   ・入れた値は端末に下書きとして残る（途中で閉じても消えない）。「まとめて保存」で1回に送る
+   ・各行の「経過」を押すと、その行の下にグラフと全日の表（酒母／分析醪シートと同じ並び）が開く
+   ・前回値と比べておかしい値・ありえない値はその場で色が付く（保存は止めない）
+   ・サーバー（醸造記録 R8BY）は変更なし：bunseki_get / shubo_get / bunseki_save / shubo_save をそのまま使う */
+const BN_CSS=`
+.bn-top{display:flex;align-items:center;gap:6px;margin:4px 0 8px}
+.bn-top .dt{flex:1;text-align:center;font-weight:800;color:var(--navy);font-size:16px;line-height:1.2}
+.bn-top .dt small{display:block;font-size:11px;color:var(--sub);font-weight:400}
+.bn-top button{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-family:inherit;font-size:13px;color:var(--navy);cursor:pointer}
+.bn-sum{display:flex;gap:6px;margin:0 0 10px}
+.bn-sum div{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 4px;text-align:center;font-size:11px;color:var(--sub)}
+.bn-sum b{display:block;font-size:18px;color:var(--navy)}
+.bn-sum .ok b{color:var(--ok)} .bn-sum .ng b{color:var(--ng)}
+.bn-h{font-weight:800;color:var(--navy);font-size:15px;margin:14px 2px 6px;display:flex;align-items:baseline;gap:8px}
+.bn-h small{font-weight:400;color:var(--sub);font-size:11px}
+.bn-t{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.bn-t th{font-size:11px;color:var(--sub);font-weight:600;padding:6px 2px;background:#f3efe4;border-bottom:1px solid var(--line)}
+.bn-t td{padding:5px 1px;overflow:hidden;border-bottom:1px solid var(--line);vertical-align:top;text-align:center}
+.bn-t tr.bn-r.done td{background:#f1f8f4}
+.bn-t tr.bn-r.err td{background:#fdf3f2}
+.bn-t .id{font-weight:800;color:var(--navy);font-size:16px;line-height:1.1;text-align:left;padding-left:8px;white-space:nowrap}
+.bn-t .id small{display:block;font-size:10px;color:var(--sub);font-weight:400}
+.bn-t .dy{font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap}
+.bn-in{width:100%;max-width:60px;box-sizing:border-box;font-size:17px;font-weight:700;text-align:center;padding:7px 2px;border:1.5px solid #cfc8b6;border-radius:8px;background:#fff;font-family:inherit;color:var(--ink)}
+.bn-in:focus{outline:none;border-color:var(--navy);background:#fffbe8}
+.bn-in.dirty{border-color:#d8a100;background:#fff8dc}
+.bn-in.warn{border-color:#d8a100;box-shadow:0 0 0 2px rgba(216,161,0,.35)}
+.bn-in.bad{border-color:var(--ng);box-shadow:0 0 0 2px rgba(178,59,59,.3);color:var(--ng)}
+.bn-in:disabled{background:#f2f0ea;color:#aaa}
+.bn-pv{display:block;font-size:10px;color:var(--sub);margin-top:2px;white-space:nowrap;letter-spacing:-.02em}
+.bn-t col.c1{width:50px}.bn-t col.c2{width:30px}.bn-t col.c9{width:44px}
+.bn-msg{font-size:11px;text-align:left;padding:0 8px 6px !important;border-bottom:1px solid var(--line)}
+.bn-msg .w{color:#9a7400;font-weight:700}.bn-msg .e{color:var(--ng);font-weight:700}.bn-msg .o{color:var(--ok);font-weight:700}
+.bn-msg:empty{display:none}
+.bn-hb{background:var(--card);border:1px solid var(--navy);color:var(--navy);border-radius:8px;padding:6px 2px;width:40px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap}
+.bn-hb.on{background:var(--navy);color:#fff}
+.bn-hist td{background:#faf8f2;padding:8px 6px 10px !important;text-align:left}
+.bn-hist .ttl{font-size:12px;color:var(--navy);font-weight:700;margin-bottom:4px}
+.bn-hist .ttl small{color:var(--sub);font-weight:400}
+.bn-hist .sh-tw{max-width:100%;overflow-x:auto}
+.bn-hist .go{display:block;margin-top:8px;background:none;border:0;color:var(--navy);font-weight:700;font-size:13px;font-family:inherit;cursor:pointer;padding:4px 0}
+.bn-setup{display:block;width:100%;margin-top:3px;font-size:10px;color:var(--ng);font-weight:700;background:none;border:0;padding:0;text-align:left;font-family:inherit;cursor:pointer;text-decoration:underline}
+.bn-bar{position:sticky;bottom:0;z-index:5;background:linear-gradient(to top,var(--paper) 75%,rgba(247,244,236,0));padding:12px 0 calc(10px + env(safe-area-inset-bottom));margin-top:10px;display:flex;gap:8px;align-items:center}
+.bn-bar .rc-btn{flex:1}
+.bn-bar .rc-btn:disabled{opacity:.45}
+.bn-note{font-size:11px;color:var(--sub);line-height:1.6;margin:8px 2px}
+.dp-bn{cursor:pointer}
+@media(max-width:380px){.bn-in{font-size:15px}.bn-t .id{font-size:14px;padding-left:5px}.bn-pv{font-size:9px}}
+`;
+(function(){ const s=document.createElement('style'); s.textContent=BN_CSS; document.head.appendChild(s); })();
+
+const BN_F={
+  sb:[['be','Be'],['ta','酸度'],['alc','alc']],
+  mr:[['be','Be/度'],['alc','alc'],['ta','酸度'],['aa','ｱﾐﾉ']]
+};
+/* ありえない値（赤）。範囲はゆるめ。打ち間違い（桁・小数点）を拾うため */
+const BN_RANGE={ sb:{be:[0,25],ta:[0,20],alc:[0,20]}, mr:{be:[-30,40],alc:[0,23],ta:[0,6],aa:[0,6]} };
+const BN={date:null, open:{}};
+const bnKey=(k,no)=>k+'_'+no;
+const bnStore=k=>k==='sb'?RC.shubo:RC.bun;
+function bnDraft(date){ return lsGet('bn.draft.'+date,{})||{}; }
+function bnDraftSet(date,d){ if(Object.keys(d).length) lsSet('bn.draft.'+date,d); else { try{ localStorage.removeItem('bn.draft.'+date); }catch(e){} } }
+
+/* その日に分析する仕込（ホームの dpBunseki と同じ決まり） */
+function bnTargets(st,date){
+  const M=(st&&st.master)||[], out=[];
+  M.filter(m=>m.motodate && m.motodate<date && (!m.soe || date<=dadd(m.soe,-1)))
+   .sort((a,b)=>a.motodate.localeCompare(b.motodate)||a.no-b.no)
+   .forEach(m=>{ const d=rcShuboDay(m,date); if(d>=1&&d<=13) out.push({k:'sb',m,d}); });
+  M.filter(m=>m.tome && dadd(m.tome,2)<=date && (!m.joso || date<=m.joso) && ((st.today||{})[m.no]||{}).state!=='上槽済')
+   .sort((a,b)=>a.tome.localeCompare(b.tome)||a.no-b.no)
+   .forEach(m=>{ const d=rcMoromiDay(m,date); if(d>=1&&d<=36) out.push({k:'mr',m,d}); });
+  return out;
+}
+/* その日より前で一番近い値 */
+function bnPrev(days,d,f){ for(let i=d-2;i>=0;i--){ const x=days[i]; const v=x?shN(x[f]):null; if(v!==null) return {v,day:x.day}; } return null; }
+/* 前回と比べた注意（黄）。保存は止めない */
+function bnCheck(k,f,v,prev){
+  const r=BN_RANGE[k][f]; if(r&&(v<r[0]||v>r[1])) return ['bad','ありえない値です（桁・小数点を確認）'];
+  if(!prev) return null; const p=prev.v;
+  if(f==='alc'&&v<p-0.3) return ['warn',`alc が前回（${shF(p)}）より下がっています`];
+  if(f==='alc'&&k==='mr'&&v>p+4) return ['warn',`alc が前回（${shF(p)}）から急に上がっています`];
+  if(f==='ta'&&Math.abs(v-p)>=(k==='sb'?3:0.6)) return ['warn',`酸度が前回（${shF(p)}）から大きく変わっています`];
+  if(f==='aa'&&Math.abs(v-p)>=0.5) return ['warn',`アミノ酸度が前回（${shF(p)}）から大きく変わっています`];
+  if(f==='be'&&k==='sb'&&v>p+1) return ['warn',`Be が前回（${shF(p)}）より上がっています`];
+  return null;
+}
+
+async function bunHome(date){
+  date=date||BN.date||dtoday(); BN.date=date;
+  head('分析', '酒母・醪の分析値をまとめて入力');
+  rcLoading('分析する仕込を読み込んでいます…');
+  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
+  const T=bnTargets(st,date), sb=T.filter(x=>x.k==='sb'), mr=T.filter(x=>x.k==='mr');
+  const draft=bnDraft(date), isToday=date===dtoday();
+  const row=x=>{ const key=bnKey(x.k,x.m.no), F=BN_F[x.k];
+    const id=x.k==='sb'?`${x.m.no}<small>酒母${esc(x.m.shuboSym||'')}${x.m.shuboT?' T'+esc(x.m.shuboT):''}</small>`:`${x.m.no}<small>${esc(x.m.sym||'')} T${esc(x.m.tank||'')}</small>`;
+    return `<tr class="bn-r" data-key="${key}"><td class="id">${id}</td><td class="dy">${x.k==='mr'&&x.d===1?'留':x.d+'日'}</td>
+      ${F.map(([f])=>{ const dv=draft[key]&&draft[key][f]; return `<td><input class="bn-in ${dv!==undefined?'dirty':''}" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-key="${key}" data-f="${f}" value="${dv!==undefined?esc(dv):''}" disabled><span class="bn-pv" data-pv="${key}_${f}">…</span></td>`; }).join('')}
+      <td><button type="button" class="bn-hb" data-h="${key}">経過</button></td></tr>
+      <tr class="bn-m"><td class="bn-msg" colspan="${F.length+3}" data-msg="${key}"></td></tr>
+      <tr class="bn-hist" data-hist="${key}" style="display:none"><td colspan="${F.length+3}"></td></tr>`; };
+  const table=(k,list)=>`<table class="bn-t"><colgroup><col class="c1"><col class="c2">${BN_F[k].map(()=>'<col>').join('')}<col class="c9"></colgroup><tr><th style="text-align:left;padding-left:8px">順号</th><th>日目</th>${BN_F[k].map(([,l])=>`<th>${l}</th>`).join('')}<th></th></tr>${list.map(row).join('')}</table>`;
+  const d=dparse(date);
+  let h=`<div class="bn-top"><button type="button" id="bnPrev">‹ 前日</button><div class="dt">${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）<small>${isToday?'今日の分析':date<dtoday()?'過去の日':'先の日（予定）'}</small></div><button type="button" id="bnNext">翌日 ›</button></div>
+    <div class="bn-sum"><div><b>${T.length}</b>本</div><div><b>${sb.length}</b>酒母</div><div><b>${mr.length}</b>醪</div><div class="ok" id="bnDoneBox"><b id="bnDone">…</b>入力済</div></div>
+    <div class="rc-status" id="rcStatus"></div>`;
+  if(!T.length) h+=`<p class="muted" style="text-align:center;padding:24px 0">この日に分析する仕込はありません</p>`;
+  if(sb.length) h+=`<div class="bn-h">🧫 酒母<small>Be・酸度・alc</small></div>${table('sb',sb)}`;
+  if(mr.length) h+=`<div class="bn-h">🍶 醪<small>Be は3.0未満になったら日本酒度で（R7BYと同じ）</small></div>${table('mr',mr)}`;
+  if(T.length) h+=`<p class="bn-note">数字の下の小さな字＝前回の値（何日目か）。入れると黄色の枠＝まだ保存していない値（この端末に下書きとして残ります）。前回から大きく外れると枠が光り、行の下に理由が出ます。「経過」でその仕込の全体の流れ（グラフと全日の表）が開きます。品温は 酒母・仕込み の画面で。</p>
+    <div class="bn-bar"><button class="rc-ghost" id="bnReload" type="button">更新</button><button class="rc-btn" id="bnSave" type="button" disabled>まとめて保存</button></div>`;
+  app.innerHTML=h;
+  $('#bnPrev').onclick=()=>bunHome(dadd(date,-1));
+  $('#bnNext').onclick=()=>bunHome(dadd(date,1));
+  if(!T.length) return;
+  const myTop=nav[nav.length-1];
+  const live=()=>nav[nav.length-1]===myTop && BN.date===date && document.getElementById('bnSave');
+
+  /* 1行ぶんに値を流し込む（自分が打った欄は触らない） */
+  const fill=x=>{ if(!live()) return; const key=bnKey(x.k,x.m.no), s=bnStore(x.k)[x.m.no]; if(!s) return;
+    const days=s.days||[], D=days[x.d-1]||{};
+    BN_F[x.k].forEach(([f])=>{ const inp=app.querySelector(`.bn-in[data-key="${key}"][data-f="${f}"]`); if(!inp) return;
+      if(!inp.classList.contains('dirty')) inp.value=shN(D[f])!==null?String(D[f]):'';
+      const p=bnPrev(days,x.d,f), pv=app.querySelector(`[data-pv="${key}_${f}"]`);
+      if(pv) pv.textContent=p?`前${shF(p.v)}(${x.k==='mr'&&p.day===1?'留':p.day+'日'})`:'前 —';
+      inp.disabled=false; });
+    if(x.k==='sb'){ const miss=shSetupMissing(s); const msg=app.querySelector(`[data-msg="${key}"]`);
+      if(miss.length){ BN_F.sb.forEach(([f])=>{ const i=app.querySelector(`.bn-in[data-key="${key}"][data-f="${f}"]`); if(i) i.disabled=true; });
+        if(msg) msg.innerHTML=`<span class="e">仕込時の値（${esc(miss.join('・'))}）が未入力のため保存できません。</span><button type="button" class="bn-setup" data-setup="${x.m.no}">→ 仕込時の値を入れる</button>`;
+        const b=msg&&msg.querySelector('[data-setup]'); if(b) b.onclick=()=>go(()=>shuboInput(x.m.no, Math.min(13,Math.max(1,x.d)), 'setup')); } }
+    validateRow(key); count(); };
+  const count=()=>{ if(!live()) return; let n=0, k=0;
+    T.forEach(x=>{ const s=bnStore(x.k)[x.m.no]; if(!s) return; k++; const D=(s.days||[])[x.d-1]||{};
+      if(BN_F[x.k].some(([f])=>shN(D[f])!==null)) n++; });
+    const e=$('#bnDone'); if(e) e.textContent=k<T.length?`${n}/${T.length}…`:`${n}/${T.length}`;
+    const box=$('#bnDoneBox'); if(box) box.className=n>=T.length?'ok':'ng'; };
+  const validateRow=key=>{ const x=T.find(y=>bnKey(y.k,y.m.no)===key); if(!x) return; const s=bnStore(x.k)[x.m.no]; const days=(s&&s.days)||[];
+    const msgs=[];
+    BN_F[x.k].forEach(([f,l])=>{ const inp=app.querySelector(`.bn-in[data-key="${key}"][data-f="${f}"]`); if(!inp) return;
+      inp.classList.remove('warn','bad'); const raw=String(inp.value).trim(); if(raw==='') return;
+      const v=Number(raw); if(isNaN(v)){ inp.classList.add('bad'); msgs.push(['bad',l+'：数字ではありません']); return; }
+      const c=bnCheck(x.k,f,v,bnPrev(days,x.d,f)); if(c){ inp.classList.add(c[0]); msgs.push([c[0],l+'：'+c[1]]); } });
+    const msg=app.querySelector(`[data-msg="${key}"]`); if(!msg||msg.querySelector('[data-setup]')) return;
+    if(msgs.length) msg.innerHTML=msgs.map(([c,t])=>`<span class="${c==='bad'?'e':'w'}">⚠ ${esc(t)}</span>`).join('<br>');
+    else if(!msg.querySelector('.o')) msg.innerHTML=''; };
+  const dirtyN=()=>app.querySelectorAll('.bn-in.dirty').length;
+  const syncBtn=()=>{ const b=$('#bnSave'); if(!b) return; const n=dirtyN(); b.disabled=!n; b.textContent=n?`まとめて保存（${n}項目）`:'まとめて保存'; };
+
+  /* 入力：下書きに残す・Enterで次の欄へ */
+  app.querySelectorAll('.bn-in').forEach(inp=>{
+    inp.addEventListener('input',()=>{ const key=inp.dataset.key, f=inp.dataset.f; const dr=bnDraft(date);
+      inp.classList.add('dirty'); (dr[key]=dr[key]||{})[f]=inp.value; bnDraftSet(date,dr);
+      const r=inp.closest('tr'); r.classList.remove('done','err'); validateRow(key); syncBtn(); });
+    inp.addEventListener('keydown',e=>{ if(e.key!=='Enter') return; e.preventDefault();
+      const all=[...app.querySelectorAll('.bn-in:not(:disabled)')]; const i=all.indexOf(inp);
+      if(i>=0&&i<all.length-1){ all[i+1].focus(); all[i+1].select&&all[i+1].select(); } else inp.blur(); });
+    inp.addEventListener('focus',()=>{ try{ inp.select(); }catch(e){} });
+  });
+  syncBtn();
+
+  /* 経過（押すと行の下に開く） */
+  app.querySelectorAll('.bn-hb').forEach(b=>b.onclick=()=>{ const key=b.dataset.h, tr=app.querySelector(`[data-hist="${key}"]`);
+    const open=tr.style.display==='none'; tr.style.display=open?'':'none'; b.classList.toggle('on',open); BN.open[key]=open;
+    if(open) bnHist(T.find(y=>bnKey(y.k,y.m.no)===key), tr.firstElementChild); });
+
+  const bnHistRefresh=x=>{ const key=bnKey(x.k,x.m.no); if(!BN.open[key]||!live()) return; const tr=app.querySelector(`[data-hist="${key}"]`); if(tr&&tr.style.display!=='none') bnHist(x,tr.firstElementChild); };
+  /* データ：手元の分ですぐ出し、裏で最新を取り直す */
+  T.forEach(fill);
+  const byK={sb:T.filter(x=>x.k==='sb'), mr:T.filter(x=>x.k==='mr')};
+  const refetch=async()=>{ await Promise.all([
+    shFetchMany(byK.sb.map(x=>x.m.no),'shubo_get',RC.shubo,no=>{ const x=byK.sb.find(y=>String(y.m.no)===String(no)); if(x){ fill(x); bnHistRefresh(x); } }),
+    shFetchMany(byK.mr.map(x=>x.m.no),'bunseki_get',RC.bun,no=>{ const x=byK.mr.find(y=>String(y.m.no)===String(no)); if(x){ fill(x); bnHistRefresh(x); } }) ]);
+    if(live()) T.forEach(x=>{ if(!bnStore(x.k)[x.m.no]){ const m=app.querySelector(`[data-msg="${bnKey(x.k,x.m.no)}"]`); if(m&&!m.innerHTML) m.innerHTML='<span class="e">読み込めませんでした（更新を押してください）</span>'; } }); };
+  refetch();
+  T.forEach(x=>{ const key=bnKey(x.k,x.m.no); if(BN.open[key]){ const tr=app.querySelector(`[data-hist="${key}"]`), b=app.querySelector(`[data-h="${key}"]`); if(tr){ tr.style.display=''; b.classList.add('on'); bnHist(x,tr.firstElementChild); } } });
+
+  $('#bnReload').onclick=async()=>{ rcStatus('更新中…'); await recState(true); T.forEach(x=>bnStore(x.k)[x.m.no]=null); bunHome(date); };
+
+  /* まとめて保存（2本ずつ並行で送る） */
+  $('#bnSave').onclick=async()=>{
+    const jobs=[];
+    T.forEach(x=>{ const key=bnKey(x.k,x.m.no), s=bnStore(x.k)[x.m.no]; const D=((s&&s.days)||[])[x.d-1]||{}; const values={};
+      app.querySelectorAll(`.bn-in.dirty[data-key="${key}"]`).forEach(inp=>{ if(inp.disabled) return; const v=String(inp.value).trim(); if(v!==String(D[inp.dataset.f]??'')) values[inp.dataset.f]=v; });
+      const dirty=app.querySelectorAll(`.bn-in.dirty[data-key="${key}"]`).length;
+      if(Object.keys(values).length) jobs.push({x,key,values});
+      else if(dirty && s){ app.querySelectorAll(`.bn-in.dirty[data-key="${key}"]`).forEach(i=>{ if(!i.disabled) i.classList.remove('dirty'); }); const dr=bnDraft(date); delete dr[key]; bnDraftSet(date,dr); } });
+    if(!jobs.length){ syncBtn(); rcStatus('変わったところがありません'); return; }
+    const bad=app.querySelectorAll('.bn-in.dirty.bad').length;
+    if(bad && !confirm(`ありえない値が ${bad} か所あります。このまま保存しますか？`)) return;
+    const btn=$('#bnSave'); btn.disabled=true; let ok=0, ng=0, i=0, warnN=0;
+    rcStatus(`保存中… 0/${jobs.length}`);
+    const one=async j=>{ const {x,key,values}=j, tr=app.querySelector(`tr.bn-r[data-key="${key}"]`), msg=app.querySelector(`[data-msg="${key}"]`);
+      try{ const res=await recApi({action:x.k==='sb'?'shubo_save':'bunseki_save', no:x.m.no, day:x.d, values},50000);
+        if(res&&res.ok){ ok++;
+          if(x.k==='mr'&&res.all) RC.bun[x.m.no]=res.all; else { const s=RC.shubo[x.m.no]; const D=s&&s.days&&s.days[x.d-1]; if(D) Object.assign(D,values); }
+          const dr=bnDraft(date); delete dr[key]; bnDraftSet(date,dr);
+          if(live()){ app.querySelectorAll(`.bn-in[data-key="${key}"]`).forEach(e=>e.classList.remove('dirty'));
+            if(tr){ tr.classList.remove('err'); tr.classList.add('done'); }
+            const w=x.k==='mr'&&res.calc?(res.calc.warn||res.calc.miss||''):''; const c=x.k==='mr'&&res.calc;
+            if(w) warnN++;
+            if(msg) msg.innerHTML=`<span class="o">✓ 保存しました</span>${c&&shN(c.bmd)!==null?`　BMD ${shF(c.bmd)}${shN(c.bmdStd)!==null?'（標準 '+shF(c.bmdStd)+'）':''}`:''}${c&&c.rec?`　<span class="w">推奨追水 ${rcN(c.rec)}L</span>`:''}${w?`<br><span class="w">⚠ ${esc(w)}</span>`:''}`;
+            bnHistRefresh(x); }
+        } else { ng++; if(live()){ if(tr) tr.classList.add('err'); if(msg) msg.innerHTML=`<span class="e">保存できませんでした：${esc(res&&res.err||'')}</span>`; } }
+      }catch(e){ ng++; if(live()){ if(tr) tr.classList.add('err'); if(msg) msg.innerHTML='<span class="e">保存できませんでした（電波を確認して、もう一度「まとめて保存」）</span>'; } }
+      rcStatus(`保存中… ${ok+ng}/${jobs.length}`); };
+    const worker=async()=>{ while(i<jobs.length){ await one(jobs[i++]); } };
+    await Promise.all([worker(),worker()]);
+    RC.at=0;
+    if(!live()) return;
+    syncBtn(); count();
+    rcStatus(ng?`${ok}本 保存、${ng}本 保存できませんでした（赤い行）。値は残っているので、もう一度「まとめて保存」を押してください`:`${ok}本 保存しました${warnN?`（注意 ${warnN}本：行の下を確認）`:''}`, !!(ng||warnN));
+    /* 酒母は保存後に最新を取り直す（計算はないが、ほかの人の入力も反映） */
+    const sbNos=jobs.filter(j=>j.x.k==='sb').map(j=>j.x.m.no);
+    if(sbNos.length) shFetchMany(sbNos,'shubo_get',RC.shubo,no=>{ const x=byK.sb.find(y=>String(y.m.no)===String(no)); if(x){ fill(x); bnHistRefresh(x); } });
+  };
+}
+
+/* 経過：グラフ＋全日の表（その日の列を黄色）。酒母は分析酒母、醪は分析醪と同じ並び */
+function bnHist(x, td){
+  if(!x||!td) return;
+  const s=bnStore(x.k)[x.m.no];
+  if(!s){ td.innerHTML='<div class="muted" style="font-size:12px">読み込んでいます…</div>'; return; }
+  const days=s.days||[], m=x.m;
+  let h='';
+  if(x.k==='sb'){
+    h+=`<div class="ttl">${esc(m.liquid||'')}<small>　酛立 ${rcMD(m.motodate)}・酛卸予定 ${rcMD(s.motooroshi||s.motooroshiPlan||(m.soe?dadd(m.soe,-1):''))}・酵母 ${esc(m.yeast||'—')}</small></div>`;
+    h+=shChart(days.length, days.map(y=>y.day), [
+      {name:'ボーメ', color:'#1f5fa8', axis:'L', vals:days.map(y=>shN(y.be))},
+      {name:'酸度', color:'#2f7d5d', axis:'R', vals:days.map(y=>shN(y.ta))},
+      {name:'品温AM', color:'#c0392b', axis:'R', dash:true, vals:days.map(y=>shN(y.temp))}], x.d-1);
+    h+=shTable(days, y=>y.day, [
+      ['Be', y=>shF(y.be)], ['alc', y=>shF(y.alc)], ['酸度', y=>shF(y.ta)],
+      ['品温', y=>{ const a=shF(y.temp), p=shF(y.tPM); return a||p?`${a||'—'}<span class="pm">${p||'—'}</span>`:''; }],
+      ['備考', y=>y.biko?`<span style="font-weight:400;font-size:11px">${esc(String(y.biko).slice(0,8))}</span>`:'']], x.d);
+    h+=`<button type="button" class="go" data-open="1">この酒母の画面を開く ›</button>`;
+  }else{
+    const calc=s.calc||{}, dl=d=>d===1?'留':d;
+    const last=Math.max(x.d, ...days.filter(y=>shN(y.be)!==null||shN(y.tAM)!==null).map(y=>y.day), 1);
+    const dd=days.slice(0, Math.min(days.length, Math.max(last+3, 12)));
+    h+=`<div class="ttl">${esc(m.liquid||'')}<small>　留 ${rcMD(m.tome)}・上槽予定 ${rcMD(m.joso)}・酵母 ${esc(m.yeast||'—')}・追水計画 ${esc(m.oimizu||'—')}L</small></div>`;
+    h+=shChart(dd.length, dd.map(y=>dl(y.day)), [
+      {name:'標準BMD', color:'#1f5fa8', axis:'L', std:true, vals:dd.map(y=>shN((calc[y.day]||{}).bmdStd))},
+      {name:'BMD', color:'#1f5fa8', axis:'L', vals:dd.map(y=>shN((calc[y.day]||{}).bmd))},
+      {name:'alc', color:'#7a4fb0', axis:'R', vals:dd.map(y=>shN(y.alc))}], x.d-1);
+    h+=shTable(dd, y=>dl(y.day), [
+      ['Be/度', y=>shF(y.be)], ['alc', y=>shF(y.alc)], ['酸', y=>shF(y.ta)], ['ｱﾐﾉ', y=>shF(y.aa)], ['追水', y=>shF(y.oimizu,0)],
+      ['品温', y=>{ const a=shF(y.tAM), p=shF(y.tPM); return a||p?`${a||'—'}${p?`<span class="pm">${p}</span>`:''}`:''; }],
+      ['BMD', y=>shF((calc[y.day]||{}).bmd)],
+      ['注意', y=>{ const k=calc[y.day]||{}; return k.warn?`<span class="wn">!</span>`:(k.rec?`<span style="font-size:10px">追${rcN(k.rec)}</span>`:''); }]], x.d);
+    h+=`<button type="button" class="go" data-open="1">この醪の画面を開く（仕込み時の値・カルテ）›</button>`;
+  }
+  td.innerHTML=h.replace(/id="shTw"/g,'');
+  const tw=td.querySelector('.sh-tw'), on=tw&&tw.querySelector('th.td');
+  if(on) tw.scrollLeft=Math.max(0,on.offsetLeft-tw.clientWidth/2+on.offsetWidth/2);
+  td.querySelector('[data-open]').onclick=()=>go(()=>x.k==='sb'?shuboSheet(x.m.no):moromiSheet(x.m.no));
+}
+
+/* ホーム「本日の予定」の「分析 ◯本」を押すと、その日の分析画面へ */
+document.addEventListener('click', e=>{
+  const b=e.target.closest && e.target.closest('#app .dp-bn'); if(!b) return;
+  const d=(typeof dpDate==='function')?dpDate():dtoday(); go(()=>bunHome(d));
+});
+
+</script>
+<!-- /bunseki -->
 <!-- /tools -->
 </body>
 </html>
