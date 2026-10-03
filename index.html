@@ -720,6 +720,7 @@ function home(){
     {id:'bTodo', e:'📝', lb:'やること<br>リスト',   c:['#bfd45e','#a5bc48'], t:'momi', n:(typeof todoBadge==='function'?todoBadge():0)},
     {id:'bLib',  e:'🧬', lb:'酵母・麹<br>情報',   c:['#b8cd54','#9eb440'], t:'momi'},
     {id:'bMan',  e:'📘', lb:'マニュアル',         c:['#a9c95f','#8fb247'], t:'ha', tag:(typeof manxAlert==='function'?manxAlert():'')},
+    {id:'bCt',   e:'📇', lb:'連絡先',             c:['#a3cd73','#89b55a'], t:'ha'},
     {href:'seishu-jiten.html', e:'📖', lb:'逆引き検索', c:['#9fd286','#85ba6b'], t:'ha'},
     {id:'bQuiz', e:'✅', lb:`問題集<span class="sm">${mastery(all)}%</span>`, c:['#95c97a','#7bb15f'], t:'ha'},
     {href:'voice.html', e:'🎙', lb:'Sake Tour<br>Guide', c:['#8abd6c','#70a453'], t:'ha'}
@@ -760,6 +761,7 @@ function home(){
   $('#bCalc').onclick=()=>go(calcHome);
   $('#bTodo').onclick=()=>go(todoScreen);
   $('#bMan').onclick=()=>go(manxHome);
+  $('#bCt').onclick=()=>go(ctScreen);
   void done;
   setTimeout(()=>{ if(typeof wsPrefetch==='function') wsPrefetch(); }, 1500);
 }
@@ -4318,7 +4320,7 @@ recState = async function(force){
 };
 
 /* ---------- 先読み ---------- */
-const HOME_KEYS = { bCal:'cal', bRice:'rice', bKoji:'koji', bBun:'bun', bShk:'shk', bWash:'wash', bCalc:'calc', bTodo:'todo', bLib:'lib', bMan:'man', bQuiz:'quiz' };
+const HOME_KEYS = { bCal:'cal', bRice:'rice', bKoji:'koji', bBun:'bun', bShk:'shk', bWash:'wash', bCalc:'calc', bTodo:'todo', bLib:'lib', bMan:'man', bCt:'ct', bQuiz:'quiz' };
 document.addEventListener('click', e=>{
   const el=e.target.closest && e.target.closest('#app .hxb, #app .crs, #app a.btn');
   if(!el || !FAST.onHome) return;
@@ -6681,6 +6683,156 @@ async function manxImport(base, onlyIds){
 
 </script>
 <!-- /manx -->
+<!-- contacts -->
+<script>
+/* ================= 📇 連絡先（2026-10-03） =================
+   ホームの「マニュアル」と「逆引き検索」の間のアイコンから開く。
+   資材・設備・部品ごとに「どこに頼むか（発注先）・電話番号」が分かる一覧。だれでも登録・修正できる。
+   ・項目：名前／種類（資材・設備・部品）／工程（複数可）／発注先／担当者／電話番号／FAX／メール／品番・型番／メモ
+   ・名前・発注先・電話・品番・メモ どこからでも探せる。種類・工程で絞り込める
+   ・発注先を入れると、同じ発注先の電話番号などを前の登録から自動で入れる
+   ・逆引き検索（seishu-jiten.html）の検索にも出る（端末の控え ct.items を共有）
+   ・記録先：Apps Script「製造ツール 共有データ」（SHARED_URL）の表「連絡先」
+   控え：seishu-workbook_github\_src_contacts.js　／　裏側の控え：seishu-workbook_github\_gas_shared_Code.gs
+   ============================================================ */
+const SHARED_URL = "https://script.google.com/macros/s/AKfycbz40kdY7Y9Cn1zxtS1FKAMY8RNDsGs-K5Gc59uPs7yJHBsdZdDLxaLdU41x6IXnwakiTg/exec";   // ← Apps Script「製造ツール 共有データ」をデプロイしたURL（/exec）を入れる
+const CT_KINDS = ['資材','設備','部品'];
+const CT_PROCS = ['原料処理','麹室','酒母','仕込み','2F洗い場','新仕込1F','土蔵','旧仕込','大蔵','洗米場','1F洗い場','そのほか'];
+const CT_CSS = `
+.ct-top{display:flex;gap:8px;margin:12px 0 6px}
+.ct-top input{flex:1;min-width:0;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;font-family:inherit;background:var(--card);color:var(--ink)}
+.ct-new{border:0;border-radius:10px;background:#2e6b4f;color:#fff;font-size:15px;font-weight:700;padding:0 14px;font-family:inherit;white-space:nowrap}
+.ct-chips{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 0 6px}
+.ct-chips button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 11px;font-size:13px;font-family:inherit;color:var(--ink)}
+.ct-chips button.on{background:#2e6b4f;border-color:#2e6b4f;color:#fff;font-weight:700}
+.ct-chips.p button{border-style:dashed;color:var(--sub)}
+.ct-chips.p button.on{border-style:solid;color:#fff}
+.ct-it{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.ct-it .m{flex:1;min-width:0;cursor:pointer}
+.ct-it .n{font-size:16px;font-weight:700;line-height:1.35;word-break:break-all}
+.ct-it .s{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;font-size:11px}
+.ct-it .s span{background:#f1eee6;border-radius:6px;padding:1px 6px;color:#555}
+.ct-it .s span.k{background:#e3f0e8;color:#235a40;font-weight:700}
+.ct-it .v{font-size:13px;color:var(--sub);margin-top:4px;word-break:break-all}
+.ct-it .v b{color:var(--ink)}
+.ct-tel{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;width:62px;height:56px;border-radius:12px;background:#2e6b4f;color:#fff;text-decoration:none;font-size:20px;line-height:1}
+.ct-tel small{font-size:10px;margin-top:4px}
+.ct-tel.no{background:#d8d4c8;color:#777;pointer-events:none}
+.ct-f label{display:block;font-size:12px;color:var(--sub);margin:12px 0 4px}
+.ct-f input,.ct-f textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:16px;font-family:inherit;background:#fff;color:var(--ink)}
+.ct-f textarea{min-height:0;resize:vertical}
+.ct-f .ch{display:flex;flex-wrap:wrap;gap:6px}
+.ct-f .ch button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 11px;font-size:14px;font-family:inherit;color:var(--ink)}
+.ct-f .ch button.on{background:#2e6b4f;border-color:#2e6b4f;color:#fff;font-weight:700}
+.ct-f .hint{font-size:12px;color:#2e6b4f;margin-top:4px}
+.ct-f .inf{font-size:12px;color:var(--sub);margin-top:14px;line-height:1.6}
+.ct-f .bt{display:flex;gap:8px;margin-top:16px}
+.ct-f .bt button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700;font-family:inherit}
+.ct-f .ok{background:#2e6b4f;color:#fff}.ct-f .ok:disabled{opacity:.5}
+.ct-f .del{flex:0 0 auto!important;background:#fdecec;color:#b31b14}
+.ct-msg{font-size:13px;margin:8px 0;color:var(--sub)}.ct-msg.w{color:#b02a26;font-weight:700}.ct-msg.g{color:#2e6b4f;font-weight:700}
+`;
+(function(){ const s=document.createElement('style'); s.textContent=CT_CSS; document.head.appendChild(s); })();
+
+const CT = { items:lsGet('ct.items',[]), at:lsGet('ct.at',0), sheet:'', q:'', kind:'', proc:'', err:'', flash:'' };
+async function ctApi(body, ms){
+  if(!SHARED_URL) throw new Error('記録先の設定がまだ済んでいません');
+  const ctl = typeof AbortController!=='undefined' ? new AbortController() : null;
+  const t = ctl ? setTimeout(()=>ctl.abort(), ms||25000) : null;
+  try{
+    body.table='連絡先'; body.who={ id:String(ST.id||''), name:String(ST.name||'') };
+    const r=await fetch(SHARED_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow',signal:ctl?ctl.signal:undefined});
+    const j=await r.json(); if(!j||!j.ok) throw new Error((j&&j.error)||'保存できませんでした'); return j;
+  }catch(e){ if(e&&e.name==='AbortError') throw new Error('時間がかかりすぎました。電波のよい所でもう一度'); throw e; }
+  finally{ if(t) clearTimeout(t); }
+}
+function ctKeep(j){ CT.items=j.items||[]; CT.at=Date.now(); CT.sheet=j.sheetUrl||''; lsSet('ct.items',CT.items); lsSet('ct.at',CT.at); }
+async function ctFetch(){ try{ ctKeep(await ctApi({action:'list'},20000)); CT.err=''; return true; }catch(e){ CT.err=String(e.message||e); return false; } }
+const ctProcs = x=>String(x.proc||'').split(/[、,]/).map(s=>s.trim()).filter(Boolean);
+const ctNorm = s=>String(s||'').replace(/[\s　\-－‐ー()（）]/g,'').toLowerCase();
+const ctTelHref = t=>{ const d=String(t||'').replace(/[^\d+]/g,''); return d?('tel:'+d):''; };
+
+/* ---------- 一覧 ---------- */
+function ctScreen(){
+  head('連絡先','資材・設備・部品の発注先と電話番号');
+  const draw=()=>{
+    if(nav[nav.length-1]!==ctScreen) return;
+    let h=`<div class="ct-top"><input id="ctQ" type="search" placeholder="名前・発注先・電話・品番で探す" value="${esc(CT.q)}"><button class="ct-new" id="ctNew" ${SHARED_URL?'':'disabled'}>＋ 登録</button></div>
+      <div class="ct-chips">${['',...CT_KINDS].map(k=>`<button data-k="${k}" class="${CT.kind===k?'on':''}">${k||'すべて'}</button>`).join('')}</div>
+      <div class="ct-chips p">${CT_PROCS.map(p=>`<button data-p="${p}" class="${CT.proc===p?'on':''}">${p}</button>`).join('')}</div>`;
+    if(!SHARED_URL) h+=`<div class="tl-warn" style="margin-top:8px">記録先（Apps Script）の設定がまだ済んでいません。設定が済むと、登録・共有ができるようになります。</div>`;
+    if(CT.flash){ h+=`<div class="ct-msg g">${esc(CT.flash)}</div>`; CT.flash=''; }
+    const q=ctNorm(CT.q);
+    let xs=CT.items.filter(x=>(!CT.kind||x.kind===CT.kind)&&(!CT.proc||ctProcs(x).includes(CT.proc)));
+    if(q) xs=xs.filter(x=>ctNorm([x.name,x.kind,x.proc,x.vendor,x.person,x.tel,x.fax,x.mail,x.model,x.memo].join(' ')).includes(q));
+    xs.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja',{numeric:true}));
+    h+= xs.length ? xs.map(x=>{ const th=ctTelHref(x.tel);
+      return `<div class="ct-it"><div class="m" data-id="${esc(x.id)}"><div class="n">${esc(x.name)}</div>
+        <div class="s">${x.kind?`<span class="k">${esc(x.kind)}</span>`:''}${ctProcs(x).map(p=>`<span>${esc(p)}</span>`).join('')}${x.model?`<span>${esc(x.model)}</span>`:''}</div>
+        <div class="v">${x.vendor?`<b>${esc(x.vendor)}</b>`:'発注先 未登録'}${x.person?'（'+esc(x.person)+'）':''}${x.tel?'　'+esc(x.tel):''}</div></div>
+        <a class="ct-tel ${th?'':'no'}" href="${th||'#'}">📞<small>${th?'電話':'番号なし'}</small></a></div>`; }).join('')
+      : `<div class="card" style="text-align:center;color:var(--sub);margin-top:8px">${CT.items.length?'当てはまるものがありません。':'まだ登録がありません。「＋ 登録」から入れてください。'}</div>`;
+    h+=`<p class="tl-note">だれでも登録・修正できます。名前を押すと中身を見たり直したりできます。逆引き検索の検索にも出ます。${CT.err&&CT.items.length?'<br><b style="color:#b02a26">'+esc(CT.err)+'（前回の内容を表示しています）</b>':''}${CT.sheet?`<br><a href="${esc(CT.sheet)}" target="_blank" rel="noopener">スプレッドシートで見る</a>`:''}</p>`;
+    app.innerHTML=h;
+    const inp=$('#ctQ'); inp.oninput=()=>{ CT.q=inp.value; const pos=inp.selectionStart; draw(); const n=$('#ctQ'); n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} };
+    $('#ctNew').onclick=()=>{ const f=()=>ctEdit(null); f.ctTag='edit'; go(f); };
+    app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ CT.kind=b.dataset.k; draw(); });
+    app.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ CT.proc=CT.proc===b.dataset.p?'':b.dataset.p; draw(); });
+    app.querySelectorAll('.ct-it .m').forEach(b=>b.onclick=()=>{ const id=b.dataset.id; const f=()=>ctEdit(id); f.ctTag='edit'; go(f); });
+  };
+  draw();
+  if(SHARED_URL) ctFetch().then(draw);
+}
+
+/* ---------- 登録・修正 ---------- */
+function ctEdit(id){
+  const x0=id?CT.items.find(x=>x.id===id):null;
+  if(id && !x0){ nav.pop(); const f=nav[nav.length-1]; if(f) f(); return; }
+  head(id?'連絡先を直す':'連絡先を登録', id?x0.name:'');
+  const f=Object.assign({name:'',kind:'',proc:'',vendor:'',person:'',tel:'',fax:'',mail:'',model:'',memo:''}, x0||{});
+  if(!id){ if(CT.kind) f.kind=CT.kind; if(CT.proc) f.proc=CT.proc; }
+  let procs=ctProcs(f), msg='', warn=false, busy=false, hint='';
+  const vendors=[...new Set(CT.items.map(x=>x.vendor).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
+  const fld=(k,label,type,ph)=>`<label>${label}</label><input type="${type||'text'}" data-f="${k}" value="${esc(f[k]||'')}" placeholder="${esc(ph||'')}" ${k==='vendor'?'list="ctVendors"':''}>`;
+  const draw=()=>{
+    app.innerHTML=`<div class="ct-f">
+      <label>名前（必須）</label><input type="text" data-f="name" value="${esc(f.name)}" placeholder="例：脱色炭、モーノポンプのOリング">
+      <label>種類</label><div class="ch" data-g="kind">${CT_KINDS.map(k=>`<button data-v="${k}" class="${f.kind===k?'on':''}">${k}</button>`).join('')}</div>
+      <label>工程（いくつでも選べます）</label><div class="ch" data-g="proc">${CT_PROCS.map(p=>`<button data-v="${p}" class="${procs.includes(p)?'on':''}">${p}</button>`).join('')}</div>
+      ${fld('vendor','発注先','text','会社名（前に入れた会社は候補に出ます）')}<datalist id="ctVendors">${vendors.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+      ${hint?`<div class="hint">${esc(hint)}</div>`:''}
+      ${fld('person','担当者')}${fld('tel','電話番号','tel','例：0254-00-0000')}${fld('fax','FAX','tel')}${fld('mail','メール','email')}${fld('model','品番・型番')}
+      <label>メモ（注文のしかた・納期・単位など）</label><textarea rows="3" data-f="memo">${esc(f.memo||'')}</textarea>
+      ${msg?`<div class="ct-msg ${warn?'w':''}">${esc(msg)}</div>`:''}
+      ${x0?`<div class="inf">登録：${esc(x0.by||'')}　${esc(x0.at||'')}${x0.upd?`<br>最後に直した人：${esc(x0.updBy||'')}　${esc(x0.upd)}`:''}</div>`:''}
+      <div class="bt">${x0?'<button class="del" id="ctDel">消す</button>':''}<button class="ok" id="ctOk" ${busy||!SHARED_URL?'disabled':''}>${x0?'保存する':'登録する'}</button></div></div>`;
+    app.querySelectorAll('[data-f]').forEach(el=>el.oninput=()=>{ f[el.dataset.f]=el.value; });
+    const ven=app.querySelector('[data-f=vendor]');
+    ven.onchange=()=>{ f.vendor=ven.value.trim(); const same=CT.items.filter(x=>x.vendor===f.vendor&&x.id!==id).sort((a,b)=>String(b.upd||b.at).localeCompare(String(a.upd||a.at)))[0];
+      if(same){ let n=0; ['tel','fax','mail','person'].forEach(k=>{ if(!String(f[k]||'').trim()&&same[k]){ f[k]=same[k]; n++; } }); hint=n?'同じ発注先の前の登録から、電話番号などを入れました（違えば直してください）':''; draw(); } };
+    app.querySelectorAll('[data-g]').forEach(g=>g.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+      const v=b.dataset.v;
+      if(g.dataset.g==='kind') f.kind=f.kind===v?'':v; else procs=procs.includes(v)?procs.filter(p=>p!==v):CT_PROCS.filter(p=>p===v||procs.includes(p));
+      draw(); }));
+    const done=(j,text)=>{ ctKeep(j); CT.flash=text; nav.pop(); const p=nav[nav.length-1]; if(p) p(); window.scrollTo(0,0); };
+    $('#ctOk').onclick=async()=>{
+      if(!String(f.name).trim()){ msg='名前を入れてください'; warn=true; draw(); return; }
+      busy=true; msg='保存しています…'; warn=false; draw();
+      try{ const item={}; ['name','kind','vendor','person','tel','fax','mail','model','memo'].forEach(k=>item[k]=String(f[k]||'').trim()); item.proc=procs.join('、'); if(x0) item.id=x0.id;
+        done(await ctApi({action:'save',item},25000), (x0?'直しました：':'登録しました：')+item.name); }
+      catch(e){ busy=false; msg=String(e.message||e); warn=true; draw(); }
+    };
+    const del=$('#ctDel'); if(del) del.onclick=async()=>{
+      if(del.dataset.s!=='1'){ del.dataset.s='1'; del.textContent='本当に消す'; return; }
+      try{ done(await ctApi({action:'delete',id:x0.id},25000),'消しました：'+x0.name); }catch(e){ msg=String(e.message||e); warn=true; draw(); }
+    };
+  };
+  draw();
+  if(!id) setTimeout(()=>{ const n=app.querySelector('[data-f=name]'); if(n) n.focus(); },50);
+}
+
+</script>
+<!-- /contacts -->
 <!-- /tools -->
 </body>
 </html>

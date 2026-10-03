@@ -517,6 +517,25 @@ let DICT = FALLBACK_DICT;
    学習帳と同じ場所（同じURLのフォルダ）に置くことで、学習帳のログイン情報をそのまま使う。 */
 const API_URL = "https://script.google.com/macros/s/AKfycbwVyR-kBMHw8V2Co258MK6u9XCTWb4vQMGF20an9BXNGeH-H_4Fe_5JD_2JG8cmiXNX/exec";
 const WB_KEY = 'sakeWB2';                       // 学習帳が端末に保存している内容
+/* <contacts> */
+/* 連絡先（2026-10-03）：製造ツールの「連絡先」を検索に出す。端末の控え ct.items を読み、共有データから取り直す */
+const CT_URL = "https://script.google.com/macros/s/AKfycbz40kdY7Y9Cn1zxtS1FKAMY8RNDsGs-K5Gc59uPs7yJHBsdZdDLxaLdU41x6IXnwakiTg/exec";
+let CTX = (()=>{ try { return JSON.parse(localStorage.getItem('ct.items')||'[]'); } catch(_) { return []; } })();
+async function ctxLoad(){
+  if (!CT_URL) return;
+  try { const r = await fetch(CT_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({action:'list', table:'連絡先'}), redirect:'follow'});
+    const j = await r.json(); if (j && j.ok) { CTX = j.items||[]; try { localStorage.setItem('ct.items', JSON.stringify(CTX)); } catch(_) {} if (S.q) render(); } } catch(_) {}
+}
+function ctxHits(q){ const n = s => String(s||'').replace(/[\s　\-－‐ー()（）]/g,'').toLowerCase(); const k = n(q); if (!k) return [];
+  return CTX.filter(x => n([x.name,x.kind,x.proc,x.vendor,x.person,x.tel,x.fax,x.mail,x.model,x.memo].join(' ')).includes(k)); }
+function ctxCard(x){ const tel = String(x.tel||'').replace(/[^\d+]/g,'');
+  return `<div class="card" style="display:flex;gap:10px;align-items:center;cursor:default"><span style="flex:1;min-width:0">
+    <span class="ct">${esc(x.name)} ${x.kind?`<span class="chip">${esc(x.kind)}</span>`:''}${x.proc?` <span class="chip">${esc(x.proc)}</span>`:''}</span>
+    <span class="cc">${x.vendor?esc(x.vendor):'発注先 未登録'}${x.person?'（'+esc(x.person)+'）':''}${x.tel?'　'+esc(x.tel):''}${x.model?'　品番 '+esc(x.model):''}</span>
+    ${x.memo?`<span class="cc" style="opacity:.8">${esc(x.memo)}</span>`:''}</span>
+    ${tel?`<a href="tel:${tel}" style="flex:0 0 auto;background:#2e6b4f;color:#fff;border-radius:10px;padding:10px 12px;text-decoration:none;font-weight:700">📞 電話</a>`:''}</div>`; }
+setTimeout(ctxLoad, 300);
+/* </contacts> */
 const CACHE_KEY = 'seishu-jiten:dictionary';
 const verLabel = v => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ''); return m ? `${+m[2]}月${+m[3]}日版` : '日付不明の版'; };
 function normalizeDict(d){
@@ -629,9 +648,11 @@ function renderSearch(){
   const hitT = DICT.terms.filter(t => (t.n+t.r+t.d).toLowerCase().includes(q));
   const hitY = DICT.yeasts.filter(y => [y.n,y.d,y.own,...(DICT.yeastFacets||[]).map(g => [].concat(y[g.k]||[]).join(' '))].filter(Boolean).join(' ').toLowerCase().includes(q));
   const hitC = DICT.carbons.filter(c => [c.n,c.d,c.own,c.maker,c.aim.join(' '),c.act,c.raw,c.form].filter(Boolean).join(' ').toLowerCase().includes(q));
-  if (!hitE.length && !hitM.length && !hitP.length && !hitT.length && !hitY.length && !hitC.length)
+  const hitCT = ctxHits(S.q);
+  if (!hitCT.length && !hitE.length && !hitM.length && !hitP.length && !hitT.length && !hitY.length && !hitC.length)
     return `<p class="empty-msg">「${esc(S.q)}」に当たるものはまだ収録されていません。<br>保管庫にノートを足してから、辞書データを更新してください。</p>`;
   let h = '';
+  if (hitCT.length) h += `<div class="group"><h3>連絡先<span class="count">${hitCT.length}</span></h3><div class="cards">${hitCT.map(ctxCard).join('')}</div></div>`;
   if (hitM.length) h += `<div class="group"><h3>資材<span class="count">${hitM.length}</span></h3><div class="cards">${hitM.map(matCard).join('')}</div></div>`;
   if (hitY.length) h += `<div class="group"><h3>酵母<span class="count">${hitY.length}</span></h3>${hitY.map(yeastCard).join('')}</div>`;
   if (hitC.length) h += `<div class="group"><h3>炭<span class="count">${hitC.length}</span></h3>${hitC.map(carbonCard).join('')}</div>`;
