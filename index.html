@@ -6833,6 +6833,233 @@ function ctEdit(id){
 
 </script>
 <!-- /contacts -->
+<!-- zennen -->
+<script>
+/* ================= 📅 昨年度を参照（酒母・仕込み）2026-10-03 =================
+   泰広さん指示：酒母・仕込みを仕込むときに、前の年の同じ時期の仕込みを見たい。
+   酒母・仕込みに［昨年度を参照］ボタンを付け、同じ時期の仕込みを一覧でパッと出す。
+   ・入口：🧫酒母 の一覧の上／1本の画面（タイルの下）、🍶仕込み の一覧の上／1本の画面（仕込み配合の下）
+   ・一覧：昨年度の 酒母＝酛立日、醪＝添日 を1年ずらして、基準日（1本の画面からなら その酒母の酛立日／その仕込の添日、
+           一覧からなら きょう）の前後で並べる。±7日／±14日／全部、同じ液種だけ、‹前の週・次の週›
+   ・1本：分析酒母・分析醪シートと同じ並びの表＋グラフ（今年の1本から開いたときは 今年の値を緑で重ねる・同じ日目を黄色）
+   ・データ：Apps Script「醸造記録 R8BY」の 昨年度参照.gs（action zennen_get）。★★各種分析シートR7BY を読むだけ（書き込まない）
+           端末に控える（IndexedDB mfgcache の zn:data）。昨年度のデータは変わらないので、2回目からは通信なしで開く
+   控え：seishu-workbook_github\_src_zennen.js（index.html の zennen の目印の間）
+   ================================================================================ */
+const ZN_CSS=`
+.zn-btn{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;background:#f2f7ee;border:1px solid #7da86a;color:#2f5d22;border-radius:12px;padding:10px 12px;margin:8px 0 10px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;text-align:left}
+.zn-btn small{display:block;font-weight:400;font-size:11px;color:#5d7a52}
+.zn-btn span.go{margin-left:auto;font-size:18px}
+.zn-anc{display:flex;align-items:center;gap:6px;margin:8px 0}
+.zn-anc button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font-family:inherit;font-size:13px;cursor:pointer;color:inherit}
+.zn-anc div{flex:1;text-align:center;font-size:13px;line-height:1.3}
+.zn-anc div b{font-size:15px;color:var(--navy)}
+.zn-anc div small{display:block;color:var(--sub);font-size:11px}
+.zn-row{width:100%;display:grid;grid-template-columns:6px 50px 1fr auto;gap:0 8px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px 8px 0;margin-bottom:7px;font-family:inherit;color:inherit;text-align:left;cursor:pointer;overflow:hidden}
+.zn-row .st{align-self:stretch;background:#d8d2c2;border-radius:0 3px 3px 0}
+.zn-row.same .st{background:#7da86a}
+.zn-row.near{border:2px solid #d8b43c;background:#fffaf0}
+.zn-row .id{font-weight:800;color:var(--navy);font-size:16px;line-height:1.1}
+.zn-row .id small{display:block;font-size:10px;color:var(--sub);font-weight:400}
+.zn-row .mid{font-size:13px;line-height:1.35;min-width:0}
+.zn-row .mid small{display:block;font-size:11px;color:var(--sub)}
+.zn-row .mid .tg{display:inline-block;font-size:10px;font-weight:700;border-radius:6px;padding:0 5px;margin-left:4px;vertical-align:1px}
+.zn-row .mid .tg.s{background:#e3efdc;color:#2f5d22}.zn-row .mid .tg.n{background:#fbeec2;color:#7a5a00}
+.zn-row .r{text-align:right;font-size:11px;color:var(--sub);white-space:nowrap;line-height:1.35}
+.zn-row .r b{font-size:13px;color:var(--ink)}
+.zn-dt{font-weight:700;color:var(--navy)}
+.zn-zai{display:flex;flex-wrap:wrap;gap:4px 6px;margin:0 0 8px}
+.zn-zai span{background:#fdf1e6;border:1px solid #e9b07a;border-radius:8px;padding:3px 8px;font-size:12px}
+.zn-zai span b{color:#8a3c00}
+.zn-ban{background:#eef4ea;border:1px solid #c5dbb9;border-radius:10px;padding:6px 10px;margin:8px 0 6px;font-size:12px;color:#2f5d22}
+`;
+(function(){ const s=document.createElement('style'); s.textContent=ZN_CSS; document.head.appendChild(s); })();
+
+const ZN={data:null, p:null};
+const znNorm=s=>String(s||'').replace(/[\s　]/g,'');
+function znSameLiq(a,b){ a=znNorm(a); b=znNorm(b); return !!a&&!!b&&(a===b||a.indexOf(b)>=0||b.indexOf(a)>=0); }
+function znYear(d,n){ if(!d) return ''; const x=dparse(d); x.setFullYear(x.getFullYear()+n); return dstr(x); }
+function znCurBY(){ const d=new Date(); return d.getFullYear()-2018-(d.getMonth()<6?1:0); }   // 酒造年度（7月はじまり）。2026年10月→R8
+function znByShift(){ const by=(ZN.data&&ZN.data.by)||'R7BY', m=String(by).match(/R(\d+)/); return m?Math.max(1,znCurBY()-Number(m[1])):1; }   // R7BY→今年(R8BY)まで1年
+function znDays(kind,x){
+  const start=kind==='shubo'?x.d0:x.st.tome[0]; let meter=false;
+  return (x.v||[]).map((r,i)=>{
+    const d={ day:i+1, date:start?dadd(start,i):'', sm:r[0], alc:r[1], ta:r[2], aa:r[3] };
+    if(kind==='shubo'){ d.tAM=r[4]; d.tPM=r[5]; } else { d.oimizu=r[4]; d.tAM=r[5]; d.tPM=r[6]; }
+    if(d.sm!==null){ if(d.sm<0) meter=true; d.kind=meter?'度':'Be'; d.beq=meter?Math.round(-d.sm*10)/100:d.sm; if(kind==='moromi'&&d.day>=3&&d.beq>0) d.bmd=Math.round(d.beq*d.day*10)/10; }
+    return d; });
+}
+function znSum(kind,x){
+  const days=x._days||(x._days=znDays(kind,x));
+  const last=k=>{ for(let i=days.length-1;i>=0;i--) if(days[i][k]!==null&&days[i][k]!==undefined) return days[i]; return null; };
+  const s={ n:days.length, sm:last('sm'), alc:last('alc'), ta:last('ta') };
+  if(kind==='moromi'){ let mx=null, bm=null; days.forEach(d=>{ [d.tAM,d.tPM].forEach(t=>{ if(t!==null&&d.day>=2&&(mx===null||t>mx)) mx=t; }); if(d.bmd!==undefined&&(bm===null||d.bmd>bm.v)) bm={v:d.bmd,day:d.day}; }); s.tMax=mx; s.bmd=bm; }
+  return s;
+}
+async function znLoad(force){
+  if(ZN.data&&!force) return ZN.data;
+  if(!force){ try{ const c=await PC.get('zn:data'); if(c&&c.ok){ ZN.data=c; return c; } }catch(e){} }
+  if(ZN.p) return ZN.p;
+  ZN.p=(async()=>{ try{ const r=await recApi({action:'zennen_get',force:!!force},90000);
+      if(r&&r.ok){ ZN.data=r; try{ await PC.set('zn:data',r); }catch(e){} return r; }
+      return r||null; }catch(e){ return null; } finally{ ZN.p=null; } })();
+  return ZN.p;
+}
+function znBtnHTML(kind,no){
+  const t=kind==='shubo'?'昨年度の同じ時期の酒母':'昨年度の同じ時期の仕込み';
+  const s=no?(kind==='shubo'?'この酒母の酛立日の前後':'この仕込の添日の前後'):'きょうの前後（‹ › で週を移せます）';
+  return `<button class="zn-btn" data-zn="${kind}" data-zno="${no||''}">📅 <span>${t}<small>${s}・分析${kind==='shubo'?'酒母':'醪'}シートと同じ並び</small></span><span class="go">›</span></button>`;
+}
+function znBindBtn(root){ (root||app).querySelectorAll('.zn-btn[data-zn]').forEach(b=>b.onclick=()=>go(()=>znScreen(b.dataset.zn,{no:b.dataset.zno||''}))); }
+
+/* ---- 一覧 ---- */
+async function znScreen(kind,o){
+  o=o||{};
+  const K=kind==='shubo'?'酒母':'仕込み';
+  const m=o.no?rcMaster(o.no):null;
+  head(`昨年度の${K}`, m?`今年 順号${o.no} ${m.liquid||''} と同じ時期`:'きょうと同じ時期');
+  rcLoading('昨年度のデータを読み込んでいます…（はじめてのときは少し時間がかかります）');
+  const D=await znLoad(false);
+  if(!D||!D.ok){ rcFail(D&&D.err==='unknown_action'?'昨年度のデータは、Apps Script「醸造記録 R8BY」に <b>昨年度参照.gs</b> を入れると出ます。':'昨年度のデータを読み込めませんでした。電波の届く所でもう一度開いてください。'); return; }
+  const sh=znByShift();
+  if(o.anc===undefined){ o.anc = m?(kind==='shubo'?m.motodate:(m.soe||m.tome)):dtoday(); if(!o.anc) o.anc=dtoday(); }
+  const liq=m?(m.liquid||''):'', sym=m?(kind==='shubo'?(m.shuboSym||''):(m.sym||'')):'';
+  const win=o.win||lsGet('zn.win',7), only=!!o.only&&!!liq;
+  const list=(kind==='shubo'?D.shubo:D.moromi).map(x=>{ const dd=kind==='shubo'?x.d0:(x.st.soe[0]||x.st.tome[0]); const now=znYear(dd,sh);
+      return {x, dd, now, diff:now?rcDays(o.anc,now):9999, same: liq?znSameLiq(x.lq,liq):false}; })
+    .filter(r=>r.dd && (win==='all'||Math.abs(r.diff)<=win) && (!only||r.same))
+    .sort((a,b)=>a.dd.localeCompare(b.dd)||a.x.no-b.x.no);
+  let near=null; list.forEach(r=>{ if(!near||Math.abs(r.diff)<Math.abs(near.diff)||(Math.abs(r.diff)===Math.abs(near.diff)&&r.same&&!near.same)) near=r; });
+  const lastY=znYear(o.anc,-sh);
+  let h=`<div class="zn-ban">${esc(D.by)}（${esc(String(Number(lastY.slice(0,4))))}年）の分析${kind==='shubo'?'酒母':'醪'}シートから。${kind==='shubo'?'酛立日':'添日'}を1年ずらして並べています。押すと経過表。</div>`;
+  h+=`<div class="zn-anc"><button data-mv="-7">‹ 前の週</button><div><small>基準日（今年）</small><b>${djp(o.anc)}</b><small>昨年なら ${rcMD(lastY)}</small></div><button data-mv="7">次の週 ›</button></div>`;
+  h+=`<div class="rc-bar">${[[7,'±7日'],[14,'±14日'],['all','全部']].map(([k,l])=>`<button class="rc-chip ${String(win)===String(k)?'on':''}" data-win="${k}">${l}</button>`).join('')}
+    ${liq?`<button class="rc-chip ${only?'on':''}" id="znOnly">同じ液種だけ（${esc(liq)}）</button>`:''}${o.anc!==dtoday()&&!m?`<button class="rc-chip" id="znToday">きょうに戻す</button>`:''}</div>`;
+  h+= list.length? list.map(r=>znRowHTML(kind,r,r===near)).join('') : `<p class="muted" style="text-align:center;padding:20px 0">この期間に昨年度の${K}はありません（‹ › や「全部」で探せます）</p>`;
+  h+=`<div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="znRe">読み直す</button><span class="tl-note" style="margin:0">緑の帯＝同じ液種、黄色の枠＝いちばん近い日。${esc(D.by)}のデータは変更しません（読むだけ）。</span></div>`;
+  app.innerHTML=h;
+  app.querySelectorAll('.zn-row[data-no]').forEach(b=>b.onclick=()=>go(()=>(kind==='shubo'?znShuboSheet:znMoromiSheet)(b.dataset.no,o.no||'')));
+  app.querySelectorAll('[data-win]').forEach(b=>b.onclick=()=>{ const w=b.dataset.win==='all'?'all':Number(b.dataset.win); lsSet('zn.win',w); znScreen(kind,{...o,win:w}); });
+  app.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>znScreen(kind,{...o,anc:dadd(o.anc,Number(b.dataset.mv))}));
+  const on=$('#znOnly'); if(on) on.onclick=()=>znScreen(kind,{...o,only:!only});
+  const tb=$('#znToday'); if(tb) tb.onclick=()=>znScreen(kind,{...o,anc:dtoday()});
+  $('#znRe').onclick=async()=>{ rcLoading('昨年度のデータを読み直しています…'); await znLoad(true); znScreen(kind,o); };
+  const nr=app.querySelector('.zn-row.near'); if(nr&&list.length>6) nr.scrollIntoView({block:'center'});
+}
+function znRowHTML(kind,r,isNear){
+  const x=r.x, s=znSum(kind,x);
+  const df=r.diff===0?'同じ日':(r.diff<0?`${-r.diff}日前`:`${r.diff}日後`);
+  const tg=(r.same?'<span class="tg s">同じ液種</span>':'')+(isNear?'<span class="tg n">いちばん近い</span>':'');
+  const date=`<span class="zn-dt">${rcMD(r.dd)}（${WD[dparse(r.dd).getDay()]}）</span>`;
+  if(kind==='shubo'){
+    return `<button class="zn-row ${r.same?'same':''} ${isNear?'near':''}" data-no="${x.no}"><span class="st"></span>
+      <span class="id">${x.no}<small>${esc(x.sym)}${x.tk?' T'+esc(x.tk):''}</small></span>
+      <span class="mid">${esc(x.lq)}${tg}<small>酛立 ${date}・${df}・酵母 ${esc(x.ys||'—')}</small><small>酛卸 ${rcMD(x.oro)}・${s.n}日・乳酸 ${x.ny!==null?x.ny+'ml':'—'}</small></span>
+      <span class="r">Be <b>${s.sm?shF(s.sm.sm):'—'}</b><br>酸度 <b>${s.ta?shF(s.ta.ta):'—'}</b><br>alc <b>${s.alc?shF(s.alc.alc):'—'}</b></span></button>`;
+  }
+  return `<button class="zn-row ${r.same?'same':''} ${isNear?'near':''}" data-no="${x.no}"><span class="st"></span>
+    <span class="id">${x.no}<small>${esc(x.sym)}${x.tk?' T'+esc(x.tk):''}</small></span>
+    <span class="mid">${esc(x.lq)}${tg}<small>添 ${date}・${df}・留 ${rcMD(x.st.tome[0])}</small><small>醪 ${s.n}日・酵母 ${esc(x.ys||'—')}・総米 ${x.sou!==null?x.sou+'t':'—'}</small></span>
+    <span class="r">${s.sm?(s.sm.kind==='度'?'日本酒度':'Be'):'度'} <b>${s.sm?shF(s.sm.sm):'—'}</b><br>alc <b>${s.alc?shF(s.alc.alc):'—'}</b><br>最高 <b>${s.tMax!==null?shF(s.tMax)+'℃':'—'}</b></span></button>`;
+}
+const znFind=(kind,no)=>((ZN.data&&(kind==='shubo'?ZN.data.shubo:ZN.data.moromi))||[]).find(x=>String(x.no)===String(no));
+function znScroll(day){ const tw=$('#shTw'); if(!tw) return; const on=tw.querySelector('th.td')||null; if(on) tw.scrollLeft=Math.max(0,on.offsetLeft-tw.clientWidth/2+on.offsetWidth/2); }
+
+/* ---- 1本：酒母 ---- */
+async function znShuboSheet(no,r8){
+  const D=await znLoad(false); const x=D&&D.ok&&znFind('shubo',no);
+  if(!x){ rcFail('昨年度の酒母が見つかりません'); return; }
+  const by=D.by, days=x._days||(x._days=znDays('shubo',x));
+  head(`${by} 酒母 順号 ${x.no}　${x.sym}`, `${x.lq}　T${x.tk||'—'}　酵母 ${x.ys||'—'}　酛立 ${rcMD(x.d0)}`);
+  const m=r8?rcMaster(r8):null, cur=r8?RC.shubo[r8]:null, dT=m?rcShuboDay(m,dtoday()):0;
+  const s=znSum('shubo',x);
+  let h=`<div class="zn-ban">昨年度（${esc(by)}）の記録です。入力はできません。${m?`緑の線＝今年 順号${r8}（${esc(m.liquid||'')}）、黄色の列＝今年と同じ日目。`:''}</div>`;
+  h+=`<div class="sh-tiles"><div><small>酛立（昨年）</small><b>${rcMD(x.d0)}</b></div><div><small>日数</small><b>${s.n}日</b></div>
+    <div><small>Be${s.sm?'（'+s.sm.day+'日）':''}</small><b>${s.sm?shF(s.sm.sm):'—'}</b></div><div><small>酸度${s.ta?'（'+s.ta.day+'日）':''}</small><b>${s.ta?shF(s.ta.ta):'—'}</b></div></div>`;
+  const st=x.st||[];
+  h+=`<div class="sh-setup" style="cursor:default"><span class="t">仕込時</span>${[['仕込尺','mm',0],['仕込量','L',0],['水麹','℃',1],['蒸米','℃',1]].map(([l,u,d],i)=>`<span><small>${l}</small><b>${st[i]!==null&&st[i]!==undefined?shF(st[i],d)+'<i>'+u+'</i>':'—'}</b></span>`).join('')}</div>`;
+  const n=Math.max(days.length, cur&&cur.days?Math.min(cur.days.length,13):0);
+  const lab=[...Array(n)].map((_,i)=>i+1);
+  const ser=[{name:'昨年Be', color:'#1f5fa8', axis:'L', vals:lab.map(d=>{ const y=days[d-1]; return y?shN(y.sm):null; })},
+    {name:'昨年品温', color:'#c0392b', axis:'R', dash:true, vals:lab.map(d=>{ const y=days[d-1]; return y?shN(y.tAM):null; })}];
+  if(cur&&cur.days) ser.splice(1,0,{name:'今年Be', color:'#3f9a2f', axis:'L', vals:lab.map(d=>{ const y=cur.days[d-1]; return y?shN(y.be):null; })});
+  h+=shChart(n, lab, ser, m&&dT>=1?dT-1:-1);
+  h+=shTable(days, d=>d.day, [['Be',d=>shF(d.sm)],['alc',d=>shF(d.alc)],['酸度',d=>shF(d.ta)],['ｱﾐﾉ',d=>shF(d.aa)],
+    ['品温',d=>{ const a=shF(d.tAM), p=shF(d.tPM); return a||p?`${a||'—'}<span class="pm">${p||'—'}</span>`:''; }]], m&&dT>=1?dT:-1);
+  const mr=znFind('moromi',x.no);
+  h+=`<p class="sh-note">品温は上段＝午前・下段(小)＝午後。乳酸 ${x.ny!==null?x.ny+'ml':'—'}・酛卸 ${rcMD(x.oro)}${x.bk?'・備考：'+esc(x.bk):''}。</p>`;
+  if(mr) h+=`<button class="sh-link" id="znTo">🍶 この酒母で仕込んだ醪（${esc(by)} 順号${mr.no} ${esc(mr.lq)}）<span>›</span></button>`;
+  app.innerHTML=h; znScroll();
+  const t=$('#znTo'); if(t) t.onclick=()=>go(()=>znMoromiSheet(mr.no,''));
+}
+
+/* ---- 1本：醪 ---- */
+async function znMoromiSheet(no,r8){
+  const D=await znLoad(false); const x=D&&D.ok&&znFind('moromi',no);
+  if(!x){ rcFail('昨年度の仕込みが見つかりません'); return; }
+  const by=D.by, days=x._days||(x._days=znDays('moromi',x)), S=x.st;
+  head(`${by} 順号 ${x.no}　${x.sym}号`, `${x.lq}　T${x.tk||'—'}　酵母 ${x.ys||'—'}　総米 ${x.sou!==null?x.sou+'t':'—'}`);
+  const m=r8?rcMaster(r8):null, cur=r8?RC.bun[r8]:null, dT=m?rcMoromiDay(m,dtoday()):0;
+  const s=znSum('moromi',x), dl=d=>d===1?'留':d;
+  let h=`<div class="zn-ban">昨年度（${esc(by)}）の記録です。入力はできません。${m?`緑の線＝今年 順号${r8}（${esc(m.liquid||'')}）、黄色の列＝今年と同じ日目。`:''}</div>`;
+  h+=`<div class="sh-tiles"><div><small>添／留（昨年）</small><b style="font-size:14px">${rcMD(S.soe[0])}／${rcMD(S.tome[0])}</b></div><div><small>醪日数</small><b>${s.n}日</b></div>
+    <div><small>最後の${s.sm&&s.sm.kind==='度'?'日本酒度':'Be'}</small><b>${s.sm?shF(s.sm.sm):'—'}</b></div><div><small>最後のalc</small><b>${s.alc?shF(s.alc.alc):'—'}</b></div></div>`;
+  // 仕込み時（添・踊・仲・留）
+  const stg=[['soe','添'],['odori','踊'],['naka','仲'],['tome','留']];
+  const rowsS=[['尺',1,0],['量',2,0],['汲水',3,0],['氷',4,0],['水麹',5,1],['蒸米',6,1],['品温',7,1]], rowsO={'Be':1,'酸度':2,'ｱﾐﾉ':3,'品温':4};
+  let t=`<div class="rc-h" style="margin-top:4px">仕込み時<small>分析醪シートの 添・踊・仲・留（昨年）</small></div><div class="sh-st"><div class="sh-tw"><table class="sh-t"><tr><th class="k"></th>${stg.map(([k,l])=>`<th>${l}<br><span style="font-weight:400">${rcMD((S[k]||[])[0])}</span></th>`).join('')}</tr>`;
+  [...rowsS.map(r=>r[0]),'Be','酸度','ｱﾐﾉ'].filter((v,i,a)=>a.indexOf(v)===i).forEach(lb=>{
+    t+=`<tr><td class="k">${lb}</td>${stg.map(([k])=>{ const a=S[k]||[];
+      if(k==='odori'){ const i=rowsO[lb]; return i?`<td class="v">${shF(a[i],1)}</td>`:`<td style="background:#f6f3ea"></td>`; }
+      const rr=rowsS.find(r=>r[0]===lb); return rr?`<td class="v">${shF(a[rr[1]],rr[2])}</td>`:`<td style="background:#f6f3ea"></td>`; }).join('')}</tr>`; });
+  h+=t+`</table></div></div>`;
+  if(x.zai&&x.zai.length) h+=`<div class="zn-zai">${x.zai.map(([nm,q])=>`<span>${esc(nm)}${q!==null?` <b>${shF(q,0)}</b>`:''}</span>`).join('')}</div>`;
+  const n=Math.max(days.length, cur&&cur.days?Math.min(cur.days.length, Math.max(dT||0,1)+2):0);
+  const lab=[...Array(n)].map((_,i)=>dl(i+1));
+  const yv=(k)=>[...Array(n)].map((_,i)=>{ const y=days[i]; return y&&y[k]!==undefined?shN(y[k]):null; });
+  const ser1=[{name:'昨年BMD', color:'#1f5fa8', axis:'L', vals:yv('bmd')},{name:'昨年品温', color:'#c0392b', axis:'R', dash:true, vals:yv('tAM')}];
+  const ser2=[{name:'昨年Be/度', color:'#1f5fa8', axis:'L', vals:[...Array(n)].map((_,i)=>{ const y=days[i]; return y&&y.beq!==undefined?y.beq:null; })},{name:'昨年alc', color:'#8a6cc8', axis:'R', vals:yv('alc')}];
+  if(cur&&cur.days){
+    const cb=[...Array(n)].map((_,i)=>shN(((cur.calc||{})[i+1]||{}).bmd));
+    ser1.splice(1,0,{name:'今年BMD', color:'#3f9a2f', axis:'L', vals:cb});
+    let meter=false; const ce=[...Array(n)].map((_,i)=>{ const y=cur.days[i]; const v=y?shN(y.be):null; if(v===null) return null; if(v<0) meter=true; return meter?Math.round(-v*10)/100:v; });
+    ser2.splice(1,0,{name:'今年Be', color:'#3f9a2f', axis:'L', vals:ce});
+  }
+  h+=shChart(n, lab, ser1, m&&dT>=1?dT-1:-1);
+  h+=shChart(n, lab, ser2, m&&dT>=1?dT-1:-1);
+  h+=shTable(days, d=>dl(d.day), [['Be/度',d=>shF(d.sm)],['alc',d=>shF(d.alc)],['酸',d=>shF(d.ta)],['ｱﾐﾉ',d=>shF(d.aa)],['追水',d=>shF(d.oimizu,0)],
+    ['品温',d=>{ const a=shF(d.tAM), p=shF(d.tPM); return a||p?`${a||'—'}${p?`<span class="pm">${p}</span>`:''}`:''; }],['BMD',d=>d.bmd!==undefined?shF(d.bmd):'']], m&&dT>=1?dT:-1);
+  h+=`<p class="sh-note">2つめのグラフの Be/度 は、日本酒度を Be に直して（−日本酒度÷10）つないでいます。BMD＝Be×日数（Be がプラスの間）。追水 計 ${shF(days.reduce((a,d)=>a+(d.oimizu||0),0),0)}L（予定 ${x.oiP!==null?x.oiP:'—'}L）・最高品温 ${s.tMax!==null?shF(s.tMax)+'℃':'—'}${s.bmd?`・BMD最大 ${shF(s.bmd.v)}（${s.bmd.day}日目）`:''}。</p>`;
+  const sb=znFind('shubo',x.no);
+  if(sb) h+=`<button class="sh-link" id="znTo">🧫 この醪の酒母（${esc(by)} 順号${sb.no} 酛立 ${rcMD(sb.d0)}）<span>›</span></button>`;
+  app.innerHTML=h; znScroll();
+  const tt=$('#znTo'); if(tt) tt.onclick=()=>go(()=>znShuboSheet(sb.no,''));
+}
+
+/* ---- 入口のボタンを差し込む（酒母・仕込みの一覧と1本の画面） ---- */
+function znWrap(name, place){
+  const orig=window[name]; if(typeof orig!=='function') return;
+  window[name]=async function(...a){
+    const top=nav[nav.length-1];
+    const r=await orig.apply(this,a);
+    try{ if(nav[nav.length-1]!==top || app.querySelector('.zn-btn')) return r;
+      const kind=/shubo/.test(name)?'shubo':'moromi', no=/Sheet/.test(name)?a[0]:'';
+      const d=document.createElement('div'); d.innerHTML=znBtnHTML(kind,no); const b=d.firstElementChild;
+      place(b); znBindBtn(); }catch(e){}
+    return r;
+  };
+}
+znWrap('shuboHome', b=>{ const o=app.querySelector('.rc-status'); o?o.before(b):app.prepend(b); });
+znWrap('moromiHome', b=>{ const o=app.querySelector('.shk-today'); o?o.before(b):app.prepend(b); });
+znWrap('shuboSheet', b=>{ const o=$('#shSet')||app.querySelector('.sh-tiles'); o?o.after(b):app.prepend(b); });
+znWrap('moromiSheet', b=>{ const o=app.querySelector('.shk-mix')||app.querySelector('.sh-tiles'); o?o.after(b):app.prepend(b); });
+/* 酒母・仕込みの画面を開いたら、昨年度のデータを裏で控えておく（2回目からすぐ出る） */
+setTimeout(()=>{ try{ if(ST&&ST.token) PC.get('zn:data').then(c=>{ if(c&&c.ok) ZN.data=c; }); }catch(e){} }, 2500);
+/* ログアウトしたら昨年度の控えも消す（社内のデータのため） */
+(function(){ try{ const _lo=logout; logout=function(){ try{ PC.delPrefix('zn:'); ZN.data=null; }catch(e){} return _lo.apply(this, arguments); }; }catch(e){} })();
+
+</script>
+<!-- /zennen -->
 <!-- /tools -->
 </body>
 </html>
