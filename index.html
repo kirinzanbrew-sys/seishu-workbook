@@ -6216,7 +6216,7 @@ setTimeout(()=>{ if(TODO_URL && ST.token) todoFetch(); }, 2500);
    ・移したマニュアルは「下書き」で入り、管理者が「公開する」を押すと全員に出る
    ・見直し日：公開から180日。近づくとホームのアイコンに印
    ・記録先：Apps Script「製造ツール マニュアル」（MANX_URL）／写真はドライブ
-   ・元のWord・Excel は「元のファイル」から今まで通り見られる（manualScreen / manualView）
+   ・元のWord・Excel はアプリには出さない（原本は会社PCの 製造部\マニュアル に残っている）2026-10-03
    控え：seishu-workbook_github\_src_manx.js　／　裏側の控え：seishu-workbook_github\_gas_manual_Code.gs
    ============================================================================== */
 const MANX_URL = "https://script.google.com/macros/s/AKfycbw1N4HnXjRLEiHhg-wZ8ZPH8xDMiSvFs5-9FElI1WjKKgEjNcek4nPML3nQDRG7RXjl/exec";   // ← Apps Script「製造ツール マニュアル」をデプロイしたURL（/exec）を入れる
@@ -6392,8 +6392,7 @@ function manxHome(){
       });
     });
     if(!xs.length) h+=`<div class="card" style="margin-top:12px;text-align:center;color:var(--sub)">${q?'見つかりませんでした。':'まだマニュアルがありません。「＋ 新しく作る」から作れます。'}</div>`;
-    h+=`<div class="mx-foot"><button id="mxOld">元のファイル（Word・Excel）を見る</button></div>
-      <p class="tl-note">だれでも直せます。直すと「改訂履歴」に名前と日時が残り、前の版にも戻せます。<b>HACCP</b> の印があるマニュアルは、管理者が承認してから全員に出ます。${MX.err?'<br><b style="color:#b02a26">'+esc(MX.err)+'（前回の内容を表示しています）</b>':''}</p>`;
+    h+=`<p class="tl-note" style="margin-top:14px">だれでも直せます。直すと「改訂履歴」に名前と日時が残り、前の版にも戻せます。<b>HACCP</b> の印があるマニュアルは、管理者が承認してから全員に出ます。${MX.err?'<br><b style="color:#b02a26">'+esc(MX.err)+'（前回の内容を表示しています）</b>':''}</p>`;
     app.innerHTML=h; bind();
   };
   const bind=()=>{
@@ -6468,7 +6467,7 @@ function manxView(id){
     if(mxDue(m)) h+=`<div class="mx-ban r"><b>見直しの時期です</b>（${esc(m.review)}まで）。今のやり方と合っているか確かめてください。直すところがなくても「直す」→「公開する」を押すと、見直し日が延びます。</div>`;
     h+= doc&&doc.cards&&doc.cards.length ? mxCardsHTML(doc.cards) : `<div class="card" style="color:var(--sub);text-align:center">中身がまだありません。「直す」から書けます。</div>`;
     h+=`<div class="mx-meta">第${seeDraft?m.draftVer:m.pubVer}版　最終更新 ${esc(m.upd||'')}（${esc(m.updBy||'')}）${m.review&&m.pubVer?'<br>次の見直し日 '+esc(m.review):''}</div>
-      <div class="mx-foot"><button class="pri" id="mxEd">直す</button><button id="mxHi">改訂履歴</button>${m.src?'<button id="mxSrc">元のファイル</button>':''}</div>
+      <div class="mx-foot"><button class="pri" id="mxEd">直す</button><button id="mxHi">改訂履歴</button></div>
       <div class="mx-foot"><button id="mxPr">印刷する</button>${MX.admin?'<button id="mxDel" style="color:#b31b14">このマニュアルを消す</button>':''}</div>`;
     app.innerHTML=h; mxBindPhotos();
     const on=(s,f)=>{ const e=$(s); if(e) e.onclick=f; };
