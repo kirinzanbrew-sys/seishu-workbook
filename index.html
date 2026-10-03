@@ -6960,6 +6960,7 @@ const ZN_CSS=`
 (function(){ const s=document.createElement('style'); s.textContent=ZN_CSS; document.head.appendChild(s); })();
 
 const ZN={data:null, p:null};
+const ZN_V=3;   // サーバー（昨年度参照.gs）の答えの版。3＝四アル上槽（上槽まで）入り
 const znNorm=s=>String(s||'').replace(/[\s　]/g,'');
 function znSameLiq(a,b){ a=znNorm(a); b=znNorm(b); return !!a&&!!b&&(a===b||a.indexOf(b)>=0||b.indexOf(a)>=0); }
 function znYear(d,n){ if(!d) return ''; const x=dparse(d); x.setFullYear(x.getFullYear()+n); return dstr(x); }
@@ -6982,11 +6983,12 @@ function znSum(kind,x){
 }
 async function znLoad(force){
   if(ZN.data&&!force) return ZN.data;
-  if(!force){ try{ const c=await PC.get('zn:data'); if(c&&c.ok){ ZN.data=c; return c; } }catch(e){} }
+  let old=null;
+  if(!force){ try{ const c=await PC.get('zn:data'); if(c&&c.ok){ if((c.v||0)>=ZN_V){ ZN.data=c; return c; } old=c; } }catch(e){} }   // 古い形の控え（上槽なし）は取り直す
   if(ZN.p) return ZN.p;
   ZN.p=(async()=>{ try{ const r=await recApi({action:'zennen_get',force:!!force},90000);
       if(r&&r.ok){ ZN.data=r; try{ await PC.set('zn:data',r); }catch(e){} return r; }
-      return r||null; }catch(e){ return null; } finally{ ZN.p=null; } })();
+      if(old){ ZN.data=old; return old; } return r||null; }catch(e){ if(old){ ZN.data=old; return old; } return null; } finally{ ZN.p=null; } })();
   return ZN.p;
 }
 function znBtnHTML(kind,no){
@@ -7022,7 +7024,7 @@ async function znScreen(kind,o){
   if(kind==='moromi') h+=`<div class="shk-tabs"><button data-vw="card" class="${view==='card'?'on':''}">1本ずつ</button><button data-vw="tbl" class="${view==='tbl'?'on':''}">仕込み時の表</button></div>`;
   if(view!=='tbl') h+=`<div class="rc-bar">${[[7,'±7日'],[14,'±14日'],['all','全部']].map(([k,l])=>`<button class="rc-chip ${String(win)===String(k)?'on':''}" data-win="${k}">${l}</button>`).join('')}
     ${liq?`<button class="rc-chip ${only?'on':''}" id="znOnly">同じ液種だけ（${esc(liq)}）</button>`:''}${o.anc!==dtoday()&&!m?`<button class="rc-chip" id="znToday">きょうに戻す</button>`:''}</div>`;
-  else h+=`<div class="rc-bar">${liq?`<button class="rc-chip ${only?'on':''}" id="znOnly">同じ液種だけ（${esc(liq)}）</button>`:''}<span class="tl-note" style="margin:0">水麹・氷・品温（仕込み後）・尺・ℓ を、シーズンの最初から最後の仕込みまで全部。黄色＝基準日にいちばん近い仕込。</span></div>`;
+  else h+=`<div class="rc-bar">${liq?`<button class="rc-chip ${only?'on':''}" id="znOnly">同じ液種だけ（${esc(liq)}）</button>`:''}<span class="tl-note" style="margin:0">添・仲・留（水麹・氷・品温・尺/ℓ）から 四段・アル添・上槽 まで。シーズンの最初から最後の仕込みまで全部。黄色＝基準日にいちばん近い仕込。</span></div>`;
   if(view==='tbl') h+= list.length? znTblHTML(list,near) : `<p class="muted" style="text-align:center;padding:20px 0">該当する昨年度の仕込みはありません</p>`;
   else h+= list.length? list.map(r=>znRowHTML(kind,r,r===near)).join('') : `<p class="muted" style="text-align:center;padding:20px 0">この期間に昨年度の${K}はありません（‹ › や「全部」で探せます）</p>`;
   h+=`<div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="znRe">読み直す</button><span class="tl-note" style="margin:0">緑の帯＝同じ液種、黄色の枠＝いちばん近い日。${esc(D.by)}のデータは変更しません（読むだけ）。</span></div>`;
@@ -7041,19 +7043,34 @@ async function znScreen(kind,o){
 }
 /* 仕込み時の表：添・仲・留 × 水麹・氷・品温（仕込み後）・尺・ℓ（分析醪の 添H・仲M・留P 列。st＝[日付,尺,量,汲水,氷,水麹,蒸米,品温]） */
 function znTblHTML(list,near){
-  const ALL=[['水麹','℃',5,1,'mz'],['氷','L',4,0,'ice'],['品温','℃',7,1,'hin'],['尺<br>ℓ','mm／L',[1,2],0,'sr']];
-  const stg=[['soe','添',ALL.filter(c=>c[0]!=='氷')],['naka','仲',ALL],['tome','留',ALL]];   // 添は氷を入れないので列なし
-  let h=`<div class="zn-tw" id="znTw"><table class="zn-t"><thead><tr class="g1"><th class="k" rowspan="2">順号・液種<small style="color:var(--sub);font-size:10px;font-weight:400">添日（昨年）</small></th>${stg.map(([,g,cols])=>`<th class="g" colspan="${cols.length}">${g}</th>`).join('')}</tr>
-    <tr class="g2">${stg.map(([,,cols])=>cols.map(([l,u],i)=>`<th class="${i===cols.length-1?'e':''}">${l}<br><span style="font-weight:400">${u}</span></th>`).join('')).join('')}</tr></thead><tbody>`;
+  /* 列：[見出し, 単位, 値を出す関数(x)→文字 or [上段,下段], 色のclass] */
+  const N=(v,d)=>{ const n=shN(v); return n===null?'':shF(n,d); };
+  const S=(k,i,d)=>x=>N((x.st[k]||[])[i],d);
+  const TW=(k)=>x=>[N((x.st[k]||[])[1],0),N((x.st[k]||[])[2],0)];
+  const stage=(k,ice)=>[['水麹','℃',S(k,5,1),'mz'], ...(ice?[['氷','L',S(k,4,0),'ice']]:[]), ['品温','℃',S(k,7,1),'hin'], ['尺<br>ℓ','mm／L',TW(k),'sr']];
+  const J=x=>x.jo||{};
+  const sg=v=>v===''?'':(Number(v)>0?'+':'')+v;
+  const josoDate=x=>{ const j=J(x), t=x.st.tome[0]; let d=j.date, mark='';
+    if(!d||!t||rcDays(t,d)<5||rcDays(t,d)>60){ d=t&&x.v&&x.v.length?dadd(t,x.v.length-1):''; mark=d?'*':''; }
+    return {d, mark, n:d&&t?rcDays(t,d)+1:null}; };
+  const grp=[
+    ['添', stage('soe',false)], ['仲', stage('naka',true)], ['留', stage('tome',true)],
+    ['四段・アル添', [['四段','L',x=>N(J(x).yd&&(J(x).yd.outL??J(x).yd.L),0),''], ['アル添','L',x=>N(J(x).alcL,0),'alc']]],
+    ['上槽', [['日付<br>日数','',x=>{ const o=josoDate(x); return [o.d?rcMD(o.d)+o.mark:'', o.n?o.n+'日':'']; },'sr'],
+              ['尺<br>ℓ','上槽時',x=>[N(J(x).shaku,0),N(J(x).L,0)],'sr'],
+              ['前 度<br>alc','',x=>{ const p=J(x).pre||{}; return [sg(N(p.smv,1)),N(p.alc,1)]; },'sr'],
+              ['後 度<br>alc','合算',x=>{ const p=J(x).post||{}; return [sg(N(p.smv,1)),N(p.alc,1)]; },'sr'],
+              ['上槽量','L',x=>N(J(x).outL,0),''],
+              ['粕 %<br>kg','',x=>[N(J(x).kasuP,1),N(J(x).kasuKg,0)],'sr']]]];
+  let h=`<div class="zn-tw" id="znTw"><table class="zn-t"><thead><tr class="g1"><th class="k" rowspan="2">順号・液種<small style="color:var(--sub);font-size:10px;font-weight:400">添日（昨年）</small></th>${grp.map(([g,cols])=>`<th class="g" colspan="${cols.length}">${g}</th>`).join('')}</tr>
+    <tr class="g2">${grp.map(([,cols])=>cols.map(([l,u],i)=>`<th class="${i===cols.length-1?'e':''}">${l}<br><span style="font-weight:400">${u}</span></th>`).join('')).join('')}</tr></thead><tbody>`;
   list.forEach(r=>{ const x=r.x;
     h+=`<tr data-no="${x.no}" class="${r.same?'same':''} ${r===near?'near':''}"><td class="k"><b>${x.no} ${esc(x.sym)}</b> ${esc(x.lq)}<small>添 ${rcMD(x.st.soe[0])}・T${esc(x.tk||'—')}</small></td>`;
-    stg.forEach(([k,,cols])=>{ const a=x.st[k]||[];
-      cols.forEach(([l,u,i,d,c],j)=>{ const e=j===cols.length-1?' e':'';
-        if(Array.isArray(i)){ const t=shN(a[i[0]]), q=shN(a[i[1]]); h+=`<td class="sr${e}">${t===null?'':shF(t,0)}<span class="q">${q===null?'':shF(q,0)}</span></td>`; return; }
-        const v=shN(a[i]); const cl=(c==='ice'?(v?'ice':''):c)+e;
-        h+=`<td class="${cl}">${v===null?'':shF(v,d)}</td>`; }); });
+    grp.forEach(([,cols])=>cols.forEach(([l,u,fn,c],j)=>{ const e=j===cols.length-1?' e':''; const v=fn(x);
+      if(Array.isArray(v)) h+=`<td class="sr${e}">${v[0]}<span class="q">${v[1]}</span></td>`;
+      else h+=`<td class="${(c==='ice'||c==='alc')?(v?'ice':''):c}${e}">${v}</td>`; }));
     h+=`</tr>`; });
-  return h+`</tbody></table></div><p class="sh-note">尺・ℓ の列は 上段＝尺（mm）、下段＝数量（L）。品温＝その段を仕込んだ後の品温。氷が入っている所は青（添は氷を入れないので列なし）。行を押すとその仕込の経過表。左右・上下にスクロールできます。</p>`;
+  return h+`</tbody></table></div><p class="sh-note">2段の列は 上段／下段（尺＝mm、ℓ＝L）。品温＝その段を仕込んだ後の品温。氷・アル添が入っている所は青（添は氷を入れないので列なし）。上槽は「四アル上槽」シートの値：前＝上槽前の最終値、後＝上槽後（合算）。日付の * は上槽日の記録が無いので最後の分析日。空欄はシートに記録が無いところ。行を押すとその仕込の経過表。</p>`;
 }
 function znRowHTML(kind,r,isNear){
   const x=r.x, s=znSum(kind,x);
@@ -7102,6 +7119,20 @@ async function znShuboSheet(no,r8){
   const t=$('#znTo'); if(t) t.onclick=()=>go(()=>znMoromiSheet(mr.no,''));
 }
 
+/* ---- 四段・アル添・上槽（四アル上槽シート） ---- */
+function znJoHTML(x){
+  const j=x.jo; if(!j) return '';
+  const N=(v,d)=>{ const n=shN(v); return n===null?'—':shF(n,d); }, sg=v=>v==='—'?v:(Number(v)>0?'+':'')+v, yd=j.yd||{}, p=j.pre||{}, q=j.post||{};
+  return `<div class="rc-h" style="margin-top:4px">四段・アル添・上槽<small>四アル上槽シート（昨年）</small></div><div class="sh-st"><div class="sh-tw"><table class="sh-t">
+    <tr><th class="k"></th><th>四段<br><span style="font-weight:400">${rcMD(yd.date)}</span></th><th>アル添</th><th>上槽<br><span style="font-weight:400">${rcMD(j.date)}</span></th></tr>
+    <tr><td class="k">量</td><td class="v">${N(yd.outL??yd.L,0)}</td><td class="v">${N(j.alcL,0)}</td><td class="v">${N(j.L,0)}</td></tr>
+    <tr><td class="k">尺</td><td></td><td></td><td class="v">${N(j.shaku,0)}</td></tr>
+    <tr><td class="k">温度/Be</td><td class="v">${N(yd.temp,1)}℃ / ${N(yd.be,1)}</td><td></td><td></td></tr></table></div>
+    <div class="sh-tw" style="margin-top:6px"><table class="sh-t"><tr><th class="k"></th><th>日本酒度</th><th>alc</th><th>酸度</th><th>ｱﾐﾉ</th></tr>
+    <tr><td class="k">上槽前</td><td class="v">${sg(N(p.smv,1))}</td><td class="v">${N(p.alc,1)}</td><td class="v">${N(p.ta,1)}</td><td class="v">${N(p.aa,1)}</td></tr>
+    <tr><td class="k">上槽後</td><td class="v">${sg(N(q.smv,1))}</td><td class="v">${N(q.alc,1)}</td><td class="v">${N(q.ta,1)}</td><td class="v">${N(q.aa,1)}</td></tr></table></div>
+    <p class="sh-note">上槽量 ${N(j.outL,0)}L・粕歩合 ${N(j.kasuP,1)}%・粕 ${N(j.kasuKg,0)}kg。—＝シートに記録なし。</p></div>`;
+}
 /* ---- 1本：醪 ---- */
 async function znMoromiSheet(no,r8){
   const D=await znLoad(false); const x=D&&D.ok&&znFind('moromi',no);
@@ -7122,6 +7153,7 @@ async function znMoromiSheet(no,r8){
       if(k==='odori'){ const i=rowsO[lb]; return i?`<td class="v">${shF(a[i],1)}</td>`:`<td style="background:#f6f3ea"></td>`; }
       const rr=rowsS.find(r=>r[0]===lb); return rr?`<td class="v">${shF(a[rr[1]],rr[2])}</td>`:`<td style="background:#f6f3ea"></td>`; }).join('')}</tr>`; });
   h+=t+`</table></div></div>`;
+  h+=znJoHTML(x);
   if(x.zai&&x.zai.length) h+=`<div class="zn-zai">${x.zai.map(([nm,q])=>`<span>${esc(nm)}${q!==null?` <b>${shF(q,0)}</b>`:''}</span>`).join('')}</div>`;
   const n=Math.max(days.length, cur&&cur.days?Math.min(cur.days.length, Math.max(dT||0,1)+2):0);
   const lab=[...Array(n)].map((_,i)=>dl(i+1));
