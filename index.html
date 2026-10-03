@@ -6939,6 +6939,22 @@ const ZN_CSS=`
 .zn-zai{display:flex;flex-wrap:wrap;gap:4px 6px;margin:0 0 8px}
 .zn-zai span{background:#fdf1e6;border:1px solid #e9b07a;border-radius:8px;padding:3px 8px;font-size:12px}
 .zn-zai span b{color:#8a3c00}
+.zn-tw{overflow:auto;-webkit-overflow-scrolling:touch;max-height:72vh;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.zn-t{border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.zn-t th,.zn-t td{border-bottom:1px solid #eee7d8;border-right:1px solid #f1ecdf;padding:6px 5px;text-align:right;min-width:38px}
+.zn-t thead th{position:sticky;top:0;z-index:2;background:#f3efe4;color:var(--sub);font-weight:700;font-size:11px;text-align:center}
+.zn-t thead th small{display:block;color:var(--navy);font-size:12px;font-weight:800}
+.zn-t th.g{color:var(--navy);font-size:15px;font-weight:900;border-right:2px solid #d8d2c2;padding:4px}
+.zn-t td.e,.zn-t th.e{border-right:2px solid #d8d2c2}
+.zn-t .k{position:sticky;left:0;z-index:1;background:#faf7ef;text-align:left;min-width:96px;cursor:pointer}
+.zn-t thead .k{z-index:3;background:#efe9da}
+.zn-t .k b{color:var(--navy);font-size:13px}.zn-t .k small{display:block;color:var(--sub);font-size:10px}
+.zn-t td.ice{background:#e3f0fb;color:#103e74;font-weight:800}
+.zn-t td.hin{font-weight:800;color:#8a2a1e}
+.zn-t td.mz{color:#1f5fa8}
+.zn-t td.sr{line-height:1.25}.zn-t td.sr .q{display:block;color:#103e74;font-weight:700;border-top:1px dotted #d8d2c2;margin-top:2px;padding-top:2px}
+.zn-t tr.same .k{box-shadow:inset 4px 0 0 #7da86a}
+.zn-t tr.near td{background:#fff4c9}.zn-t tr.near .k{background:#ffeaa0}
 .zn-ban{background:#eef4ea;border:1px solid #c5dbb9;border-radius:10px;padding:6px 10px;margin:8px 0 6px;font-size:12px;color:#2f5d22}
 `;
 (function(){ const s=document.createElement('style'); s.textContent=ZN_CSS; document.head.appendChild(s); })();
@@ -6984,6 +7000,7 @@ function znBindBtn(root){ (root||app).querySelectorAll('.zn-btn[data-zn]').forEa
 async function znScreen(kind,o){
   o=o||{};
   const K=kind==='shubo'?'酒母':'仕込み';
+  if(o.no&&!rcMaster(o.no)) await recState(false);
   const m=o.no?rcMaster(o.no):null;
   head(`昨年度の${K}`, m?`今年 順号${o.no} ${m.liquid||''} と同じ時期`:'きょうと同じ時期');
   rcLoading('昨年度のデータを読み込んでいます…（はじめてのときは少し時間がかかります）');
@@ -6992,7 +7009,8 @@ async function znScreen(kind,o){
   const sh=znByShift();
   if(o.anc===undefined){ o.anc = m?(kind==='shubo'?m.motodate:(m.soe||m.tome)):dtoday(); if(!o.anc) o.anc=dtoday(); }
   const liq=m?(m.liquid||''):'', sym=m?(kind==='shubo'?(m.shuboSym||''):(m.sym||'')):'';
-  const win=o.win||lsGet('zn.win',7), only=!!o.only&&!!liq;
+  const view=kind==='moromi'?(o.view||lsGet('zn.view','card')):'card';
+  const win=view==='tbl'?'all':(o.win||lsGet('zn.win',7)), only=!!o.only&&!!liq;
   const list=(kind==='shubo'?D.shubo:D.moromi).map(x=>{ const dd=kind==='shubo'?x.d0:(x.st.soe[0]||x.st.tome[0]); const now=znYear(dd,sh);
       return {x, dd, now, diff:now?rcDays(o.anc,now):9999, same: liq?znSameLiq(x.lq,liq):false}; })
     .filter(r=>r.dd && (win==='all'||Math.abs(r.diff)<=win) && (!only||r.same))
@@ -7001,11 +7019,18 @@ async function znScreen(kind,o){
   const lastY=znYear(o.anc,-sh);
   let h=`<div class="zn-ban">${esc(D.by)}（${esc(String(Number(lastY.slice(0,4))))}年）の分析${kind==='shubo'?'酒母':'醪'}シートから。${kind==='shubo'?'酛立日':'添日'}を1年ずらして並べています。押すと経過表。</div>`;
   h+=`<div class="zn-anc"><button data-mv="-7">‹ 前の週</button><div><small>基準日（今年）</small><b>${djp(o.anc)}</b><small>昨年なら ${rcMD(lastY)}</small></div><button data-mv="7">次の週 ›</button></div>`;
-  h+=`<div class="rc-bar">${[[7,'±7日'],[14,'±14日'],['all','全部']].map(([k,l])=>`<button class="rc-chip ${String(win)===String(k)?'on':''}" data-win="${k}">${l}</button>`).join('')}
+  if(kind==='moromi') h+=`<div class="shk-tabs"><button data-vw="card" class="${view==='card'?'on':''}">1本ずつ</button><button data-vw="tbl" class="${view==='tbl'?'on':''}">仕込み時の表</button></div>`;
+  if(view!=='tbl') h+=`<div class="rc-bar">${[[7,'±7日'],[14,'±14日'],['all','全部']].map(([k,l])=>`<button class="rc-chip ${String(win)===String(k)?'on':''}" data-win="${k}">${l}</button>`).join('')}
     ${liq?`<button class="rc-chip ${only?'on':''}" id="znOnly">同じ液種だけ（${esc(liq)}）</button>`:''}${o.anc!==dtoday()&&!m?`<button class="rc-chip" id="znToday">きょうに戻す</button>`:''}</div>`;
-  h+= list.length? list.map(r=>znRowHTML(kind,r,r===near)).join('') : `<p class="muted" style="text-align:center;padding:20px 0">この期間に昨年度の${K}はありません（‹ › や「全部」で探せます）</p>`;
+  else h+=`<div class="rc-bar">${liq?`<button class="rc-chip ${only?'on':''}" id="znOnly">同じ液種だけ（${esc(liq)}）</button>`:''}<span class="tl-note" style="margin:0">水麹・氷・品温（仕込み後）・尺・ℓ を、シーズンの最初から最後の仕込みまで全部。黄色＝基準日にいちばん近い仕込。</span></div>`;
+  if(view==='tbl') h+= list.length? znTblHTML(list,near) : `<p class="muted" style="text-align:center;padding:20px 0">該当する昨年度の仕込みはありません</p>`;
+  else h+= list.length? list.map(r=>znRowHTML(kind,r,r===near)).join('') : `<p class="muted" style="text-align:center;padding:20px 0">この期間に昨年度の${K}はありません（‹ › や「全部」で探せます）</p>`;
   h+=`<div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="znRe">読み直す</button><span class="tl-note" style="margin:0">緑の帯＝同じ液種、黄色の枠＝いちばん近い日。${esc(D.by)}のデータは変更しません（読むだけ）。</span></div>`;
   app.innerHTML=h;
+  app.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{ lsSet('zn.view',b.dataset.vw); znScreen(kind,{...o,view:b.dataset.vw}); });
+  app.querySelectorAll('.zn-t tr[data-no]').forEach(b=>b.onclick=()=>go(()=>znMoromiSheet(b.dataset.no,o.no||'')));
+  { const g1=app.querySelector('.zn-t tr.g1'); if(g1) app.querySelectorAll('.zn-t tr.g2 th').forEach(t=>t.style.top=g1.offsetHeight+'px'); }
+  const tw=$('#znTw'), tn=tw&&tw.querySelector('tr.near'); if(tn) tw.scrollTop=Math.max(0,tn.offsetTop-tw.clientHeight/2);
   app.querySelectorAll('.zn-row[data-no]').forEach(b=>b.onclick=()=>go(()=>(kind==='shubo'?znShuboSheet:znMoromiSheet)(b.dataset.no,o.no||'')));
   app.querySelectorAll('[data-win]').forEach(b=>b.onclick=()=>{ const w=b.dataset.win==='all'?'all':Number(b.dataset.win); lsSet('zn.win',w); znScreen(kind,{...o,win:w}); });
   app.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>znScreen(kind,{...o,anc:dadd(o.anc,Number(b.dataset.mv))}));
@@ -7013,6 +7038,22 @@ async function znScreen(kind,o){
   const tb=$('#znToday'); if(tb) tb.onclick=()=>znScreen(kind,{...o,anc:dtoday()});
   $('#znRe').onclick=async()=>{ rcLoading('昨年度のデータを読み直しています…'); await znLoad(true); znScreen(kind,o); };
   const nr=app.querySelector('.zn-row.near'); if(nr&&list.length>6) nr.scrollIntoView({block:'center'});
+}
+/* 仕込み時の表：添・仲・留 × 水麹・氷・品温（仕込み後）・尺・ℓ（分析醪の 添H・仲M・留P 列。st＝[日付,尺,量,汲水,氷,水麹,蒸米,品温]） */
+function znTblHTML(list,near){
+  const ALL=[['水麹','℃',5,1,'mz'],['氷','L',4,0,'ice'],['品温','℃',7,1,'hin'],['尺<br>ℓ','mm／L',[1,2],0,'sr']];
+  const stg=[['soe','添',ALL.filter(c=>c[0]!=='氷')],['naka','仲',ALL],['tome','留',ALL]];   // 添は氷を入れないので列なし
+  let h=`<div class="zn-tw" id="znTw"><table class="zn-t"><thead><tr class="g1"><th class="k" rowspan="2">順号・液種<small style="color:var(--sub);font-size:10px;font-weight:400">添日（昨年）</small></th>${stg.map(([,g,cols])=>`<th class="g" colspan="${cols.length}">${g}</th>`).join('')}</tr>
+    <tr class="g2">${stg.map(([,,cols])=>cols.map(([l,u],i)=>`<th class="${i===cols.length-1?'e':''}">${l}<br><span style="font-weight:400">${u}</span></th>`).join('')).join('')}</tr></thead><tbody>`;
+  list.forEach(r=>{ const x=r.x;
+    h+=`<tr data-no="${x.no}" class="${r.same?'same':''} ${r===near?'near':''}"><td class="k"><b>${x.no} ${esc(x.sym)}</b> ${esc(x.lq)}<small>添 ${rcMD(x.st.soe[0])}・T${esc(x.tk||'—')}</small></td>`;
+    stg.forEach(([k,,cols])=>{ const a=x.st[k]||[];
+      cols.forEach(([l,u,i,d,c],j)=>{ const e=j===cols.length-1?' e':'';
+        if(Array.isArray(i)){ const t=shN(a[i[0]]), q=shN(a[i[1]]); h+=`<td class="sr${e}">${t===null?'':shF(t,0)}<span class="q">${q===null?'':shF(q,0)}</span></td>`; return; }
+        const v=shN(a[i]); const cl=(c==='ice'?(v?'ice':''):c)+e;
+        h+=`<td class="${cl}">${v===null?'':shF(v,d)}</td>`; }); });
+    h+=`</tr>`; });
+  return h+`</tbody></table></div><p class="sh-note">尺・ℓ の列は 上段＝尺（mm）、下段＝数量（L）。品温＝その段を仕込んだ後の品温。氷が入っている所は青（添は氷を入れないので列なし）。行を押すとその仕込の経過表。左右・上下にスクロールできます。</p>`;
 }
 function znRowHTML(kind,r,isNear){
   const x=r.x, s=znSum(kind,x);
