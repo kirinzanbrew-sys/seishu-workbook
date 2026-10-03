@@ -7025,12 +7025,12 @@ async function znScreen(kind,o){
   if(view!=='tbl') h+=`<div class="rc-bar">${[[7,'±7日'],[14,'±14日'],['all','全部']].map(([k,l])=>`<button class="rc-chip ${String(win)===String(k)?'on':''}" data-win="${k}">${l}</button>`).join('')}
     ${liq?`<button class="rc-chip ${only?'on':''}" id="znOnly">同じ液種だけ（${esc(liq)}）</button>`:''}${o.anc!==dtoday()&&!m?`<button class="rc-chip" id="znToday">きょうに戻す</button>`:''}</div>`;
   else h+=`<div class="rc-bar">${liq?`<button class="rc-chip ${only?'on':''}" id="znOnly">同じ液種だけ（${esc(liq)}）</button>`:''}<span class="tl-note" style="margin:0">添・仲・留（水麹・氷・品温・尺/ℓ）から 四段・アル添・上槽 まで。シーズンの最初から最後の仕込みまで全部。黄色＝基準日にいちばん近い仕込。</span></div>`;
-  if(view==='grid') h+= list.length? kgHTML(kind==='shubo'?kgFieldsShubo:kgFieldsMoromi, list.map(r=>znGridRow(kind,r,r===near)), kind==='moromi'?{last:true,lastField:kgHTML._lastMoromi,outLabel:'記録なし'}:{shubo:true,outLabel:'記録なし'}) + `<p class="sh-note">分析${kind==='shubo'?'酒母':'醪'}シートと同じ並び。右へ送ると${kind==='shubo'?'酛卸':'上槽'}まで。${kind==='moromi'?'最後の列「上槽」＝四アル上槽シートの上槽後（合算）。':''}左の順号を押すとその1本の画面。</p>` : `<p class="muted" style="text-align:center;padding:20px 0">この期間に昨年度の${K}はありません（‹ › や「全部」で探せます）</p>`;
+  if(view==='grid') h+= list.length? `<div id="znKg"></div><p class="sh-note">分析${kind==='shubo'?'酒母':'醪'}シートと同じ並び。右へ送ると${kind==='shubo'?'酛卸':'上槽'}まで。${kind==='moromi'?'最後の列「上槽」＝四アル上槽シートの上槽後（合算）。':''}左の順号を押すとその1本の画面。</p>` : `<p class="muted" style="text-align:center;padding:20px 0">この期間に昨年度の${K}はありません（‹ › や「全部」で探せます）</p>`;
   else if(view==='tbl') h+= list.length? znTblHTML(list,near) : `<p class="muted" style="text-align:center;padding:20px 0">該当する昨年度の仕込みはありません</p>`;
   else h+= list.length? list.map(r=>znRowHTML(kind,r,r===near)).join('') : `<p class="muted" style="text-align:center;padding:20px 0">この期間に昨年度の${K}はありません（‹ › や「全部」で探せます）</p>`;
   h+=`<div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="znRe">読み直す</button><span class="tl-note" style="margin:0">緑の帯＝同じ液種、黄色の枠＝いちばん近い日。${esc(D.by)}のデータは変更しません（読むだけ）。</span></div>`;
   app.innerHTML=h;
-  kgBind(no=>go(()=>(kind==='shubo'?znShuboSheet:znMoromiSheet)(no,o.no||'')));
+  if(view==='grid'&&list.length) kgBox($('#znKg'), kind==='shubo'?kgFieldsShubo:kgFieldsMoromi, list.map(r=>znGridRow(kind,r,r===near)), kind==='moromi'?{setKind:'moromi',last:true,lastField:kgHTML._lastMoromi,outLabel:'記録なし',noMiss:true}:{setKind:'shubo',shubo:true,outLabel:'記録なし',noMiss:true}, no=>go(()=>(kind==='shubo'?znShuboSheet:znMoromiSheet)(no,o.no||'')));
   app.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{ lsSet(kind==='moromi'?'zn.view':'zn.sview',b.dataset.vw); znScreen(kind,{...o,view:b.dataset.vw}); });
   app.querySelectorAll('.zn-t tr[data-no]').forEach(b=>b.onclick=()=>go(()=>znMoromiSheet(b.dataset.no,o.no||'')));
   { const g1=app.querySelector('.zn-t tr.g1'); if(g1) app.querySelectorAll('.zn-t tr.g2 th').forEach(t=>t.style.top=g1.offsetHeight+'px'); }
@@ -7226,6 +7226,11 @@ const KG_CSS=`
 .kg-t tr.near td.n,.kg-t tr.near td.f{background:#ffeaa0}
 .kg-t tr.same td.n{box-shadow:inset 4px 0 0 #7da86a}
 .kg-t .wnv{color:var(--ng)}
+.kg-t td.st,.kg-t th.st{background:#f6f9fd;min-width:46px}
+.kg-t td.st small{font-size:9px;color:var(--sub);font-weight:400;margin-right:2px}
+.kg-t td.st{font-weight:700;color:#103e74}.kg-t td.st.dtc{color:var(--sub);font-weight:400;font-size:10px}
+.kg-t .se{border-right:2px solid #9fb3cf}
+.kg-t td.miss{outline:2px dashed #d8a100;outline-offset:-2px}
 .kg-leg{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11px;color:var(--sub);margin:6px 2px}
 .kg-leg i{display:inline-block;width:12px;height:10px;border:1px solid #d8d2c2;vertical-align:-1px;margin-right:3px}
 `;
@@ -7234,23 +7239,43 @@ const kgN=(v,d)=>{ const n=shN(v); return n===null?'':shF(n,d); };
 /* 項目：[見出し, 日の値→文字] */
 const kgFieldsMoromi=[['日付',d=>d.date?rcMD(d.date):'','dt'],['Be/度',d=>kgN(d.sm,1)],['alc',d=>kgN(d.alc,1)],['酸',d=>kgN(d.ta,1)],['ｱﾐﾉ',d=>kgN(d.aa,1)],['追水',d=>kgN(d.oimizu,0)],['品温AM',d=>kgN(d.tAM,1)],['品温PM',d=>kgN(d.tPM,1)],['BMD',d=>kgN(d.bmd,1)]];
 const kgFieldsShubo=[['日付',d=>d.date?rcMD(d.date):'','dt'],['Be',d=>kgN(d.sm,1)],['alc',d=>kgN(d.alc,1)],['酸度',d=>kgN(d.ta,1)],['ｱﾐﾉ',d=>kgN(d.aa,1)],['品温AM',d=>kgN(d.tAM,1)],['品温PM',d=>kgN(d.tPM,1)]];
-/* rows=[{no,label,sub,cls,days:[{day,date,...}],n(列の数),today,jo(上槽予定の日),last:{…}|null}] */
+/* 仕込み時の列（「仕込み時」ボタンで表示／非表示）。分析醪・分析酒母シートと同じく、項目の行に 尺・量… を重ねる
+   醪：添・踊・仲・留 × [日付, 尺(踊=Be), 量, 汲水(踊=酸), 氷(踊=ｱﾐﾉ), 水麹, 品温(仕込み後), 蒸米, —]
+   酒母：仕込時 × [酛立日, 尺, 量, 水麹, 蒸米, —, —] */
+const KG_SET_M=[['date'],['shaku','尺',0,'be','Be',1],['ryo','量',0],['kumi','汲水',0,'ta','酸',1],['kori','氷',0,'aa','ｱﾐﾉ',1],['mizukoji','水麹',1],['hin','品温',1,'hin','品温',1],['mushi','蒸米',1],[]];
+const KG_SET_S=[['date'],['shaku','尺',0],['ryo','量',0],['mizukoji','水麹',1],['mushi','蒸米',1],[],[]];
+const KG_STG=[['soe','添'],['odori','踊'],['naka','仲'],['tome','留']];
+function kgSetCells(kind, set, fi){
+  const cols=kind==='moromi'?KG_STG:[['x','仕込時']], M=kind==='moromi'?KG_SET_M:KG_SET_S;
+  return cols.map(([k],ci)=>{ const o=(set||{})[k]||{}, d=M[fi]||[], od=k==='odori';
+    const e=ci===cols.length-1?' se':'';
+    if(!d.length) return `<td class="st${e}"></td>`;
+    if(d[0]==='date') return `<td class="st dtc${e}">${o.date?rcMD(o.date):''}</td>`;
+    const key=od?d[3]:d[0], lab=od?d[4]:d[1], dec=od?d[5]:d[2];
+    if(!key) return `<td class="st${e}"></td>`;
+    const v=kgN(o[key],dec); return `<td class="st${e}">${v?`<small>${lab}</small>${v}`:''}</td>`; }).join('');
+}
+/* rows=[{no,label,sub,cls,days:[{day,date,...}],n(列の数),today,jo(上槽予定の日),last:{…}|null,set:{…}}] */
 function kgHTML(fields, rows, opt){
   opt=opt||{};
   const N=Math.max(1,...rows.map(r=>r.n||0));
   const hasLast=!!opt.last && rows.some(r=>r.last);
-  const dl=opt.shubo?(d=>d):(d=>opt.moromi===false?d:(d===1?'留':d));
-  let h=`<div class="kg-tw" id="kgTw"><table class="kg-t"><thead><tr><th class="n">順号</th><th class="f">項目</th>${[...Array(N)].map((_,i)=>`<th>${dl(i+1)}</th>`).join('')}${hasLast?`<th>${opt.lastLabel||'上槽'}</th>`:''}</tr></thead><tbody>`;
+  const dl=opt.shubo?(d=>d):(d=>d===1?'留':d);
+  const sk=opt.setKind&&opt.showSet?opt.setKind:'';
+  const sh=sk?(sk==='moromi'?KG_STG:[['x','仕込時']]).map(([,l],i,a)=>`<th class="st${i===a.length-1?' se':''}">${l}</th>`).join(''):'';
+  let h=`<div class="kg-tw" id="kgTw"><table class="kg-t"><thead><tr><th class="n">順号</th><th class="f">項目</th>${sh}${[...Array(N)].map((_,i)=>`<th>${dl(i+1)}</th>`).join('')}${hasLast?`<th>${opt.lastLabel||'上槽'}</th>`:''}</tr></thead><tbody>`;
   rows.forEach(r=>{
     const by={}; (r.days||[]).forEach(d=>by[d.day]=d);
     fields.forEach(([fl,fn,fc],fi)=>{
       h+=`<tr class="${fi===0?'top':''} ${fc||''} ${r.cls||''}" data-kg="${r.no}">`;
       if(fi===0) h+=`<td class="n" rowspan="${fields.length}" data-kgno="${r.no}"><b>${esc(String(r.label))}</b>${r.sub||''}</td>`;
       h+=`<td class="f">${fl}</td>`;
+      if(sk) h+=kgSetCells(sk, r.set, fi);
       for(let i=1;i<=N;i++){
         const d=by[i]; let v=d?fn(d):'';
         if(fl==='日付'&&!v&&r.start) v=rcMD(dadd(r.start,i-1));
-        const cl=[(r.n&&i>r.n)?'out':'', i===r.today?'tday':'', (r.jo&&i===r.jo)?'jo':'', v&&fl!=='日付'?'v':''].join(' ');
+        const miss=i===r.today&&fl==='品温AM'&&!v&&!opt.noMiss;
+        const cl=[(r.n&&i>r.n)?'out':'', i===r.today?'tday':'', miss?'miss':'', (r.jo&&i===r.jo)?'jo':'', v&&fl!=='日付'?'v':''].join(' ');
         h+=`<td class="${cl}">${v}</td>`;
       }
       if(hasLast){ const L=r.last||{}; const v=opt.lastField?opt.lastField(fl,L):''; h+=`<td class="last">${v||''}</td>`; }
@@ -7258,93 +7283,105 @@ function kgHTML(fields, rows, opt){
     });
   });
   h+=`</tbody></table></div>`;
-  h+=`<div class="kg-leg">${opt.today?'<span><i style="background:#fff4c9"></i>きょう</span>':''}${opt.jo?`<span><i style="background:#fde3dc"></i>${opt.jo}</span>`:''}<span><i style="background:#f4f1ea"></i>${opt.outLabel||'予定の後'}</span></div>`;
+  h+=`<div class="kg-leg">${opt.today?'<span><i style="background:#fff4c9"></i>きょう</span><span><i style="background:#fff4c9;outline:2px dashed #d8a100;outline-offset:-2px"></i>きょうの品温がまだ</span>':''}${opt.jo?`<span><i style="background:#fde3dc"></i>${opt.jo}</span>`:''}<span><i style="background:#f4f1ea"></i>${opt.outLabel||'予定の後'}</span></div>`;
   return h;
 }
-function kgBind(open){
-  app.querySelectorAll('.kg-t td[data-kgno]').forEach(c=>c.onclick=()=>open(c.dataset.kgno));
-  const tw=$('#kgTw'); if(!tw) return;
+function kgBind(open, root){
+  root=root||app;
+  root.querySelectorAll('.kg-t td[data-kgno]').forEach(c=>c.onclick=()=>open(c.dataset.kgno));
+  const tw=root.querySelector('.kg-tw'); if(!tw) return;
   const nr=tw.querySelector('tr.near'); if(nr) tw.scrollTop=Math.max(0,nr.offsetTop-40);
   const t=tw.querySelector('td.tday'); if(t) tw.scrollLeft=Math.max(0,t.offsetLeft-tw.clientWidth/2);
+}
+/* 表＋「仕込み時」ボタンを箱に描く。描き直してもスクロール位置は保つ */
+function kgBox(box, fields, rows, opt, open){
+  if(!box||!document.body.contains(box)) return;
+  const on=!!lsGet('kg.set',false);
+  const tw0=box.querySelector('.kg-tw'), sl=tw0?tw0.scrollLeft:null, stp=tw0?tw0.scrollTop:null;
+  box.innerHTML=`<div class="rc-bar" style="margin:4px 0 6px"><button class="rc-chip kg-setbtn ${on?'on':''}">仕込み時 ${on?'▾ 表示中':'▸ 表示'}</button><span class="tl-note" style="margin:0">${opt.note||''}</span></div>`+
+    (rows.length?kgHTML(fields, rows, {...opt, showSet:on}):`<p class="muted" style="text-align:center;padding:16px 0">${opt.empty||'ありません'}</p>`);
+  const first=tw0===null;
+  kgBind(open, box);
+  const tw=box.querySelector('.kg-tw');
+  if(tw&&!first&&sl!==null){ tw.scrollLeft=sl; tw.scrollTop=stp; }
+  else if(tw&&on) tw.scrollLeft=0;   // 仕込み時を出しているときは左（仕込み時の列）から見せる
+  box.querySelector('.kg-setbtn').onclick=()=>{ lsSet('kg.set',!on); kgBox(box, fields, rows, opt, open); const t=box.querySelector('.kg-tw'); if(t&&!on) t.scrollLeft=0; };
 }
 /* 昨年度の1行 */
 function znGridRow(kind,r,isNear){
   const x=r.x, days=x._days||(x._days=znDays(kind,x));
   const sub=`<small>${esc(x.sym)} ${esc(x.lq)}</small><small>${kind==='shubo'?'酛立':'添'} ${rcMD(r.dd)}・T${esc(x.tk||'—')}</small>`;
   const row={no:x.no, label:x.no, sub, cls:(r.same?'same ':'')+(isNear?'near':''), days, n:days.length};
-  if(kind==='moromi'){ const j=x.jo||{}, q=j.post||{}; row.last={smv:q.smv, alc:q.alc, ta:q.ta, aa:q.aa, date:j.date}; }
+  if(kind==='moromi'){ const j=x.jo||{}, q=j.post||{}; row.last={smv:q.smv, alc:q.alc, ta:q.ta, aa:q.aa, date:j.date};
+    const A=k=>x.st[k]||[], S=k=>{ const a=A(k); return {date:a[0],shaku:a[1],ryo:a[2],kumi:a[3],kori:a[4],mizukoji:a[5],mushi:a[6],hin:a[7]}; };
+    const o=A('odori'); row.set={soe:S('soe'),naka:S('naka'),tome:S('tome'),odori:{date:o[0],be:o[1],ta:o[2],aa:o[3],hin:o[4]}}; }
+  else { const t=x.st||[]; row.set={x:{date:x.d0,shaku:t[0],ryo:t[1],mizukoji:t[2],mushi:t[3]}}; }
   return row;
 }
 kgHTML._lastMoromi=(fl,L)=>{ const sg=v=>v===''?'':(Number(v)>0?'+':'')+v;
   return fl==='日付'?(L.date?rcMD(L.date):''):fl==='Be/度'?sg(kgN(L.smv,1)):fl==='alc'?kgN(L.alc,1):fl==='酸'?kgN(L.ta,1):fl==='ｱﾐﾉ'?kgN(L.aa,1):''; };
 
-/* ---- 今年：🍶仕込み 経過の表（仕込中・醪中。留＝1日目 → 上槽予定まで） ---- */
-async function kgMoromiScreen(){
-  head('仕込み 経過の表','醪中・仕込中の全タンク（右へ送ると上槽予定まで）');
-  rcLoading('仕込の一覧を読み込んでいます…');
-  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
-  const today=dtoday(), T=st.today||{};
-  const list=st.master.filter(m=>(T[m.no]||{}).state!=='上槽済' && m.tome && m.soe && today>=m.soe).sort((a,b)=>String(a.tome).localeCompare(String(b.tome))||a.no-b.no);
-  const myTop=nav[nav.length-1];
-  const draw=()=>{
-    if(nav[nav.length-1]!==myTop) return;
-    const tw=$('#kgTw'), sl=tw?tw.scrollLeft:null, stp=tw?tw.scrollTop:null;
-    const rows=list.map(m=>{ const b=RC.bun[m.no], dT=rcMoromiDay(m,today), jo=m.joso?rcDays(m.tome,m.joso)+1:null;
-      const calc=(b&&b.calc)||{};
-      const days=b&&b.days?b.days.map(d=>({day:d.day,date:d.date,sm:d.be,alc:d.alc,ta:d.ta,aa:d.aa,oimizu:d.oimizu,tAM:d.tAM,tPM:d.tPM,bmd:(calc[d.day]||{}).bmd})):[];
-      const t=T[m.no]||{};
-      return {no:m.no, label:m.no, start:m.tome, sub:`<small>${esc(m.sym||'')} ${esc(m.liquid||'')}</small><small>T${esc(m.tank||'')}・${dT>=1?dT+'日目':'留まで'+(1-dT)+'日'}</small><small>上槽予定 ${rcMD(m.joso)}</small>${!b?'<small>読み込み中…</small>':''}${t.warn?`<small class="wn">${esc(t.warn)}</small>`:''}`,
-        days, n:jo||Math.max(days.length,dT), today:dT, jo}; });
-    let h=`<div class="rc-status" id="rcStatus"></div>`;
-    h+= rows.length? kgHTML(kgFieldsMoromi, rows, {today:true, jo:'上槽予定', outLabel:'上槽予定の後'}) : `<p class="muted" style="text-align:center;padding:20px 0">醪中・仕込中の仕込はありません</p>`;
-    h+=`<p class="sh-note">分析醪シートと同じ並び（横＝留・2日目…、上槽予定の日まで）。左の順号を押すとその仕込の経過表（入力はそこから）。</p><div class="rc-bar"><button class="rc-ghost" id="rcReload">更新</button></div>`;
-    app.innerHTML=h;
-    kgBind(no=>go(()=>moromiSheet(no)));
-    const tw2=$('#kgTw'); if(tw2&&sl!==null){ tw2.scrollLeft=sl; tw2.scrollTop=stp; }
-    $('#rcReload').onclick=async()=>{ rcStatus('更新中…'); await recState(true); list.forEach(m=>RC.bun[m.no]=null); kgMoromiScreen(); };
-  };
-  draw();
-  let tm=null;
-  shFetchMany(list.filter(m=>!RC.bun[m.no]).map(m=>m.no),'bunseki_get',RC.bun,()=>{ clearTimeout(tm); tm=setTimeout(draw,150); });
+/* ---- 今年の行 ---- */
+function kgMoromiRows(list, today, T){
+  return list.map(m=>{ const b=RC.bun[m.no], dT=rcMoromiDay(m,today), jo=m.joso?rcDays(m.tome,m.joso)+1:null;
+    const calc=(b&&b.calc)||{}, t=(T||{})[m.no]||{};
+    const days=b&&b.days?b.days.map(d=>({day:d.day,date:d.date,sm:d.be,alc:d.alc,ta:d.ta,aa:d.aa,oimizu:d.oimizu,tAM:d.tAM,tPM:d.tPM,bmd:(calc[d.day]||{}).bmd})):[];
+    const S=(b&&b.setup)||{}, dts={soe:m.soe, odori:m.soe?dadd(m.soe,1):'', naka:m.naka, tome:m.tome};
+    const set={}; ['soe','odori','naka','tome'].forEach(k=>set[k]={...(S[k]||{}), date:(S[k]||{}).date||dts[k]});
+    return {no:m.no, label:m.no, start:m.tome, set,
+      sub:`<small>${esc(m.sym||'')} ${esc(m.liquid||'')}</small><small>T${esc(m.tank||'')}・${dT>=1?dT+'日目':'留まで'+(1-dT)+'日'}</small><small>上槽予定 ${rcMD(m.joso)}</small>${!b?'<small>読み込み中…</small>':''}${t.warn?`<small class="wn">${esc(t.warn)}</small>`:''}`,
+      days, n:jo||Math.max(days.length,dT), today:dT, jo}; });
 }
-/* ---- 今年：🧫酒母 経過の表（酛立＝1日目 → 酛卸まで） ---- */
-async function kgShuboScreen(){
-  head('酒母 経過の表','育成中・これからの酒母（右へ送ると酛卸まで）');
-  rcLoading('酒母の一覧を読み込んでいます…');
-  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
-  const today=dtoday();
-  const list=shuboList(st).map(x=>x.m);
-  const myTop=nav[nav.length-1];
-  const draw=()=>{
-    if(nav[nav.length-1]!==myTop) return;
-    const tw=$('#kgTw'), sl=tw?tw.scrollLeft:null, stp=tw?tw.scrollTop:null;
-    const rows=list.map(m=>{ const s=RC.shubo[m.no], dT=rcShuboDay(m,today);
-      const oro=(s&&(s.motooroshi||s.motooroshiPlan))||(m.soe?dadd(m.soe,-1):''); const jo=oro?rcDays(m.motodate,oro)+1:13;
-      const days=s&&s.days?s.days.map(d=>({day:d.day,date:d.date,sm:d.be,alc:d.alc,ta:d.ta,aa:d.aa,tAM:d.temp,tPM:d.tPM})):[];
-      const miss=s&&typeof shSetupMissing==='function'&&dT>=1?shSetupMissing(s):[];
-      return {no:m.no, label:m.no, start:m.motodate, sub:`<small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small><small>${m.shuboT?'T'+esc(m.shuboT)+'・':''}${dT>=1?dT+'日目':'酛立まで'+(1-dT)+'日'}</small><small>酛卸 ${rcMD(oro)}</small>${!s?'<small>読み込み中…</small>':''}${miss.length?'<small class="wn">仕込時の値 未入力</small>':''}`,
-        days, n:Math.max(jo,dT), today:dT, jo}; });
-    let h=`<div class="rc-status" id="rcStatus"></div>`;
-    h+= rows.length? kgHTML(kgFieldsShubo, rows, {shubo:true, today:true, jo:'酛卸', outLabel:'酛卸の後'}) : `<p class="muted" style="text-align:center;padding:20px 0">育成中の酒母はありません</p>`;
-    h+=`<p class="sh-note">分析酒母シートと同じ並び（横＝1日目…酛卸の日まで）。左の順号を押すとその酒母の経過表（入力はそこから）。</p><div class="rc-bar"><button class="rc-ghost" id="rcReload">更新</button></div>`;
-    app.innerHTML=h;
-    kgBind(no=>go(()=>shuboSheet(no)));
-    const tw2=$('#kgTw'); if(tw2&&sl!==null){ tw2.scrollLeft=sl; tw2.scrollTop=stp; }
-    $('#rcReload').onclick=async()=>{ rcStatus('更新中…'); await recState(true); list.forEach(m=>RC.shubo[m.no]=null); kgShuboScreen(); };
-  };
-  draw();
-  let tm=null;
-  shFetchMany(list.filter(m=>!RC.shubo[m.no]).map(m=>m.no),'shubo_get',RC.shubo,()=>{ clearTimeout(tm); tm=setTimeout(draw,150); });
+function kgShuboRows(list, today){
+  return list.map(m=>{ const s=RC.shubo[m.no], dT=rcShuboDay(m,today);
+    const oro=(s&&(s.motooroshi||s.motooroshiPlan))||(m.soe?dadd(m.soe,-1):''); const jo=oro?rcDays(m.motodate,oro)+1:13;
+    const days=s&&s.days?s.days.map(d=>({day:d.day,date:d.date,sm:d.be,alc:d.alc,ta:d.ta,aa:d.aa,tAM:d.temp,tPM:d.tPM})):[];
+    const miss=s&&typeof shSetupMissing==='function'&&dT>=1?shSetupMissing(s):[];
+    return {no:m.no, label:m.no, start:m.motodate, set:{x:{...((s&&s.setup)||{}), date:m.motodate}},
+      sub:`<small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small><small>${m.shuboT?'T'+esc(m.shuboT)+'・':''}${dT>=1?dT+'日目':'酛立まで'+(1-dT)+'日'}</small><small>酛卸 ${rcMD(oro)}</small>${!s?'<small>読み込み中…</small>':''}${miss.length?'<small class="wn">仕込時の値 未入力</small>':''}`,
+      days, n:Math.max(jo,dT), today:dT, jo}; });
 }
-/* 今年の一覧の上（昨年度ボタンの上）に「📊 経過の表」 */
-function kgBtnHTML(kind){ return `<button class="zn-btn kg-btn" style="background:#eef3fb;border-color:#6d8fc4;color:#1f3f72" data-kgo="${kind}">📊 <span>経過の表（全タンク）<small>${kind==='shubo'?'酛卸':'上槽予定'}まで右へスクロール・分析${kind==='shubo'?'酒母':'醪'}シートと同じ並び</small></span><span class="go">›</span></button>`; }
+
+/* ---- 今年：🧫酒母・🍶仕込み の画面を開いたら、すぐ全タンクの経過の表（ボタン不要。2026-10-04 泰広さん指示） ---- */
+function kgHomeBox(kind){
+  const box=document.createElement('div'); box.className='kg-home';
+  const z=app.querySelector('.zn-btn');
+  if(kind==='moromi'){
+    const hd=document.createElement('div'); hd.className='shk-sec'; hd.id='kgHd';
+    const tdy=app.querySelector('.shk-today'); (tdy||z||app.firstChild) ? (tdy?tdy.before(hd):z?z.after(hd):app.prepend(hd)) : app.prepend(hd);
+    hd.after(box);
+    // 「仕込中」「醪中」の行の一覧は表に置きかえる
+    app.querySelectorAll('.shk-sec').forEach(sec=>{ if(sec===hd) return; const t=sec.textContent||''; if(!/^(仕込中|醪中)/.test(t.trim())) return;
+      let n=sec.nextElementSibling; while(n && !n.classList.contains('shk-sec') && !n.classList.contains('sh-link')){ const nx=n.nextElementSibling; n.remove(); n=nx; } sec.remove(); });
+  } else {
+    app.querySelectorAll('.sh-row').forEach(x=>x.remove());
+    app.querySelectorAll('p.muted').forEach(x=>{ if(/育成中の酒母はありません/.test(x.textContent)) x.remove(); });
+    const st=app.querySelector('.rc-status'); (z?z.after(box):st?st.after(box):app.prepend(box));
+    const nt=app.querySelector('.rc-bar .tl-note'); if(nt) nt.textContent='表の左の順号を押すとその酒母の画面（入力はそこから）。';
+  }
+  return box;
+}
 ['shuboHome','moromiHome'].forEach(name=>{
   const orig=window[name]; if(typeof orig!=='function') return;
   window[name]=async function(...a){ const top=nav[nav.length-1]; const r=await orig.apply(this,a);
-    try{ if(nav[nav.length-1]!==top||app.querySelector('.kg-btn')) return r;
-      const kind=name==='shuboHome'?'shubo':'moromi', d=document.createElement('div'); d.innerHTML=kgBtnHTML(kind);
-      const z=app.querySelector('.zn-btn'); z?z.before(d.firstElementChild):app.prepend(d.firstElementChild);
-      app.querySelector('.kg-btn').onclick=()=>go(kind==='shubo'?kgShuboScreen:kgMoromiScreen); }catch(e){}
+    try{ if(nav[nav.length-1]!==top||app.querySelector('.kg-home')) return r;
+      const st=RC.state; if(!st||!st.master) return r;
+      const kind=name==='shuboHome'?'shubo':'moromi', today=dtoday(), T=st.today||{};
+      const box=kgHomeBox(kind);
+      let list, draw;
+      if(kind==='moromi'){
+        list=st.master.filter(m=>(T[m.no]||{}).state!=='上槽済' && m.tome && m.soe && today>=m.soe).sort((a,b)=>String(a.tome).localeCompare(String(b.tome))||a.no-b.no);
+        const hd=$('#kgHd'); if(hd) hd.innerHTML=`仕込中・醪中の経過<small>${list.length}本・右へ送ると上槽予定まで</small>`;
+        draw=()=>kgBox(box, kgFieldsMoromi, kgMoromiRows(list,today,T), {setKind:'moromi', today:true, jo:'上槽予定', outLabel:'上槽予定の後', empty:'仕込中・醪中の仕込はありません', note:'左の順号を押すと1本の画面（入力）'}, no=>go(()=>moromiSheet(no)));
+        draw();
+        let tm=null; shFetchMany(list.filter(m=>!RC.bun[m.no]).map(m=>m.no),'bunseki_get',RC.bun,()=>{ clearTimeout(tm); tm=setTimeout(draw,150); });
+      } else {
+        list=shuboList(st).map(x=>x.m);
+        draw=()=>kgBox(box, kgFieldsShubo, kgShuboRows(list,today), {setKind:'shubo', shubo:true, today:true, jo:'酛卸', outLabel:'酛卸の後', empty:'育成中の酒母はありません', note:'右へ送ると酛卸まで・左の順号で1本の画面'}, no=>go(()=>shuboSheet(no)));
+        draw();
+        let tm=null; shFetchMany(list.filter(m=>!RC.shubo[m.no]).map(m=>m.no),'shubo_get',RC.shubo,()=>{ clearTimeout(tm); tm=setTimeout(draw,150); });
+      }
+    }catch(e){ console.log('kgHome',e); }
     return r; };
 });
 
