@@ -719,7 +719,7 @@ function home(){
     {id:'bCalc', e:'🧮', lb:'各種<br>計算ツール', c:['#c5da68','#abc351'], t:'momi'},
     {id:'bTodo', e:'📝', lb:'やること<br>リスト',   c:['#bfd45e','#a5bc48'], t:'momi', n:(typeof todoBadge==='function'?todoBadge():0)},
     {id:'bLib',  e:'🧬', lb:'酵母・麹<br>情報',   c:['#b8cd54','#9eb440'], t:'momi'},
-    {id:'bMan',  e:'📘', lb:'マニュアル',         c:['#a9c95f','#8fb247'], t:'ha'},
+    {id:'bMan',  e:'📘', lb:'マニュアル',         c:['#a9c95f','#8fb247'], t:'ha', tag:(typeof manxAlert==='function'?manxAlert():'')},
     {href:'seishu-jiten.html', e:'📖', lb:'逆引き検索', c:['#9fd286','#85ba6b'], t:'ha'},
     {id:'bQuiz', e:'✅', lb:`問題集<span class="sm">${mastery(all)}%</span>`, c:['#95c97a','#7bb15f'], t:'ha'},
     {href:'voice.html', e:'🎙', lb:'Sake Tour<br>Guide', c:['#8abd6c','#70a453'], t:'ha'}
@@ -759,7 +759,7 @@ function home(){
   $('#bWash').onclick=()=>go(washScreen);
   $('#bCalc').onclick=()=>go(calcHome);
   $('#bTodo').onclick=()=>go(todoScreen);
-  $('#bMan').onclick=()=>go(manualScreen);
+  $('#bMan').onclick=()=>go(manxHome);
   void done;
   setTimeout(()=>{ if(typeof wsPrefetch==='function') wsPrefetch(); }, 1500);
 }
@@ -6205,6 +6205,483 @@ setTimeout(()=>{ if(TODO_URL && ST.token) todoFetch(); }, 2500);
 
 </script>
 <!-- /todo -->
+<!-- manx -->
+<script>
+/* ================= 📘 マニュアル（カード式・アプリ内で編集）2026-10-03 =================
+   WordやExcelのファイルをやめ、製造ツールの中で「見る・直す・写真を貼る」ができるマニュアル。
+   ・中身は カード（手順カード／文章カード／表カード）を並べたもの
+     手順カード＝作業内容・ポイント・注意（赤）・写真3枚まで（写真ごとに OK例／NG例 の印）
+   ・誰でも直せる。直した人・日時・メモが「改訂履歴」に残り、前の版に戻せる
+   ・HACCPの印が付いたマニュアルは、管理者以外が直すと「承認待ち」→ 管理者が承認すると公開
+   ・移したマニュアルは「下書き」で入り、管理者が「公開する」を押すと全員に出る
+   ・見直し日：公開から180日。近づくとホームのアイコンに印
+   ・記録先：Apps Script「製造ツール マニュアル」（MANX_URL）／写真はドライブ
+   ・元のWord・Excel は「元のファイル」から今まで通り見られる（manualScreen / manualView）
+   控え：seishu-workbook_github\_src_manx.js　／　裏側の控え：seishu-workbook_github\_gas_manual_Code.gs
+   ============================================================================== */
+const MANX_URL = "https://script.google.com/macros/s/AKfycbw1N4HnXjRLEiHhg-wZ8ZPH8xDMiSvFs5-9FElI1WjKKgEjNcek4nPML3nQDRG7RXjl/exec";   // ← Apps Script「製造ツール マニュアル」をデプロイしたURL（/exec）を入れる
+const MANX_PHOTO_MAX = 3;
+const MANX_CSS = `
+.mx-top{display:flex;gap:8px;margin:12px 0 4px}
+.mx-top input{flex:1;min-width:0;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;font-family:inherit;background:var(--card);color:var(--ink)}
+.mx-new{border:0;border-radius:10px;background:var(--navy);color:#fff;font-size:15px;font-weight:700;padding:0 14px;font-family:inherit;white-space:nowrap}
+.mx-adm{background:#fff4e5;border:1px solid #f0c78a;border-radius:10px;padding:9px 11px;font-size:14px;margin:10px 0}
+.mx-adm b{color:#a3530f}
+.mx-g{margin:16px 0 6px;font-size:14px;font-weight:700;color:var(--navy);display:flex;justify-content:space-between;cursor:pointer}
+.mx-g .n{font-size:12px;color:var(--sub);font-weight:400}
+.mx-it{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:6px;display:flex;gap:10px;align-items:center;text-align:left;font-family:inherit;color:inherit;cursor:pointer}
+.mx-it .t{flex:1;font-size:15px;line-height:1.35}
+.mx-it .s{font-size:11px;color:var(--sub);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.mx-b{font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;display:inline-block}
+.mx-b.h{background:#1f6fa8;color:#fff}
+.mx-b.d{background:#eee;color:#555;border:1px dashed #999}
+.mx-b.p{background:#fdeedd;color:#9a5a12}
+.mx-b.r{background:#fdecec;color:#b31b14}
+.mx-ban{border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px;line-height:1.55}
+.mx-ban.p{background:#fdeedd;border:1px solid #efc58c}
+.mx-ban.d{background:#f1f1f1;border:1px dashed #999}
+.mx-ban.r{background:#fdecec;border:1px solid #e7a19c}
+.mx-ban .bt{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.mx-ban .bt button{border:0;border-radius:8px;padding:8px 12px;font-size:14px;font-weight:700;font-family:inherit}
+.mx-ok{background:#2f7d5d;color:#fff}.mx-ng{background:#fff;color:#b31b14;border:1px solid #e7a19c!important}.mx-gh{background:#fff;color:var(--navy);border:1px solid var(--line)!important}
+.mx-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;font-size:15px;line-height:1.7;overflow-wrap:anywhere}
+.mx-step{display:flex;gap:10px}
+.mx-no{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;margin-top:2px}
+.mx-step .c{flex:1;min-width:0}
+.mx-step .w{font-weight:700;font-size:16px;white-space:pre-wrap}
+.mx-pt{margin-top:6px;background:#eef4dc;border-radius:8px;padding:6px 9px;font-size:14px;white-space:pre-wrap}
+.mx-pt::before{content:'ポイント';display:block;font-size:11px;font-weight:700;color:#4f6b14}
+.mx-cau{margin-top:6px;background:#fdecec;border:2px solid #d62b22;border-radius:8px;padding:6px 9px;font-size:14px;white-space:pre-wrap;color:#7d1410}
+.mx-cau::before{content:'⚠ 注意';display:block;font-size:11px;font-weight:800;color:#d62b22}
+.mx-ph{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:8px}
+.mx-ph figure{margin:0;position:relative}
+.mx-ph img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;background:#eee;display:block;cursor:zoom-in}
+.mx-ph figcaption{font-size:12px;color:var(--sub);margin-top:2px}
+.mx-lab{position:absolute;top:5px;left:5px;font-size:12px;font-weight:800;border-radius:6px;padding:1px 7px;color:#fff}
+.mx-lab.OK{background:#2f7d5d}.mx-lab.NG{background:#d62b22}
+.mx-ph figure.NG img{outline:3px solid #d62b22}
+.mx-txt h3{margin:2px 0 6px;font-size:16px;color:var(--navy)}
+.mx-txt .b{white-space:pre-wrap}
+.mx-tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.mx-tw table{border-collapse:collapse;font-size:13px;line-height:1.45}
+.mx-tw td{border:1px solid var(--line);padding:4px 7px;vertical-align:top;min-width:3em;white-space:pre-wrap}
+.mx-tw tr:first-child td{background:#f3f0e8;font-weight:700}
+.mx-foot{display:flex;gap:8px;margin:14px 0}
+.mx-foot button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:11px 6px;font-size:14px;font-family:inherit;color:var(--navy);font-weight:700}
+.mx-foot button.pri{background:var(--navy);color:#fff;border-color:var(--navy)}
+.mx-meta{font-size:12px;color:var(--sub);margin:4px 0 10px;line-height:1.6}
+.mx-lb{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:1000;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.mx-lb img{max-width:100vw;max-height:86vh;object-fit:contain}
+.mx-lb div{color:#fff;font-size:14px;margin-top:8px;padding:0 12px;text-align:center}
+.mx-ed label{display:block;font-size:12px;color:var(--sub);margin:10px 0 4px}
+.mx-ed input[type=text],.mx-ed textarea,.mx-ed select{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:16px;font-family:inherit;background:#fff;color:var(--ink)}
+.mx-ed textarea{resize:vertical;min-height:0;height:auto;line-height:1.5}
+.mx-ec{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--navy);border-radius:12px;padding:8px 12px 12px;margin-bottom:6px}
+.mx-ec.text{border-left-color:#8a7a50}.mx-ec.table{border-left-color:#217346}
+.mx-eh{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--navy)}
+.mx-eh span{flex:1}
+.mx-eh button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 9px;font-size:14px;font-family:inherit;color:var(--ink)}
+.mx-eh button.del{color:#b31b14}
+.mx-eph{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.mx-eph .p{width:104px}
+.mx-eph .p img{width:104px;height:78px;object-fit:cover;border-radius:8px;display:block;background:#eee}
+.mx-eph .p .lb{display:flex;gap:3px;margin-top:3px}
+.mx-eph .p .lb button{flex:1;border:1px solid var(--line);background:#fff;border-radius:6px;font-size:11px;padding:3px 0;font-family:inherit}
+.mx-eph .p .lb button.on.OK{background:#2f7d5d;color:#fff;border-color:#2f7d5d}
+.mx-eph .p .lb button.on.NG{background:#d62b22;color:#fff;border-color:#d62b22}
+.mx-eph .p .lb button.x{color:#b31b14}
+.mx-eph .p input{width:104px!important;font-size:12px!important;padding:3px 5px!important;margin-top:3px}
+.mx-eph .add{width:104px;height:78px;border:2px dashed #b9b29f;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:12px;color:var(--sub);background:none;font-family:inherit;cursor:pointer;margin:0}
+.mx-eph .add b{font-size:22px;line-height:1}
+.mx-eph .up{width:104px;height:78px;border-radius:8px;background:#eef;display:flex;align-items:center;justify-content:center;font-size:12px;color:#335}
+.mx-etb{overflow-x:auto;margin-top:6px}
+.mx-etb table{border-collapse:collapse}
+.mx-etb td{padding:2px}
+.mx-etb input{width:96px!important;font-size:14px!important;padding:5px 6px!important}
+.mx-etb .ops{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.mx-etb .ops button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 9px;font-size:13px;font-family:inherit}
+.mx-addc{display:flex;gap:6px;margin:6px 0 14px}
+.mx-addc button{flex:1;border:2px dashed #b9b29f;background:none;border-radius:10px;padding:10px 4px;font-size:14px;font-family:inherit;color:var(--navy);font-weight:700}
+.mx-ins{display:block;width:100%;border:0;background:none;color:#8a9a6a;font-size:12px;padding:2px 0 6px;font-family:inherit;text-align:center}
+.mx-save{position:sticky;bottom:0;background:var(--paper);padding:10px 0 calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);margin-top:10px}
+.mx-save .bt{display:flex;gap:8px;margin-top:8px}
+.mx-save .bt button{flex:1;border:0;border-radius:10px;padding:13px 6px;font-size:16px;font-weight:700;font-family:inherit}
+.mx-save .pub{background:var(--navy);color:#fff}.mx-save .drf{background:#e9e5da;color:var(--ink)}
+.mx-save button:disabled{opacity:.5}
+.mx-chk{display:flex!important;align-items:center;gap:8px;margin-top:12px!important;font-size:14px!important;color:var(--ink)!important}
+.mx-chk input{width:20px;height:20px;flex:0 0 auto}
+.mx-msg{font-size:13px;margin:6px 0;color:var(--sub)}.mx-msg.w{color:#b02a26;font-weight:700}.mx-msg.g{color:#2f7d5d;font-weight:700}
+.mx-his{width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:6px;font-family:inherit;color:inherit;display:flex;gap:10px;align-items:center}
+.mx-his .v{font-weight:800;color:var(--navy);width:52px;flex:0 0 auto}
+.mx-his .t{flex:1;font-size:14px}.mx-his .t small{display:block;color:var(--sub);font-size:12px}
+@media print{ .mx-foot,.mx-ban .bt,#hBack,#who{display:none!important} .mx-card{break-inside:avoid} }
+`;
+(function(){ const s=document.createElement('style'); s.textContent=MANX_CSS; document.head.appendChild(s); })();
+
+/* ---------- データ ---------- */
+const MX = { list:lsGet('mx.list',null), admin:lsGet('mx.admin',false), docs:lsGet('mx.docs',{}), q:'', open:{}, err:'', flash:'' };
+const mxWho = ()=>({ id:String(ST.id||''), name:String(ST.name||'') });
+const mxImg = (id,w)=>`https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${w||800}`;
+const mxTxt = s=>esc(s||'');
+async function mxApi(body, ms){
+  if(!MANX_URL) throw new Error('記録先の設定がまだ済んでいません');
+  const ctl = typeof AbortController!=='undefined' ? new AbortController() : null;
+  const t = ctl ? setTimeout(()=>ctl.abort(), ms||30000) : null;
+  try{
+    body.who = body.who || mxWho();
+    const r=await fetch(MANX_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow',signal:ctl?ctl.signal:undefined});
+    const j=await r.json(); if(!j || !j.ok) throw new Error((j&&j.error)||'保存できませんでした'); return j;
+  }catch(e){ if(e && e.name==='AbortError') throw new Error('時間がかかりすぎました。電波のよい所でもう一度'); throw e; }
+  finally { if(t) clearTimeout(t); }
+}
+function mxSaveLocal(){ try{ lsSet('mx.list',MX.list); lsSet('mx.admin',MX.admin); lsSet('mx.docs',MX.docs); }catch(e){} }
+function mxKeepList(j){ MX.list=j.items||[]; MX.admin=!!j.admin; MX.sheet=j.sheetUrl||''; mxSaveLocal(); }
+function mxKeepDoc(j){
+  if(!j || !j.meta) return;
+  MX.docs[j.meta.id]={ meta:j.meta, pub:j.pub, draft:j.draft, history:j.history||[], at:Date.now() };
+  if(typeof j.admin==='boolean') MX.admin=j.admin;
+  MX.list=MX.list||[]; const i=MX.list.findIndex(x=>x.id===j.meta.id); if(i>=0) MX.list[i]=j.meta; else MX.list.push(j.meta);
+  mxSaveLocal();
+}
+async function mxFetchList(){ try{ mxKeepList(await mxApi({action:'list'},30000)); MX.err=''; return true; }catch(e){ MX.err=String(e.message||e); return false; } }
+async function mxFetchDoc(id){ try{ mxKeepDoc(await mxApi({action:'get',id},40000)); return true; }catch(e){ return false; } }
+function mxSoon(){ const d=new Date(Date.now()+14*86400000); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function mxDue(m){ return !!(m && m.pubVer && m.review && m.review <= mxSoon()); }
+/* ホームのアイコンの印：管理者には承認待ち、全員に見直し期限 */
+function manxAlert(){
+  const L=MX.list||[]; if(!MANX_URL || !L.length) return '';
+  if(MX.admin){ const p=L.filter(m=>m.draftKind==='承認待ち').length; if(p) return '承認待ち'+p; }
+  return L.some(mxDue)?'見直し':'';
+}
+/* 今いる画面か（go で積んだ関数に印を付けて見分ける） */
+function mxTop(tag){ const f=nav[nav.length-1]; return !!(f && f.mxTag===tag); }
+function mxGo(tag, fn, push){ fn.mxTag=tag; go(fn, push); }
+
+/* ---------- 一覧 ---------- */
+function manxHome(){
+  if(!MANX_URL){ manualScreen(); return; }     // 記録先ができるまでは今までの画面
+  head('マニュアル','作業手順（だれでも直せる・写真つき）');
+  const draw=()=>{
+    if(nav[nav.length-1]!==manxHome) return;
+    let h=`<div class="mx-top"><input id="mxQ" type="search" placeholder="題名・中身で探す（例：上槽、洗米）" value="${esc(MX.q)}"><button class="mx-new" id="mxNew">＋ 新しく作る</button></div>`;
+    if(!MX.list){ app.innerHTML=h+(MX.err?`<div class="mf-warn">${esc(MX.err)}</div>`:`<div class="card" style="text-align:center;color:var(--sub);margin-top:12px">読み込んでいます…</div>`); bind(); return; }
+    const L=MX.list.slice();
+    if(MX.admin){
+      const p=L.filter(m=>m.draftKind==='承認待ち'), d=L.filter(m=>m.draftKind==='下書き');
+      if(p.length||d.length) h+=`<div class="mx-adm">${p.length?`<b>承認待ち ${p.length}件</b>（HACCP）　`:''}${d.length?`下書き ${d.length}件（まだ公開していません）`:''}<br><small>押して中身を確かめ、「承認する」「公開する」を押してください。</small>
+        ${d.length>1?`<div style="margin-top:8px"><button class="mx-gh" id="mxPubAll" style="border-radius:8px;padding:7px 10px;font-family:inherit;font-weight:700">下書き ${d.length}件をまとめて公開する</button> <span id="mxPubMsg" style="font-size:12px"></span></div>`:''}</div>`;
+    }
+    const q=MX.q.replace(/[\s　]/g,'').toLowerCase();
+    const hay=m=>{ const d=MX.docs[m.id]; const doc=d&&(d.pub||d.draft); let s=(m.title||'')+(m.genre||'');
+      if(doc&&doc.cards) s+=doc.cards.map(c=>[c.title,c.body,c.point,c.caution,(c.rows||[]).map(r=>r.join('')).join('')].join('')).join('');
+      return s.replace(/[\s　]/g,'').toLowerCase(); };
+    const xs=q?L.filter(m=>hay(m).includes(q)):L;
+    const order=g=>{ const i=MAN_GENRES.indexOf(g); return i<0?500:i; };
+    const gm={}; xs.forEach(m=>{ const g=m.genre||'その他'; (gm[g]=gm[g]||[]).push(m); });
+    Object.keys(gm).sort((a,b)=>order(a)-order(b)||a.localeCompare(b,'ja')).forEach(g=>{
+      const open=q||MX.open[g]!==false;
+      h+=`<div class="mx-g" data-g="${esc(g)}"><span>${open?'▾':'▸'} ${esc(g)}</span><span class="n">${gm[g].length}冊</span></div>`;
+      if(!open) return;
+      gm[g].sort((a,b)=>String(a.title).localeCompare(String(b.title),'ja',{numeric:true})).forEach(m=>{
+        const bd=[];
+        if(m.haccp) bd.push('<span class="mx-b h">HACCP</span>');
+        if(m.draftKind==='承認待ち') bd.push('<span class="mx-b p">承認待ち</span>');
+        if(m.draftKind==='下書き') bd.push(`<span class="mx-b d">下書き${m.pubVer?'あり':''}</span>`);
+        if(mxDue(m)) bd.push('<span class="mx-b r">見直し '+esc(String(m.review).slice(5).replace('-','/'))+'</span>');
+        h+=`<button class="mx-it" data-id="${esc(m.id)}"><div class="t">${esc(m.title)}<div class="s">${bd.join('')}<span>更新 ${esc(String(m.upd||'').slice(0,10))}${m.updBy?'（'+esc(m.updBy)+'）':''}</span></div></div><div class="go">›</div></button>`;
+      });
+    });
+    if(!xs.length) h+=`<div class="card" style="margin-top:12px;text-align:center;color:var(--sub)">${q?'見つかりませんでした。':'まだマニュアルがありません。「＋ 新しく作る」から作れます。'}</div>`;
+    h+=`<div class="mx-foot"><button id="mxOld">元のファイル（Word・Excel）を見る</button></div>
+      <p class="tl-note">だれでも直せます。直すと「改訂履歴」に名前と日時が残り、前の版にも戻せます。<b>HACCP</b> の印があるマニュアルは、管理者が承認してから全員に出ます。${MX.err?'<br><b style="color:#b02a26">'+esc(MX.err)+'（前回の内容を表示しています）</b>':''}</p>`;
+    app.innerHTML=h; bind();
+  };
+  const bind=()=>{
+    const inp=$('#mxQ'); if(inp) inp.oninput=()=>{ MX.q=inp.value; const pos=inp.selectionStart; draw(); const n=$('#mxQ'); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} } };
+    const nw=$('#mxNew'); if(nw) nw.onclick=()=>mxGo('edit:new',()=>manxEdit(null));
+    const old=$('#mxOld'); if(old) old.onclick=()=>go(manualScreen);
+    const pa=$('#mxPubAll'); if(pa) pa.onclick=async()=>{
+      if(pa.dataset.s!=='1'){ pa.dataset.s='1'; pa.textContent='本当にまとめて公開する（もう一度押す）'; return; }
+      pa.disabled=true; const ds=(MX.list||[]).filter(m=>m.draftKind==='下書き'); let n=0;
+      for(const m of ds){ try{ mxKeepDoc(await mxApi({action:'approve',id:m.id,note:'まとめて公開'},40000)); n++; const e=$('#mxPubMsg'); if(e) e.textContent=n+' / '+ds.length+' 件 公開しました'; }catch(e){} }
+      draw();
+    };
+    app.querySelectorAll('.mx-g').forEach(el=>el.onclick=()=>{ const g=el.dataset.g; MX.open[g]=(MX.open[g]===false); draw(); });
+    app.querySelectorAll('.mx-it').forEach(el=>el.onclick=()=>{ const id=el.dataset.id; mxGo('view:'+id,()=>manxView(id)); });
+  };
+  draw();
+  mxFetchList().then(()=>{ draw(); mxWarm(); });
+}
+/* 一覧を開いたら、中身も裏で取っておく（中身で探す・電波の無い所で読む ため） */
+let MX_WARM=false;
+async function mxWarm(){
+  if(MX_WARM || !MX.list) return; MX_WARM=true;
+  try{ for(const m of MX.list.slice()){ const d=MX.docs[m.id]; if(d && d.meta && d.meta.upd===m.upd && d.meta.draftVer===m.draftVer) continue; await mxFetchDoc(m.id); } }catch(e){}
+  MX_WARM=false;
+}
+
+/* ---------- カードを描く ---------- */
+function mxCardsHTML(cards){
+  let n=0;
+  return (cards||[]).map(c=>{
+    if(c.t==='text') return `<div class="mx-card mx-txt">${c.title?`<h3>${mxTxt(c.title)}</h3>`:''}${c.body?`<div class="b">${mxTxt(c.body)}</div>`:''}${mxPhotosHTML(c.photos)}</div>`;
+    if(c.t==='table') return `<div class="mx-card">${c.title?`<div style="font-weight:700;color:var(--navy);margin-bottom:4px">${mxTxt(c.title)}</div>`:''}<div class="mx-tw"><table>${(c.rows||[]).map(r=>`<tr>${r.map(x=>`<td>${mxTxt(x)}</td>`).join('')}</tr>`).join('')}</table></div>${c.body?`<div class="mx-meta" style="margin:6px 0 0">${mxTxt(c.body)}</div>`:''}</div>`;
+    n++;
+    return `<div class="mx-card"><div class="mx-step"><div class="mx-no">${n}</div><div class="c">
+      <div class="w">${mxTxt(c.body)}</div>${c.point?`<div class="mx-pt">${mxTxt(c.point)}</div>`:''}${c.caution?`<div class="mx-cau">${mxTxt(c.caution)}</div>`:''}${mxPhotosHTML(c.photos)}</div></div></div>`;
+  }).join('');
+}
+function mxPhotosHTML(ps){
+  if(!ps||!ps.length) return '';
+  return `<div class="mx-ph">${ps.map(p=>`<figure class="${p.ok||''}"><img loading="lazy" src="${mxImg(p.id,800)}" data-big="${esc(p.id)}" data-cap="${esc((p.ok?p.ok+'例　':'')+(p.cap||''))}" alt="">${p.ok?`<span class="mx-lab ${p.ok}">${p.ok}例</span>`:''}${p.cap?`<figcaption>${mxTxt(p.cap)}</figcaption>`:''}</figure>`).join('')}</div>`;
+}
+function mxBindPhotos(){
+  app.querySelectorAll('img[data-big]').forEach(im=>im.onclick=()=>{
+    const m=document.createElement('div'); m.className='mx-lb';
+    m.innerHTML=`<img src="${mxImg(im.dataset.big,2000)}" alt=""><div>${esc(im.dataset.cap||'')}　（押すと閉じる）</div>`;
+    m.onclick=()=>m.remove(); document.body.appendChild(m);
+  });
+}
+
+/* ---------- 1冊を見る ---------- */
+function manxView(id){
+  const tag='view:'+id, d0=MX.docs[id], m0=(d0&&d0.meta)||(MX.list||[]).find(x=>x.id===id)||{title:''};
+  head(m0.title||'マニュアル', m0.genre||'');
+  let msg=MX.flash, warn=false, busy=false, showDraft=false; MX.flash='';
+  const draw=()=>{
+    if(!mxTop(tag)) return;
+    const d=MX.docs[id];
+    if(!d){ app.innerHTML=msg?`<div class="mf-warn">${esc(msg)}</div>`:`<div class="card" style="text-align:center;color:var(--sub);margin-top:12px">読み込んでいます…</div>`; return; }
+    const m=d.meta; head(m.title, (m.genre||'')+(m.haccp?'　HACCP':''));
+    const hasPub=!!(m.pubVer&&d.pub), hasDraft=!!(m.draftVer&&d.draft);
+    const seeDraft=(showDraft&&hasDraft)||(!hasPub&&hasDraft);
+    const doc=seeDraft?d.draft:d.pub;
+    let h='';
+    if(msg) h+=`<div class="mx-msg ${warn?'w':'g'}">${esc(msg)}</div>`;
+    if(hasDraft){
+      const pend=m.draftKind==='承認待ち';
+      h+=`<div class="mx-ban ${pend?'p':'d'}">${pend?`<b>承認待ちの版があります</b>（${esc(m.draftBy||'')}・第${m.draftVer}版）`:`<b>下書き</b>${hasPub?'の版があります':'です（まだ全員には出ていません）'}（${esc(m.draftBy||'')}・第${m.draftVer}版）`}
+        <div class="bt">${hasPub?`<button class="mx-gh" id="mxSw">${seeDraft?'公開中の版を見る':'その版を見る'}</button>`:''}
+        ${MX.admin?`<button class="mx-ok" id="mxAp">${pend?'承認する':'公開する'}</button><button class="mx-ng" id="mxRj">${pend?'差し戻す':'下書きを捨てる'}</button>`:''}</div></div>`;
+    }
+    if(seeDraft&&hasPub) h+=`<div class="mx-meta" style="color:#9a5a12;font-weight:700">いま見ているのは${esc(m.draftKind)}の版です。</div>`;
+    if(mxDue(m)) h+=`<div class="mx-ban r"><b>見直しの時期です</b>（${esc(m.review)}まで）。今のやり方と合っているか確かめてください。直すところがなくても「直す」→「公開する」を押すと、見直し日が延びます。</div>`;
+    h+= doc&&doc.cards&&doc.cards.length ? mxCardsHTML(doc.cards) : `<div class="card" style="color:var(--sub);text-align:center">中身がまだありません。「直す」から書けます。</div>`;
+    h+=`<div class="mx-meta">第${seeDraft?m.draftVer:m.pubVer}版　最終更新 ${esc(m.upd||'')}（${esc(m.updBy||'')}）${m.review&&m.pubVer?'<br>次の見直し日 '+esc(m.review):''}</div>
+      <div class="mx-foot"><button class="pri" id="mxEd">直す</button><button id="mxHi">改訂履歴</button>${m.src?'<button id="mxSrc">元のファイル</button>':''}</div>
+      <div class="mx-foot"><button id="mxPr">印刷する</button>${MX.admin?'<button id="mxDel" style="color:#b31b14">このマニュアルを消す</button>':''}</div>`;
+    app.innerHTML=h; mxBindPhotos();
+    const on=(s,f)=>{ const e=$(s); if(e) e.onclick=f; };
+    on('#mxSw',()=>{ showDraft=!seeDraft; draw(); });
+    on('#mxEd',()=>mxGo('edit:'+id,()=>manxEdit(id)));
+    on('#mxHi',()=>mxGo('his:'+id,()=>manxHistory(id)));
+    on('#mxPr',()=>window.print());
+    on('#mxSrc',()=>mxOpenSrc(m.src));
+    const act=async(action,label)=>{ if(busy) return;
+      const note=action==='reject'?(prompt(label==='差し戻'?'差し戻す理由（なくても可）':'捨てる理由（なくても可）')??null):'';
+      if(note===null) return;
+      busy=true; msg=label+'しています…'; warn=false; draw();
+      try{ mxKeepDoc(await mxApi({action,id,note},40000)); msg=label+'しました'; showDraft=false; }
+      catch(e){ msg=String(e.message||e); warn=true; } busy=false; draw(); };
+    on('#mxAp',()=>act('approve', m.draftKind==='承認待ち'?'承認':'公開'));
+    on('#mxRj',()=>act('reject', m.draftKind==='承認待ち'?'差し戻':'下書きを捨て'));
+    const del=$('#mxDel'); if(del) del.onclick=async()=>{ if(del.dataset.s!=='1'){ del.dataset.s='1'; del.textContent='本当に消す（もう一度押す）'; return; }
+      try{ mxKeepList(await mxApi({action:'delete',id},30000)); delete MX.docs[id]; mxSaveLocal(); nav.pop(); const f=nav[nav.length-1]; if(f) f(); }catch(e){ msg=String(e.message||e); warn=true; draw(); } };
+  };
+  draw();
+  mxFetchDoc(id).then(ok=>{ if(!ok && !MX.docs[id]){ msg='読み込めませんでした。電波のよい所でもう一度開いてください。'; warn=true; } draw(); });
+}
+/* 元のWord・Excel：今までのマニュアル画面の一覧から探して開く */
+async function mxOpenSrc(src){
+  if(!MAN_LIST || !MAN_LIST.files) await manFetchList();
+  const files=(MAN_LIST&&MAN_LIST.files)||[], s=String(src||'').replace(/\\/g,'/');
+  const name=s.split('/').pop();
+  const f=files.find(x=>String(x.rel||'').replace(/\\/g,'/')===s) || files.find(x=>name===(x.title+'.'+x.ext)) || files.find(x=>name.startsWith(x.title));
+  if(!f){ alert('元のファイルが見つかりませんでした。「元のファイル（Word・Excel）を見る」の一覧から探してください。'); return; }
+  const g=manGroups(files).flatMap(x=>x.items).find(x=>x.vers.some(v=>v.id===f.id));
+  if(g) go(()=>manualView(g, g.vers.findIndex(v=>v.id===f.id)));
+}
+
+/* ---------- 改訂履歴 ---------- */
+function manxHistory(id){
+  const d=MX.docs[id]; if(!d){ nav.pop(); return; }
+  head('改訂履歴', d.meta.title);
+  let h=`<p class="tl-note" style="margin:10px 0">押すとその版の中身が見られます。「この版に戻す」で今の版として保存できます（戻したことも履歴に残ります）。</p>`;
+  h+=(d.history||[]).map(x=>`<button class="mx-his" data-v="${x.ver}"><span class="v">第${x.ver}版</span><span class="t">${esc(x.kind)}${x.note?'：'+esc(x.note):''}<small>${esc(x.at)}　${esc(x.by)}</small></span>${x.ver===d.meta.pubVer?'<span class="mx-b h">公開中</span>':''}</button>`).join('') || '<div class="card">まだ履歴がありません。</div>';
+  app.innerHTML=h;
+  app.querySelectorAll('.mx-his').forEach(b=>b.onclick=()=>{ const v=+b.dataset.v; mxGo('ver:'+id+':'+v,()=>manxVer(id,v)); });
+}
+function manxVer(id, ver){
+  const tag='ver:'+id+':'+ver, d=MX.docs[id]; head('第'+ver+'版', d?d.meta.title:'');
+  app.innerHTML=`<div class="card" style="text-align:center;color:var(--sub)">読み込んでいます…</div>`;
+  mxApi({action:'ver',id,ver},40000).then(j=>{
+    if(!mxTop(tag)) return;
+    const doc=j.doc||{};
+    if(!doc.cards){ app.innerHTML=`<div class="card" style="color:var(--sub)">この版（${esc(((d&&d.history)||[]).find(x=>x.ver===ver)?.kind||'')}）には中身がありません。</div>`; return; }
+    app.innerHTML=`<div class="mx-meta">第${ver}版の中身（題名：${esc(doc.title||'')}）</div>${mxCardsHTML(doc.cards)}
+      <div class="mx-foot"><button class="pri" id="mxRs">この版に戻す</button></div><div class="mx-msg" id="mxRm"></div>`;
+    mxBindPhotos();
+    $('#mxRs').onclick=async()=>{ const b=$('#mxRs'); b.disabled=true; $('#mxRm').textContent='戻しています…';
+      try{ mxKeepDoc(await mxApi({action:'save',id,doc,mode:'publish',note:'第'+ver+'版に戻す'},40000)); const m=MX.docs[id].meta;
+        $('#mxRm').textContent=m.draftKind==='承認待ち'?'承認待ちにしました（HACCPのため、管理者の承認後に公開されます）':'戻しました'; }
+      catch(e){ $('#mxRm').textContent=String(e.message||e); b.disabled=false; } };
+  }).catch(e=>{ if(mxTop(tag)) app.innerHTML=`<div class="mf-warn">${esc(String(e.message||e))}</div>`; });
+}
+
+/* ---------- 書く・直す ---------- */
+function mxClone(o){ return JSON.parse(JSON.stringify(o||{})); }
+function manxEdit(id){
+  const d=id?MX.docs[id]:null;
+  if(id && !d){ nav.pop(); return; }
+  const m=d?d.meta:null;
+  /* 直すもとは：下書き/承認待ちがあればそれ、無ければ公開中の版 */
+  const base = d ? mxClone((m.draftVer&&d.draft)?d.draft:(d.pub||d.draft||{})) : { title:'', genre:'', haccp:false, cards:[{t:'step',body:'',point:'',caution:'',photos:[]}] };
+  const doc={ title:base.title||(m&&m.title)||'', genre:base.genre||(m&&m.genre)||MAN_GENRES[0], haccp:!!(base.haccp||(m&&m.haccp)), cards:(base.cards||[]).map(c=>Object.assign({t:'step'},c,{photos:(c.photos||[]).slice()})) };
+  const wasHaccp=!!(m&&m.haccp);
+  head(id?'マニュアルを直す':'新しいマニュアル', doc.title||'');
+  let note='', msg='', warn=false, busy=false, uploading=0;
+  const genres=MAN_GENRES.slice(); if(doc.genre && !genres.includes(doc.genre)) genres.push(doc.genre);
+  const cardHTML=(c,i)=>{
+    const hd=`<div class="mx-eh"><span>${c.t==='step'?'手順カード':c.t==='text'?'文章カード':'表カード'}</span>
+      <button data-a="up" data-i="${i}" ${i===0?'disabled':''}>↑</button><button data-a="dn" data-i="${i}" ${i===doc.cards.length-1?'disabled':''}>↓</button><button class="del" data-a="del" data-i="${i}">消す</button></div>`;
+    const n=(c.photos||[]).length+(c._up||0);
+    const ph=(c.t==='table')?'':`<label>写真（${MANX_PHOTO_MAX}枚まで。OK例／NG例 の印を付けられます）</label><div class="mx-eph">${(c.photos||[]).map((p,k)=>`<div class="p"><img src="${mxImg(p.id,300)}" alt="">
+        <div class="lb"><button class="OK ${p.ok==='OK'?'on':''}" data-a="ok" data-i="${i}" data-k="${k}">OK例</button><button class="NG ${p.ok==='NG'?'on':''}" data-a="ng" data-i="${i}" data-k="${k}">NG例</button><button class="x" data-a="px" data-i="${i}" data-k="${k}">✕</button></div>
+        <input type="text" placeholder="ひとこと" data-f="cap" data-i="${i}" data-k="${k}" value="${esc(p.cap||'')}"></div>`).join('')}
+        ${Array.from({length:c._up||0}).map(()=>'<div class="up">送っています…</div>').join('')}
+        ${n<MANX_PHOTO_MAX?`<label class="add"><b>＋</b>写真<input type="file" accept="image/*" data-file="${i}" style="display:none" multiple></label>`:''}</div>`;
+    if(c.t==='text') return `<div class="mx-ec text">${hd}<label>見出し</label><input type="text" data-f="title" data-i="${i}" value="${esc(c.title||'')}"><label>本文</label><textarea rows="4" data-f="body" data-i="${i}">${esc(c.body||'')}</textarea>${ph}</div>`;
+    if(c.t==='table'){
+      const rows=(c.rows&&c.rows.length)?c.rows:(c.rows=[['','']]);
+      return `<div class="mx-ec table">${hd}<label>表の名前</label><input type="text" data-f="title" data-i="${i}" value="${esc(c.title||'')}">
+        <div class="mx-etb"><table>${rows.map((r,ri)=>`<tr>${r.map((x,ci)=>`<td><input type="text" data-f="cell" data-i="${i}" data-r="${ri}" data-c="${ci}" value="${esc(x||'')}"></td>`).join('')}</tr>`).join('')}</table>
+        <div class="ops"><button data-a="r+" data-i="${i}">＋行</button><button data-a="r-" data-i="${i}">−行</button><button data-a="c+" data-i="${i}">＋列</button><button data-a="c-" data-i="${i}">−列</button></div></div>
+        <label>表の下の説明（なくても可）</label><input type="text" data-f="body" data-i="${i}" value="${esc(c.body||'')}"></div>`;
+    }
+    return `<div class="mx-ec">${hd}<label>作業内容（必須）</label><textarea rows="2" data-f="body" data-i="${i}">${esc(c.body||'')}</textarea>
+      <label>ポイント（コツ・目安の数値など）</label><textarea rows="2" data-f="point" data-i="${i}">${esc(c.point||'')}</textarea>
+      <label style="color:#b31b14">注意（赤い枠で出ます）</label><textarea rows="1" data-f="caution" data-i="${i}">${esc(c.caution||'')}</textarea>${ph}</div>`;
+  };
+  const needAp=()=>(doc.haccp||wasHaccp)&&!MX.admin;
+  const draw=()=>{
+    const y=window.scrollY;
+    let h=`<div class="mx-ed"><label>題名（必須）</label><input type="text" id="mxT" value="${esc(doc.title)}">
+      <label>ジャンル</label><select id="mxG">${genres.map(g=>`<option ${g===doc.genre?'selected':''}>${esc(g)}</option>`).join('')}</select>
+      <label class="mx-chk"><input type="checkbox" id="mxH" ${doc.haccp?'checked':''} ${wasHaccp&&!MX.admin?'disabled':''}><span>HACCP（衛生管理の記録・手順）に関わる<br><small style="color:var(--sub)">印があると、直したものは管理者の承認後に公開されます</small></span></label>
+      <div style="height:8px"></div>`;
+    doc.cards.forEach((c,i)=>{ h+=(i?`<button class="mx-ins" data-a="ins" data-i="${i}">＋ ここにカードを入れる</button>`:'')+cardHTML(c,i); });
+    h+=`<div class="mx-addc"><button data-a="add" data-t="step">＋ 手順</button><button data-a="add" data-t="text">＋ 文章</button><button data-a="add" data-t="table">＋ 表</button></div>
+      <div class="mx-save"><input type="text" id="mxN" placeholder="どこを直したか（例：手順3の温度を変更）" value="${esc(note)}">
+      ${msg?`<div class="mx-msg ${warn?'w':''}">${esc(msg)}</div>`:''}
+      <div class="bt"><button class="drf" id="mxSD" ${busy||uploading?'disabled':''}>下書き保存</button><button class="pub" id="mxSP" ${busy||uploading?'disabled':''}>${uploading?'写真を送っています…':needAp()?'承認を申請する':'公開する'}</button></div></div></div>`;
+    app.innerHTML=h; window.scrollTo(0,y); bind();
+  };
+  const ins=(i,t)=>{ const c=t==='table'?{t:'table',title:'',rows:[['',''],['','']],body:''}:t==='text'?{t:'text',title:'',body:'',photos:[]}:{t:'step',body:'',point:'',caution:'',photos:[]}; doc.cards.splice(i,0,c); };
+  const bind=()=>{
+    $('#mxT').oninput=e=>{ doc.title=e.target.value; };
+    $('#mxG').onchange=e=>{ doc.genre=e.target.value; };
+    $('#mxH').onchange=e=>{ doc.haccp=e.target.checked; draw(); };
+    $('#mxN').oninput=e=>{ note=e.target.value; };
+    app.querySelectorAll('[data-f]').forEach(el=>el.oninput=()=>{ const c=doc.cards[+el.dataset.i]; const f=el.dataset.f;
+      if(f==='cap') c.photos[+el.dataset.k].cap=el.value;
+      else if(f==='cell') c.rows[+el.dataset.r][+el.dataset.c]=el.value;
+      else c[f]=el.value; });
+    app.querySelectorAll('button[data-a]').forEach(b=>b.onclick=()=>{
+      const a=b.dataset.a, i=+b.dataset.i, c=doc.cards[i];
+      if(a==='add') ins(doc.cards.length,b.dataset.t);
+      else if(a==='ins'){ const t=prompt('入れるカードの番号：1＝手順　2＝文章　3＝表','1'); if(!t) return; ins(i,t.trim()==='3'?'table':t.trim()==='2'?'text':'step'); }
+      else if(a==='up'&&i>0){ [doc.cards[i-1],doc.cards[i]]=[doc.cards[i],doc.cards[i-1]]; }
+      else if(a==='dn'&&i<doc.cards.length-1){ [doc.cards[i+1],doc.cards[i]]=[doc.cards[i],doc.cards[i+1]]; }
+      else if(a==='del'){ if(b.dataset.s!=='1'){ b.dataset.s='1'; b.textContent='本当に消す'; return; } doc.cards.splice(i,1); }
+      else if(a==='ok'||a==='ng'){ const p=c.photos[+b.dataset.k], v=a==='ok'?'OK':'NG'; p.ok=p.ok===v?'':v; }
+      else if(a==='px'){ c.photos.splice(+b.dataset.k,1); }
+      else if(a==='r+'){ c.rows.push(c.rows[0].map(()=>'')); }
+      else if(a==='r-'){ if(c.rows.length>1) c.rows.pop(); }
+      else if(a==='c+'){ c.rows.forEach(r=>r.push('')); }
+      else if(a==='c-'){ if(c.rows[0].length>1) c.rows.forEach(r=>r.pop()); }
+      else return;
+      draw();
+    });
+    app.querySelectorAll('input[type=file][data-file]').forEach(f=>f.onchange=()=>{
+      const c=doc.cards[+f.dataset.file]; c.photos=c.photos||[];
+      const files=[...f.files].slice(0, Math.max(0, MANX_PHOTO_MAX-c.photos.length-(c._up||0)));
+      files.forEach(file=>{ c._up=(c._up||0)+1; uploading++;
+        mxUploadPhoto(file).then(pid=>{ c.photos.push({id:pid,ok:'',cap:''}); }).catch(e=>{ msg='写真を送れませんでした：'+String(e.message||e); warn=true; })
+          .finally(()=>{ c._up--; uploading--; if(mxTop(tagE)) draw(); });
+      });
+      draw();
+    });
+    const save=async mode=>{
+      if(!doc.title.trim()){ msg='題名を入れてください'; warn=true; draw(); return; }
+      const cards=doc.cards.map(c=>{ const o=mxClone(c); delete o._up; return o; })
+        .filter(c=>c.t==='table'?(c.rows||[]).some(r=>r.some(x=>String(x).trim())):(String(c.body||'').trim()||String(c.title||'').trim()||(c.photos||[]).length));
+      busy=true; msg='保存しています…'; warn=false; draw();
+      try{
+        const j=await mxApi({action:'save', id:id||undefined, doc:{title:doc.title.trim(),genre:doc.genre,haccp:doc.haccp,cards}, mode, note},60000);
+        mxKeepDoc(j); const k=j.meta.draftKind;
+        MX.flash = mode==='draft'?'下書きに保存しました（まだ全員には出ていません）':k==='承認待ち'?'承認を申請しました（管理者の承認後に全員に出ます）':'公開しました';
+        busy=false;
+        const nid=j.meta.id; nav.pop(); const f=nav[nav.length-1];
+        if(f && f.mxTag==='view:'+nid) f(); else mxGo('view:'+nid,()=>manxView(nid));
+      }catch(e){ busy=false; msg=String(e.message||e); warn=true; draw(); }
+    };
+    $('#mxSD').onclick=()=>save('draft');
+    $('#mxSP').onclick=()=>save('publish');
+  };
+  const tagE=id?'edit:'+id:'edit:new';
+  draw();
+}
+/* 写真：端末の中で長い辺1600pxに縮めてから送る */
+function mxResize(file, max){
+  return new Promise((ok,ng)=>{
+    const url=URL.createObjectURL(file), im=new Image();
+    im.onload=()=>{ try{ let w=im.naturalWidth,h=im.naturalHeight; const s=Math.min(1,(max||1600)/Math.max(w,h)); w=Math.round(w*s); h=Math.round(h*s);
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h; cv.getContext('2d').drawImage(im,0,0,w,h); URL.revokeObjectURL(url); ok(cv.toDataURL('image/jpeg',0.82)); }catch(e){ ng(e); } };
+    im.onerror=()=>{ URL.revokeObjectURL(url); ng(new Error('この写真は読めませんでした')); };
+    im.src=url;
+  });
+}
+async function mxUploadPhoto(file){
+  const data=await mxResize(file,1600);
+  const j=await mxApi({action:'upload', name:'man_'+Date.now()+'.jpg', mime:'image/jpeg', data},90000);
+  return j.id;
+}
+/* 移行用（Claudeが使う）：manuals.json と写真を読み、下書きとして入れる。
+   base は フォルダのURL（'_mig/'）か、選んだファイルの一覧（manuals.json と img の写真。GitHubには置かない） */
+async function manxImport(base, onlyIds){
+  base=base||'_mig/'; const out=[];
+  let fetchFile;
+  if(typeof base!=='string'){ const map={}; [...base].forEach(f=>{ map[f.name]=f; });
+    fetchFile=async p=>{ const f=map[p.split('/').pop()]; if(!f) throw new Error('写真なし '+p); return f; };
+    var L=JSON.parse(await map['manuals.json'].text()); }
+  else { fetchFile=p=>fetch(base+p).then(r=>{ if(!r.ok) throw new Error('写真なし '+p); return r.blob(); });
+    var L=await fetch(base+'manuals.json?x='+Date.now()).then(r=>r.json()); }
+  const who={id:'5501',name:'移行（Claude）'};
+  const have=new Set(((await mxApi({action:'list',who},30000)).items||[]).map(x=>x.id));
+  for(const M of L){
+    if(onlyIds && !onlyIds.includes(M.id)) continue;
+    if(have.has(M.id)){ out.push([M.id,'skip（入っています）']); continue; }
+    try{
+      const seq=[...(M.older||[]), M.doc];
+      for(const d of seq){ for(const c of d.cards){ for(const p of (c.photos||[])){ if(p.file && !p.id){
+        const blob=await fetchFile(p.file);
+        const data=await new Promise(ok=>{ const fr=new FileReader(); fr.onload=()=>ok(fr.result); fr.readAsDataURL(blob); });
+        p.id=(await mxApi({action:'upload',name:p.file.split('/').pop(),mime:blob.type||'image/jpeg',data,who},120000)).id; delete p.file; } } } }
+      let j=null;
+      for(let k=0;k<seq.length;k++){
+        const d=Object.assign({},seq[k]); const nt=d._note; delete d._note;
+        const body={action:'save', id:M.id, src:M.src||'', doc:d, mode:'draft', who, note: k<seq.length-1 ? (nt||'前の版') : 'Word・Excelから移行（'+(M.src||'')+'）'};
+        if(k===0){ body.newId=M.id; body.once=true; }
+        j=await mxApi(body,90000);
+      }
+      out.push([M.id,'ok',j.meta.draftVer]);
+    }catch(e){ out.push([M.id,'NG',String(e.message||e)]); }
+  }
+  return out;
+}
+
+</script>
+<!-- /manx -->
 <!-- /tools -->
 </body>
 </html>
