@@ -7444,7 +7444,7 @@ const igShow=v=>(v===''||v==null)?'（空）':v;
 document.addEventListener('focusin',e=>{ const el=e.target; if(!(el instanceof HTMLInputElement||el instanceof HTMLSelectElement||el instanceof HTMLTextAreaElement)) return; if(!app.contains(el)) return; el.dataset.igPrev=el.value; },true);
 document.addEventListener('change',e=>{
   const el=e.target; if(!(el instanceof HTMLInputElement||el instanceof HTMLSelectElement||el instanceof HTMLTextAreaElement)) return;
-  if(!app.contains(el)||el.type==='hidden'||!igActive()) return;
+  if(!app.contains(el)||el.type==='hidden'||el.dataset.igSkip||!igActive()) return;
   const prev=el.dataset.igPrev!==undefined?el.dataset.igPrev:el.defaultValue;
   if(String(prev)===String(el.value)) return;
   const ok=window.confirm(`【確認】${igLabel(el)} を\n${igShow(prev)} → ${igShow(el.value)}\nに${prev===''?'入れ':'変え'}ます。よろしいですか？\n（${IG_KIND_NAME[IG.kind]||''}の担当者以外の入力）`);
@@ -7455,12 +7455,78 @@ document.addEventListener('change',e=>{
 document.addEventListener('click',e=>{
   const b=e.target&&e.target.closest&&e.target.closest('button'); if(!b||!app.contains(b)||b.disabled) return;
   const t=(b.textContent||'').trim(); if(!/保存|消す/.test(t)||!igActive()) return;
-  const ch=[]; app.querySelectorAll('input,select,textarea').forEach(el=>{ if(el.type==='hidden'||el.disabled) return;
+  const ch=[]; app.querySelectorAll('input,select,textarea').forEach(el=>{ if(el.type==='hidden'||el.disabled||el.dataset.igSkip) return;
     const dv=el.tagName==='SELECT'?([...el.options].find(o=>o.defaultSelected)||{}).value||'':el.defaultValue;
     if(String(dv)!==String(el.value)) ch.push(`・${igLabel(el)}：${igShow(dv)} → ${igShow(el.value)}`); });
   const msg=/消す/.test(t)?`【確認】この行を消します。よろしいですか？`:`【確認】${IG_KIND_NAME[IG.kind]||''}の入力を保存します。\n${ch.length?ch.slice(0,15).join('\n')+(ch.length>15?`\n…ほか${ch.length-15}項目`:''):'（変えた項目は画面のとおり）'}\n\n保存してよろしいですか？`;
   if(!window.confirm(msg)){ e.preventDefault(); e.stopImmediatePropagation(); }
 },true);
+
+/* ================= 🧪 分析者（だれが分析したか）2026-10-04 =================
+   泰広さん指示：分析の入力で、だれが分析したか分かるように。スマホ（本人のID）は本人確認できているので選ばなくてよい。
+   PC・Pad（共用端末：会社PC・会社PC2・Pad）は名前を選ぶ選択リストを置く。
+   ・対象の画面：🧪分析（まとめ入力 bunHome）／醪の入力（moromiInput）／酒母の入力（shuboInput）
+   ・本人の端末：上に「分析者：〇〇（ログインしている人）」と出すだけ
+   ・共用端末：上に選択リスト（今日の出勤者 → そのほか）。選ぶまで「保存」は止める。選んだ人はその日のあいだ端末に覚える
+   ・保存のとき user を「選んだ人（端末名）」にして送る → 醸造記録の「入力ログ」に分析した人が残る */
+const IA_SHARED=['会社PC','会社PC2','Pad'];
+function igShared(){ const n=igNorm(ST&&ST.name); return IA_SHARED.some(x=>igNorm(x)===n) || /^(会社PC\d*|Pad\d*|共用.*)$/i.test(n); }
+function iaGet(){ const v=lsGet('ia.analyst',null); return v&&v.date===dtoday()?v.name:''; }
+function iaSet(n){ lsSet('ia.analyst',{date:dtoday(),name:n}); }
+function iaNames(){
+  let work=[], all=[];
+  try{ if(typeof o2Staff==='function'){ const S=o2Staff(); work=S.work||[]; all=S.all||[]; } }catch(e){}
+  const L=igStaff()||{}; ['koji','shubo','moromi','free'].forEach(k=>(L[k]||[]).forEach(n=>{ if(!all.includes(n)) all.push(n); }));
+  const bad=n=>IA_SHARED.some(x=>igNorm(x)===igNorm(n));
+  work=work.filter(n=>!bad(n)); const rest=all.filter(n=>!bad(n)&&!work.includes(n));
+  return {work, rest};
+}
+const IA_SCREENS={bunHome:1, moromiInput:1, shuboInput:1};
+let IA_ON=false;
+function iaBar(){
+  if(!IA_ON||app.querySelector('.ia-bar')) return;
+  const d=document.createElement('div');
+  if(!igShared()){
+    d.className='ia-bar'; d.innerHTML=`🧪 分析者 <b>${esc((ST&&ST.name)||'')}</b><small>（ログインしている人）</small>`;
+  } else {
+    const cur=iaGet(), N=iaNames();
+    const opt=a=>a.map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');
+    d.className='ia-bar sh'+(cur?'':' ng');
+    d.innerHTML=`🧪 分析者 <select id="iaSel"><option value="">— だれが分析しましたか —</option>${N.work.length?`<optgroup label="今日の出勤者">${opt(N.work)}</optgroup>`:''}${N.rest.length?`<optgroup label="そのほか">${opt(N.rest)}</optgroup>`:''}</select><small>${esc(ST.name||'')}（共用端末）で入力・保存は選んでから</small>`;
+    const s=d.querySelector('select'); s.dataset.igSkip='1';
+    s.onchange=()=>{ iaSet(s.value); d.classList.toggle('ng',!s.value); };
+  }
+  const ban=app.querySelector('.ig-ban'); ban?ban.after(d):app.prepend(d);
+}
+(function(){ const s=document.createElement('style'); s.textContent=`
+.ia-bar{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;background:#eef3fb;border:1px solid #9fb3cf;color:#1f3f72;border-radius:10px;padding:8px 10px;margin:8px 0 10px;font-size:14px;font-weight:700}
+.ia-bar b{font-size:15px}.ia-bar small{flex-basis:100%;font-size:11px;font-weight:400;color:#4a6390}
+.ia-bar select{flex:1;min-width:150px;font-size:16px;padding:6px 8px;border-radius:8px;border:1px solid #9fb3cf;font-family:inherit}
+.ia-bar.ng{background:#fff1e0;border-color:#e9a25a;color:#7a3d00}.ia-bar.ng select{border:2px solid #e9a25a}`; document.head.appendChild(s); })();
+Object.keys(IA_SCREENS).forEach(name=>{
+  const orig=window[name]; if(typeof orig!=='function') return;
+  window[name]=function(...a){
+    IA_ON=true; const top=nav[nav.length-1];
+    const r=orig.apply(this,a);
+    const after=()=>{ if(nav[nav.length-1]===top){ IA_ON=true; iaBar(); } };
+    if(r&&typeof r.then==='function') r.then(after); else after();
+    return r; };
+});
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest&&e.target.closest('#rcSave,#bnSave'); if(!b||!app.contains(b)||b.disabled) return;
+  if(!app.querySelector('.ia-bar')||!igShared()||iaGet()) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const s=$('#iaSel'); if(s){ s.closest('.ia-bar').classList.add('ng'); s.scrollIntoView({block:'center'}); s.focus(); }
+  window.alert('分析した人を選んでから保存してください');
+},true);
+/* 保存の送信：共用端末では「選んだ人（端末名）」を入力者として送る（醸造記録の入力ログに残る） */
+(function(){
+  const base=recApi;
+  recApi=async function(body, ms){
+    try{ if(body && /^(bunseki_save|shubo_save)$/.test(body.action) && igShared()){ const n=iaGet(); if(n) body=Object.assign({},body,{user:`${n}（${ST.name}）`, analyst:n}); } }catch(e){}
+    return base(body, ms);
+  };
+})();
 
 </script>
 <!-- /guard -->
