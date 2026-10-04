@@ -723,7 +723,8 @@ function home(){
     {id:'bCt',   e:'📇', lb:'連絡先',             c:['#a3cd73','#89b55a'], t:'ha'},
     {href:'seishu-jiten.html', e:'📖', lb:'逆引き検索', c:['#9fd286','#85ba6b'], t:'ha'},
     {id:'bQuiz', e:'✅', lb:`問題集<span class="sm">${mastery(all)}%</span>`, c:['#95c97a','#7bb15f'], t:'ha'},
-    {href:'voice.html', e:'🎙', lb:'Sake Tour<br>Guide', c:['#8abd6c','#70a453'], t:'ha'}
+    {href:'voice.html', e:'🎙', lb:'Sake Tour<br>Guide', c:['#8abd6c','#70a453'], t:'ha'},
+    {id:'bUpd', e:'🆕', lb:'アップデート<br>情報', c:['#7fb465','#669b4d'], t:'ha', n:(typeof updBadge==='function'?updBadge():0)}
   ];
   const hex = (x,i) => {
     const inner = `${hexTex(x.t)}<span class="sheen"></span><span class="e">${x.e}</span><span class="lb">${x.lb}</span>`;
@@ -761,6 +762,7 @@ function home(){
   $('#bCalc').onclick=()=>go(calcHome);
   $('#bTodo').onclick=()=>go(todoScreen);
   $('#bMan').onclick=()=>go(manxHome);
+  { const u=$('#bUpd'); if(u) u.onclick=()=>go(updScreen); }
   $('#bCt').onclick=()=>go(ctScreen);
   void done;
   setTimeout(()=>{ if(typeof wsPrefetch==='function') wsPrefetch(); }, 1500);
@@ -7230,6 +7232,10 @@ const KG_CSS=`
 .kg-t td.st small{font-size:9px;color:var(--sub);font-weight:400;margin-right:2px}
 .kg-t td.st{font-weight:700;color:#103e74}.kg-t td.st.dtc{color:var(--sub);font-weight:400;font-size:10px}
 .kg-t .se{border-right:2px solid #9fb3cf}
+.kg-t td.mg,.kg-t th.mg{min-width:46px}
+.kg-t td.mg:not(.tday):not(.jo):not(.out),.kg-t th.mg{background:#f6f9fd}
+.kg-t td.mg .sv{display:block;color:#103e74}.kg-t td.mg .sv small{font-size:9px;color:var(--sub);font-weight:400;margin-right:2px}
+.kg-t td.mg .dv{display:block;border-top:1px dotted #c9c2b0;margin-top:1px}
 .kg-t td.miss{outline:2px dashed #d8a100;outline-offset:-2px}
 .kg-leg{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11px;color:var(--sub);margin:6px 2px}
 .kg-leg i{display:inline-block;width:12px;height:10px;border:1px solid #d8d2c2;vertical-align:-1px;margin-right:3px}
@@ -7245,15 +7251,19 @@ const kgFieldsShubo=[['日付',d=>d.date?rcMD(d.date):'','dt'],['Be',d=>kgN(d.sm
 const KG_SET_M=[['date'],['shaku','尺',0,'be','Be',1],['ryo','量',0],['kumi','汲水',0,'ta','酸',1],['kori','氷',0,'aa','ｱﾐﾉ',1],['mizukoji','水麹',1],['hin','品温',1,'hin','品温',1],['mushi','蒸米',1],[]];
 const KG_SET_S=[['date'],['shaku','尺',0],['ryo','量',0],['mizukoji','水麹',1],['mushi','蒸米',1],[],[]];
 const KG_STG=[['soe','添'],['odori','踊'],['naka','仲'],['tome','留']];
-function kgSetCells(kind, set, fi){
+/* 仕込み時の各列の中身（[{html, raw}]）。最後の列（留／酒母の仕込時）は 1日目と同じ日なので、表では1日目の列に重ねる */
+function kgSetVals(kind, set, fi){
   const cols=kind==='moromi'?KG_STG:[['x','仕込時']], M=kind==='moromi'?KG_SET_M:KG_SET_S;
-  return cols.map(([k],ci)=>{ const o=(set||{})[k]||{}, d=M[fi]||[], od=k==='odori';
-    const e=ci===cols.length-1?' se':'';
-    if(!d.length) return `<td class="st${e}"></td>`;
-    if(d[0]==='date') return `<td class="st dtc${e}">${o.date?rcMD(o.date):''}</td>`;
+  return cols.map(([k])=>{ const o=(set||{})[k]||{}, d=M[fi]||[], od=k==='odori';
+    if(!d.length) return {html:'',raw:''};
+    if(d[0]==='date') return {html:o.date?rcMD(o.date):'', raw:o.date||'', date:true};
     const key=od?d[3]:d[0], lab=od?d[4]:d[1], dec=od?d[5]:d[2];
-    if(!key) return `<td class="st${e}"></td>`;
-    const v=kgN(o[key],dec); return `<td class="st${e}">${v?`<small>${lab}</small>${v}`:''}</td>`; }).join('');
+    if(!key) return {html:'',raw:''};
+    const v=kgN(o[key],dec); return {html:v?`<small>${lab}</small>${v}`:'', raw:v, key}; });
+}
+function kgSetCells(kind, set, fi){   // 留（酒母は仕込時）を除いた列
+  const a=kgSetVals(kind,set,fi).slice(0,-1);
+  return a.map((x,ci)=>`<td class="st${x.date?' dtc':''}${ci===a.length-1?' se':''}">${x.html}</td>`).join('');
 }
 /* rows=[{no,label,sub,cls,days:[{day,date,...}],n(列の数),today,jo(上槽予定の日),last:{…}|null,set:{…}}] */
 function kgHTML(fields, rows, opt){
@@ -7262,8 +7272,9 @@ function kgHTML(fields, rows, opt){
   const hasLast=!!opt.last && rows.some(r=>r.last);
   const dl=opt.shubo?(d=>d):(d=>d===1?'留':d);
   const sk=opt.setKind&&opt.showSet?opt.setKind:'';
-  const sh=sk?(sk==='moromi'?KG_STG:[['x','仕込時']]).map(([,l],i,a)=>`<th class="st${i===a.length-1?' se':''}">${l}</th>`).join(''):'';
-  let h=`<div class="kg-tw" id="kgTw"><table class="kg-t"><thead><tr><th class="n">順号</th><th class="f">項目</th>${sh}${[...Array(N)].map((_,i)=>`<th>${dl(i+1)}</th>`).join('')}${hasLast?`<th>${opt.lastLabel||'上槽'}</th>`:''}</tr></thead><tbody>`;
+  const sh=sk==='moromi'?KG_STG.slice(0,-1).map(([,l],i,a)=>`<th class="st${i===a.length-1?' se':''}">${l}</th>`).join(''):'';
+  const h1=sk?(sk==='moromi'?'留':'1<small style="display:block;font-weight:400;font-size:9px">仕込時</small>'):dl(1);
+  let h=`<div class="kg-tw" id="kgTw"><table class="kg-t"><thead><tr><th class="n">順号</th><th class="f">項目</th>${sh}${[...Array(N)].map((_,i)=>i===0?`<th class="${sk?'mg':''}">${h1}</th>`:`<th>${dl(i+1)}</th>`).join('')}${hasLast?`<th>${opt.lastLabel||'上槽'}</th>`:''}</tr></thead><tbody>`;
   rows.forEach(r=>{
     const by={}; (r.days||[]).forEach(d=>by[d.day]=d);
     fields.forEach(([fl,fn,fc],fi)=>{
@@ -7275,7 +7286,13 @@ function kgHTML(fields, rows, opt){
         const d=by[i]; let v=d?fn(d):'';
         if(fl==='日付'&&!v&&r.start) v=rcMD(dadd(r.start,i-1));
         const miss=i===r.today&&fl==='品温AM'&&!v&&!opt.noMiss;
-        const cl=[(r.n&&i>r.n)?'out':'', i===r.today?'tday':'', miss?'miss':'', (r.jo&&i===r.jo)?'jo':'', v&&fl!=='日付'?'v':''].join(' ');
+        let cl=[(r.n&&i>r.n)?'out':'', i===r.today?'tday':'', miss?'miss':'', (r.jo&&i===r.jo)?'jo':'', v&&fl!=='日付'?'v':''].join(' ');
+        if(sk&&i===1){   // 仕込み時（留／酒母の仕込時）と1日目を1列に
+          const sv=kgSetVals(sk, r.set, fi).slice(-1)[0];
+          if(sv.date) v=v||sv.html;
+          else if(sv.html){ v = (!v || String(v)===String(sv.raw)) ? `<span class="sv">${sv.html}</span>` : `<span class="sv">${sv.html}</span><span class="dv">${v}</span>`; }
+          cl+=' mg'+(sv.html&&!sv.date?' v':'');
+        }
         h+=`<td class="${cl}">${v}</td>`;
       }
       if(hasLast){ const L=r.last||{}; const v=opt.lastField?opt.lastField(fl,L):''; h+=`<td class="last">${v||''}</td>`; }
@@ -7530,6 +7547,63 @@ document.addEventListener('click',e=>{
 
 </script>
 <!-- /guard -->
+<!-- upd -->
+<script>
+/* ================= 🆕 アップデート情報（ホームの最後のアイコン）2026-10-04 =================
+   泰広さん指示：今後アップデート情報ボタンをホームに置き、何ができるようになったか把握できるように。アイコンは最後。
+   ・UPDATES に 新しいものを上に足していく（GitHub に上げるたびに1行）。id は「日付-連番」
+   ・まだ見ていないお知らせの数をアイコンに赤い数字で出す（端末ごと。開くと既読）
+   控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
+   ================================================================================== */
+const UPDATES=[
+  ['2026-10-04-4','🆕','ホーム','「アップデート情報」を追加しました（このページ）。何ができるようになったかを、ここに順に載せていきます。'],
+  ['2026-10-04-3','🍶','酒母・仕込み','経過の表で「仕込み時」を出したとき、留（酒母は1日目）と仕込み時が同じ日なので1列にまとめました。'],
+  ['2026-10-04-2','🧪','分析者','分析・醪・酒母の入力画面の一番上に「分析者」。スマホは本人の名前が出るだけ。会社PC・会社PC2・Pad は名前を選んでから保存します（入力ログに残ります）。'],
+  ['2026-10-04-1','🛡','誤入力対策','麹・酒母・仕込み・分析で、担当者以外が入力すると、値を変えたとき・保存するときに確認が出ます（担当者は醪管理R8BYの「入力担当」シート）。'],
+  ['2026-10-03-6','🍶','酒母・仕込み','開くとすぐ全タンクの「経過の表」。右へ送ると上槽予定（酒母は酛卸）まで。「仕込み時」ボタンで 尺・量・汲水・氷・水麹・蒸米・品温 を表示／非表示。'],
+  ['2026-10-03-5','📅','昨年度の同じ時期','酒母・仕込みから、昨年度（R7BY）の同じ時期の仕込みを一覧で。「1本ずつ／仕込み時の表（水麹・氷・品温・尺/ℓ〜四段・アル添・上槽まで）／経過の表」。'],
+  ['2026-10-03-4','🏠','本日の予定','洗米の並び位置を 10:30〜12:30 に。'],
+  ['2026-10-03-3','📇','連絡先','ホームに「連絡先」。逆引き検索でも引けます。企業ごとの表示。'],
+  ['2026-10-03-2','📘','マニュアル','カード式で編集・写真・改訂履歴・HACCP承認ができるように。'],
+  ['2026-10-02-4','📝','やることリスト','ホームに「やることリスト」を追加。'],
+  ['2026-10-02-3','🧪','分析','ホームに「分析」が復活。その日に分析するタンクをまとめて入力、「経過」ボタンで全体の流れ。'],
+  ['2026-10-02-2','🍶','仕込み','仕込中・醪中・予定・上槽済に分けて表示。きょう／あすの汲水・資材（酵素剤）を大きく。'],
+  ['2026-10-02-1','🍚','麹','種麹を2種類入れられるように。種麹の仕入・在庫、麹の比較・考察（種麹別・温度推移・醪/製品）。'],
+  ['2026-10-01-2','🏠','本日の予定','分析の本数を表示。16:30以降、明日の分析が18本を超えると赤い帯。出勤・休みの氏名も。'],
+  ['2026-10-01-1','🍚','麹','DRY・WET を入力から外し、水分は「輝」の種切だけに。'],
+  ['2026-09-30-4','🏠','ホーム','本日／明日の予定（作業の順）と角丸アイコン。ヤブタ準備・月末清掃も。'],
+  ['2026-09-30-3','🧫','酒母・仕込み','分析酒母・分析醪シートと同じ並びの経過表とグラフ。仕込時の値（仕込尺・量・水麹・蒸米）。'],
+  ['2026-09-30-2','O₂','酸素濃度測定','麹・酒母・タンク洗浄の酸素濃度を記録。'],
+  ['2026-09-30-1','📅','出勤表','スマホを横にすると表だけ全画面。アプリから直した分は一番下に。'],
+  ['2026-09-29-1','🍚','麹','麹室の室温・湿度（おんどとり）、品温計No1〜4の付け外しと温度経過。盛・出麹の箱を複数選べるように。'],
+  ['2026-09-27-1','🌾','洗米予定表','洗米の無い日も表示。横向きで画面いっぱいに。']
+];
+function updSeen(){ try{ return lsGet('upd.seen',''); }catch(e){ return ''; } }
+function updBadge(){ const s=updSeen(); if(!s) return Math.min(UPDATES.filter(u=>u[0]>='2026-10-03').length,9); return UPDATES.filter(u=>u[0]>s).length; }
+(function(){ const s=document.createElement('style'); s.textContent=`
+.upd-day{margin:14px 2px 6px;font-weight:800;color:var(--navy);font-size:14px}
+.upd-it{display:flex;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px}
+.upd-it .e{font-size:20px;line-height:1.2;min-width:26px;text-align:center}
+.upd-it b{display:block;color:var(--navy);font-size:14px;margin-bottom:2px}
+.upd-it p{margin:0;font-size:13px;line-height:1.55}
+.upd-it.new{border:2px solid #e9a25a;background:#fffaf2}
+.upd-it .nw{display:inline-block;background:#c0392b;color:#fff;border-radius:6px;font-size:10px;font-weight:700;padding:0 5px;margin-left:6px;vertical-align:1px}`; document.head.appendChild(s); })();
+function updScreen(){
+  head('アップデート情報','何ができるようになったか（新しい順）');
+  const seen=updSeen(); let h='', day='';
+  UPDATES.forEach(([id,e,t,d])=>{ const dt=id.slice(0,10);
+    if(dt!==day){ day=dt; h+=`<div class="upd-day">${djp(dt)}</div>`; }
+    const nw=seen?id>seen:dt>='2026-10-03';
+    h+=`<div class="upd-it ${nw?'new':''}"><span class="e">${e}</span><div><b>${esc(t)}${nw?'<span class="nw">NEW</span>':''}</b><p>${esc(d)}</p></div></div>`; });
+  h+=`<p class="tl-note">古い画面のままのときは、アプリを一度閉じて開き直してください。</p>`;
+  app.innerHTML=h;
+  try{ lsSet('upd.seen', UPDATES[0][0]); }catch(e){}
+}
+/* 起動直後のホームは、この部品が読まれる前に描かれるので、赤い数字を出すために一度だけ描き直す */
+try{ if(ST && ST.token && nav.length<=1 && app.querySelector('#bUpd') && updBadge()>0) go(home,false); }catch(e){}
+
+</script>
+<!-- /upd -->
 <!-- /tools -->
 </body>
 </html>
