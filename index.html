@@ -5988,7 +5988,8 @@ document.addEventListener('click', e=>{
    やらなければいけないのに手が付いていないこと（修理・購入・作成など）を、みんなで書き込んで共有する一覧。
    ・担当欄はなし。登録者・完了者は右上の「ID／名前」から自動で入る
    ・上のタブで「時期」、その下のボタンで「分類」を絞り込む
-   ・登録から日数がたったものほど上に出し、色を付ける（30日・60日・90日）
+   ・すぐにやらなければならないものほど上（2026-10-04 泰広さん指示）：時期 今すぐ→今月中→造り前→造り期間中→（時期なし）→甑倒し後→夏場→来期、
+     同じ時期の中は 止まっている→未着手→進行中、さらに登録の古いものほど上。日数で色を付ける（30日・60日・90日）
    ・記録先：Apps Script「製造部 やることリスト」（TODO_URL）→ スプレッドシート「やることリスト」シートに1件1行
    ・電波が無いときは端末に預かり、電波が戻ったら自動で送る
    控え：seishu-workbook_github\_src_todo.js　／　裏側の控え：seishu-workbook_github\_gas_todo_Code.gs
@@ -6017,6 +6018,8 @@ const TODO_CSS = `
 .td-it .st.s2{background:#fdeedd;color:#9a5a12}
 .td-it .st.s3{background:#e6f3ea;color:#2f7d5d}
 .td-it .age{margin-left:auto}
+.td-it .pl.w0{background:#fde3dc;color:#b02a26;font-weight:700}
+.td-it .pl.w1{background:#fdeedd;color:#9a5a12;font-weight:700}
 .td-it .mm{font-size:13px;color:var(--sub);margin-top:4px;white-space:pre-wrap;word-break:break-all}
 .td-it.a30{border-left-color:#e6c84f}
 .td-it.a60{border-left-color:#e89a3c}
@@ -6051,6 +6054,10 @@ const todoNow = ()=>{ const d=new Date(),p=n=>String(n).padStart(2,'0'); return 
 const todoCid = ()=>'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function todoDays(s){ if(!s) return 0; const t=new Date(String(s).slice(0,10)+'T00:00:00'); if(isNaN(t)) return 0; return Math.max(0,Math.floor((new Date().setHours(0,0,0,0)-t)/86400000)); }
 function todoOpen(){ return TODO.items.filter(x=>x.status!=='完了'); }
+/* すぐにやらなければならない順（小さいほど上）：時期 × 10 ＋ 状態 */
+const TODO_WHEN_RANK={'今すぐ':0,'今月中':1,'造り前':2,'造り期間中':3,'':4,'甑倒し後':5,'夏場':6,'来期':7};
+const TODO_STAT_RANK={'止まっている':0,'未着手':1,'進行中':2};
+function todoRank(x){ const w=TODO_WHEN_RANK[x.when||'']; return (w===undefined?4:w)*10+(TODO_STAT_RANK[x.status||'未着手']??1); }
 /* ホームのアイコンの数字：終わっていない件数 */
 function todoBadge(){ return todoOpen().length; }
 
@@ -6113,7 +6120,7 @@ function todoScreen(){
     else { xs=xs.filter(x=>x.status!=='完了'); if(TODO.tab!=='すべて') xs=xs.filter(x=>x.when===TODO.tab); }
     if(TODO.cat) xs=xs.filter(x=>x.cat===TODO.cat);
     if(TODO.tab==='完了') xs.sort((a,b)=>String(b.doneAt||'').localeCompare(String(a.doneAt||'')));
-    else xs.sort((a,b)=>String(a.at||'').localeCompare(String(b.at||'')));   // 古いもの（長く残っているもの）ほど上
+    else xs.sort((a,b)=>todoRank(a)-todoRank(b)||String(a.at||'').localeCompare(String(b.at||'')));   // すぐやるものほど上、同じなら古いものほど上
     return xs;
   }
   function item(x){
@@ -6124,7 +6131,7 @@ function todoScreen(){
     return `<button type="button" class="td-it ${ac}" data-id="${esc(x.id)}">
       <div class="tx">${esc(x.text)}</div>
       ${x.memo?`<div class="mm">${esc(x.memo)}</div>`:''}
-      <div class="mt"><span class="pl st ${sc}">${esc(x.status||'未着手')}</span>${x.cat?`<span class="pl">${esc(x.cat)}</span>`:''}${x.when?`<span class="pl">${esc(x.when)}</span>`:''}
+      <div class="mt"><span class="pl st ${sc}">${esc(x.status||'未着手')}</span>${x.cat?`<span class="pl">${esc(x.cat)}</span>`:''}${x.when?`<span class="pl ${x.when==='今すぐ'?'w0':x.when==='今月中'?'w1':''}">${esc(x.when)}</span>`:''}
         <span>${esc(x.by||'')}</span>${x.pend?'<span class="pend">（送信待ち）</span>':''}<span class="age">${age}</span></div></button>`;
   }
   function draw(){
@@ -6141,7 +6148,7 @@ function todoScreen(){
     h+= xs.length ? xs.map(item).join('')
       : `<div class="card" style="color:var(--sub);text-align:center">${TODO.tab==='完了'?'終わったものはまだありません。':'ここに入っているものはありません。'}</div>`;
     const q=todoQ().length;
-    h+=`<p class="tl-note">古いもの（長く残っているもの）ほど上に出ます。左の色：<b style="color:#c9a800">黄</b>＝30日以上、<b style="color:#e07a10">橙</b>＝60日以上、<b style="color:#d62b22">赤</b>＝90日以上。
+    h+=`<p class="tl-note">すぐやるものほど上に出ます（時期：今すぐ→今月中→造り前…、同じ時期は 止まっている→未着手→進行中、さらに古いもの）。左の色：<b style="color:#c9a800">黄</b>＝30日以上、<b style="color:#e07a10">橙</b>＝60日以上、<b style="color:#d62b22">赤</b>＝90日以上。
       押すと、状況（未着手→進行中→完了）やメモを変えられます。${q?`<br><b>送信待ち ${q}件</b>（電波が入ると自動で送られます）`:''}
       ${TODO.sheet?`<br><a href="${esc(TODO.sheet)}" target="_blank" rel="noopener">スプレッドシートで見る</a>`:''}</p>`;
     app.innerHTML=h;
@@ -7556,6 +7563,7 @@ document.addEventListener('click',e=>{
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-04-5','📝','やることリスト','すぐにやらなければならないものほど上に並ぶように。時期「今すぐ」→「今月中」→「造り前」…の順、同じ時期では「止まっている」が上。「今すぐ」は赤、「今月中」はオレンジの札。'],
   ['2026-10-04-4','🆕','ホーム','「アップデート情報」を追加しました（このページ）。何ができるようになったかを、ここに順に載せていきます。'],
   ['2026-10-04-3','🍶','酒母・仕込み','経過の表で「仕込み時」を出したとき、留（酒母は1日目）と仕込み時が同じ日なので1列にまとめました。'],
   ['2026-10-04-2','🧪','分析者','分析・醪・酒母の入力画面の一番上に「分析者」。スマホは本人の名前が出るだけ。会社PC・会社PC2・Pad は名前を選んでから保存します（入力ログに残ります）。'],
