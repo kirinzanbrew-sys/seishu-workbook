@@ -7387,6 +7387,83 @@ function kgHomeBox(kind){
 
 </script>
 <!-- /zennen -->
+<!-- guard -->
+<script>
+/* ================= 🛡 誤入力対策（麹・酒母・仕込み）2026-10-04 =================
+   泰広さん指示：担当者外が誤操作で入力間違いしないように、入力を変えたときに確認し、保存するときにも確認する。
+   対象は 麹・酒母・仕込み（分析のまとめ入力も酒母・醪なので対象）。担当者と、確認なしの端末（伊藤・会社PC・会社PC2・Pad）は今までどおり確認なし。
+   ・担当者・確認なしの端末は 醪管理R8BY の「入力担当」シート（区分＝麹／酒母／仕込み／確認なし、氏名＝名簿の名前 か ID）
+     → Apps Script「醸造記録 R8BY」の 入力担当.gs が state に inputStaff として付ける。シートを直せば次の読み込みから効く
+   ・inputStaff がまだ届いていない（入力担当.gs を入れる前）ときは、だれにも確認を出さない（今までどおり）
+   ・確認：①入力欄の値を変えて欄を離れたとき「〇〇を A → B に変えますか？」（やめる→元の値に戻す）
+           ②「保存」「まとめて保存」「消す」を押したとき、変えた項目の一覧を出して「保存しますか？」
+   控え：seishu-workbook_github\_src_guard.js（index.html の guard の目印の間）
+   ============================================================================ */
+const IG={ kind:'', top:null };
+const igNorm=s=>String(s==null?'':s).replace(/[\s　]/g,'');
+function igStaff(){ const st=RC.state||lsGet('rec.state',null); return st&&st.inputStaff||null; }
+/* この端末（ログインした人）が、その工程で確認を出す相手（担当者外）か */
+function igOutsider(kind){
+  const L=igStaff(); if(!L||!kind) return false;
+  const me=[igNorm(ST&&ST.name), igNorm(ST&&ST.id)].filter(Boolean); if(!me.length) return false;
+  const has=a=>(a||[]).some(n=>me.includes(igNorm(n)));
+  if(has(L.free)) return false;
+  if(kind==='bun') return !(has(L.shubo)||has(L.moromi));
+  return !has(L[kind]);
+}
+const IG_KIND_NAME={koji:'麹',shubo:'酒母',moromi:'仕込み',bun:'分析（酒母・醪）'};
+function igActive(){ return IG.kind && IG.top===nav[nav.length-1] && igOutsider(IG.kind); }
+function igBanner(){
+  if(!igActive()||app.querySelector('.ig-ban')) return;
+  const d=document.createElement('div'); d.className='ig-ban';
+  d.innerHTML=`🛡 <b>${esc(IG_KIND_NAME[IG.kind]||'')}の担当者以外の入力です</b><small>値を変えたとき・保存するときに確認が出ます（${esc((ST&&ST.name)||'')}）</small>`;
+  app.prepend(d);
+}
+(function(){ const s=document.createElement('style'); s.textContent=`
+.ig-ban{background:#fff1e0;border:1px solid #e9a25a;color:#7a3d00;border-radius:10px;padding:8px 10px;margin:8px 0 10px;font-size:13px}
+.ig-ban small{display:block;font-size:11px;color:#8a5a2a;margin-top:2px}`; document.head.appendChild(s); })();
+/* 画面ごとの工程 */
+[['kojiScreen','koji'],['kojiEdit','koji'],['kyusuiEdit','koji'],['taneScreen','koji'],['shuboInput','shubo'],['moromiInput','moromi'],['moromiSetup','moromi'],['bunHome','bun']].forEach(([name,kind])=>{
+  const orig=window[name]; if(typeof orig!=='function') return;
+  window[name]=function(...a){
+    IG.kind=kind; IG.top=nav[nav.length-1];
+    if(!RC.state) try{ recState(false); }catch(e){}
+    const r=orig.apply(this,a);
+    if(r&&typeof r.then==='function') r.then(()=>{ if(IG.top===nav[nav.length-1]) igBanner(); });
+    else igBanner();
+    return r; };
+});
+/* 欄の名前 */
+function igLabel(el){
+  const f=el.closest('.rc-f'); if(f){ const sp=f.querySelector('span'); if(sp) return (sp.childNodes[0]&&sp.childNodes[0].textContent||sp.textContent).trim(); }
+  if(el.dataset&&el.dataset.f){ const F={be:'Be',alc:'alc',ta:'酸度',aa:'ｱﾐﾉ'}; const tr=el.closest('tr'); const no=tr&&tr.querySelector('.bn-no,.id,b'); return `${no?no.textContent.trim()+' ':''}${F[el.dataset.f]||el.dataset.f}`; }
+  return el.getAttribute('aria-label')||el.placeholder||'値';
+}
+const igShow=v=>(v===''||v==null)?'（空）':v;
+/* ① 値を変えたとき */
+document.addEventListener('focusin',e=>{ const el=e.target; if(!(el instanceof HTMLInputElement||el instanceof HTMLSelectElement||el instanceof HTMLTextAreaElement)) return; if(!app.contains(el)) return; el.dataset.igPrev=el.value; },true);
+document.addEventListener('change',e=>{
+  const el=e.target; if(!(el instanceof HTMLInputElement||el instanceof HTMLSelectElement||el instanceof HTMLTextAreaElement)) return;
+  if(!app.contains(el)||el.type==='hidden'||!igActive()) return;
+  const prev=el.dataset.igPrev!==undefined?el.dataset.igPrev:el.defaultValue;
+  if(String(prev)===String(el.value)) return;
+  const ok=window.confirm(`【確認】${igLabel(el)} を\n${igShow(prev)} → ${igShow(el.value)}\nに${prev===''?'入れ':'変え'}ます。よろしいですか？\n（${IG_KIND_NAME[IG.kind]||''}の担当者以外の入力）`);
+  if(!ok){ el.value=prev; e.stopImmediatePropagation(); el.dispatchEvent(new Event('input',{bubbles:true})); }
+  else el.dataset.igPrev=el.value;
+},true);
+/* ② 保存するとき（押した瞬間、元の処理より先に確認する） */
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest&&e.target.closest('button'); if(!b||!app.contains(b)||b.disabled) return;
+  const t=(b.textContent||'').trim(); if(!/保存|消す/.test(t)||!igActive()) return;
+  const ch=[]; app.querySelectorAll('input,select,textarea').forEach(el=>{ if(el.type==='hidden'||el.disabled) return;
+    const dv=el.tagName==='SELECT'?([...el.options].find(o=>o.defaultSelected)||{}).value||'':el.defaultValue;
+    if(String(dv)!==String(el.value)) ch.push(`・${igLabel(el)}：${igShow(dv)} → ${igShow(el.value)}`); });
+  const msg=/消す/.test(t)?`【確認】この行を消します。よろしいですか？`:`【確認】${IG_KIND_NAME[IG.kind]||''}の入力を保存します。\n${ch.length?ch.slice(0,15).join('\n')+(ch.length>15?`\n…ほか${ch.length-15}項目`:''):'（変えた項目は画面のとおり）'}\n\n保存してよろしいですか？`;
+  if(!window.confirm(msg)){ e.preventDefault(); e.stopImmediatePropagation(); }
+},true);
+
+</script>
+<!-- /guard -->
 <!-- /tools -->
 </body>
 </html>
