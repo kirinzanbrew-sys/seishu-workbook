@@ -7281,12 +7281,12 @@ function kgHTML(fields, rows, opt){
   const sk=opt.setKind&&opt.showSet?opt.setKind:'';
   const sh=sk==='moromi'?KG_STG.slice(0,-1).map(([,l],i,a)=>`<th class="st${i===a.length-1?' se':''}">${l}</th>`).join(''):'';
   const h1=sk?(sk==='moromi'?'留':'1<small style="display:block;font-weight:400;font-size:9px">仕込時</small>'):dl(1);
-  let h=`<div class="kg-tw" id="kgTw"><table class="kg-t"><thead><tr><th class="n">順号</th><th class="f">項目</th>${sh}${[...Array(N)].map((_,i)=>i===0?`<th class="${sk?'mg':''}">${h1}</th>`:`<th>${dl(i+1)}</th>`).join('')}${hasLast?`<th>${opt.lastLabel||'上槽'}</th>`:''}</tr></thead><tbody>`;
+  let h=`<div class="kg-tw" id="kgTw"><div class="kg-wrap"><table class="kg-t${opt.chart?' bgc':''}${opt.edit?' ed':''}"><thead><tr><th class="n">順号</th><th class="f">項目</th>${sh}${[...Array(N)].map((_,i)=>i===0?`<th class="${sk?'mg':''}">${h1}</th>`:`<th>${dl(i+1)}</th>`).join('')}${hasLast?`<th>${opt.lastLabel||'上槽'}</th>`:''}</tr></thead><tbody>`;
   rows.forEach(r=>{
     const by={}; (r.days||[]).forEach(d=>by[d.day]=d);
-    fields.forEach(([fl,fn,fc],fi)=>{
+    fields.forEach(([fl,fn,fc,fk],fi)=>{
       h+=`<tr class="${fi===0?'top':''} ${fc||''} ${r.cls||''}" data-kg="${r.no}">`;
-      if(fi===0) h+=`<td class="n" rowspan="${fields.length}" data-kgno="${r.no}"><b>${esc(String(r.label))}</b>${r.sub||''}</td>`;
+      if(fi===0) h+=`<td class="n" rowspan="${fields.length}" data-kgno="${r.no}">${r.head||`<b>${esc(String(r.label))}</b>${r.sub||''}`}</td>`;
       h+=`<td class="f">${fl}</td>`;
       if(sk) h+=kgSetCells(sk, r.set, fi);
       for(let i=1;i<=N;i++){
@@ -7300,14 +7300,21 @@ function kgHTML(fields, rows, opt){
           else if(sv.html){ v = (!v || String(v)===String(sv.raw)) ? `<span class="sv">${sv.html}</span>` : `<span class="sv">${sv.html}</span><span class="dv">${v}</span>`; }
           cl+=' mg'+(sv.html&&!sv.date?' v':'');
         }
-        h+=`<td class="${cl}">${v}</td>`;
+        // 2026-10-05 酒母：マスに直接入力（opt.edit・その日まで）
+        if(opt.edit && r.edit && fk && i<=(r.edMax||0)){
+          const raw=d&&d._r?d._r[fk]:'', val=(raw===undefined||raw===null)?'':String(raw), tx=fk==='biko';
+          const inp=`<input class="kg-i${tx?' tx':''}" data-no="${r.no}" data-day="${i}" data-k="${fk}" value="${esc(val)}" ${tx?'type="text"':'type="text" inputmode="decimal"'} autocomplete="off" aria-label="順号${esc(String(r.no))} ${i}日目 ${fl}"${r.lock?' disabled title="仕込時の値が未入力です（左の順号を押して入れてください）"':''}>`;
+          const sv=(sk&&i===1)?kgSetVals(sk, r.set, fi).slice(-1)[0]:null;
+          v=(sv&&sv.html&&!sv.date?`<span class="sv">${sv.html}</span>`:'')+inp; cl+=' in';
+        }
+        h+=`<td class="${cl}" data-i="${i}">${v}</td>`;
       }
       if(hasLast){ const L=r.last||{}; const v=opt.lastField?opt.lastField(fl,L):''; h+=`<td class="last">${v||''}</td>`; }
       h+=`</tr>`;
     });
   });
-  h+=`</tbody></table></div>`;
-  h+=`<div class="kg-leg">${opt.today?'<span><i style="background:#fff4c9"></i>きょう</span><span><i style="background:#fff4c9;outline:2px dashed #d8a100;outline-offset:-2px"></i>きょうの品温がまだ</span>':''}${opt.jo?`<span><i style="background:#fde3dc"></i>${opt.jo}</span>`:''}<span><i style="background:#f4f1ea"></i>${opt.outLabel||'予定の後'}</span></div>`;
+  h+=`</tbody></table></div></div>`;
+  h+=`<div class="kg-leg">${opt.chart?'<span><i style="background:none;border:0;border-top:3px solid #1f5fa8;height:0;opacity:.6"></i>背景の線：ボーメ</span><span><i style="background:none;border:0;border-top:2px dashed #c0392b;height:0;opacity:.7"></i>品温AM</span><span><i style="background:none;border:0;border-top:2px dashed #e08a1e;height:0;opacity:.7"></i>PM</span>':''}${opt.today?'<span><i style="background:#fff4c9"></i>きょう</span><span><i style="background:#fff4c9;outline:2px dashed #d8a100;outline-offset:-2px"></i>きょうの品温がまだ</span>':''}${opt.jo?`<span><i style="background:#fde3dc"></i>${opt.jo}</span>`:''}<span><i style="background:#f4f1ea"></i>${opt.outLabel||'予定の後'}</span></div>`;
   return h;
 }
 function kgBind(open, root){
@@ -7322,6 +7329,7 @@ function kgBox(box, fields, rows, opt, open){
   if(!box||!document.body.contains(box)) return;
   const on=!!lsGet('kg.set',false);
   const tw0=box.querySelector('.kg-tw'), sl=tw0?tw0.scrollLeft:null, stp=tw0?tw0.scrollTop:null;
+  const fk0=opt.edit?kgeKeep(box):null;
   box.innerHTML=`<div class="rc-bar" style="margin:4px 0 6px"><button class="rc-chip kg-setbtn ${on?'on':''}">仕込み時 ${on?'▾ 表示中':'▸ 表示'}</button><span class="tl-note" style="margin:0">${opt.note||''}</span></div>`+
     (rows.length?kgHTML(fields, rows, {...opt, showSet:on}):`<p class="muted" style="text-align:center;padding:16px 0">${opt.empty||'ありません'}</p>`);
   const first=tw0===null;
@@ -7330,6 +7338,8 @@ function kgBox(box, fields, rows, opt, open){
   if(tw&&!first&&sl!==null){ tw.scrollLeft=sl; tw.scrollTop=stp; }
   else if(tw&&on) tw.scrollLeft=0;   // 仕込み時を出しているときは左（仕込み時の列）から見せる
   box.querySelector('.kg-setbtn').onclick=()=>{ lsSet('kg.set',!on); kgBox(box, fields, rows, opt, open); const t=box.querySelector('.kg-tw'); if(t&&!on) t.scrollLeft=0; };
+  if(opt.edit) kgeBind(box, opt, fk0);
+  if(opt.chart){ const f=()=>{ if(document.body.contains(box)) kgBg(box, rows, fields); }; requestAnimationFrame(f); KGE.bg=f; }
 }
 /* 昨年度の1行 */
 function znGridRow(kind,r,isNear){
@@ -7359,9 +7369,11 @@ function kgMoromiRows(list, today, T){
 function kgShuboRows(list, today){
   return list.map(m=>{ const s=RC.shubo[m.no], dT=rcShuboDay(m,today);
     const oro=(s&&(s.motooroshi||s.motooroshiPlan))||(m.soe?dadd(m.soe,-1):''); const jo=oro?rcDays(m.motodate,oro)+1:13;
-    const days=s&&s.days?s.days.map(d=>({day:d.day,date:d.date,sm:d.be,alc:d.alc,ta:d.ta,aa:d.aa,tAM:d.temp,tPM:d.tPM})):[];
+    const days=s&&s.days?s.days.map(d=>({day:d.day,date:d.date,sm:d.be,alc:d.alc,ta:d.ta,aa:d.aa,tAM:d.temp,tPM:d.tPM,biko:d.biko,_r:d})):[];
     const miss=s&&typeof shSetupMissing==='function'&&dT>=1?shSetupMissing(s):[];
-    return {no:m.no, label:m.no, start:m.motodate, set:{x:{...((s&&s.setup)||{}), date:m.motodate}},
+    const head=`<b>${esc(String(m.no))}</b><span class="tk">${m.shuboT?'T'+esc(m.shuboT):'T未設定'}</span><small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small><small>${dT>=1?dT+'日目':'酛立まで'+(1-dT)+'日'}</small><small>酛卸 ${rcMD(oro)}${m.tank?'→T'+esc(m.tank):''}</small>${!s?'<small>読み込み中…</small>':''}${miss.length?'<small class="wn">仕込時の値 未入力</small>':''}<span class="kg-edl">✎ 仕込時・酛卸</span>`;
+    return {no:m.no, label:m.no, head, start:m.motodate, set:{x:{...((s&&s.setup)||{}), date:m.motodate}},
+      edit:!!s, lock:miss.length>0, edMax:Math.min(dT, days.length, 13),
       sub:`<small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small><small>${m.shuboT?'T'+esc(m.shuboT)+'・':''}${dT>=1?dT+'日目':'酛立まで'+(1-dT)+'日'}</small><small>酛卸 ${rcMD(oro)}</small>${!s?'<small>読み込み中…</small>':''}${miss.length?'<small class="wn">仕込時の値 未入力</small>':''}`,
       days, n:Math.max(jo,dT), today:dT, jo}; });
 }
@@ -7381,7 +7393,7 @@ function kgHomeBox(kind){
     app.querySelectorAll('.sh-row').forEach(x=>x.remove());
     app.querySelectorAll('p.muted').forEach(x=>{ if(/育成中の酒母はありません/.test(x.textContent)) x.remove(); });
     const st=app.querySelector('.rc-status'); (z?z.after(box):st?st.after(box):app.prepend(box));
-    const nt=app.querySelector('.rc-bar .tl-note'); if(nt) nt.textContent='表の左の順号を押すとその酒母の画面（入力はそこから）。';
+    const nt=app.querySelector('.rc-bar .tl-note'); if(nt) nt.textContent='その日までのマスに直接入力して「保存」。左の順号（タンク番号の所）を押すと 仕込時の値・酛卸日・備考。';
   }
   return box;
 }
@@ -7401,13 +7413,203 @@ function kgHomeBox(kind){
         let tm=null; shFetchMany(list.filter(m=>!RC.bun[m.no]).map(m=>m.no),'bunseki_get',RC.bun,()=>{ clearTimeout(tm); tm=setTimeout(draw,150); });
       } else {
         list=shuboList(st).map(x=>x.m);
-        draw=()=>kgBox(box, kgFieldsShubo, kgShuboRows(list,today), {setKind:'shubo', shubo:true, today:true, jo:'酛卸', outLabel:'酛卸の後', empty:'育成中の酒母はありません', note:'右へ送ると酛卸まで・左の順号で1本の画面'}, no=>go(()=>shuboSheet(no)));
+        draw=()=>kgBox(box, kgFieldsShuboNow, kgShuboRows(list,today), {setKind:'shubo', shubo:true, today:true, jo:'酛卸', outLabel:'酛卸の後', empty:'育成中の酒母はありません', note:'マスに直接入力 → 下の「保存」', edit:true, chart:true}, no=>kgeDialog(no));
+        KGE.draw=draw;
         draw();
         let tm=null; shFetchMany(list.filter(m=>!RC.shubo[m.no]).map(m=>m.no),'shubo_get',RC.shubo,()=>{ clearTimeout(tm); tm=setTimeout(draw,150); });
       }
     }catch(e){ console.log('kgHome',e); }
     return r; };
 });
+
+/* ================= 🧫 酒母：一覧の表にそのまま入力・グラフを表の背景に（2026-10-05） =================
+   泰広さん指示：酒母のページに入ったら、そのページで入力をそのままできるように。タンク番号は順号の下に表示、
+   グラフは表の背景に半透明で表示。次のページ（1本の画面・入力画面）に行かなくてよいようにする。
+   ・表のマス（Be・alc・酸度・品温AM・品温PM・備考）を、1日目〜きょうの列まで直接入力。ｱﾐﾉはサーバーに欄が無いので表示だけ
+   ・入れたマスは黄色の枠＝未保存。下に出る「保存」でまとめて保存（shubo_save を 酒母×日 ごとに送る）
+   ・Enter で同じ日の下のマスへ。数字でないものは赤、ありえない値は橙（保存のとき確認）
+   ・仕込時の値（仕込尺・仕込量・水麹・蒸米）が未入力の酒母は、日々のマスを止める（今までの決まり）
+   ・左の順号（タンク番号）を押すと、仕込時の値・酛卸日・酒母の備考の小さな入力窓（kgeDialog）
+   ・背景のグラフ：酒母ごとに Be（青）・品温AM（赤点線）・PM（橙点線）を、その日の列の位置に半透明で描く（kgBg）
+   ・表の描き直し（データが届いたとき）でも、未保存の値とカーソルの位置は残す（KGE.dirty） */
+const KGE={ dirty:{}, draw:null, bg:null, msg:'' };
+const kgFieldsShuboNow=[['日付',d=>d.date?rcMD(d.date):'','dt'],['Be',d=>kgN(d.sm,1),'','be'],['alc',d=>kgN(d.alc,1),'','alc'],['酸度',d=>kgN(d.ta,1),'','ta'],['ｱﾐﾉ',d=>kgN(d.aa,1)],['品温AM',d=>kgN(d.tAM,1),'','temp'],['品温PM',d=>kgN(d.tPM,1),'','tPM'],['備考',d=>d.biko?`<span style="font-weight:400;font-size:10px">${esc(String(d.biko).slice(0,6))}</span>`:'','bk','biko']];
+const KGE_RANGE={be:[-5,25,'Be'],alc:[0,22,'alc'],ta:[0,30,'酸度'],temp:[0,40,'品温AM'],tPM:[0,40,'品温PM']};
+const kgeKey=el=>`${el.dataset.no}|${el.dataset.day}|${el.dataset.k}`;
+function kgeCheck(el){   // '' ／ 'bad'（数字でない）／ 'warn'（ありえない値）
+  const k=el.dataset.k, v=el.value.trim(); if(k==='biko'||v==='') return '';
+  const n=pnum(v); if(n===null) return 'bad';
+  const R=KGE_RANGE[k]; return R&&(n<R[0]||n>R[1])?'warn':'';
+}
+function kgeMark(el){
+  const c=kgeCheck(el);
+  el.classList.toggle('dirty', el.value!==el.defaultValue);
+  el.classList.toggle('bad', c==='bad'); el.classList.toggle('warn', c==='warn');
+}
+function kgeKeep(box){
+  const a=document.activeElement;
+  if(a&&a.classList&&a.classList.contains('kg-i')&&box.contains(a)) return {key:kgeKey(a), s:a.selectionStart, e:a.selectionEnd};
+  return null;
+}
+function kgeNext(box, el){
+  const same=[...box.querySelectorAll(`input.kg-i[data-day="${el.dataset.day}"]`)].filter(x=>!x.disabled);
+  const i=same.indexOf(el), nx=same[i+1];
+  if(nx){ nx.focus(); try{ nx.select(); }catch(e){} } else el.blur();
+}
+function kgeBar(box){
+  const bar=box.querySelector('.kg-sbar'); if(!bar) return;
+  const ins=[...box.querySelectorAll('input.kg-i')].filter(x=>x.value!==x.defaultValue);
+  const bad=ins.filter(x=>kgeCheck(x)==='bad').length;
+  bar.hidden=!ins.length && !KGE.msg;
+  bar.classList.toggle('ok', !ins.length && !!KGE.msg && !KGE.msgNg);
+  bar.querySelector('.c').textContent=ins.length?`未保存 ${ins.length}マス`:'';
+  const m=bar.querySelector('.m'); m.textContent=bad?'数字になっていないマスがあります（赤い枠）':(KGE.msg||'');
+  m.classList.toggle('ng', !!bad || !!KGE.msgNg);
+  bar.querySelector('#kgSave').hidden=!ins.length; bar.querySelector('#kgUndo').hidden=!ins.length;
+}
+function kgeSay(box, t, ng){ KGE.msg=t; KGE.msgNg=!!ng; kgeBar(box); if(!ng) setTimeout(()=>{ if(KGE.msg===t){ KGE.msg=''; kgeBar(box); } },5000); }
+function kgeBind(box, opt, keep){
+  const ins=[...box.querySelectorAll('input.kg-i')];
+  ins.forEach(el=>{
+    const key=kgeKey(el);
+    if(key in KGE.dirty && !el.disabled){ el.value=KGE.dirty[key]; }
+    kgeMark(el);
+    el.addEventListener('input',()=>{ if(el.value===el.defaultValue) delete KGE.dirty[key]; else KGE.dirty[key]=el.value; kgeMark(el); kgeBar(box); });
+    el.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.isComposing){ e.preventDefault(); kgeNext(box, el); } });
+    el.addEventListener('focus',()=>{ try{ el.select(); }catch(e){} });
+  });
+  box.insertAdjacentHTML('beforeend', `<div class="kg-sbar" hidden><span class="c"></span><span class="m"></span><button class="rc-ghost" id="kgUndo">元に戻す</button><button class="rc-btn" id="kgSave">保存</button></div>`);
+  $('#kgSave').onclick=()=>kgeSave(box);
+  $('#kgUndo').onclick=()=>{ if(!window.confirm('未保存の入力を消して、元の値に戻しますか？')) return;
+    box.querySelectorAll('input.kg-i').forEach(el=>{ if(el.value!==el.defaultValue){ el.value=el.defaultValue; delete KGE.dirty[kgeKey(el)]; kgeMark(el); } }); kgeBar(box); };
+  kgeBar(box);
+  if(keep){ const el=ins.find(x=>kgeKey(x)===keep.key); if(el){ el.focus({preventScroll:true}); try{ el.setSelectionRange(keep.s,keep.e); }catch(e){} } }
+}
+async function kgeSave(box){
+  const ins=[...box.querySelectorAll('input.kg-i')].filter(el=>!el.disabled&&el.value!==el.defaultValue);
+  if(!ins.length){ kgeSay(box,'変わったところがありません'); return; }
+  const lab=el=>el.getAttribute('aria-label')||'';
+  const bad=ins.filter(el=>kgeCheck(el)==='bad');
+  if(bad.length){ kgeSay(box,'数字になっていないマス：'+bad.map(lab).slice(0,4).join('、'),true); bad[0].focus(); return; }
+  const warn=ins.filter(el=>kgeCheck(el)==='warn');
+  if(warn.length && !window.confirm(`ありえない値かもしれません。\n${warn.map(el=>`・${lab(el)}：${el.value}`).slice(0,10).join('\n')}\n\nこのまま保存しますか？`)) return;
+  const G={}, lock=new Set();
+  ins.forEach(el=>{ const no=el.dataset.no, day=Number(el.dataset.day), k=el.dataset.k, s=RC.shubo[no];
+    if(s&&shSetupMissing(s).length){ lock.add(no); return; }
+    const v=el.value.trim(), val=k==='biko'?el.value:(v===''?'':String(pnum(v)));
+    (G[no+'|'+day]=G[no+'|'+day]||{no,day,values:{},els:[]}).values[k]=val; G[no+'|'+day].els.push(el); });
+  const list=Object.values(G);
+  if(!list.length){ kgeSay(box,`順号${[...lock].join('・')} は先に仕込時の値を入れてください（左の順号を押す）`,true); return; }
+  const btn=$('#kgSave'); if(btn) btn.disabled=true;
+  const ok=[], ng=[];
+  for(let i=0;i<list.length;i++){ const g=list[i];
+    kgeSay(box,`保存中… ${i+1}/${list.length}（順号${g.no} ${g.day}日目）`);
+    try{ const r=await recApi({action:'shubo_save',no:g.no,day:g.day,values:g.values},40000);
+      if(r&&r.ok){ ok.push(g); g.els.forEach(el=>{ delete KGE.dirty[kgeKey(el)]; el.classList.add('saved'); }); } else ng.push(g); }
+    catch(e){ ng.push(g); } }
+  const nos=[...new Set(ok.map(g=>String(g.no)))];
+  nos.forEach(no=>RC.shubo[no]=null);
+  if(ng.length) kgeSay(box,`保存できなかった所があります：${ng.map(g=>`順号${g.no} ${g.day}日目`).join('、')}。電波を確認してもう一度「保存」を押してください${lock.size?`（順号${[...lock].join('・')} は仕込時の値が未入力）`:''}`,true);
+  else kgeSay(box,`保存しました（${ok.map(g=>`順号${g.no} ${g.day}日目`).join('、')}）${lock.size?`。順号${[...lock].join('・')} は仕込時の値が未入力のため保存していません`:''}`, lock.size>0);
+  if(btn) btn.disabled=false;
+  if(nos.length){ await shFetchMany(nos,'shubo_get',RC.shubo,()=>{}); if(KGE.draw&&document.body.contains(box)) KGE.draw(); }
+}
+/* 左の順号を押したとき：仕込時の値・酛卸日・酒母の備考 */
+async function kgeDialog(no){
+  const m=rcMaster(no)||{}; let s=RC.shubo[no];
+  if(!s){ try{ const r=await recApi({action:'shubo_get',no},40000); if(r&&r.ok){ s=r; RC.shubo[no]=r; } }catch(e){} }
+  if(!s){ window.alert('酒母の記録を読み込めませんでした。電波を確認してください'); return; }
+  const u=s.setup||{}, miss=shSetupMissing(s);
+  const ov=document.createElement('div'); ov.className='kge-ov';
+  ov.innerHTML=`<div class="kge-dl" role="dialog" aria-label="酒母 順号${esc(String(no))}">
+    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--navy)">酒母 順号 ${esc(String(no))}</b><b style="font-size:16px;color:#8a4b00">${m.shuboT?'T'+esc(m.shuboT):'T未設定'}</b><span class="muted" style="font-size:12px">${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}・酵母 ${esc(m.yeast||'—')}・乳酸 ${esc(m.nyusan||(s.head&&s.head.nyusan)||'—')}ml</span></div>
+    <div class="rc-h" style="margin-top:10px">仕込時の値 <small>${miss.length?'<b style="color:var(--ng)">必須・未入力あり（入れるまで日々の値は保存できません）</b>':'入力済み'}</small></div>
+    <div class="rc-grid" style="${miss.length?'border:2px solid var(--ng);border-radius:10px;padding:6px':''}">${SH_SETUP.map(([f,l,un,st])=>rcField('kd_'+f,`${l} ${un}`,u[f],{step:st})).join('')}</div>
+    <div class="rc-grid" style="margin-top:8px">${rcField('kd_moto','酛卸日',s.motooroshi,{type:'date',hint:s.motooroshiPlan?'予定 '+rcMD(s.motooroshiPlan):''})}${rcField('kd_biko','酒母の備考',s.biko,{type:'text'})}</div>
+    <div class="rc-status" id="kdSt"></div>
+    <div class="rc-actions" style="gap:8px"><button class="rc-ghost" id="kdClose">閉じる</button><button class="rc-btn" id="kdSave">保存</button></div>
+    <button class="sh-link" id="kdOpen" style="margin-top:10px">📈 この酒母の1本の画面（大きいグラフ・昨年度の同じ時期）<span>›</span></button></div>`;
+  app.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
+  ov.querySelector('#kdClose').onclick=close;
+  ov.querySelector('#kdOpen').onclick=()=>{ close(); go(()=>shuboSheet(no)); };
+  const say=(t,ng)=>{ const e=ov.querySelector('#kdSt'); e.textContent=t; e.className='rc-status'+(ng?' warn':''); };
+  ov.querySelector('#kdSave').onclick=async()=>{
+    const body={action:'shubo_save',no}, setup={};
+    SH_SETUP.forEach(([f])=>{ const v=ov.querySelector('#kd_'+f).value; if(String(v)!==String(u[f]??'')) setup[f]=v; });
+    if(Object.keys(setup).length) body.setup=setup;
+    const mo=ov.querySelector('#kd_moto').value, bk=ov.querySelector('#kd_biko').value;
+    if(mo!==(s.motooroshi||'')) body.motooroshi=mo; if(bk!==(s.biko||'')) body.biko=bk;
+    if(!body.setup&&!('motooroshi' in body)&&!('biko' in body)){ say('変わったところがありません'); return; }
+    const b=ov.querySelector('#kdSave'); b.disabled=true; say('保存中…');
+    try{ const r=await recApi(body,40000);
+      if(r&&r.ok){ RC.shubo[no]=null; close(); await shFetchMany([no],'shubo_get',RC.shubo,()=>{}); if(KGE.draw) KGE.draw(); }
+      else { say('保存できませんでした: '+(r&&r.err||''),true); b.disabled=false; } }
+    catch(e){ say('保存できませんでした。電波を確認してもう一度お試しください',true); b.disabled=false; }
+  };
+  const f=ov.querySelector(miss.length?'#kd_'+SH_SETUP.find(([,l])=>miss.includes(l))[0]:'#kd_moto'); if(f) setTimeout(()=>f.focus(),50);
+}
+/* 背景のグラフ（酒母ごとに、その酒母の Be〜品温PM の行の高さに、日の列の位置で描く） */
+function kgBg(box, rows, fields){
+  const wrap=box.querySelector('.kg-wrap'); if(!wrap) return;
+  const old=wrap.querySelector('svg.kg-bg'); if(old) old.remove();
+  const W=wrap.getBoundingClientRect(); if(!W.width) return;
+  const fB=fields.findIndex(f=>f[0]==='Be'), fP=fields.findIndex(f=>f[0]==='品温PM'); if(fB<0||fP<0) return;
+  const P=(x,y)=>x.toFixed(1)+','+y.toFixed(1);
+  let g='';
+  rows.forEach(r=>{
+    const trs=[...wrap.querySelectorAll('tr[data-kg]')].filter(t=>t.dataset.kg===String(r.no)); if(trs.length<=fP) return;
+    const a=trs[fB].getBoundingClientRect(), b=trs[fP].getBoundingClientRect();
+    const y0=a.top-W.top+5, y1=b.bottom-W.top-5; if(y1-y0<24) return;
+    const X={}; trs[fB].querySelectorAll('td[data-i]').forEach(c=>{ const q=c.getBoundingClientRect(); X[c.dataset.i]=q.left-W.left+q.width/2; });
+    const D=(r.days||[]).filter(d=>X[d.day]!==undefined);
+    const pts=k=>D.map(d=>{ const v=d._r?shN(d._r[k]):null; return v===null?null:[X[d.day],v]; }).filter(Boolean);
+    const draw=(p,lo,hi,color,w,dash,op)=>{ if(!p.length) return ''; const q=p.map(([x,v])=>[x, y1-(v-lo)/(hi-lo)*(y1-y0)]);
+      return (q.length>1?`<polyline points="${q.map(([x,y])=>P(x,y)).join(' ')}" fill="none" stroke="${color}" stroke-width="${w}"${dash?' stroke-dasharray="6 4"':''} stroke-linejoin="round" stroke-linecap="round" opacity="${op}"/>`:'')
+        + q.map(([x,y])=>`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${dash?2.6:3.4}" fill="${color}" opacity="${op}"/>`).join(''); };
+    const be=pts('be'), tA=pts('temp'), tP=pts('tPM');
+    if(be.length){ const vs=be.map(p=>p[1]); g+=draw(be, Math.min(0,...vs), Math.max(10,...vs)*1.1, '#1f5fa8', 3.2, false, .30); }
+    const tv=[...tA,...tP].map(p=>p[1]);
+    if(tv.length){ const lo0=Math.min(...tv), hi0=Math.max(...tv), mid=(lo0+hi0)/2, half=Math.max(4,(hi0-lo0)/2+1);
+      g+=draw(tA, mid-half, mid+half, '#c0392b', 2.4, true, .40)+draw(tP, mid-half, mid+half, '#e08a1e', 2.4, true, .40); }
+  });
+  if(g) wrap.insertAdjacentHTML('afterbegin', `<svg class="kg-bg" width="${wrap.scrollWidth}" height="${wrap.scrollHeight}" aria-hidden="true">${g}</svg>`);
+}
+window.addEventListener('resize',()=>{ clearTimeout(KGE.rt); KGE.rt=setTimeout(()=>{ try{ KGE.bg&&KGE.bg(); }catch(e){} },200); });
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-wrap{position:relative;display:inline-block;min-width:100%;vertical-align:top}
+.kg-wrap>svg.kg-bg{position:absolute;left:0;top:0;pointer-events:none;z-index:0}
+.kg-t.bgc{position:relative;z-index:1;background:transparent}
+.kg-t.bgc td.tday{background:rgba(255,236,150,.42)}
+.kg-t.bgc td.jo{background:rgba(250,200,185,.45)}
+.kg-t.bgc td.out{background:rgba(230,225,212,.45)}
+.kg-t.bgc td.mg:not(.tday):not(.jo):not(.out){background:rgba(232,240,250,.55)}
+.kg-t.ed .n b{display:block;font-size:24px;line-height:1.1;font-weight:800}
+.kg-t .n .tk{display:block;font-size:15px;font-weight:800;color:#8a4b00;line-height:1.2;margin:1px 0 2px}
+.kg-t .n .kg-edl{display:inline-block;margin-top:4px;font-size:10px;color:#1f5fa8;border:1px solid #9fb3cf;border-radius:6px;padding:1px 4px;background:#fff;white-space:nowrap}
+.kg-t.ed td.in{padding:1px 2px}
+.kg-i{width:46px;box-sizing:border-box;border:1px solid rgba(150,140,115,.38);border-radius:5px;padding:3px;font:inherit;font-weight:700;font-size:13px;text-align:right;background:transparent;color:var(--navy);font-variant-numeric:tabular-nums;margin:0}
+.kg-i.tx{width:76px;text-align:left;font-weight:400;font-size:11px}
+.kg-i:focus{outline:2px solid #1f5fa8;outline-offset:0;background:#fff}
+.kg-i.dirty{border:2px solid #e0a800;background:rgba(255,248,200,.9)}
+.kg-i.warn{border:2px solid #e08a1e}
+.kg-i.bad{border:2px solid var(--ng);background:#fde8e6}
+.kg-i.saved{opacity:.6}
+.kg-i:disabled{background:transparent;border-style:dotted;color:#999}
+.kg-t td.miss .kg-i:not(.dirty){border:2px dashed #d8a100}
+.kg-t.ed td.in .sv{display:block;font-size:10px;color:#103e74}
+.kg-t.ed td.in .sv small{font-size:9px;color:var(--sub);font-weight:400;margin-right:2px}
+.kg-sbar{position:sticky;bottom:8px;z-index:30;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fffbe8;border:2px solid #e0a800;border-radius:12px;padding:8px 10px;margin:8px 0;box-shadow:0 4px 14px rgba(0,0,0,.15)}
+.kg-sbar[hidden]{display:none}
+.kg-sbar .c{font-weight:800;color:#7a5600}
+.kg-sbar .m{flex:1;min-width:120px;font-size:12px;color:var(--sub)}
+.kg-sbar .m.ng{color:var(--ng);font-weight:700}
+.kg-sbar.ok{background:#eef7ea;border-color:#7da86a}
+.kg-sbar .rc-btn{min-width:96px}
+.kge-ov{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.kge-dl{background:var(--card,#fff);width:100%;max-width:520px;max-height:88vh;overflow:auto;border-radius:16px 16px 0 0;padding:14px 14px 18px;box-shadow:0 -6px 20px rgba(0,0,0,.2);box-sizing:border-box}
+@media(min-width:700px){.kge-ov{align-items:center}.kge-dl{border-radius:16px}}`; document.head.appendChild(s); })();
 
 </script>
 <!-- /zennen -->
@@ -7447,7 +7649,7 @@ function igBanner(){
 .ig-ban{background:#fff1e0;border:1px solid #e9a25a;color:#7a3d00;border-radius:10px;padding:8px 10px;margin:8px 0 10px;font-size:13px}
 .ig-ban small{display:block;font-size:11px;color:#8a5a2a;margin-top:2px}`; document.head.appendChild(s); })();
 /* 画面ごとの工程 */
-[['kojiScreen','koji'],['kojiEdit','koji'],['kyusuiEdit','koji'],['taneScreen','koji'],['shuboInput','shubo'],['moromiInput','moromi'],['moromiSetup','moromi'],['bunHome','bun']].forEach(([name,kind])=>{
+[['kojiScreen','koji'],['kojiEdit','koji'],['kyusuiEdit','koji'],['taneScreen','koji'],['shuboInput','shubo'],['shuboHome','shubo'],['moromiInput','moromi'],['moromiSetup','moromi'],['bunHome','bun']].forEach(([name,kind])=>{
   const orig=window[name]; if(typeof orig!=='function') return;
   window[name]=function(...a){
     IG.kind=kind; IG.top=nav[nav.length-1];
@@ -7505,7 +7707,7 @@ function iaNames(){
   work=work.filter(n=>!bad(n)); const rest=all.filter(n=>!bad(n)&&!work.includes(n));
   return {work, rest};
 }
-const IA_SCREENS={bunHome:1, moromiInput:1, shuboInput:1};
+const IA_SCREENS={bunHome:1, moromiInput:1, shuboInput:1, shuboHome:1};   // shuboHome：2026-10-05 酒母の表に直接入力
 let IA_ON=false;
 function iaBar(){
   if(!IA_ON||app.querySelector('.ia-bar')) return;
@@ -7537,7 +7739,7 @@ Object.keys(IA_SCREENS).forEach(name=>{
     return r; };
 });
 document.addEventListener('click',e=>{
-  const b=e.target&&e.target.closest&&e.target.closest('#rcSave,#bnSave'); if(!b||!app.contains(b)||b.disabled) return;
+  const b=e.target&&e.target.closest&&e.target.closest('#rcSave,#bnSave,#kgSave'); if(!b||!app.contains(b)||b.disabled) return;
   if(!app.querySelector('.ia-bar')||!igShared()||iaGet()) return;
   e.preventDefault(); e.stopImmediatePropagation();
   const s=$('#iaSel'); if(s){ s.closest('.ia-bar').classList.add('ng'); s.scrollIntoView({block:'center'}); s.focus(); }
@@ -7563,6 +7765,7 @@ document.addEventListener('click',e=>{
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-05-1','🧫','酒母','酒母のページの表にそのまま入力できるようになりました（Be・alc・酸度・品温・備考。入れたら下の「保存」）。タンク番号は順号のすぐ下に大きく、グラフ（ボーメ・品温）は表の背景にうすく出ます。仕込時の値・酛卸日は左の順号を押すと入れられます。'],
   ['2026-10-04-6','🍚','ホーム','「麹」のアイコンを麹菌（分生子柄）の絵に変えました（背景は少し明るい金色）。'],
   ['2026-10-04-5','📝','やることリスト','すぐにやらなければならないものほど上に並ぶように。時期「今すぐ」→「今月中」→「造り前」…の順、同じ時期では「止まっている」が上。「今すぐ」は赤、「今月中」はオレンジの札。'],
   ['2026-10-04-4','🆕','ホーム','「アップデート情報」を追加しました（このページ）。何ができるようになったかを、ここに順に載せていきます。'],
