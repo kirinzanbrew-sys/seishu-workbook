@@ -3697,11 +3697,11 @@ async function kojiScreen(day){
   const map2=(list,pc)=>`<div class="tl-note">麹棚</div><div class="rc-map" style="grid-template-columns:repeat(5,1fr)">${[10,9,8,7,6,5,4,3,2,1].map(i=>{ const x=list.filter(r=>r[pc]==='麹棚'+i); return `<div class="${x.length?'on':''}"><b>棚${i}</b>${x.map(r=>`<em>${esc(r['麹ID'])}</em>`).join('')}</div>`; }).join('')}</div>
     <div class="tl-note">天幕</div><div class="rc-map" style="grid-template-columns:repeat(5,1fr)">${['L5','L4','L3','L2','L1','R5','R4','R3','R2','R1'].map(n=>{ const x=list.filter(r=>r[pc]==='天幕'+n); return `<div class="${x.length?'on':''}"><b>${n}</b>${x.map(r=>`<em>${esc(r['麹ID'])}</em>`).join('')}</div>`; }).join('')}</div>`;
   const sec=(t,sub,list,fn)=>`<div class="rc-h">${t}<small>${sub}</small></div>`+(list.length?list.map(fn).join(''):`<p class="muted" style="margin:0 0 6px;font-size:13px">なし</p>`);
-  let h=`<div class="rc-nav"><button id="kPrev">‹ 前日</button><button class="d rc-dbtn" id="kDate">${djp(date)} <small>▾</small></button></div>
+  let h=`<div class="rc-nav">${typeof o2Btn==='function'?o2Btn('koji',{icon:1}):''}<button class="d rc-dbtn" id="kDate">${djp(date)} <small>▾</small></button></div>
     <div class="rc-dstrip" id="kStrip" style="display:none"></div>
     <div class="rc-sum"><div><span class="k">出麹</span><span class="v">${out.length}<small> 本 ${kgfmt(kg(out))}kg</small></span></div><div><span class="k">盛（仲・留仕事）</span><span class="v">${mori.length}<small> 本 ${kgfmt(kg(mori))}kg</small></span></div>
       <div><span class="k">引込（種切・切返し）</span><span class="v">${hik.length}<small> 本 ${kgfmt(kg(hik))}kg</small></span></div><div><span class="k">洗米（麹米）</span><span class="v">${wash.length}<small> 口 ${kgfmt(wash.reduce((s,w)=>s+(Number(w.kg)||0),0))}kg</small></span></div></div>
-    ${typeof o2Btn==='function'?o2Btn('koji'):''}${rcRoomCard(j.room)}${rcProbeCard(j.probes)}
+    ${rcRoomCard(j.room)}${rcProbeCard(j.probes)}
     <div style="display:flex;gap:6px;margin:6px 0"><button class="rc-ghost" id="kTane" style="flex:1">🧫 種麹の仕入・在庫</button><button class="rc-ghost" id="kCmp" style="flex:1">📊 麹の比較・考察</button></div>
     <div class="rc-status" id="rcStatus"></div>`;
   h+=sec('出麹','朝いちばん。品温・重量を記録',out.sort((a,b)=>(a['出麹 順番']||99)-(b['出麹 順番']||99)),r=>row(r,'出麹'));
@@ -3714,7 +3714,6 @@ async function kojiScreen(day){
   app.innerHTML=h;
   if($('#kTane')) $('#kTane').onclick=()=>go(()=>taneScreen());
   if($('#kCmp')) $('#kCmp').onclick=()=>go(()=>compareScreen());
-  $('#kPrev').onclick=()=>kojiScreen(dadd(date,-1));
   /* 2026-10-05 日付をタップ → 日付を横にスクロールして選ぶ（翌日・今日ボタンは廃止） */
   $('#kDate').onclick=()=>{ const st=$('#kStrip'); if(st.style.display!=='none'){ st.style.display='none'; return; }
     const td=dtoday(); let x='';
@@ -4501,6 +4500,9 @@ const O2_CSS = `
 .o2-open.ng{background:#fdecec;border:2px solid #d62b22;animation:o2Blink 1.6s ease-in-out infinite}
 .o2-open.ng .ic{background:#d62b22}
 .o2-open.ng b{color:#b31b14}
+.o2-open.o2-ic{width:auto;flex:0 0 auto;display:inline-flex;padding:0;margin:0;border:none;background:none;border-radius:50%;gap:0}
+.o2-open.o2-ic .ic{width:42px;height:42px;font-size:16px}
+.o2-open.o2-ic.ng{border:none;background:none;animation:none}.o2-open.o2-ic.ng .ic{box-shadow:0 0 0 3px #f6b3ae;animation:o2Blink 1.6s ease-in-out infinite}
 .o2-open.ng small{color:#b31b14;font-weight:700}
 .o2-open.ng .go{color:#d62b22}
 @keyframes o2Blink{0%,100%{box-shadow:0 0 0 0 rgba(214,43,34,.0)}50%{box-shadow:0 0 0 5px rgba(214,43,34,.25)}}
@@ -4551,8 +4553,11 @@ button.o2-row:active{background:#f6f3ea}
 (function(){ const s=document.createElement('style'); s.textContent=O2_CSS; document.head.appendChild(s); })();
 
 /* 入口のボタン（各作業の画面に置く） */
-function o2Btn(area){
+function o2Btn(area,opt){
   const a=O2_AREAS[area]; if(!a) return '';
+  /* 2026-10-05 麹の画面：上段（日付の左）に丸アイコンだけで出す（opt.icon） */
+  if(opt&&opt.icon){ const ng=area==='koji'&&(!RC.kday||RC.kday===dtoday())&&(setTimeout(o2KojiRefresh,300),o2KojiMissing());
+    return `<button class="o2-open o2-ic${ng?' ng':''}" data-o2="${area}" type="button" title="酸素濃度測定${ng?'（今日はまだ測定していません）':''}" aria-label="酸素濃度測定"><span class="ic">O<sub>2</sub></span></button>`; }
   // 麹：今日が麹の作業日で、まだ測っていなければ赤く点滅（2026-09-30 泰広さん指示）
   if(area==='koji' && (!RC.kday || RC.kday===dtoday())){
     setTimeout(o2KojiRefresh, 300);
@@ -4837,7 +4842,7 @@ function o2KojiRefresh(){
     O2_KCHK=null;
     if(o2KojiMissing()!==before){
       const b=document.querySelector('.o2-open[data-o2="koji"]');
-      if(b){ const t=document.createElement('div'); t.innerHTML=o2Btn('koji'); b.replaceWith(t.firstElementChild); }
+      if(b){ const t=document.createElement('div'); t.innerHTML=o2Btn('koji',b.classList.contains('o2-ic')?{icon:1}:null); b.replaceWith(t.firstElementChild); }
       if(app.querySelector('.hx') && nav[nav.length-1]===home) go(home,false);
     }
   })();
@@ -7912,7 +7917,7 @@ function stiHTML(){
   const r=stiRoomInfo();
   return `<div class="st-icons${STI.room?' room-on':''}">
     <button class="st-ic${r.warn?' wn':''}${STI.room?' on':''}" data-sti="room" type="button"><span class="e">🌡</span><b>${esc(r.v)}</b><small>室温</small></button>
-    <button class="st-ic" data-sti="o2" type="button"><span class="e o2">O<sub>2</sub></span><small>酸素濃度</small></button>
+    <button class="st-ic st-o2" data-sti="o2" type="button" title="酸素濃度測定" aria-label="酸素濃度測定"><span class="o2c">O<sub>2</sub></span></button>
     <button class="st-ic" data-sti="zn" type="button"><span class="e">📅</span><small>昨年度</small></button>
   </div>`;
 }
@@ -7951,6 +7956,8 @@ function stiBind(){
 .st-ic .e{font-size:20px;line-height:1.1}.st-ic .e.o2{font-weight:800;font-size:17px;color:#1f6fa8}.st-ic .e.o2 sub{font-size:10px}
 .st-ic b{font-size:12px;line-height:1.1}.st-ic small{font-size:10px;color:var(--sub,#6b6b6b);line-height:1.2}
 .st-ic.wn{border:2px solid #e8a13a;background:#fff8ec}.st-ic.on{border:2px solid #1f5fa8;background:#eef3fb}
+.st-ic.st-o2{width:auto;height:auto;border:none;background:none;box-shadow:none;padding:0;align-self:center}
+.st-ic.st-o2 .o2c{width:42px;height:42px;border-radius:50%;background:#1f6fa8;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px}.st-ic.st-o2 .o2c sub{font-size:10px}
 #app:has(.st-icons) .o2-open[data-o2="shubo"],#app:has(.st-icons) .zn-btn[data-zn="shubo"]{display:none}
 #app:has(.st-icons:not(.room-on)) .sr-card{display:none}
 #app:has(.st-icons) .sr-card .sr-top .rc-ghost{display:none}`; document.head.appendChild(s); })();
@@ -7966,6 +7973,7 @@ function stiBind(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-05-7','🫁','麹・酒母','酸素濃度のボタンを青い丸の「O₂」アイコンにしました。麹は日付の左（「前日」ボタンはなくしました）、酒母は上のアイコンの並びにあります。麹の作業日に測っていないと赤く点滅します。'],
   ['2026-10-05-6','🍚','麹','上の日付をタップすると日付が横に並んで出て、スクロールして好きな日を選べるようになりました。「翌日」「今日」ボタンはなくしました。'],
   ['2026-10-05-5','🧫','酒母','酒母のタンク番号（順号の下の T◯◯）も表でそのまま入力できるようになりました。備考は「暖器」「冷器」を選べます（「その他…」を選ぶと文字で入力）。'],
   ['2026-10-05-4','🧫','酒母','上の「室温」「酸素濃度」「昨年度」を小さなアイコンにまとめました（室温のアイコンに最新の値。押すと入力欄が開きます）。スマホでは「分析者」の帯を出さないようにしました（ログインしている人が記録されます）。'],
