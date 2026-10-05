@@ -3404,6 +3404,11 @@ const REC_CSS = `
 .rc-nav{display:flex;align-items:center;gap:6px;margin:12px 0 8px}
 .rc-nav .d{flex:1;text-align:center;font-weight:700;font-size:17px}
 .rc-nav button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 12px;font-family:inherit;font-size:14px;color:inherit;cursor:pointer}
+.rc-nav .rc-dbtn{font-weight:700;font-size:17px}.rc-nav .rc-dbtn small{font-size:12px;opacity:.6}
+.rc-dstrip{display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;margin:0 0 10px;padding:2px 0 6px}
+.rc-dstrip button{flex:0 0 48px;scroll-snap-align:center;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:4px 0;font-family:inherit;color:inherit;display:flex;flex-direction:column;align-items:center;cursor:pointer}
+.rc-dstrip i{font-style:normal;font-size:10px;opacity:.7;height:13px}.rc-dstrip b{font-size:17px}.rc-dstrip span{font-size:11px}
+.rc-dstrip .sun span{color:#c0392b}.rc-dstrip .sat span{color:#2a78d6}.rc-dstrip .td{border-color:#2a78d6}.rc-dstrip .sel{background:#2a78d6;color:#fff;border-color:#2a78d6}.rc-dstrip .sel span{color:#fff}
 .rc-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 0 10px}
 .rc-sum div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 8px}
 .rc-sum .k{font-size:11px;color:var(--sub)} .rc-sum .v{font-size:20px;font-weight:700;color:var(--navy);line-height:1.1} .rc-sum .v small{font-size:11px;font-weight:500;color:var(--sub)}
@@ -3669,7 +3674,7 @@ async function kojiScreen(day){
   else if(!(Date.now()-(RC.kFresh[date]||0)<20000)){   // 前回の内容をすぐ出し、最新は裏で取って描き直す（2026-09-30）
     RC.kFresh[date]=Date.now();
     recApi({action:'koji_today',date},40000).then(r=>{ if(!(r&&r.ok)) return; RC.koji[date]=r;
-      const ae=document.activeElement; if(RC.kday===date&&$('#kToday')&&!(ae&&ae.matches&&ae.matches('input,select,textarea'))) kojiScreen(date); }).catch(()=>{}); }
+      const ae=document.activeElement; if(RC.kday===date&&$('#kDate')&&!(ae&&ae.matches&&ae.matches('input,select,textarea'))) kojiScreen(date); }).catch(()=>{}); }
   recFlush();
   const rows=j.koji||[], wash=j.wash||[], tg=j.targets||{};
   const out=rows.filter(r=>r['出麹日']===date), mori=rows.filter(r=>r['盛日']===date), hik=rows.filter(r=>r['引込日']===date);
@@ -3692,7 +3697,8 @@ async function kojiScreen(day){
   const map2=(list,pc)=>`<div class="tl-note">麹棚</div><div class="rc-map" style="grid-template-columns:repeat(5,1fr)">${[10,9,8,7,6,5,4,3,2,1].map(i=>{ const x=list.filter(r=>r[pc]==='麹棚'+i); return `<div class="${x.length?'on':''}"><b>棚${i}</b>${x.map(r=>`<em>${esc(r['麹ID'])}</em>`).join('')}</div>`; }).join('')}</div>
     <div class="tl-note">天幕</div><div class="rc-map" style="grid-template-columns:repeat(5,1fr)">${['L5','L4','L3','L2','L1','R5','R4','R3','R2','R1'].map(n=>{ const x=list.filter(r=>r[pc]==='天幕'+n); return `<div class="${x.length?'on':''}"><b>${n}</b>${x.map(r=>`<em>${esc(r['麹ID'])}</em>`).join('')}</div>`; }).join('')}</div>`;
   const sec=(t,sub,list,fn)=>`<div class="rc-h">${t}<small>${sub}</small></div>`+(list.length?list.map(fn).join(''):`<p class="muted" style="margin:0 0 6px;font-size:13px">なし</p>`);
-  let h=`<div class="rc-nav"><button id="kPrev">‹ 前日</button><span class="d">${djp(date)}</span><button id="kNext">翌日 ›</button><button id="kToday">今日</button></div>
+  let h=`<div class="rc-nav"><button id="kPrev">‹ 前日</button><button class="d rc-dbtn" id="kDate">${djp(date)} <small>▾</small></button></div>
+    <div class="rc-dstrip" id="kStrip" style="display:none"></div>
     <div class="rc-sum"><div><span class="k">出麹</span><span class="v">${out.length}<small> 本 ${kgfmt(kg(out))}kg</small></span></div><div><span class="k">盛（仲・留仕事）</span><span class="v">${mori.length}<small> 本 ${kgfmt(kg(mori))}kg</small></span></div>
       <div><span class="k">引込（種切・切返し）</span><span class="v">${hik.length}<small> 本 ${kgfmt(kg(hik))}kg</small></span></div><div><span class="k">洗米（麹米）</span><span class="v">${wash.length}<small> 口 ${kgfmt(wash.reduce((s,w)=>s+(Number(w.kg)||0),0))}kg</small></span></div></div>
     ${typeof o2Btn==='function'?o2Btn('koji'):''}${rcRoomCard(j.room)}${rcProbeCard(j.probes)}
@@ -3708,7 +3714,15 @@ async function kojiScreen(day){
   app.innerHTML=h;
   if($('#kTane')) $('#kTane').onclick=()=>go(()=>taneScreen());
   if($('#kCmp')) $('#kCmp').onclick=()=>go(()=>compareScreen());
-  $('#kPrev').onclick=()=>kojiScreen(dadd(date,-1)); $('#kNext').onclick=()=>kojiScreen(dadd(date,1)); $('#kToday').onclick=()=>kojiScreen(dtoday());
+  $('#kPrev').onclick=()=>kojiScreen(dadd(date,-1));
+  /* 2026-10-05 日付をタップ → 日付を横にスクロールして選ぶ（翌日・今日ボタンは廃止） */
+  $('#kDate').onclick=()=>{ const st=$('#kStrip'); if(st.style.display!=='none'){ st.style.display='none'; return; }
+    const td=dtoday(); let x='';
+    for(let i=-45;i<=60;i++){ const d=dadd(td,i), o=dparse(d), w=o.getDay();
+      x+=`<button data-d="${d}" class="${d===date?'sel':''}${d===td?' td':''}${w===0?' sun':w===6?' sat':''}">${o.getDate()===1||i===-45?`<i>${o.getMonth()+1}月</i>`:'<i>&nbsp;</i>'}<b>${o.getDate()}</b><span>${d===td?'今日':WD[w]}</span></button>`; }
+    st.innerHTML=x; st.style.display='';
+    const c=st.querySelector('.sel')||st.querySelector('.td'); if(c) st.scrollLeft=c.offsetLeft-st.clientWidth/2+c.offsetWidth/2;
+    st.querySelectorAll('button[data-d]').forEach(b=>b.onclick=()=>kojiScreen(b.dataset.d)); };
   app.querySelectorAll('.rc-row[data-id]').forEach(b=>b.onclick=()=>go(()=>kojiEdit(date,b.dataset.id,b.dataset.st)));
   app.querySelectorAll('.rc-row[data-key]').forEach(b=>b.onclick=()=>go(()=>kyusuiEdit(date,b.dataset.key)));
 }
@@ -7952,6 +7966,7 @@ function stiBind(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-05-6','🍚','麹','上の日付をタップすると日付が横に並んで出て、スクロールして好きな日を選べるようになりました。「翌日」「今日」ボタンはなくしました。'],
   ['2026-10-05-5','🧫','酒母','酒母のタンク番号（順号の下の T◯◯）も表でそのまま入力できるようになりました。備考は「暖器」「冷器」を選べます（「その他…」を選ぶと文字で入力）。'],
   ['2026-10-05-4','🧫','酒母','上の「室温」「酸素濃度」「昨年度」を小さなアイコンにまとめました（室温のアイコンに最新の値。押すと入力欄が開きます）。スマホでは「分析者」の帯を出さないようにしました（ログインしている人が記録されます）。'],
   ['2026-10-05-3','🧫','酒母','1日目・2日目は分析しないので、Be・alc・酸度・アミノ酸の入力欄を出さないようにしました（品温・備考は入れられます）。3日目からはアミノ酸も入力できます（「ｱﾐﾉ」の表記は「アミノ酸」に）。'],
