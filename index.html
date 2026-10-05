@@ -4925,9 +4925,10 @@ function shChart(n, labels, series, todayIdx){
   const step=Math.max(1,Math.ceil(n/8));
   for(let i=0;i<n;i+=step) g+=`<text x="${x(i)}" y="${H-12}" font-size="9" fill="#6b7280" text-anchor="middle">${labels[i]}</text>`;
   let leg='', lx=L;
-  const grp={}; series.forEach(s=>{ const k=s.axis; (grp[k]=grp[k]||[]).push(...s.vals); });
+  const grp={}; series.forEach(s=>{ const k=s.axis; (grp[k]=grp[k]||[]).push(...s.vals,...(s.pm||[])); });
+  const xc=v=>Math.max(L,Math.min(L+pw,v)), off=n<=1?pw/6:pw/(n-1)/4;  /* 2026-10-05 品温AM→PMを1本の線に */
   series.forEach(s=>{
-    if(!s.vals.some(v=>v!==null)) return;
+    if(!s.vals.some(v=>v!==null)&&!(s.pm&&s.pm.some(v=>v!==null))) return;
     const r=rng(grp[s.axis]); if(!r) return;
     const y=v=>T+ph-(v-r[0])/(r[1]-r[0])*ph;
     const ax=s.axis==='R'?W-R+3:L-3, anc=s.axis==='R'?'start':'end';
@@ -4936,7 +4937,9 @@ function shChart(n, labels, series, todayIdx){
       leg+=`<rect x="${lx}" y="${H-7}" width="10" height="5" fill="${s.color}" fill-opacity=".3"/><text x="${lx+13}" y="${H-2}" font-size="10" fill="#6b7280">${esc(s.name)}</text>`; lx+=16+s.name.length*11; return; }
     g+=`<text x="${ax}" y="${T+8}" font-size="9" fill="${s.color}" text-anchor="${anc}">${shF(r[1],1)}</text><text x="${ax}" y="${T+ph}" font-size="9" fill="${s.color}" text-anchor="${anc}">${shF(r[0],1)}</text>`;
     let d='', pts='';
-    s.vals.forEach((v,i)=>{ if(v===null) return; d+=(d?' L':'M')+x(i).toFixed(1)+','+y(v).toFixed(1); pts+=`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${s.dash?2:2.6}" fill="${s.color}"/>`; });
+    if(s.pm){ const q=[]; s.vals.forEach((v,i)=>{ if(v!==null&&v!==undefined) q.push([xc(x(i)-off),v,0]); const p=s.pm[i]; if(p!==null&&p!==undefined) q.push([xc(x(i)+off),p,1]); });
+      q.forEach(([px,v,pm])=>{ d+=(d?' L':'M')+px.toFixed(1)+','+y(v).toFixed(1); pts+=pm?`<circle cx="${px.toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.4" fill="#fff" stroke="${s.color}" stroke-width="1.4"/>`:`<circle cx="${px.toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.4" fill="${s.color}"/>`; }); }
+    else s.vals.forEach((v,i)=>{ if(v===null) return; d+=(d?' L':'M')+x(i).toFixed(1)+','+y(v).toFixed(1); pts+=`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${s.dash?2:2.6}" fill="${s.color}"/>`; });
     g+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.dash?1.8:2.4}" ${s.dash?'stroke-dasharray="4 3"':''}/>${pts}`;
     leg+=`<rect x="${lx}" y="${H-6}" width="10" height="3" fill="${s.color}"/><text x="${lx+13}" y="${H-2}" font-size="10" fill="${s.color}">${esc(s.name)}</text>`; lx+=16+s.name.length*11;
   });
@@ -5023,8 +5026,7 @@ async function shuboSheet(no){
   if(miss.length&&dT>=1) h+=`<div class="tl-warn" style="margin:0 0 8px">仕込時の値（${miss.join('・')}）が未入力です。押して入れてください（入れるまで日々の分析は保存できません）。</div>`;
   h+=shChart(days.length, days.map(x=>x.day), [
     {name:'ボーメ', color:'#1f5fa8', axis:'L', vals:days.map(x=>shN(x.be))},
-    {name:'品温AM', color:'#c0392b', axis:'R', dash:true, vals:days.map(x=>shN(x.temp))},
-    {name:'PM', color:'#e08a1e', axis:'R', dash:true, vals:days.map(x=>shN(x.tPM))}], dT-1);
+    {name:'品温(●AM○PM)', color:'#c0392b', axis:'R', vals:days.map(x=>shN(x.temp)), pm:days.map(x=>shN(x.tPM))}], dT-1);
   h+=shTable(days, x=>x.day, [
     ['Be', x=>shF(x.be)], ['alc', x=>shF(x.alc)], ['酸度', x=>shF(x.ta)],
     ['品温', x=>{ const a=shF(x.temp), p=shF(x.tPM); return a||p?`${a||'—'}<span class="pm">${p||'—'}</span>`:''; }, {req:true}],
@@ -5964,7 +5966,7 @@ function bnHist(x, td){
     h+=shChart(days.length, days.map(y=>y.day), [
       {name:'ボーメ', color:'#1f5fa8', axis:'L', vals:days.map(y=>shN(y.be))},
       {name:'酸度', color:'#2f7d5d', axis:'R', vals:days.map(y=>shN(y.ta))},
-      {name:'品温AM', color:'#c0392b', axis:'R', dash:true, vals:days.map(y=>shN(y.temp))}], x.d-1);
+      {name:'品温(●AM○PM)', color:'#c0392b', axis:'R', vals:days.map(y=>shN(y.temp)), pm:days.map(y=>shN(y.tPM))}], x.d-1);
     h+=shTable(days, y=>y.day, [
       ['Be', y=>shF(y.be)], ['alc', y=>shF(y.alc)], ['酸度', y=>shF(y.ta)],
       ['品温', y=>{ const a=shF(y.temp), p=shF(y.tPM); return a||p?`${a||'—'}<span class="pm">${p||'—'}</span>`:''; }],
@@ -7137,7 +7139,7 @@ async function znShuboSheet(no,r8){
   const n=Math.max(days.length, cur&&cur.days?Math.min(cur.days.length,13):0);
   const lab=[...Array(n)].map((_,i)=>i+1);
   const ser=[{name:'昨年Be', color:'#1f5fa8', axis:'L', vals:lab.map(d=>{ const y=days[d-1]; return y?shN(y.sm):null; })},
-    {name:'昨年品温', color:'#c0392b', axis:'R', dash:true, vals:lab.map(d=>{ const y=days[d-1]; return y?shN(y.tAM):null; })}];
+    {name:'昨年品温', color:'#c0392b', axis:'R', vals:lab.map(d=>{ const y=days[d-1]; return y?shN(y.tAM):null; }), pm:lab.map(d=>{ const y=days[d-1]; return y?shN(y.tPM):null; })}];
   if(cur&&cur.days) ser.splice(1,0,{name:'今年Be', color:'#3f9a2f', axis:'L', vals:lab.map(d=>{ const y=cur.days[d-1]; return y?shN(y.be):null; })});
   h+=shChart(n, lab, ser, m&&dT>=1?dT-1:-1);
   h+=shTable(days, d=>d.day, [['Be',d=>shF(d.sm)],['alc',d=>shF(d.alc)],['酸度',d=>shF(d.ta)],['アミノ酸',d=>shF(d.aa)],
@@ -7334,7 +7336,7 @@ function kgHTML(fields, rows, opt){
     });
   });
   h+=`</tbody></table></div></div>`;
-  h+=`<div class="kg-leg">${opt.chart?'<span><i style="background:none;border:0;border-top:3px solid #1f5fa8;height:0;opacity:.6"></i>背景の線：ボーメ</span><span><i style="background:none;border:0;border-top:2px dashed #c0392b;height:0;opacity:.7"></i>品温AM</span><span><i style="background:none;border:0;border-top:2px dashed #e08a1e;height:0;opacity:.7"></i>PM</span>':''}${opt.today?'<span><i style="background:#fff4c9"></i>きょう</span><span><i style="background:#fff4c9;outline:2px dashed #d8a100;outline-offset:-2px"></i>きょうの品温がまだ</span>':''}${opt.jo?`<span><i style="background:#fde3dc"></i>${opt.jo}</span>`:''}<span><i style="background:#f4f1ea"></i>${opt.outLabel||'予定の後'}</span></div>`;
+  h+=`<div class="kg-leg">${opt.chart?'<span><i style="background:none;border:0;border-top:3px solid #1f5fa8;height:0;opacity:.6"></i>背景の線：ボーメ</span><span><i style="background:none;border:0;border-top:2px dashed #c0392b;height:0;opacity:.7"></i>品温（AM→PM の1本の線）</span>':''}${opt.today?'<span><i style="background:#fff4c9"></i>きょう</span><span><i style="background:#fff4c9;outline:2px dashed #d8a100;outline-offset:-2px"></i>きょうの品温がまだ</span>':''}${opt.jo?`<span><i style="background:#fde3dc"></i>${opt.jo}</span>`:''}<span><i style="background:#f4f1ea"></i>${opt.outLabel||'予定の後'}</span></div>`;
   return h;
 }
 function kgBind(open, root){
@@ -7620,7 +7622,7 @@ function kgBg(box, rows, fields){
     const trs=[...wrap.querySelectorAll('tr[data-kg]')].filter(t=>t.dataset.kg===String(r.no)); if(trs.length<=fP) return;
     const a=trs[fB].getBoundingClientRect(), b=trs[fP].getBoundingClientRect();
     const y0=a.top-W.top+5, y1=b.bottom-W.top-5; if(y1-y0<24) return;
-    const X={}; trs[fB].querySelectorAll('td[data-i]').forEach(c=>{ const q=c.getBoundingClientRect(); X[c.dataset.i]=q.left-W.left+q.width/2; });
+    const X={}, CW={}; trs[fB].querySelectorAll('td[data-i]').forEach(c=>{ const q=c.getBoundingClientRect(); X[c.dataset.i]=q.left-W.left+q.width/2; CW[c.dataset.i]=q.width; });
     const D=(r.days||[]).filter(d=>X[d.day]!==undefined);
     const pts=k=>D.map(d=>{ const v=d._r?shN(d._r[k]):null; return v===null?null:[X[d.day],v]; }).filter(Boolean);
     const draw=(p,lo,hi,color,w,dash,op)=>{ if(!p.length) return ''; const q=p.map(([x,v])=>[x, y1-(v-lo)/(hi-lo)*(y1-y0)]);
@@ -7630,7 +7632,10 @@ function kgBg(box, rows, fields){
     if(be.length){ const vs=be.map(p=>p[1]); g+=draw(be, Math.min(0,...vs), Math.max(10,...vs)*1.1, '#1f5fa8', 3.2, false, .30); }
     const tv=[...tA,...tP].map(p=>p[1]);
     if(tv.length){ const lo0=Math.min(...tv), hi0=Math.max(...tv), mid=(lo0+hi0)/2, half=Math.max(4,(hi0-lo0)/2+1);
-      g+=draw(tA, mid-half, mid+half, '#c0392b', 2.4, true, .40)+draw(tP, mid-half, mid+half, '#e08a1e', 2.4, true, .40); }
+      /* 2026-10-05 AM→PM を時間の順に1本の線（AM＝列の左寄り、PM＝右寄り） */
+      const tt=[]; D.forEach(d=>{ const w=(CW[d.day]||0)/4, a=d._r?shN(d._r.temp):null, p=d._r?shN(d._r.tPM):null;
+        if(a!==null) tt.push([X[d.day]-w,a]); if(p!==null) tt.push([X[d.day]+w,p]); });
+      g+=draw(tt, mid-half, mid+half, '#c0392b', 2.4, true, .45); }
   });
   if(g) wrap.insertAdjacentHTML('afterbegin', `<svg class="kg-bg" width="${wrap.scrollWidth}" height="${wrap.scrollHeight}" aria-hidden="true">${g}</svg>`);
 }
@@ -7973,6 +7978,7 @@ function stiBind(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-05-8','🧫','酒母','酒母のグラフの品温を、AM→PMの時間の順に1本の線でつなぐようにしました（●＝AM、○＝PM）。'],
   ['2026-10-05-7','🫁','麹・酒母','酸素濃度のボタンを青い丸の「O₂」アイコンにしました。麹は日付の左（「前日」ボタンはなくしました）、酒母は上のアイコンの並びにあります。麹の作業日に測っていないと赤く点滅します。'],
   ['2026-10-05-6','🍚','麹','上の日付をタップすると日付が横に並んで出て、スクロールして好きな日を選べるようになりました。「翌日」「今日」ボタンはなくしました。'],
   ['2026-10-05-5','🧫','酒母','酒母のタンク番号（順号の下の T◯◯）も表でそのまま入力できるようになりました。備考は「暖器」「冷器」を選べます（「その他…」を選ぶと文字で入力）。'],
