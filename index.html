@@ -7121,7 +7121,7 @@ async function znShuboSheet(no,r8){
     {name:'昨年品温', color:'#c0392b', axis:'R', dash:true, vals:lab.map(d=>{ const y=days[d-1]; return y?shN(y.tAM):null; })}];
   if(cur&&cur.days) ser.splice(1,0,{name:'今年Be', color:'#3f9a2f', axis:'L', vals:lab.map(d=>{ const y=cur.days[d-1]; return y?shN(y.be):null; })});
   h+=shChart(n, lab, ser, m&&dT>=1?dT-1:-1);
-  h+=shTable(days, d=>d.day, [['Be',d=>shF(d.sm)],['alc',d=>shF(d.alc)],['酸度',d=>shF(d.ta)],['ｱﾐﾉ',d=>shF(d.aa)],
+  h+=shTable(days, d=>d.day, [['Be',d=>shF(d.sm)],['alc',d=>shF(d.alc)],['酸度',d=>shF(d.ta)],['アミノ酸',d=>shF(d.aa)],
     ['品温',d=>{ const a=shF(d.tAM), p=shF(d.tPM); return a||p?`${a||'—'}<span class="pm">${p||'—'}</span>`:''; }]], m&&dT>=1?dT:-1);
   const mr=znFind('moromi',x.no);
   h+=`<p class="sh-note">品温は上段＝午前・下段(小)＝午後。乳酸 ${x.ny!==null?x.ny+'ml':'—'}・酛卸 ${rcMD(x.oro)}${x.bk?'・備考：'+esc(x.bk):''}。</p>`;
@@ -7251,7 +7251,7 @@ const KG_CSS=`
 const kgN=(v,d)=>{ const n=shN(v); return n===null?'':shF(n,d); };
 /* 項目：[見出し, 日の値→文字] */
 const kgFieldsMoromi=[['日付',d=>d.date?rcMD(d.date):'','dt'],['Be/度',d=>kgN(d.sm,1)],['alc',d=>kgN(d.alc,1)],['酸',d=>kgN(d.ta,1)],['ｱﾐﾉ',d=>kgN(d.aa,1)],['追水',d=>kgN(d.oimizu,0)],['品温AM',d=>kgN(d.tAM,1)],['品温PM',d=>kgN(d.tPM,1)],['BMD',d=>kgN(d.bmd,1)]];
-const kgFieldsShubo=[['日付',d=>d.date?rcMD(d.date):'','dt'],['Be',d=>kgN(d.sm,1)],['alc',d=>kgN(d.alc,1)],['酸度',d=>kgN(d.ta,1)],['ｱﾐﾉ',d=>kgN(d.aa,1)],['品温AM',d=>kgN(d.tAM,1)],['品温PM',d=>kgN(d.tPM,1)]];
+const kgFieldsShubo=[['日付',d=>d.date?rcMD(d.date):'','dt'],['Be',d=>kgN(d.sm,1)],['alc',d=>kgN(d.alc,1)],['酸度',d=>kgN(d.ta,1)],['アミノ酸',d=>kgN(d.aa,1)],['品温AM',d=>kgN(d.tAM,1)],['品温PM',d=>kgN(d.tPM,1)]];
 /* 仕込み時の列（「仕込み時」ボタンで表示／非表示）。分析醪・分析酒母シートと同じく、項目の行に 尺・量… を重ねる
    醪：添・踊・仲・留 × [日付, 尺(踊=Be), 量, 汲水(踊=酸), 氷(踊=ｱﾐﾉ), 水麹, 品温(仕込み後), 蒸米, —]
    酒母：仕込時 × [酛立日, 尺, 量, 水麹, 蒸米, —, —] */
@@ -7301,9 +7301,10 @@ function kgHTML(fields, rows, opt){
           cl+=' mg'+(sv.html&&!sv.date?' v':'');
         }
         // 2026-10-05 酒母：マスに直接入力（opt.edit・その日まで）
-        if(opt.edit && r.edit && fk && i<=(r.edMax||0)){
+        if(opt.edit && r.edit && fk && i<=(r.edMax||0) && !(r.noAna && i<=r.noAna && /^(be|alc|ta|aa)$/.test(fk))){   // 酒母の1・2日目は分析しない（2026-10-05）
           const raw=d&&d._r?d._r[fk]:'', val=(raw===undefined||raw===null)?'':String(raw), tx=fk==='biko';
-          const inp=`<input class="kg-i${tx?' tx':''}" data-no="${r.no}" data-day="${i}" data-k="${fk}" value="${esc(val)}" ${tx?'type="text"':'type="text" inputmode="decimal"'} autocomplete="off" aria-label="順号${esc(String(r.no))} ${i}日目 ${fl}"${r.lock?' disabled title="仕込時の値が未入力です（左の順号を押して入れてください）"':''}>`;
+          const noSrv=fk==='aa' && !(d&&d._r&&('aa' in d._r));   // サーバー（酒母醪_追加.gs）がアミノ酸に対応する前は入れさせない（保存されないため）
+          const inp=`<input class="kg-i${tx?' tx':''}" data-no="${r.no}" data-day="${i}" data-k="${fk}" value="${esc(val)}" ${tx?'type="text"':'type="text" inputmode="decimal"'} autocomplete="off" aria-label="順号${esc(String(r.no))} ${i}日目 ${fl}"${r.lock?' disabled title="仕込時の値が未入力です（左の順号を押して入れてください）"':noSrv?' disabled title="サーバーの更新待ち（酒母醪_追加.gs を新バージョンでデプロイすると入力できます）"':''}>`;
           const sv=(sk&&i===1)?kgSetVals(sk, r.set, fi).slice(-1)[0]:null;
           v=(sv&&sv.html&&!sv.date?`<span class="sv">${sv.html}</span>`:'')+inp; cl+=' in';
         }
@@ -7373,7 +7374,7 @@ function kgShuboRows(list, today){
     const miss=s&&typeof shSetupMissing==='function'&&dT>=1?shSetupMissing(s):[];
     const head=`<b>${esc(String(m.no))}</b><span class="tk">${m.shuboT?'T'+esc(m.shuboT):'T未設定'}</span><small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small><small>${dT>=1?dT+'日目':'酛立まで'+(1-dT)+'日'}</small><small>酛卸 ${rcMD(oro)}${m.tank?'→T'+esc(m.tank):''}</small>${!s?'<small>読み込み中…</small>':''}${miss.length?'<small class="wn">仕込時の値 未入力</small>':''}<span class="kg-edl">✎ 仕込時・酛卸</span>`;
     return {no:m.no, label:m.no, head, start:m.motodate, set:{x:{...((s&&s.setup)||{}), date:m.motodate}},
-      edit:!!s, lock:miss.length>0, edMax:Math.min(dT, days.length, 13),
+      edit:!!s, lock:miss.length>0, edMax:Math.min(dT, days.length, 13), noAna:2,
       sub:`<small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small><small>${m.shuboT?'T'+esc(m.shuboT)+'・':''}${dT>=1?dT+'日目':'酛立まで'+(1-dT)+'日'}</small><small>酛卸 ${rcMD(oro)}</small>${!s?'<small>読み込み中…</small>':''}${miss.length?'<small class="wn">仕込時の値 未入力</small>':''}`,
       days, n:Math.max(jo,dT), today:dT, jo}; });
 }
@@ -7425,7 +7426,8 @@ function kgHomeBox(kind){
 /* ================= 🧫 酒母：一覧の表にそのまま入力・グラフを表の背景に（2026-10-05） =================
    泰広さん指示：酒母のページに入ったら、そのページで入力をそのままできるように。タンク番号は順号の下に表示、
    グラフは表の背景に半透明で表示。次のページ（1本の画面・入力画面）に行かなくてよいようにする。
-   ・表のマス（Be・alc・酸度・品温AM・品温PM・備考）を、1日目〜きょうの列まで直接入力。ｱﾐﾉはサーバーに欄が無いので表示だけ
+   ・表のマス（Be・alc・酸度・アミノ酸・品温AM・品温PM・備考）を、1日目〜きょうの列まで直接入力（1・2日目は分析しないので Be・alc・酸度・アミノ酸は出さない）。
+     アミノ酸は 酒母醪_追加.gs の「酒母追加」シート S〜AE列（2026-10-05）。サーバーが古い（days に aa が無い）ときは入力欄を止める
    ・入れたマスは黄色の枠＝未保存。下に出る「保存」でまとめて保存（shubo_save を 酒母×日 ごとに送る）
    ・Enter で同じ日の下のマスへ。数字でないものは赤、ありえない値は橙（保存のとき確認）
    ・仕込時の値（仕込尺・仕込量・水麹・蒸米）が未入力の酒母は、日々のマスを止める（今までの決まり）
@@ -7433,8 +7435,8 @@ function kgHomeBox(kind){
    ・背景のグラフ：酒母ごとに Be（青）・品温AM（赤点線）・PM（橙点線）を、その日の列の位置に半透明で描く（kgBg）
    ・表の描き直し（データが届いたとき）でも、未保存の値とカーソルの位置は残す（KGE.dirty） */
 const KGE={ dirty:{}, draw:null, bg:null, msg:'' };
-const kgFieldsShuboNow=[['日付',d=>d.date?rcMD(d.date):'','dt'],['Be',d=>kgN(d.sm,1),'','be'],['alc',d=>kgN(d.alc,1),'','alc'],['酸度',d=>kgN(d.ta,1),'','ta'],['ｱﾐﾉ',d=>kgN(d.aa,1)],['品温AM',d=>kgN(d.tAM,1),'','temp'],['品温PM',d=>kgN(d.tPM,1),'','tPM'],['備考',d=>d.biko?`<span style="font-weight:400;font-size:10px">${esc(String(d.biko).slice(0,6))}</span>`:'','bk','biko']];
-const KGE_RANGE={be:[-5,25,'Be'],alc:[0,22,'alc'],ta:[0,30,'酸度'],temp:[0,40,'品温AM'],tPM:[0,40,'品温PM']};
+const kgFieldsShuboNow=[['日付',d=>d.date?rcMD(d.date):'','dt'],['Be',d=>kgN(d.sm,1),'','be'],['alc',d=>kgN(d.alc,1),'','alc'],['酸度',d=>kgN(d.ta,1),'','ta'],['アミノ酸',d=>kgN(d.aa,1),'','aa'],['品温AM',d=>kgN(d.tAM,1),'','temp'],['品温PM',d=>kgN(d.tPM,1),'','tPM'],['備考',d=>d.biko?`<span style="font-weight:400;font-size:10px">${esc(String(d.biko).slice(0,6))}</span>`:'','bk','biko']];
+const KGE_RANGE={be:[-5,25,'Be'],alc:[0,22,'alc'],ta:[0,30,'酸度'],aa:[0,10,'アミノ酸'],temp:[0,40,'品温AM'],tPM:[0,40,'品温PM']};
 const kgeKey=el=>`${el.dataset.no}|${el.dataset.day}|${el.dataset.k}`;
 function kgeCheck(el){   // '' ／ 'bad'（数字でない）／ 'warn'（ありえない値）
   const k=el.dataset.k, v=el.value.trim(); if(k==='biko'||v==='') return '';
@@ -7586,6 +7588,7 @@ window.addEventListener('resize',()=>{ clearTimeout(KGE.rt); KGE.rt=setTimeout((
 .kg-t.bgc td.out{background:rgba(230,225,212,.45)}
 .kg-t.bgc td.mg:not(.tday):not(.jo):not(.out){background:rgba(232,240,250,.55)}
 .kg-t.ed .n b{display:block;font-size:24px;line-height:1.1;font-weight:800}
+.kg-t.ed .f{font-size:10px;letter-spacing:-.3px}
 .kg-t .n .tk{display:block;font-size:15px;font-weight:800;color:#8a4b00;line-height:1.2;margin:1px 0 2px}
 .kg-t .n .kg-edl{display:inline-block;margin-top:4px;font-size:10px;color:#1f5fa8;border:1px solid #9fb3cf;border-radius:6px;padding:1px 4px;background:#fff;white-space:nowrap}
 .kg-t.ed td.in{padding:1px 2px}
@@ -7756,6 +7759,84 @@ document.addEventListener('click',e=>{
 
 </script>
 <!-- /guard -->
+<!-- shuboroom -->
+<script>
+/* ================= 🌡 酒母室の室温（🧫酒母の画面の上）2026-10-05 =================
+   泰広さん指示：基本は製造ツールを使う。酒母室の室温もツールから入力。記録器（おんどとり）が届くまでは週1回でも測ればよい。
+   ・🧫酒母を開くと一番上に「酒母室の室温」。最新の値・何日前、外気温（津川・参考）
+   ・「室温を入れる」→ 室温・メモ → 保存（湿度・除湿機の設定は 2026-10-05 泰広さん指示で入れない）（醸造記録 R8BY の room_save → 醪管理R8BY「酒母室温度」シート）
+   ・最後に測ってから7日以上たつとオレンジの帯
+   ・判断の主役は酒母室の室温（除湿機で調整）。外気温は参考
+   サーバー：醸造記録 R8BY の 気温.gs（room_get／room_save）。控え：seishu-workbook_github\_src_shuboroom.js
+   ================================================================================== */
+const SR={data:null, open:false};
+function srAgo(d){ if(!d) return null; return rcDays(d, dtoday()); }
+function srCardHTML(){
+  const j=SR.data;
+  if(j&&j.err==='unknown_action') return `<div class="card sr-card"><b>🌡 酒母室の室温</b><p class="tl-note" style="margin:6px 0 0">サーバー側（醸造記録 R8BY の 気温.gs）を入れると、ここから入力できます。</p></div>`;
+  const last=(j&&j.last&&j.last[0])||null, ago=last?srAgo(last.date):null;
+  const sensor=j&&j.sensor, out=j&&j.outdoor;
+  let main;
+  if(sensor) main=`<b class="sr-v">${sensor.temp}<small>℃</small></b><span class="sr-s">記録器 ${esc(sensor.at||'')}</span>`;
+  else if(last) main=`<b class="sr-v">${last.temp}<small>℃</small></b><span class="sr-s">${rcMD(last.date)} ${esc(last.time||'')}・${ago===0?'きょう':ago+'日前'}${last.who?'・'+esc(last.who):''}</span>`;
+  else main=`<b class="sr-v">—</b><span class="sr-s">${j?'まだ入力がありません':'読み込み中…'}</span>`;
+  const warn=!sensor&&j&&(!last||ago>=7);
+  return `<div class="card sr-card${warn?' sr-warn':''}">
+    <div class="sr-top"><span class="sr-h">🌡 酒母室の室温</span>${main}
+      <button class="rc-ghost" id="srOpen">${SR.open?'閉じる':'室温を入れる'}</button></div>
+    ${out?`<div class="sr-out">外気温（津川・参考）${out.t}℃　${esc(out.at||'')}</div>`:''}
+    ${warn?`<div class="sr-w">${last?'最後に測ってから'+ago+'日たちました。':'まだ測っていません。'}週1回は測って入れてください（記録器が届くまで）。</div>`:''}
+    ${SR.open?`<div class="rc-grid" style="margin-top:10px">
+        ${rcField('sr_temp','室温 ℃','',{step:'0.1'})}${rcField('sr_memo','メモ','',{type:'text'})}</div>
+      <div class="rc-status" id="srStatus"></div>
+      <div class="rc-actions"><button class="rc-btn" id="srSave">室温を保存</button></div>`:''}
+  </div>`;
+}
+function srPaint(){
+  const old=app.querySelector('.sr-card'); if(!old) return;
+  const d=document.createElement('div'); d.innerHTML=srCardHTML(); const n=d.firstElementChild; old.replaceWith(n); srBind();
+}
+function srBind(){
+  const o=$('#srOpen'); if(o) o.onclick=()=>{ SR.open=!SR.open; srPaint(); if(SR.open){ const t=$('#sr_temp'); if(t) t.focus(); } };
+  const s=$('#srSave'); if(s) s.onclick=async()=>{
+    const st=$('#srStatus'), t=$('#sr_temp').value.trim();
+    const n=Number(String(t).replace(/[０-９．－]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)));
+    if(t===''||isNaN(n)||n<-5||n>40){ if(st){ st.textContent='室温を -5〜40 の数字で入れてください'; st.className='rc-status warn'; } return; }
+    s.disabled=true; if(st){ st.textContent='保存しています…'; st.className='rc-status'; }
+    try{
+      const j=await recApi({action:'room_save', temp:n, memo:$('#sr_memo').value.trim()},30000);
+      if(j&&j.ok){ SR.data=j; lsSet('rec.room',j); SR.open=false; srPaint(); if(typeof rcStatus==='function') rcStatus('酒母室の室温を保存しました'); }
+      else { s.disabled=false; if(st){ st.textContent='保存できませんでした：'+((j&&j.err)||''); st.className='rc-status warn'; } }
+    }catch(e){ s.disabled=false; if(st){ st.textContent='通信できませんでした。電波の届く所でもう一度。'; st.className='rc-status warn'; } }
+  };
+}
+async function srLoad(){
+  try{ const j=await recApi({action:'room_get'},30000);
+    if(j&&j.ok){ SR.data=j; lsSet('rec.room',j); } else if(j&&j.err==='unknown_action'){ SR.data={err:'unknown_action'}; }
+  }catch(e){}
+  if(!SR.open) srPaint();
+}
+(function(){
+  const orig=window.shuboHome; if(typeof orig!=='function') return;
+  window.shuboHome=async function(...a){
+    const top=nav[nav.length-1]; const r=await orig.apply(this,a);
+    try{ if(nav[nav.length-1]!==top || app.querySelector('.sr-card')) return r;
+      if(!SR.data) SR.data=lsGet('rec.room',null);
+      SR.open=false;
+      const d=document.createElement('div'); d.innerHTML=srCardHTML(); const b=d.firstElementChild;
+      app.prepend(b); srBind(); srLoad();
+    }catch(e){}
+    return r;
+  };
+})();
+(function(){ const css=`.sr-card{padding:10px 12px}.sr-card.sr-warn{border:2px solid #e8a13a;background:#fff8ec}
+.sr-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sr-h{font-weight:700;font-size:14px}
+.sr-v{font-size:24px;line-height:1}.sr-v small{font-size:13px;font-weight:400}.sr-s{font-size:12px;color:var(--sub);flex:1;min-width:120px}
+.sr-top .rc-ghost{margin-left:auto}.sr-out{font-size:12px;color:var(--sub);margin-top:6px}.sr-w{font-size:13px;color:#a0610b;margin-top:6px;font-weight:600}`;
+  const s=document.createElement('style'); s.textContent=css; document.head.appendChild(s); })();
+
+</script>
+<!-- /shuboroom -->
 <!-- upd -->
 <script>
 /* ================= 🆕 アップデート情報（ホームの最後のアイコン）2026-10-04 =================
@@ -7765,6 +7846,8 @@ document.addEventListener('click',e=>{
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-05-3','🧫','酒母','1日目・2日目は分析しないので、Be・alc・酸度・アミノ酸の入力欄を出さないようにしました（品温・備考は入れられます）。3日目からはアミノ酸も入力できます（「ｱﾐﾉ」の表記は「アミノ酸」に）。'],
+  ['2026-10-05-2','🌡','酒母','酒母のページの一番上に「酒母室の室温」。「室温を入れる」で室温を記録できます（記録器が届くまで週1回でOK。7日以上あくとオレンジ）。外気温（津川）も参考に出ます。'],
   ['2026-10-05-1','🧫','酒母','酒母のページの表にそのまま入力できるようになりました（Be・alc・酸度・品温・備考。入れたら下の「保存」）。タンク番号は順号のすぐ下に大きく、グラフ（ボーメ・品温）は表の背景にうすく出ます。仕込時の値・酛卸日は左の順号を押すと入れられます。'],
   ['2026-10-04-6','🍚','ホーム','「麹」のアイコンを麹菌（分生子柄）の絵に変えました（背景は少し明るい金色）。'],
   ['2026-10-04-5','📝','やることリスト','すぐにやらなければならないものほど上に並ぶように。時期「今すぐ」→「今月中」→「造り前」…の順、同じ時期では「止まっている」が上。「今すぐ」は赤、「今月中」はオレンジの札。'],
