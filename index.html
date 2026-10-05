@@ -7304,7 +7304,7 @@ function kgHTML(fields, rows, opt){
         if(opt.edit && r.edit && fk && i<=(r.edMax||0) && !(r.noAna && i<=r.noAna && /^(be|alc|ta|aa)$/.test(fk))){   // 酒母の1・2日目は分析しない（2026-10-05）
           const raw=d&&d._r?d._r[fk]:'', val=(raw===undefined||raw===null)?'':String(raw), tx=fk==='biko';
           const noSrv=fk==='aa' && !(d&&d._r&&('aa' in d._r));   // サーバー（酒母醪_追加.gs）がアミノ酸に対応する前は入れさせない（保存されないため）
-          const inp=`<input class="kg-i${tx?' tx':''}" data-no="${r.no}" data-day="${i}" data-k="${fk}" value="${esc(val)}" ${tx?'type="text"':'type="text" inputmode="decimal"'} autocomplete="off" aria-label="順号${esc(String(r.no))} ${i}日目 ${fl}"${r.lock?' disabled title="仕込時の値が未入力です（左の順号を押して入れてください）"':noSrv?' disabled title="サーバーの更新待ち（酒母醪_追加.gs を新バージョンでデプロイすると入力できます）"':''}>`;
+          const inp=tx?kgeBikoSel(r, i, val, fl):`<input class="kg-i${tx?' tx':''}" data-no="${r.no}" data-day="${i}" data-k="${fk}" value="${esc(val)}" ${tx?'type="text"':'type="text" inputmode="decimal"'} autocomplete="off" aria-label="順号${esc(String(r.no))} ${i}日目 ${fl}"${r.lock?' disabled title="仕込時の値が未入力です（左の順号を押して入れてください）"':noSrv?' disabled title="サーバーの更新待ち（酒母醪_追加.gs を新バージョンでデプロイすると入力できます）"':''}>`;
           const sv=(sk&&i===1)?kgSetVals(sk, r.set, fi).slice(-1)[0]:null;
           v=(sv&&sv.html&&!sv.date?`<span class="sv">${sv.html}</span>`:'')+inp; cl+=' in';
         }
@@ -7372,7 +7372,7 @@ function kgShuboRows(list, today){
     const oro=(s&&(s.motooroshi||s.motooroshiPlan))||(m.soe?dadd(m.soe,-1):''); const jo=oro?rcDays(m.motodate,oro)+1:13;
     const days=s&&s.days?s.days.map(d=>({day:d.day,date:d.date,sm:d.be,alc:d.alc,ta:d.ta,aa:d.aa,tAM:d.temp,tPM:d.tPM,biko:d.biko,_r:d})):[];
     const miss=s&&typeof shSetupMissing==='function'&&dT>=1?shSetupMissing(s):[];
-    const head=`<b>${esc(String(m.no))}</b><span class="tk">${m.shuboT?'T'+esc(m.shuboT):'T未設定'}</span><small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small><small>${dT>=1?dT+'日目':'酛立まで'+(1-dT)+'日'}</small><small>酛卸 ${rcMD(oro)}${m.tank?'→T'+esc(m.tank):''}</small>${!s?'<small>読み込み中…</small>':''}${miss.length?'<small class="wn">仕込時の値 未入力</small>':''}<span class="kg-edl">✎ 仕込時・酛卸</span>`;
+    const head=`<b>${esc(String(m.no))}</b><span class="tk tkin">T<input class="kg-i tki" data-no="${esc(String(m.no))}" data-day="0" data-k="shuboT" value="${esc(m.shuboT==null?'':String(m.shuboT))}" type="text" inputmode="numeric" autocomplete="off" placeholder="未" aria-label="順号${esc(String(m.no))} 酒母タンク"></span><small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small><small>${dT>=1?dT+'日目':'酛立まで'+(1-dT)+'日'}</small><small>酛卸 ${rcMD(oro)}${m.tank?'→T'+esc(m.tank):''}</small>${!s?'<small>読み込み中…</small>':''}${miss.length?'<small class="wn">仕込時の値 未入力</small>':''}<span class="kg-edl">✎ 仕込時・酛卸</span>`;
     return {no:m.no, label:m.no, head, start:m.motodate, set:{x:{...((s&&s.setup)||{}), date:m.motodate}},
       edit:!!s, lock:miss.length>0, edMax:Math.min(dT, days.length, 13), noAna:2,
       sub:`<small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small><small>${m.shuboT?'T'+esc(m.shuboT)+'・':''}${dT>=1?dT+'日目':'酛立まで'+(1-dT)+'日'}</small><small>酛卸 ${rcMD(oro)}</small>${!s?'<small>読み込み中…</small>':''}${miss.length?'<small class="wn">仕込時の値 未入力</small>':''}`,
@@ -7426,6 +7426,7 @@ function kgHomeBox(kind){
 /* ================= 🧫 酒母：一覧の表にそのまま入力・グラフを表の背景に（2026-10-05） =================
    泰広さん指示：酒母のページに入ったら、そのページで入力をそのままできるように。タンク番号は順号の下に表示、
    グラフは表の背景に半透明で表示。次のページ（1本の画面・入力画面）に行かなくてよいようにする。
+   ・2026-10-05 追加：左の順号の下の酒母タンク（T◯◯）もそのまま入力（shubo_save の shuboT → 仕込マスタ「酒母T」）。備考は 暖器／冷器／その他…（選ぶと文字で入力）
    ・表のマス（Be・alc・酸度・アミノ酸・品温AM・品温PM・備考）を、1日目〜きょうの列まで直接入力（1・2日目は分析しないので Be・alc・酸度・アミノ酸は出さない）。
      アミノ酸は 酒母醪_追加.gs の「酒母追加」シート S〜AE列（2026-10-05）。サーバーが古い（days に aa が無い）ときは入力欄を止める
    ・入れたマスは黄色の枠＝未保存。下に出る「保存」でまとめて保存（shubo_save を 酒母×日 ごとに送る）
@@ -7438,14 +7439,24 @@ const KGE={ dirty:{}, draw:null, bg:null, msg:'' };
 const kgFieldsShuboNow=[['日付',d=>d.date?rcMD(d.date):'','dt'],['Be',d=>kgN(d.sm,1),'','be'],['alc',d=>kgN(d.alc,1),'','alc'],['酸度',d=>kgN(d.ta,1),'','ta'],['アミノ酸',d=>kgN(d.aa,1),'','aa'],['品温AM',d=>kgN(d.tAM,1),'','temp'],['品温PM',d=>kgN(d.tPM,1),'','tPM'],['備考',d=>d.biko?`<span style="font-weight:400;font-size:10px">${esc(String(d.biko).slice(0,6))}</span>`:'','bk','biko']];
 const KGE_RANGE={be:[-5,25,'Be'],alc:[0,22,'alc'],ta:[0,30,'酸度'],aa:[0,10,'アミノ酸'],temp:[0,40,'品温AM'],tPM:[0,40,'品温PM']};
 const kgeKey=el=>`${el.dataset.no}|${el.dataset.day}|${el.dataset.k}`;
+const kgeOrig=el=>el.dataset.orig!==undefined?el.dataset.orig:el.defaultValue;   // 選択（備考）は data-orig に元の値
+const kgeChanged=el=>el.value!==kgeOrig(el);
+/* 備考（日ごと）：暖器／冷器／その他（自由に入力）を選ぶ（2026-10-05 泰広さん指示） */
+const KGE_BIKO=['暖器','冷器'];
+function kgeBikoSel(r, i, val, fl){
+  const lab=`順号${esc(String(r.no))} ${i}日目 ${fl}`, dis=r.lock?' disabled title="仕込時の値が未入力です（左の順号を押して入れてください）"':'';
+  const known=val===''||KGE_BIKO.includes(val);
+  if(!known) return `<input class="kg-i tx" data-no="${r.no}" data-day="${i}" data-k="biko" value="${esc(val)}" type="text" autocomplete="off" aria-label="${lab}"${dis}>`;
+  return `<select class="kg-i sel" data-no="${r.no}" data-day="${i}" data-k="biko" data-orig="${esc(val)}" aria-label="${lab}"${dis}><option value=""${val===''?' selected':''}></option>${KGE_BIKO.map(o=>`<option${o===val?' selected':''}>${o}</option>`).join('')}<option value="__other">その他…</option></select>`;
+}
 function kgeCheck(el){   // '' ／ 'bad'（数字でない）／ 'warn'（ありえない値）
-  const k=el.dataset.k, v=el.value.trim(); if(k==='biko'||v==='') return '';
+  const k=el.dataset.k, v=el.value.trim(); if(k==='biko'||k==='shuboT'||v==='') return '';
   const n=pnum(v); if(n===null) return 'bad';
   const R=KGE_RANGE[k]; return R&&(n<R[0]||n>R[1])?'warn':'';
 }
 function kgeMark(el){
   const c=kgeCheck(el);
-  el.classList.toggle('dirty', el.value!==el.defaultValue);
+  el.classList.toggle('dirty', kgeChanged(el));
   el.classList.toggle('bad', c==='bad'); el.classList.toggle('warn', c==='warn');
 }
 function kgeKeep(box){
@@ -7454,13 +7465,14 @@ function kgeKeep(box){
   return null;
 }
 function kgeNext(box, el){
-  const same=[...box.querySelectorAll(`input.kg-i[data-day="${el.dataset.day}"]`)].filter(x=>!x.disabled);
+  if(el.dataset.day==='0'){ el.blur(); return; }
+  const same=[...box.querySelectorAll(`.kg-i[data-day="${el.dataset.day}"]`)].filter(x=>!x.disabled);
   const i=same.indexOf(el), nx=same[i+1];
   if(nx){ nx.focus(); try{ nx.select(); }catch(e){} } else el.blur();
 }
 function kgeBar(box){
   const bar=box.querySelector('.kg-sbar'); if(!bar) return;
-  const ins=[...box.querySelectorAll('input.kg-i')].filter(x=>x.value!==x.defaultValue);
+  const ins=[...box.querySelectorAll('.kg-i')].filter(kgeChanged);
   const bad=ins.filter(x=>kgeCheck(x)==='bad').length;
   bar.hidden=!ins.length && !KGE.msg;
   bar.classList.toggle('ok', !ins.length && !!KGE.msg && !KGE.msgNg);
@@ -7470,25 +7482,46 @@ function kgeBar(box){
   bar.querySelector('#kgSave').hidden=!ins.length; bar.querySelector('#kgUndo').hidden=!ins.length;
 }
 function kgeSay(box, t, ng){ KGE.msg=t; KGE.msgNg=!!ng; kgeBar(box); if(!ng) setTimeout(()=>{ if(KGE.msg===t){ KGE.msg=''; kgeBar(box); } },5000); }
+/* 「その他…」を選んだら、そのマスを文字の入力欄に切り替える */
+function kgeToText(box, sel, val){
+  const inp=document.createElement('input');
+  inp.className='kg-i tx'; inp.type='text'; inp.autocomplete='off';
+  ['no','day','k'].forEach(k=>inp.dataset[k]=sel.dataset[k]); inp.dataset.orig=kgeOrig(sel);
+  inp.setAttribute('aria-label', sel.getAttribute('aria-label')||''); inp.value=val||''; inp.placeholder='その他（入力）';
+  sel.replaceWith(inp); kgeWire(box, inp); return inp;
+}
+function kgeWire(box, el){
+  const key=kgeKey(el);
+  const upd=()=>{ if(!kgeChanged(el)) delete KGE.dirty[key]; else KGE.dirty[key]=el.value; kgeMark(el); kgeBar(box); };
+  if(el.tagName==='SELECT'){
+    el.addEventListener('change',()=>{
+      if(el.value==='__other'){ const t=kgeToText(box, el, ''); KGE.dirty[key]=''; t.focus(); kgeMark(t); kgeBar(box); return; }
+      upd(); });
+  } else el.addEventListener('input',upd);
+  el.addEventListener('click',e=>e.stopPropagation());   // 左の順号のマス（タンク）を押しても入力窓は開かない
+  el.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.isComposing){ e.preventDefault(); kgeNext(box, el); } });
+  if(el.tagName==='INPUT') el.addEventListener('focus',()=>{ try{ el.select(); }catch(e){} });
+}
 function kgeBind(box, opt, keep){
-  const ins=[...box.querySelectorAll('input.kg-i')];
-  ins.forEach(el=>{
+  let ins=[...box.querySelectorAll('.kg-i')];
+  ins.forEach((el,ix)=>{
     const key=kgeKey(el);
-    if(key in KGE.dirty && !el.disabled){ el.value=KGE.dirty[key]; }
-    kgeMark(el);
-    el.addEventListener('input',()=>{ if(el.value===el.defaultValue) delete KGE.dirty[key]; else KGE.dirty[key]=el.value; kgeMark(el); kgeBar(box); });
-    el.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.isComposing){ e.preventDefault(); kgeNext(box, el); } });
-    el.addEventListener('focus',()=>{ try{ el.select(); }catch(e){} });
+    if(key in KGE.dirty && !el.disabled){
+      const v=KGE.dirty[key];
+      if(el.tagName==='SELECT' && !KGE_BIKO.includes(v) && v!==''){ el=ins[ix]=kgeToText(box, el, v); kgeMark(el); return; }
+      el.value=v;
+    }
+    kgeMark(el); kgeWire(box, el);
   });
   box.insertAdjacentHTML('beforeend', `<div class="kg-sbar" hidden><span class="c"></span><span class="m"></span><button class="rc-ghost" id="kgUndo">元に戻す</button><button class="rc-btn" id="kgSave">保存</button></div>`);
   $('#kgSave').onclick=()=>kgeSave(box);
   $('#kgUndo').onclick=()=>{ if(!window.confirm('未保存の入力を消して、元の値に戻しますか？')) return;
-    box.querySelectorAll('input.kg-i').forEach(el=>{ if(el.value!==el.defaultValue){ el.value=el.defaultValue; delete KGE.dirty[kgeKey(el)]; kgeMark(el); } }); kgeBar(box); };
+    box.querySelectorAll('.kg-i').forEach(el=>{ if(kgeChanged(el)) delete KGE.dirty[kgeKey(el)]; }); if(KGE.draw) KGE.draw(); };
   kgeBar(box);
-  if(keep){ const el=ins.find(x=>kgeKey(x)===keep.key); if(el){ el.focus({preventScroll:true}); try{ el.setSelectionRange(keep.s,keep.e); }catch(e){} } }
+  if(keep){ const el=[...box.querySelectorAll('.kg-i')].find(x=>kgeKey(x)===keep.key); if(el){ el.focus({preventScroll:true}); try{ el.setSelectionRange(keep.s,keep.e); }catch(e){} } }
 }
 async function kgeSave(box){
-  const ins=[...box.querySelectorAll('input.kg-i')].filter(el=>!el.disabled&&el.value!==el.defaultValue);
+  const ins=[...box.querySelectorAll('.kg-i')].filter(el=>!el.disabled&&kgeChanged(el));
   if(!ins.length){ kgeSay(box,'変わったところがありません'); return; }
   const lab=el=>el.getAttribute('aria-label')||'';
   const bad=ins.filter(el=>kgeCheck(el)==='bad');
@@ -7497,24 +7530,28 @@ async function kgeSave(box){
   if(warn.length && !window.confirm(`ありえない値かもしれません。\n${warn.map(el=>`・${lab(el)}：${el.value}`).slice(0,10).join('\n')}\n\nこのまま保存しますか？`)) return;
   const G={}, lock=new Set();
   ins.forEach(el=>{ const no=el.dataset.no, day=Number(el.dataset.day), k=el.dataset.k, s=RC.shubo[no];
-    if(s&&shSetupMissing(s).length){ lock.add(no); return; }
-    const v=el.value.trim(), val=k==='biko'?el.value:(v===''?'':String(pnum(v)));
-    (G[no+'|'+day]=G[no+'|'+day]||{no,day,values:{},els:[]}).values[k]=val; G[no+'|'+day].els.push(el); });
+    if(day>0 && s&&shSetupMissing(s).length){ lock.add(no); return; }
+    const v=el.value.trim(), val=(k==='biko'||k==='shuboT')?v:(v===''?'':String(pnum(v)));
+    const g=(G[no+'|'+day]=G[no+'|'+day]||{no,day,values:{},els:[]}); if(day===0) g.shuboT=val; else g.values[k]=val; g.els.push(el); });
   const list=Object.values(G);
   if(!list.length){ kgeSay(box,`順号${[...lock].join('・')} は先に仕込時の値を入れてください（左の順号を押す）`,true); return; }
   const btn=$('#kgSave'); if(btn) btn.disabled=true;
-  const ok=[], ng=[];
+  const ok=[], ng=[], nm=g=>g.day===0?`順号${g.no} タンク`:`順号${g.no} ${g.day}日目`;
   for(let i=0;i<list.length;i++){ const g=list[i];
-    kgeSay(box,`保存中… ${i+1}/${list.length}（順号${g.no} ${g.day}日目）`);
-    try{ const r=await recApi({action:'shubo_save',no:g.no,day:g.day,values:g.values},40000);
-      if(r&&r.ok){ ok.push(g); g.els.forEach(el=>{ delete KGE.dirty[kgeKey(el)]; el.classList.add('saved'); }); } else ng.push(g); }
+    kgeSay(box,`保存中… ${i+1}/${list.length}（${nm(g)}）`);
+    try{ const body=g.day===0?{action:'shubo_save',no:g.no,shuboT:g.shuboT}:{action:'shubo_save',no:g.no,day:g.day,values:g.values};
+      const r=await recApi(body,40000);
+      if(r&&r.ok){ ok.push(g); g.els.forEach(el=>{ delete KGE.dirty[kgeKey(el)]; el.classList.add('saved'); });
+        if(g.day===0){ const m=rcMaster(g.no); if(m) m.shuboT=g.shuboT; try{ if(RC.state) lsSet('rec.state',RC.state); }catch(e){} } }
+      else ng.push(g); }
     catch(e){ ng.push(g); } }
-  const nos=[...new Set(ok.map(g=>String(g.no)))];
+  const nos=[...new Set(ok.filter(g=>g.day>0).map(g=>String(g.no)))];
   nos.forEach(no=>RC.shubo[no]=null);
-  if(ng.length) kgeSay(box,`保存できなかった所があります：${ng.map(g=>`順号${g.no} ${g.day}日目`).join('、')}。電波を確認してもう一度「保存」を押してください${lock.size?`（順号${[...lock].join('・')} は仕込時の値が未入力）`:''}`,true);
-  else kgeSay(box,`保存しました（${ok.map(g=>`順号${g.no} ${g.day}日目`).join('、')}）${lock.size?`。順号${[...lock].join('・')} は仕込時の値が未入力のため保存していません`:''}`, lock.size>0);
+  if(ng.length) kgeSay(box,`保存できなかった所があります：${ng.map(nm).join('、')}。電波を確認してもう一度「保存」を押してください${lock.size?`（順号${[...lock].join('・')} は仕込時の値が未入力）`:''}`,true);
+  else kgeSay(box,`保存しました（${ok.map(nm).join('、')}）${lock.size?`。順号${[...lock].join('・')} は仕込時の値が未入力のため保存していません`:''}`, lock.size>0);
   if(btn) btn.disabled=false;
-  if(nos.length){ await shFetchMany(nos,'shubo_get',RC.shubo,()=>{}); if(KGE.draw&&document.body.contains(box)) KGE.draw(); }
+  if(nos.length) await shFetchMany(nos,'shubo_get',RC.shubo,()=>{});
+  if(ok.length && KGE.draw && document.body.contains(box)) KGE.draw();
 }
 /* 左の順号を押したとき：仕込時の値・酛卸日・酒母の備考 */
 async function kgeDialog(no){
@@ -7603,6 +7640,9 @@ window.addEventListener('resize',()=>{ clearTimeout(KGE.rt); KGE.rt=setTimeout((
 .kg-t td.miss .kg-i:not(.dirty){border:2px dashed #d8a100}
 .kg-t.ed td.in .sv{display:block;font-size:10px;color:#103e74}
 .kg-t.ed td.in .sv small{font-size:9px;color:var(--sub);font-weight:400;margin-right:2px}
+.kg-t .n .tkin{display:flex;align-items:center;gap:1px}
+.kg-i.tki{width:46px;font-size:15px;font-weight:800;color:#8a4b00;text-align:left;padding:2px 3px}
+.kg-i.sel{width:76px;font-size:11px;font-weight:400;text-align:left;padding:2px 1px;-webkit-appearance:menulist;appearance:auto}
 .kg-sbar{position:sticky;bottom:8px;z-index:30;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fffbe8;border:2px solid #e0a800;border-radius:12px;padding:8px 10px;margin:8px 0;box-shadow:0 4px 14px rgba(0,0,0,.15)}
 .kg-sbar[hidden]{display:none}
 .kg-sbar .c{font-weight:800;color:#7a5600}
@@ -7716,7 +7756,7 @@ function iaBar(){
   if(!IA_ON||app.querySelector('.ia-bar')) return;
   const d=document.createElement('div');
   if(!igShared()){
-    d.className='ia-bar'; d.innerHTML=`🧪 分析者 <b>${esc((ST&&ST.name)||'')}</b><small>（ログインしている人）</small>`;
+    return;   // 2026-10-05 泰広さん指示：スマホ（本人のID）では分析者の帯は出さない（ログインしている人が分析者として記録される）
   } else {
     const cur=iaGet(), N=iaNames();
     const opt=a=>a.map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');
@@ -7837,6 +7877,72 @@ async function srLoad(){
 
 </script>
 <!-- /shuboroom -->
+<!-- shubotop -->
+<script>
+/* ================= 🧫 酒母：上のボタンを小さなアイコンに（2026-10-05） =================
+   泰広さん指示：酒母の 室温・酸素濃度・昨年のデータ参照 のボタンが大きい。アイコン並みにして。
+   ・🧫酒母の画面の一番上に 小さな角丸アイコンを3つ横に並べる：🌡室温（最新の値。7日以上あくとオレンジ）／O₂ 酸素濃度／📅 昨年度
+   ・もとの大きなカード（.sr-card・O₂ボタン・昨年度ボタン）は隠しておき、アイコンから同じ動きを呼ぶ
+     室温 → 室温のカードをその場に開いて入力欄を出す（もう一度押すと閉じる）／O₂・昨年度 → もとのボタンを押したのと同じ
+   ・shuboroom（室温）・zennen（昨年度）・o2 のコードはそのまま。このブロックは shuboroom の後ろに置く
+   控え：seishu-workbook_github\_src_shubotop.js（index.html の shubotop の目印の間） */
+const STI={room:false};
+function stiRoomInfo(){
+  const j=(typeof SR!=='undefined'&&SR.data)||null;
+  if(!j||j.err) return {v:'—', warn:false};
+  if(j.sensor) return {v:j.sensor.temp+'℃', warn:false};
+  const last=j.last&&j.last[0]; if(!last) return {v:'未', warn:true};
+  const ago=rcDays(last.date, dtoday()); return {v:last.temp+'℃', warn:ago>=7};
+}
+function stiHTML(){
+  const r=stiRoomInfo();
+  return `<div class="st-icons${STI.room?' room-on':''}">
+    <button class="st-ic${r.warn?' wn':''}${STI.room?' on':''}" data-sti="room" type="button"><span class="e">🌡</span><b>${esc(r.v)}</b><small>室温</small></button>
+    <button class="st-ic" data-sti="o2" type="button"><span class="e o2">O<sub>2</sub></span><small>酸素濃度</small></button>
+    <button class="st-ic" data-sti="zn" type="button"><span class="e">📅</span><small>昨年度</small></button>
+  </div>`;
+}
+function stiPaint(){
+  const old=app.querySelector('.st-icons'); if(!old) return;
+  const d=document.createElement('div'); d.innerHTML=stiHTML(); old.replaceWith(d.firstElementChild); stiBind();
+}
+function stiBind(){
+  app.querySelectorAll('.st-ic[data-sti]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.sti;
+    if(k==='room'){ STI.room=!STI.room; if(typeof SR!=='undefined'){ SR.open=STI.room; if(typeof srPaint==='function') srPaint(); } stiPaint();
+      if(STI.room){ const t=$('#sr_temp'); if(t) setTimeout(()=>t.focus(),50); } return; }
+    if(k==='o2'){ const o=app.querySelector('.o2-open[data-o2]'); if(o) o.click(); else if(typeof o2Screen==='function') go(()=>o2Screen('shubo')); return; }
+    if(k==='zn'){ const z=app.querySelector('.zn-btn[data-zn]'); if(z) z.click(); else if(typeof znScreen==='function') go(()=>znScreen('shubo',{no:''})); }
+  });
+}
+/* 室温のカードを描き直したら、アイコンの値も合わせる（保存して閉じたときはアイコンも閉じる） */
+(function(){ if(typeof srPaint!=='function') return; const _p=srPaint;
+  srPaint=function(){ const r=_p.apply(this,arguments); try{ if(typeof SR!=='undefined' && !SR.open) STI.room=false; stiPaint(); }catch(e){} return r; }; })();
+(function(){
+  const orig=window.shuboHome; if(typeof orig!=='function') return;
+  window.shuboHome=async function(...a){
+    const top=nav[nav.length-1]; const r=await orig.apply(this,a);
+    try{ if(nav[nav.length-1]!==top || app.querySelector('.st-icons')) return r;
+      STI.room=false; if(typeof SR!=='undefined'){ SR.open=false; }
+      const d=document.createElement('div'); d.innerHTML=stiHTML(); const row=d.firstElementChild;
+      const first=app.querySelector('.sr-card')||app.querySelector('.o2-open')||app.querySelector('.zn-btn')||app.querySelector('.kg-home');
+      first?first.before(row):app.prepend(row); stiBind();
+    }catch(e){ console.log('shubotop',e); }
+    return r;
+  };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.st-icons{display:flex;gap:8px;margin:6px 0 8px}
+.st-ic{width:72px;height:66px;border-radius:14px;border:1px solid var(--line,#e4ded1);background:var(--card,#fff);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:4px;font-family:inherit;color:var(--navy,#1f3f72);cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.st-ic .e{font-size:20px;line-height:1.1}.st-ic .e.o2{font-weight:800;font-size:17px;color:#1f6fa8}.st-ic .e.o2 sub{font-size:10px}
+.st-ic b{font-size:12px;line-height:1.1}.st-ic small{font-size:10px;color:var(--sub,#6b6b6b);line-height:1.2}
+.st-ic.wn{border:2px solid #e8a13a;background:#fff8ec}.st-ic.on{border:2px solid #1f5fa8;background:#eef3fb}
+#app:has(.st-icons) .o2-open[data-o2="shubo"],#app:has(.st-icons) .zn-btn[data-zn="shubo"]{display:none}
+#app:has(.st-icons:not(.room-on)) .sr-card{display:none}
+#app:has(.st-icons) .sr-card .sr-top .rc-ghost{display:none}`; document.head.appendChild(s); })();
+
+</script>
+<!-- /shubotop -->
 <!-- upd -->
 <script>
 /* ================= 🆕 アップデート情報（ホームの最後のアイコン）2026-10-04 =================
@@ -7846,6 +7952,8 @@ async function srLoad(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-05-5','🧫','酒母','酒母のタンク番号（順号の下の T◯◯）も表でそのまま入力できるようになりました。備考は「暖器」「冷器」を選べます（「その他…」を選ぶと文字で入力）。'],
+  ['2026-10-05-4','🧫','酒母','上の「室温」「酸素濃度」「昨年度」を小さなアイコンにまとめました（室温のアイコンに最新の値。押すと入力欄が開きます）。スマホでは「分析者」の帯を出さないようにしました（ログインしている人が記録されます）。'],
   ['2026-10-05-3','🧫','酒母','1日目・2日目は分析しないので、Be・alc・酸度・アミノ酸の入力欄を出さないようにしました（品温・備考は入れられます）。3日目からはアミノ酸も入力できます（「ｱﾐﾉ」の表記は「アミノ酸」に）。'],
   ['2026-10-05-2','🌡','酒母','酒母のページの一番上に「酒母室の室温」。「室温を入れる」で室温を記録できます（記録器が届くまで週1回でOK。7日以上あくとオレンジ）。外気温（津川）も参考に出ます。'],
   ['2026-10-05-1','🧫','酒母','酒母のページの表にそのまま入力できるようになりました（Be・alc・酸度・品温・備考。入れたら下の「保存」）。タンク番号は順号のすぐ下に大きく、グラフ（ボーメ・品温）は表の背景にうすく出ます。仕込時の値・酛卸日は左の順号を押すと入れられます。'],
