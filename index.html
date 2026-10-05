@@ -3648,20 +3648,53 @@ function rcProbeChart(pts){
 }
 /* 待たせない保存（2026-09-30）：送る内容を端末に控え、裏で送る。送れなかった分は次に麹の画面を開いたとき自動で送り直す */
 function recQ(){ return lsGet('rec.q',[])||[]; }
-function rcToast(t,warn){ let el=document.getElementById('rcToast'); if(!el){ el=document.createElement('div'); el.id='rcToast';
+function rcToast(t,warn,ms){ let el=document.getElementById('rcToast'); if(!el){ el=document.createElement('div'); el.id='rcToast';
     el.style.cssText='position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9999;max-width:92vw;padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.18);transition:opacity .3s'; document.body.appendChild(el); }
-  el.textContent=t; el.style.background=warn?'#b23b3b':'#1b2a41'; el.style.color='#fff'; el.style.opacity='1';
-  clearTimeout(el._t); el._t=setTimeout(()=>{ el.style.opacity='0'; }, warn?6000:2500); }
-function recSaveBg(body,label){ const q=recQ(); q.push({body,label,at:Date.now()}); lsSet('rec.q',q); rcToast(`${label} を保存しています…`); recFlush(); }
-async function recFlush(){ if(RC.qBusy) return; RC.qBusy=true;
+  el.textContent=t; el.style.whiteSpace='pre-line'; el.style.background=warn?'#b23b3b':'#1b2a41'; el.style.color='#fff'; el.style.opacity='1';
+  clearTimeout(el._t); el._t=setTimeout(()=>{ el.style.opacity='0'; }, ms||(warn?6000:2500)); }
+function recSaveBg(body,label,quiet){ const q=recQ(); q.push({body,label,at:Date.now()}); lsSet('rec.q',q); if(!quiet) rcToast(`${label} を保存しています…（裏で送ります）`); recFlush(); }
+/* 2026-10-06 泰広さん指示：酒母・仕込みも「保存」を押したら画面を閉じ、送信は裏で行う。
+   ・送信待ちは端末に預かり（rec.q）、順番に送る。電波が無ければ30秒ごと・電波が戻ったときに自動で送り直す
+   ・送信待ちの値は、読み込み直した酒母・醪のデータにも重ねて見せる（recOverlay）ので、保存前の値に戻って見えない
+   ・醪の保存で計算の注意（推奨追水・警告）が出たら、下の知らせに出す */
+function recOverlay(action,no,r){
+  if(!r||!r.ok) return r;
+  const want=action==='shubo_get'?'shubo_save':action==='bunseki_get'?'bunseki_save':''; if(!want) return r;
+  recQ().forEach(it=>{ const b=it.body||{}; if(b.action!==want||String(b.no)!==String(no)) return;
+    if(b.day && b.values && r.days && r.days[b.day-1]) Object.assign(r.days[b.day-1], b.values);
+    if(b.setup){ r.setup=r.setup||{};
+      if(want==='shubo_save') Object.assign(r.setup,b.setup);
+      else if(b.setup.stage) r.setup[b.setup.stage]=Object.assign({},r.setup[b.setup.stage]||{},b.setup.values||{}); }
+    if('motooroshi' in b) r.motooroshi=b.motooroshi; if('biko' in b) r.biko=b.biko; });
+  return r;
+}
+function recAfterSave(it,res){
+  const b=it.body||{}, no=b.no;
+  if(b.action==='bunseki_save'){ if(res.all) RC.bun[no]=recOverlay('bunseki_get',no,res.all); RC.at=0;
+    const c=res.calc||{}, w=c.warn||c.miss||'';
+    if(w||c.rec) return `${it.label} を保存しました${c.rec?`　推奨追水 ${rcN(c.rec)}L`:''}${w?`　⚠ ${w}`:''}`; }
+  if(b.action==='shubo_save' && no!=null){ RC.shDirty=RC.shDirty||{}; RC.shDirty[no]=1; }
+  return '';
+}
+async function recFlush(){ if(RC.qBusy) return; RC.qBusy=true; let netFail=false; const warns=[], fails=[];
   try{ let q=recQ();
     while(q.length){ const it=q[0]; let res=null;
-      try{ res=await recApi(it.body,60000); }catch(e){ rcToast(`電波が弱いため未送信が${q.length}件あります。あとで自動で送ります`,true); break; }
-      q.shift(); lsSet('rec.q',q);
-      if(res&&res.ok){ rcToast(`${it.label} を保存しました`); }
-      else { rcToast(`${it.label} を保存できませんでした：${(res&&res.err)||''}`,true); }
+      try{ res=await recApi(it.body,60000); }catch(e){ netFail=true; rcToast(`電波が弱いため未送信が${q.length}件あります。電波が戻ったら自動で送ります`,true); break; }
+      q=recQ(); if(q.length&&q[0].at===it.at&&JSON.stringify(q[0].body)===JSON.stringify(it.body)) q.shift(); lsSet('rec.q',q);   // 送っている間に足された分は消さない
+      if(res&&res.ok){ const w=recAfterSave(it,res); if(w) warns.push(w); rcToast(`${it.label} を保存しました${q.length?`（残り${q.length}件）`:''}`); }
+      else { fails.push(`${it.label}：${(res&&res.err)||''}`); rcToast(`${it.label} を保存できませんでした：${(res&&res.err)||''}　もう一度入れてください`,true); }
     }
-  } finally { RC.qBusy=false; } }
+  } finally { RC.qBusy=false; }
+  /* 注意（推奨追水・警告）と保存できなかった分は、最後にまとめて出す（何本もまとめて保存しても見落とさない） */
+  if(warns.length||fails.length) rcToast([...fails.map(x=>'✕ 保存できませんでした　'+x), ...warns].join('\n'), true, 12000);
+  /* 酒母：全部送れたら最新を取り直し、表を開いていれば描き直す（未保存の入力があるときは描き直さない） */
+  if(!recQ().length && RC.shDirty && Object.keys(RC.shDirty).length){ const nos=Object.keys(RC.shDirty); RC.shDirty={};
+    try{ await shFetchMany(nos,'shubo_get',RC.shubo,()=>{}); }catch(e){}
+    try{ if(typeof KGE!=='undefined' && KGE.draw && document.querySelector('.kg-sbar') && !Object.keys(KGE.dirty||{}).length) KGE.draw(); }catch(e){} }
+  if(netFail){ clearTimeout(RC.qRetry); RC.qRetry=setTimeout(recFlush,30000); }
+}
+window.addEventListener('online',()=>recFlush());
+setTimeout(()=>{ if(recQ().length) recFlush(); },3000);
 /* ========== 🍚 麹：今日の作業（出麹→盛→引込→洗米）と配置図 ========== */
 async function kojiScreen(day){
   RC.kday = day || RC.kday || dtoday();
@@ -4074,6 +4107,7 @@ async function moromiInput(no, day){
   $('#rcSave').onclick=async()=>{
     const values={}; defs.forEach(([f])=>{ const v=$('#rc_'+f).value; if(String(v)!==String(D[f]??'')) values[f]=v; });
     if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
+    Object.assign(D,values); RC.bun[no]=b; recSaveBg({action:'bunseki_save',no,day,values},`仕込み 順号${no} ${day===1?'留':day+'日目'}`); hBack.click(); return;   // 2026-10-06：画面を閉じて裏で送る（計算の注意は下の知らせに出る）
     $('#rcSave').disabled=true; rcStatus('保存して計算中…');
     try{ const res=await recApi({action:'bunseki_save',no,day,values},50000);
       if(res&&res.ok){ RC.bun[no]=res.all; RC.at=0; const w=(res.calc&&(res.calc.warn||res.calc.miss))||''; await moromiInput(no,day); rcStatus(w?('保存しました。'+w):`${day===1?'留':day+'日目'} を保存しました`,!!w); }
@@ -5068,6 +5102,8 @@ shuboInput = async function(no, day, focus){
     const setup={}; SH_SETUP.forEach(([f])=>{ const v=$('#sh_'+f).value; if(String(v)!==String(u[f]??'')) setup[f]=v; });
     const after=SH_SETUP.filter(([f])=>(f in setup?setup[f]:u[f])===''||(f in setup?setup[f]:u[f])==null).map(x=>x[1]);
     if(!Object.keys(setup).length){ rcStatus(after.length?'未入力：'+after.join('・'):'変わったところがありません',!!after.length); return; }
+    /* 2026-10-06：画面を閉じて裏で送る */
+    s.setup=Object.assign(s.setup||{},setup); recSaveBg({action:'shubo_save',no,setup},`酒母 順号${no} 仕込時の値`); hBack.click(); return;
     $('#shSetSave').disabled=true; rcStatus('保存中…');
     try{ const res=await recApi({action:'shubo_save',no,setup},40000);
       if(res&&res.ok){ rcStatus(after.length?'保存しました（まだ未入力：'+after.join('・')+'）':'仕込時の値を保存しました',!!after.length); again(); }
@@ -5078,6 +5114,7 @@ shuboInput = async function(no, day, focus){
     if(miss.length){ rcStatus('先に「仕込時の値」（'+miss.join('・')+'）を入れて保存してください',true); const c=$('#shSetCard'); if(c) c.scrollIntoView({behavior:'smooth',block:'start'}); return; }
     const values={}; defs.forEach(([f])=>{ const v=$('#rc_'+f).value; if(String(v)!==String(D[f]??'')) values[f]=v; });
     if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
+    Object.assign(D,values); recSaveBg({action:'shubo_save',no,day,values},`酒母 順号${no} ${day}日目`); hBack.click(); return;   // 2026-10-06：画面を閉じて裏で送る
     $('#rcSave').disabled=true; rcStatus('保存中…');
     try{ const res=await recApi({action:'shubo_save',no,day,values},40000);
       if(res&&res.ok){ rcStatus(`${day}日目 を保存しました`); again(); }
@@ -5088,6 +5125,7 @@ shuboInput = async function(no, day, focus){
     const body={action:'shubo_save',no}; const mo=$('#rc_moto').value, bk=$('#rc_biko2').value;
     if(mo!==(s.motooroshi||'')) body.motooroshi=mo; if(bk!==(s.biko||'')) body.biko=bk;
     if(!('motooroshi' in body)&&!('biko' in body)){ rcStatus('変わったところがありません'); return; }
+    s.motooroshi=mo; s.biko=bk; recSaveBg(body,`酒母 順号${no} 酛卸日・備考`); hBack.click(); return;   // 2026-10-06：画面を閉じて裏で送る
     rcStatus('保存中…');
     try{ const res=await recApi(body,40000); if(res&&res.ok){ s.motooroshi=mo; s.biko=bk; rcStatus('保存しました'); RC.shubo[no]=null; } else rcStatus('保存できませんでした: '+(res&&res.err||''),true); }
     catch(e){ rcStatus('保存できませんでした。電波を確認してもう一度お試しください',true); }
@@ -5203,6 +5241,7 @@ async function moromiSetup(no, st){
   $('#mrSave').onclick=async()=>{
     const values={}; defs.forEach(([f])=>{ const v=$('#mr_'+f).value; if(String(v)!==String(S[f]??'')) values[f]=v; });
     if(!Object.keys(values).length){ rcStatus('変わったところがありません'); return; }
+    b.setup=b.setup||{}; b.setup[st]=Object.assign({},S,values); recSaveBg({action:'bunseki_save',no,setup:{stage:st,values}},`仕込み 順号${no} ${L}の仕込み時`); hBack.click(); return;   // 2026-10-06：画面を閉じて裏で送る
     $('#mrSave').disabled=true; rcStatus('保存中…');
     try{ const res=await recApi({action:'bunseki_save',no,setup:{stage:st,values}},50000);
       if(res&&res.ok){ if(res.all) RC.bun[no]=res.all; else RC.bun[no]=null; rcStatus(`${L} を保存しました`); setTimeout(()=>moromiSetup(no,st),400); }
@@ -5223,6 +5262,7 @@ async function moromiSetup(no, st){
    ・勤務予定：出勤表（MFG.shukkin）のその日の出勤・休みの氏名を予定の下に小さく（2026-10-01）
    ・ろ過・火入はデータの置き場が決まったら足す
    ・分析本数（2026-10-01 泰広さん指示）：その日の本数を小さく出す。16:30以降、明日の本数が18本を超えるときは赤い帯を点滅（酒母＝酛立の翌日〜酛卸（添の前日）、醪＝留を1日目として3日目〜上槽予定日）
+   ・👤 自分のやること（2026-10-06）：予定の枠の下に、やることリストの「自分」を本人にだけ（dpMeHTML は _src_todo.js）
    控え：seishu-workbook_github\_src_day.js
    ======================================================================== */
 const DP_T = {
@@ -5446,7 +5486,7 @@ function dpHome(hexes){
     return x.href?`<a class="dp-ic" href="${x.href}">${inner}</a>`:`<button type="button" class="dp-ic" id="${x.id}">${inner}</button>`; };
   setTimeout(dpAfterHome, 50);
   return `${kirinzanBand()}<div class="hx" style="display:none"></div>
-    <div class="dp" id="dpBox"><div id="dpPlan">${dpPlanHTML()}</div><div id="dpKn">${dpKinmuHTML()}</div><div id="dpCal">${dpCalHTML()}</div></div>
+    <div class="dp" id="dpBox"><div id="dpPlan">${dpPlanHTML()}</div><div id="dpMe">${typeof dpMeHTML==='function'?dpMeHTML():''}</div><div id="dpKn">${dpKinmuHTML()}</div><div id="dpCal">${dpCalHTML()}</div></div>
     ${homeToday()}
     <div class="dp-ics">${hexes.map(ic).join('')}</div>`;
 }
@@ -5472,7 +5512,7 @@ document.addEventListener('click', e=>{
 
 /* ---- 裏で最新を取り、予定の枠だけ描き直す ---- */
 let DP_TICK=null;
-function dpRedraw(){ const p=document.getElementById('dpPlan'), c=document.getElementById('dpCal'), k=document.getElementById('dpKn'); if(p) p.innerHTML=dpPlanHTML(); if(k) k.innerHTML=dpKinmuHTML(); if(c) c.innerHTML=dpCalHTML(); }
+function dpRedraw(){ const p=document.getElementById('dpPlan'), c=document.getElementById('dpCal'), k=document.getElementById('dpKn'), me=document.getElementById('dpMe'); if(p) p.innerHTML=dpPlanHTML(); if(me&&typeof dpMeHTML==='function') me.innerHTML=dpMeHTML(); if(k) k.innerHTML=dpKinmuHTML(); if(c) c.innerHTML=dpCalHTML(); }
 function dpAfterHome(){
   if(!document.getElementById('dpBox')) return;
   clearInterval(DP_TICK); DP_TICK=setInterval(()=>{ if(document.getElementById('dpBox')) dpRedraw(); else clearInterval(DP_TICK); }, 60000);
@@ -5926,6 +5966,14 @@ async function bunHome(date){
     if(!jobs.length){ syncBtn(); rcStatus('変わったところがありません'); return; }
     const bad=app.querySelectorAll('.bn-in.dirty.bad').length;
     if(bad && !confirm(`ありえない値が ${bad} か所あります。このまま保存しますか？`)) return;
+    /* 2026-10-06 泰広さん指示：待たずに裏で送り、前の画面に戻る（推奨追水・警告は画面の下の知らせに出る） */
+    jobs.forEach(({x,key,values})=>{
+      const st=x.k==='mr'?RC.bun[x.m.no]:RC.shubo[x.m.no], D=st&&st.days&&st.days[x.d-1]; if(D) Object.assign(D,values);
+      const dr=bnDraft(date); delete dr[key]; bnDraftSet(date,dr);
+      app.querySelectorAll(`.bn-in[data-key="${key}"]`).forEach(e=>e.classList.remove('dirty'));
+      recSaveBg({action:x.k==='sb'?'shubo_save':'bunseki_save', no:x.m.no, day:x.d, values}, `${x.k==='sb'?'酒母':'醪'} 順号${x.m.no} ${x.k==='mr'&&x.d===1?'留':x.d+'日目'}`, true); });
+    rcToast(`${jobs.length}本 を裏で保存しています。ほかの作業に移ってOKです`);
+    hBack.click(); return;
     const btn=$('#bnSave'); btn.disabled=true; let ok=0, ng=0, i=0, warnN=0;
     rcStatus(`保存中… 0/${jobs.length}`);
     const one=async j=>{ const {x,key,values}=j, tr=app.querySelector(`tr.bn-r[data-key="${key}"]`), msg=app.querySelector(`[data-msg="${key}"]`);
@@ -6013,10 +6061,18 @@ document.addEventListener('click', e=>{
      同じ時期の中は 止まっている→未着手→進行中、さらに登録の古いものほど上。日数で色を付ける（30日・60日・90日）
    ・記録先：Apps Script「製造部 やることリスト」（TODO_URL）→ スプレッドシート「やることリスト」シートに1件1行
    ・電波が無いときは端末に預かり、電波が戻ったら自動で送る
+   ・🏢 業者別（2026-10-06 泰広さん指示）：タブの「🏢 業者別」→ 登録されている業者のボタン → その業者に発注すべきもの（終わっていないもの）の一覧。
+     業者は Apps Script のシート「業者」（資材発注_取引先マスタから最初に35社を入れた）。やることの「発注先（業者）」で選ぶ／新しい業者もここから登録できる。
+     業者欄が空の古い登録は、文面・メモに業者名が入っていれば「メモから」としてその業者に出す
+   ・👤 自分（2026-10-06 泰広さん指示）：分類で「👤 自分」を選ぶと個人のやること。登録した本人にだけ表示（ほかの人の一覧・業者別・件数には出ない。
+     裏側も本人のIDで頼んだときだけ返す）。「予定日」を入れられ、ホームの本日の予定の下に本人にだけ「👤 自分のやること」として出る
+     （本日：予定日がきょう以前のもの＋予定日なしで時期「今すぐ」のもの／明日：予定日が明日のもの）
    控え：seishu-workbook_github\_src_todo.js　／　裏側の控え：seishu-workbook_github\_gas_todo_Code.gs
    ================================================================ */
 const TODO_URL = "https://script.google.com/macros/s/AKfycbzD_in5q8RqzD6xlPK5s0zkBHel5p6bg2UiVie0oVz1JtN_yzhZP97HiFAjd9gjvgz6Pg/exec";   // ← Apps Script「製造部 やることリスト」をデプロイしたURL（/exec）を入れる
-const TODO_CATS  = ['設備・修理','購入・備品','作成・整備','衛生・安全','ツール改善'];
+const TODO_CATS  = ['設備・修理','購入・備品','作成・整備','衛生・安全','ツール改善','自分'];
+const TODO_ME = '自分';   // 個人のやること（登録した本人にだけ表示）
+const todoCatL = c=>c===TODO_ME?'👤 自分':c;
 const TODO_WHENS = ['今すぐ','今月中','造り前','造り期間中','甑倒し後','夏場','来期'];
 const TODO_STATS = ['未着手','進行中','止まっている','完了'];
 const TODO_CSS = `
@@ -6062,23 +6118,79 @@ const TODO_CSS = `
 .td-f .ok{background:#6f8f2e;color:#fff}
 .td-f .ok:disabled{background:#b9bfae}
 .td-f .del{flex:0 0 auto!important;background:#fdecec;color:#b31b14}
+.td-tabs button.vt{border-color:#8a6a3a;color:#6b4e22;font-weight:700}
+.td-tabs button.vt.on{background:#8a6a3a;border-color:#8a6a3a;color:#fff}
+.td-vs{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px}
+.td-vs button{border:1px solid #cbb994;background:#fbf7ee;border-radius:10px;padding:7px 10px;font-size:14px;font-family:inherit;color:#5a4320;line-height:1.2;text-align:left}
+.td-vs button small{display:block;font-size:10px;color:#9a8a6a;font-weight:400}
+.td-vs button b{display:inline-block;min-width:18px;margin-left:5px;padding:0 5px;border-radius:999px;background:#d62b22;color:#fff;font-size:12px;text-align:center}
+.td-vs button.z{opacity:.55;border-style:dashed}
+.td-vs button.on{background:#8a6a3a;border-color:#8a6a3a;color:#fff;opacity:1}
+.td-vs button.on small{color:#f3e7cf}
+.td-vs button.more,.td-vs button.reg{border-style:dashed;color:#6b4e22;background:none}
+.td-vh{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;color:#5a4320;margin:4px 0 8px}
+.td-vh small{font-weight:400;color:var(--sub);font-size:12px}
+.td-add.vd{background:#8a6a3a}
+.td-it .pl.vd{background:#f3ead7;color:#6b4e22;font-weight:700}
+.td-it .pl.vd.gs{font-weight:400;border:1px dashed #cbb994;background:none}
+.td-f select,.td-f input[type=text]{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:16px;font-family:inherit;background:var(--card);color:var(--ink)}
+.td-f input[type=text]{margin-top:6px}
+.td-cats button.me{border-color:#7a5aa6;color:#5b3f86}
+.td-cats button.me.on{background:#efe7fa;border-color:#7a5aa6;color:#4a2f73}
+.td-f .ch button.me.on{background:#7a5aa6;border-color:#7a5aa6}
+.td-it.mine{border-left-color:#9b7cc8}
+.td-it .pl.me{background:#efe7fa;color:#4a2f73;font-weight:700}
+.td-it .pl.due{background:#e8f0fb;color:#1f4f8a}
+.td-it .pl.due.late{background:#fde3dc;color:#b02a26;font-weight:700}
+.td-f input[type=date]{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:9px;font-size:16px;font-family:inherit;background:var(--card);color:var(--ink)}
+.dp-me{margin:8px 2px 2px;padding:7px 9px;border-radius:10px;background:#f6f1fc;border:1px solid #ddd0ef}
+.dp-me .t{font-size:13px;font-weight:800;color:#4a2f73;margin-bottom:3px}
+.dp-me .t small{font-weight:400;color:#8a7aa3;font-size:11px}
+.dp-me ul{margin:0;padding:0;list-style:none}
+.dp-me li{font-size:14px;padding:4px 0;border-top:1px dashed #e2d8f0;cursor:pointer;color:var(--ink)}
+.dp-me li:first-child{border-top:0}
+.dp-me li b{font-size:11px;color:#fff;background:#b02a26;border-radius:999px;padding:1px 6px;margin-right:5px}
+.dp-me li i{font-style:normal;font-size:11px;color:#8a7aa3;margin-left:5px}
 .td-msg{font-size:13px;color:var(--sub);text-align:center;margin:6px 0}
 .td-msg.w{color:#b02a26;font-weight:700}
 `;
 (function(){ const s=document.createElement('style'); s.textContent=TODO_CSS; document.head.appendChild(s); })();
 
 /* ---------- データ（端末の控え＋預かり分） ---------- */
-const TODO = { items:lsGet('todo.items',[]), at:lsGet('todo.at',0), sheet:lsGet('todo.sheet',''), busy:false, tab:lsGet('todo.tab','すべて'), cat:'' };
+const TODO = { items:lsGet('todo.items',[]), at:lsGet('todo.at',0), sheet:lsGet('todo.sheet',''), busy:false, tab:lsGet('todo.tab','すべて'), cat:'',
+               vendors:lsGet('todo.vendors',[]), vendor:lsGet('todo.vendor',''), vAll:false };
+const TODO_VTAB='🏢 業者別';
 const todoQ = ()=>lsGet('todo.q',[]);
 const todoMe = ()=>({ id:String(ST.id||''), name:String(ST.name||'') });
 const todoNow = ()=>{ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 const todoCid = ()=>'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function todoDays(s){ if(!s) return 0; const t=new Date(String(s).slice(0,10)+'T00:00:00'); if(isNaN(t)) return 0; return Math.max(0,Math.floor((new Date().setHours(0,0,0,0)-t)/86400000)); }
-function todoOpen(){ return TODO.items.filter(x=>x.status!=='完了'); }
+/* 見てよいもの：「自分」は登録した本人だけ（端末に前の人の控えが残っていても出さない） */
+function todoVisible(x){ return x.cat!==TODO_ME || (!!ST.id && String(x.byId||'')===String(ST.id)); }
+function todoOpen(){ return TODO.items.filter(x=>x.status!=='完了' && todoVisible(x)); }
+/* 自分のやること（終わっていないもの） */
+function todoMine(){ return todoOpen().filter(x=>x.cat===TODO_ME); }
 /* すぐにやらなければならない順（小さいほど上）：時期 × 10 ＋ 状態 */
 const TODO_WHEN_RANK={'今すぐ':0,'今月中':1,'造り前':2,'造り期間中':3,'':4,'甑倒し後':5,'夏場':6,'来期':7};
 const TODO_STAT_RANK={'止まっている':0,'未着手':1,'進行中':2};
 function todoRank(x){ const w=TODO_WHEN_RANK[x.when||'']; return (w===undefined?4:w)*10+(TODO_STAT_RANK[x.status||'未着手']??1); }
+/* ---------- 業者（発注先） ---------- */
+function todoVNames(){ return TODO.vendors.map(v=>String(v.name||'')).filter(Boolean); }
+/* その「やること」の発注先：業者欄 → 空なら文面・メモに登録業者の名前が入っていればそれ（いちばん長い名前。古い登録分のため） */
+function todoVendorOf(x){
+  if(x.vendor) return { name:x.vendor, guess:false };
+  const t=String(x.text||'')+' '+String(x.memo||''); let best='';
+  todoVNames().forEach(n=>{ if(n.length>=2 && t.includes(n) && n.length>best.length) best=n; });
+  return best ? { name:best, guess:true } : null;
+}
+/* 業者ごとの「終わっていない」件数 */
+function todoVCount(){ const c={}; todoOpen().forEach(x=>{ const v=todoVendorOf(x); if(v) c[v.name]=(c[v.name]||0)+1; }); return c; }
+/* 業者を登録（端末にすぐ反映→送る）。同じ名前があれば何もしない */
+function todoVendorAdd(name){
+  name=String(name||'').trim().slice(0,40); if(!name) return '';
+  if(!todoVNames().includes(name)) todoPush({action:'vendor_add', name});
+  return name;
+}
 /* ホームのアイコンの数字：終わっていない件数 */
 function todoBadge(){ return todoOpen().length; }
 
@@ -6093,14 +6205,18 @@ async function todoApi(body, ms){
 }
 function todoStore(j){
   TODO.items = (j.items||[]); TODO.at=Date.now(); if(j.sheetUrl) TODO.sheet=j.sheetUrl;
+  if(Array.isArray(j.vendors)) TODO.vendors=j.vendors;
   /* まだ送れていない分を上に重ねて見せる */
   todoQ().forEach(op=>todoApplyLocal(op));
-  lsSet('todo.items',TODO.items); lsSet('todo.at',TODO.at); lsSet('todo.sheet',TODO.sheet);
+  TODO.items = TODO.items.filter(todoVisible);
+  lsSet('todo.items',TODO.items); lsSet('todo.at',TODO.at); lsSet('todo.sheet',TODO.sheet); lsSet('todo.vendors',TODO.vendors);
+  if(typeof dpRedraw==='function' && document.getElementById('dpMe')) dpRedraw();   // ホームの「自分のやること」も新しく
 }
 function todoApplyLocal(op){
   if(op.action==='add'){ if(!TODO.items.some(x=>x.id===op.item.id)) TODO.items.push(Object.assign({pend:1},op.item)); }
   else if(op.action==='update'){ const x=TODO.items.find(x=>x.id===op.id); if(x) Object.assign(x,op.fields,{upd:op.at,updBy:op.who.name,pend:1}); }
   else if(op.action==='delete'){ TODO.items=TODO.items.filter(x=>x.id!==op.id); }
+  else if(op.action==='vendor_add'){ if(!todoVNames().includes(op.name)){ TODO.vendors.push({name:op.name, kind:'', pend:1}); lsSet('todo.vendors',TODO.vendors); } }
 }
 /* 書き込み：まず端末に反映→預かり箱へ→送る */
 function todoPush(op){
@@ -6113,8 +6229,11 @@ let TODO_FLUSH=null;
 function todoFlush(){
   if(TODO_FLUSH) return TODO_FLUSH;
   TODO_FLUSH=(async()=>{ let sent=0, last=null;
-    try{ for(const op of todoQ().slice()){
-        try{ const j=await todoApi(op,25000); if(j&&j.ok){ lsSet('todo.q',todoQ().filter(x=>x.cid!==op.cid)); sent++; last=j; } else break; }
+    try{ let g=0; while(g++<50){ const op=todoQ()[0]; if(!op) break;   // 送っている間に足された分も続けて送る
+        try{ const j=await todoApi(op,25000);
+          if(j&&j.ok){ lsSet('todo.q',todoQ().filter(x=>x.cid!==op.cid)); sent++; last=j; }
+          else if(j&&/unknown action/.test(String(j.error||''))){ lsSet('todo.q',todoQ().filter(x=>x.cid!==op.cid)); }   // 裏側が古くて受け付けない操作は捨てる（詰まらせない）
+          else break; }
         catch(e){ break; } }
       if(last) todoStore(last);
     }catch(e){}
@@ -6124,7 +6243,7 @@ function todoFlush(){
 async function todoFetch(){
   if(!TODO_URL || TODO.busy) return false;
   TODO.busy=true;
-  try{ if(todoQ().length) await todoFlush(); const j=await todoApi({action:'list'},20000); if(j&&j.ok){ todoStore(j); return true; } }
+  try{ if(todoQ().length) await todoFlush(); const j=await todoApi({action:'list', who:todoMe()},20000); if(j&&j.ok){ todoStore(j); return true; } }
   catch(e){} finally{ TODO.busy=false; }
   return false;
 }
@@ -6136,7 +6255,12 @@ function todoScreen(){
   head('やることリスト','やらなければいけないこと・手が付いていないこと');
   let msg='', warn=false;
   function list(){
-    let xs=TODO.items.slice();
+    let xs=TODO.items.filter(todoVisible);
+    if(TODO.tab===TODO_VTAB){
+      if(!TODO.vendor) return [];
+      return xs.filter(x=>x.status!=='完了' && (todoVendorOf(x)||{}).name===TODO.vendor)
+               .sort((a,b)=>todoRank(a)-todoRank(b)||String(a.at||'').localeCompare(String(b.at||'')));
+    }
     if(TODO.tab==='完了') xs=xs.filter(x=>x.status==='完了');
     else { xs=xs.filter(x=>x.status!=='完了'); if(TODO.tab!=='すべて') xs=xs.filter(x=>x.when===TODO.tab); }
     if(TODO.cat) xs=xs.filter(x=>x.cat===TODO.cat);
@@ -6148,26 +6272,47 @@ function todoScreen(){
     const dn=x.status==='完了', d=todoDays(x.at);
     const ac=dn?'dn':d>=90?'a90':d>=60?'a60':d>=30?'a30':'';
     const sc={'進行中':'s1','止まっている':'s2','完了':'s3'}[x.status]||'';
+    const mine=x.cat===TODO_ME, late=!dn&&x.due&&x.due<dtoday();
     const age=dn?`完了 ${esc(String(x.doneAt||'').slice(5,10).replace('-','/'))}${x.doneBy?'（'+esc(x.doneBy)+'）':''}`:(d===0?'今日':d+'日');
-    return `<button type="button" class="td-it ${ac}" data-id="${esc(x.id)}">
+    return `<button type="button" class="td-it ${ac} ${mine?'mine':''}" data-id="${esc(x.id)}">
       <div class="tx">${esc(x.text)}</div>
       ${x.memo?`<div class="mm">${esc(x.memo)}</div>`:''}
-      <div class="mt"><span class="pl st ${sc}">${esc(x.status||'未着手')}</span>${x.cat?`<span class="pl">${esc(x.cat)}</span>`:''}${x.when?`<span class="pl ${x.when==='今すぐ'?'w0':x.when==='今月中'?'w1':''}">${esc(x.when)}</span>`:''}
+      <div class="mt"><span class="pl st ${sc}">${esc(x.status||'未着手')}</span>${(v=>v?`<span class="pl vd ${v.guess?'gs':''}">🏢 ${esc(v.name)}${v.guess?'（メモから）':''}</span>`:'')(todoVendorOf(x))}${x.cat?`<span class="pl ${mine?'me':''}">${esc(todoCatL(x.cat))}</span>`:''}${x.due?`<span class="pl due ${late?'late':''}">📅 ${esc(rcMD?rcMD(x.due):x.due)}${late?' 期限切れ':''}</span>`:''}${x.when?`<span class="pl ${x.when==='今すぐ'?'w0':x.when==='今月中'?'w1':''}">${esc(x.when)}</span>`:''}
         <span>${esc(x.by||'')}</span>${x.pend?'<span class="pend">（送信待ち）</span>':''}<span class="age">${age}</span></div></button>`;
   }
   function draw(){
     TODO_REDRAW=draw;
     const open=todoOpen(), cnt=w=>open.filter(x=>x.when===w).length;
-    const tabs=['すべて',...TODO_WHENS,'完了'];
-    let h=`<div class="td-tabs">${tabs.map(t=>{ const n=t==='すべて'?open.length:t==='完了'?0:cnt(t);
-      return `<button type="button" data-t="${t}" class="${TODO.tab===t?'on':''}">${t}${n?`<small>${n}</small>`:''}</button>`; }).join('')}</div>
-      <div class="td-cats">${TODO_CATS.map(c=>`<button type="button" data-c="${c}" class="${TODO.cat===c?'on':''}">${c}</button>`).join('')}</div>
+    const tabs=['すべて',TODO_VTAB,...TODO_WHENS,'完了'];
+    const vc=todoVCount(), vOn=TODO.tab===TODO_VTAB;
+    let h=`<div class="td-tabs">${tabs.map(t=>{ const n=t==='すべて'?open.length:t==='完了'?0:t===TODO_VTAB?Object.values(vc).reduce((a,b)=>a+b,0):cnt(t);
+      return `<button type="button" data-t="${t}" class="${t===TODO_VTAB?'vt ':''}${TODO.tab===t?'on':''}">${t}${n?`<small>${n}</small>`:''}</button>`; }).join('')}</div>`;
+    if(vOn){
+      /* 発注するものがある業者を先に（件数の多い順）、ほかの業者は「ほかの業者」を押すと出る */
+      const vs=TODO.vendors.map((v,i)=>({name:String(v.name||''), kind:v.kind||'', n:vc[v.name]||0, i})).filter(v=>v.name);
+      vs.sort((a,b)=>(b.n>0)-(a.n>0)||b.n-a.n||a.i-b.i);
+      const has=vs.filter(v=>v.n>0), rest=vs.filter(v=>!v.n);
+      const vb=v=>`<button type="button" data-v="${esc(v.name)}" class="${v.n?'':'z '}${TODO.vendor===v.name?'on':''}">${esc(v.name)}${v.n?`<b>${v.n}</b>`:''}${v.kind?`<small>${esc(v.kind)}</small>`:''}</button>`;
+      const showRest=TODO.vAll || (TODO.vendor && !vc[TODO.vendor]);
+      h+=`<div class="td-vs">${has.map(vb).join('')}${showRest?rest.map(vb).join(''):''}
+          ${rest.length?`<button type="button" class="more" id="tdVMore">${showRest?'▲ 閉じる':`ほかの業者（${rest.length}）▾`}</button>`:''}
+          <button type="button" class="reg" id="tdVReg">＋ 業者を登録</button></div>`;
+      if(!TODO.vendors.length) h+=`<div class="card" style="color:var(--sub);text-align:center">業者の一覧を読み込んでいます…（出ないときは電波のよい所で開き直してください）</div>`;
+      if(TODO.vendor){
+        h+=`<div class="td-vh">🏢 ${esc(TODO.vendor)} に発注するもの <small>${vc[TODO.vendor]||0}件</small></div>
+          <button type="button" class="td-add vd" id="tdAdd" ${TODO_URL?'':'disabled'}>＋ ${esc(TODO.vendor)} に発注するものを書く</button>`;
+      } else if(TODO.vendors.length) h+=`<div class="td-msg">上の業者を押すと、その業者に発注するものが出ます。</div>`;
+    } else {
+      h+=`<div class="td-cats">${TODO_CATS.filter(c=>c!==TODO_ME||ST.id).map(c=>`<button type="button" data-c="${c}" class="${c===TODO_ME?'me ':''}${TODO.cat===c?'on':''}">${todoCatL(c)}</button>`).join('')}</div>
       <button type="button" class="td-add" id="tdAdd" ${TODO_URL?'':'disabled'}>＋ やることを書く</button>`;
+    }
     if(!TODO_URL) h+=`<div class="tl-warn" style="margin-bottom:10px">記録先（Apps Script）の設定がまだ済んでいません。設定が済むと、書き込み・共有ができるようになります。</div>`;
     if(msg) h+=`<div class="td-msg ${warn?'w':''}">${esc(msg)}</div>`;
     const xs=list();
+    if(!(vOn && !TODO.vendor))
     h+= xs.length ? xs.map(item).join('')
-      : `<div class="card" style="color:var(--sub);text-align:center">${TODO.tab==='完了'?'終わったものはまだありません。':'ここに入っているものはありません。'}</div>`;
+      : `<div class="card" style="color:var(--sub);text-align:center">${TODO.tab==='完了'?'終わったものはまだありません。':vOn?'この業者に発注するものはありません。':'ここに入っているものはありません。'}</div>`;
+    if(TODO.cat===TODO_ME && !vOn) h+=`<p class="tl-note">👤 自分 … あなた（${esc(ST.name||'')}）にだけ表示されます。ほかの人には見えません。予定日を入れると、ホームの本日の予定の下にも出ます。</p>`;
     const q=todoQ().length;
     h+=`<p class="tl-note">すぐやるものほど上に出ます（時期：今すぐ→今月中→造り前…、同じ時期は 止まっている→未着手→進行中、さらに古いもの）。左の色：<b style="color:#c9a800">黄</b>＝30日以上、<b style="color:#e07a10">橙</b>＝60日以上、<b style="color:#d62b22">赤</b>＝90日以上。
       押すと、状況（未着手→進行中→完了）やメモを変えられます。${q?`<br><b>送信待ち ${q}件</b>（電波が入ると自動で送られます）`:''}
@@ -6175,6 +6320,9 @@ function todoScreen(){
     app.innerHTML=h;
     app.querySelectorAll('.td-tabs button').forEach(b=>b.onclick=()=>{ TODO.tab=b.dataset.t; lsSet('todo.tab',TODO.tab); draw(); });
     app.querySelectorAll('.td-cats button').forEach(b=>b.onclick=()=>{ TODO.cat=TODO.cat===b.dataset.c?'':b.dataset.c; draw(); });
+    app.querySelectorAll('.td-vs button[data-v]').forEach(b=>b.onclick=()=>{ TODO.vendor=TODO.vendor===b.dataset.v?'':b.dataset.v; lsSet('todo.vendor',TODO.vendor); draw(); });
+    const vm=$('#tdVMore'); if(vm) vm.onclick=()=>{ TODO.vAll=!TODO.vAll; if(!TODO.vAll && TODO.vendor && !todoVCount()[TODO.vendor]){ TODO.vendor=''; lsSet('todo.vendor',''); } draw(); };
+    const vr=$('#tdVReg'); if(vr) vr.onclick=()=>todoVendorForm(draw);
     const a=$('#tdAdd'); if(a) a.onclick=()=>todoEdit(null, draw);
     app.querySelectorAll('.td-it').forEach(b=>b.onclick=()=>{ const x=TODO.items.find(x=>x.id===b.dataset.id); if(x) todoEdit(x, draw); });
   }
@@ -6186,17 +6334,27 @@ function todoScreen(){
 /* ---------- 書く・直す（下から出る） ---------- */
 function todoEdit(x, redraw){
   const isNew=!x;
-  const f={ text:x?x.text:'', cat:x?x.cat:'', when:x?x.when:(TODO.tab!=='すべて'&&TODO.tab!=='完了'?TODO.tab:''), status:x?(x.status||'未着手'):'未着手', memo:x?(x.memo||''):'' };
-  if(isNew && TODO.cat) f.cat=TODO.cat;
+  const vNew=TODO.tab===TODO_VTAB && TODO.vendor;
+  const f={ text:x?x.text:'', cat:x?x.cat:'', when:x?x.when:(TODO_WHENS.includes(TODO.tab)?TODO.tab:''), status:x?(x.status||'未着手'):'未着手', memo:x?(x.memo||''):'',
+            vendor:x?((todoVendorOf(x)||{}).name||''):(vNew?TODO.vendor:''), due:x?(x.due||''):'' };
+  const canMe = !!ST.id && (isNew || String(x.byId||'')===String(ST.id));   // 「自分」にできるのは登録した本人だけ
+  if(isNew && TODO.cat && !vNew) f.cat=TODO.cat;
+  if(isNew && vNew) f.cat='購入・備品';
+  const vlist=todoVNames(); if(f.vendor && !vlist.includes(f.vendor)) vlist.unshift(f.vendor);
+  const vSel=`<select id="tdVendor"><option value="">（なし）</option>${vlist.map(n=>`<option value="${esc(n)}" ${f.vendor===n?'selected':''}>${esc(n)}</option>`).join('')}<option value="__new">＋ 新しい業者を登録…</option></select>
+    <input type="text" id="tdVNew" placeholder="新しい業者の名前" style="display:none" maxlength="40">`;
   const m=document.createElement('div'); m.className='o2-mask';
-  const chips=(k,arr,cls)=>`<div class="ch ${cls||''}" data-k="${k}">${arr.map(v=>`<button type="button" data-v="${v}" class="${f[k]===v?'on':''}">${v}</button>`).join('')}</div>`;
+  const chips=(k,arr,cls)=>`<div class="ch ${cls||''}" data-k="${k}">${arr.map(v=>`<button type="button" data-v="${v}" class="${v===TODO_ME?'me ':''}${f[k]===v?'on':''}">${todoCatL(v)}</button>`).join('')}</div>`;
   m.innerHTML=`<div class="o2-sheet" style="max-height:90vh"><div class="t">${isNew?'やることを書く':'やることを直す'}<button type="button" class="x">閉じる</button></div>
     <div class="td-f">
       <label>やること（必須）</label><textarea id="tdText" rows="2" placeholder="例：蒸米機のコンベア修理">${esc(f.text)}</textarea>
-      <label>分類</label>${chips('cat',TODO_CATS)}
+      <label>分類</label>${chips('cat',TODO_CATS.filter(c=>c!==TODO_ME||canMe||f.cat===TODO_ME))}
+      <div id="tdDueW" style="display:${f.cat===TODO_ME?'block':'none'}"><label>予定日（入れるとホームの本日の予定に自分だけ表示）</label>
+        <input type="date" id="tdDue" value="${esc(f.due)}"><div class="inf" style="margin-top:4px">👤 自分 … 自分にだけ表示され、ほかの人には見えません。</div></div>
+      <label>発注先（業者）</label>${vSel}
       <label>時期</label>${chips('when',TODO_WHENS)}
       ${isNew?'':`<label>状況</label>${chips('status',TODO_STATS,'stc')}`}
-      <label>メモ（業者名・見積額・サイズ・枚数など）</label><textarea id="tdMemo" rows="3">${esc(f.memo)}</textarea>
+      <label>メモ（見積額・サイズ・枚数など）</label><textarea id="tdMemo" rows="3">${esc(f.memo)}</textarea>
       ${isNew?`<div class="inf">登録者は「${esc(ST.name||'（名前未設定）')}」で入ります。</div>`
         :`<div class="inf">登録：${esc(x.by||'')}　${esc(String(x.at||'').slice(0,10))}${x.upd?`<br>最後に直した人：${esc(x.updBy||'')}　${esc(String(x.upd).slice(0,16))}`:''}${x.doneAt?`<br>完了：${esc(x.doneBy||'')}　${esc(String(x.doneAt).slice(0,10))}`:''}</div>`}
       <div class="bt">${isNew?'':'<button type="button" class="del">消す</button>'}<button type="button" class="ok">${isNew?'登録する':'保存する'}</button></div>
@@ -6207,17 +6365,22 @@ function todoEdit(x, redraw){
   m.querySelector('.x').onclick=close;
   m.querySelectorAll('.ch').forEach(g=>g.querySelectorAll('button').forEach(b=>b.onclick=()=>{
     const k=g.dataset.k; f[k]=(f[k]===b.dataset.v && k!=='status')?'':b.dataset.v;
-    g.querySelectorAll('button').forEach(o=>o.classList.toggle('on',o.dataset.v===f[k])); }));
+    g.querySelectorAll('button').forEach(o=>o.classList.toggle('on',o.dataset.v===f[k]));
+    if(k==='cat') m.querySelector('#tdDueW').style.display=f.cat===TODO_ME?'block':'none'; }));
   const ok=m.querySelector('.ok'), tx=m.querySelector('#tdText');
   const chk=()=>{ ok.disabled=!tx.value.trim(); }; tx.oninput=chk; chk();
   if(isNew) setTimeout(()=>tx.focus(),50);
+  const vs=m.querySelector('#tdVendor'), vn=m.querySelector('#tdVNew');
+  vs.onchange=()=>{ vn.style.display=vs.value==='__new'?'block':'none'; if(vs.value==='__new') vn.focus(); };
   ok.onclick=()=>{
     f.text=tx.value.trim(); f.memo=m.querySelector('#tdMemo').value.trim(); if(!f.text) return;
+    f.due = f.cat===TODO_ME ? (m.querySelector('#tdDue').value||'') : '';
+    f.vendor = vs.value==='__new' ? todoVendorAdd(vn.value) : todoVendorAdd(vs.value);   // 一覧にない業者はここで登録
     const me=todoMe();
     if(isNew){
-      todoPush({action:'add', item:{ id:todoCid(), text:f.text, cat:f.cat, when:f.when, status:'未着手', memo:f.memo, byId:me.id, by:me.name, at:todoNow() }});
+      todoPush({action:'add', item:{ id:todoCid(), text:f.text, cat:f.cat, when:f.when, status:'未着手', memo:f.memo, vendor:f.vendor, due:f.due, byId:me.id, by:me.name, at:todoNow() }});
     } else {
-      const fields={ text:f.text, cat:f.cat, when:f.when, status:f.status, memo:f.memo };
+      const fields={ text:f.text, cat:f.cat, when:f.when, status:f.status, memo:f.memo, vendor:f.vendor, due:f.due };
       if(f.status==='完了' && x.status!=='完了'){ fields.doneBy=me.name; fields.doneAt=todoNow(); }
       if(f.status!=='完了' && x.status==='完了'){ fields.doneBy=''; fields.doneAt=''; }
       todoPush({action:'update', id:x.id, fields});
@@ -6232,6 +6395,36 @@ function todoEdit(x, redraw){
     todoFlush().then(()=>{ if(TODO_REDRAW===redraw) redraw(); });
   };
 }
+/* ---------- 業者を登録（業者別の「＋ 業者を登録」） ---------- */
+function todoVendorForm(redraw){
+  const m=document.createElement('div'); m.className='o2-mask';
+  m.innerHTML=`<div class="o2-sheet"><div class="t">業者を登録<button type="button" class="x">閉じる</button></div>
+    <div class="td-f"><label>業者の名前（必須）</label><input type="text" id="tdVName" maxlength="40" placeholder="例：寺内">
+      <div class="inf">登録した業者は、みんなの「🏢 業者別」と、やることの「発注先（業者）」に出ます。<br>名前の直し・削除はスプレッドシートの「業者」シートで行います。</div>
+      <div class="bt"><button type="button" class="ok" disabled>登録する</button></div></div></div>`;
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.onclick=e=>{ if(e.target===m) close(); }; m.querySelector('.x').onclick=close;
+  const ip=m.querySelector('#tdVName'), ok=m.querySelector('.ok'), msg=document.createElement('div'); msg.className='inf'; ok.parentNode.after(msg);
+  ip.oninput=()=>{ const v=ip.value.trim(); const dup=todoVNames().includes(v); ok.disabled=!v||dup; msg.textContent=dup?'この業者はもう登録されています。':''; };
+  setTimeout(()=>ip.focus(),50);
+  ok.onclick=()=>{ const n=todoVendorAdd(ip.value); if(!n) return; TODO.vendor=n; lsSet('todo.vendor',n); close(); redraw();
+    todoFlush().then(()=>{ if(TODO_REDRAW===redraw) redraw(); }); };
+}
+/* ---------- ホーム「本日の予定」の下：👤 自分のやること（本人にだけ） ---------- */
+function dpMeHTML(){
+  if(!ST.id) return '';
+  const date=(typeof dpDate==='function')?dpDate():dtoday(), td=dtoday(), isToday=date===td;
+  const xs=todoMine().filter(x=> x.due ? (isToday ? x.due<=td : x.due===date) : (isToday && x.when==='今すぐ'));
+  if(!xs.length) return '';
+  xs.sort((a,b)=>String(a.due||'9').localeCompare(String(b.due||'9'))||todoRank(a)-todoRank(b));
+  return `<div class="dp-me"><div class="t">👤 自分のやること</div><ul>${xs.map(x=>{
+    const late=x.due&&x.due<td;
+    return `<li data-tdme="${esc(x.id)}">${late?`<b>期限切れ ${esc(rcMD(x.due))}</b>`:''}${esc(x.text)}${x.status&&x.status!=='未着手'?`<i>${esc(x.status)}</i>`:''}</li>`; }).join('')}</ul></div>`;
+}
+document.addEventListener('click', e=>{
+  const li=e.target.closest && e.target.closest('[data-tdme]'); if(!li) return;
+  const x=TODO.items.find(x=>x.id===li.dataset.tdme); if(x) todoEdit(x, ()=>{ if(typeof dpRedraw==='function') dpRedraw(); });
+});
 /* ホームを開いたとき、裏で最新を取っておく（数字のため） */
 setTimeout(()=>{ if(TODO_URL && ST.token) todoFetch(); }, 2500);
 
@@ -7556,8 +7749,19 @@ async function kgeSave(box){
     const g=(G[no+'|'+day]=G[no+'|'+day]||{no,day,values:{},els:[]}); if(day===0) g.shuboT=val; else g.values[k]=val; g.els.push(el); });
   const list=Object.values(G);
   if(!list.length){ kgeSay(box,`順号${[...lock].join('・')} は先に仕込時の値を入れてください（左の順号を押す）`,true); return; }
+  /* 2026-10-06：待たずに裏で送る（値はすぐ表に反映。送れなかったら下の知らせ） */
+  const nm=g=>g.day===0?`酒母 順号${g.no} タンク`:`酒母 順号${g.no} ${g.day}日目`;
+  list.forEach(g=>{ const body=g.day===0?{action:'shubo_save',no:g.no,shuboT:g.shuboT}:{action:'shubo_save',no:g.no,day:g.day,values:g.values};
+    if(g.day===0){ const m=rcMaster(g.no); if(m) m.shuboT=g.shuboT; try{ if(RC.state) lsSet('rec.state',RC.state); }catch(e){} }
+    else { const s=RC.shubo[g.no], D=s&&s.days&&s.days[g.day-1]; if(D) Object.assign(D,g.values); }
+    g.els.forEach(el=>{ delete KGE.dirty[kgeKey(el)]; });
+    recSaveBg(body, nm(g), true); });
+  rcToast(`${list.length}か所 を裏で保存しています。ほかの作業に移ってOKです`);
+  kgeSay(box,`保存を受け付けました（${list.map(nm).join('、')}）。裏で送っています${lock.size?`。順号${[...lock].join('・')} は仕込時の値が未入力のため保存していません`:''}`, lock.size>0);
+  if(KGE.draw && document.body.contains(box)) KGE.draw();
+  return;
   const btn=$('#kgSave'); if(btn) btn.disabled=true;
-  const ok=[], ng=[], nm=g=>g.day===0?`順号${g.no} タンク`:`順号${g.no} ${g.day}日目`;
+  const ok=[], ng=[];
   for(let i=0;i<list.length;i++){ const g=list[i];
     kgeSay(box,`保存中… ${i+1}/${list.length}（${nm(g)}）`);
     try{ const body=g.day===0?{action:'shubo_save',no:g.no,shuboT:g.shuboT}:{action:'shubo_save',no:g.no,day:g.day,values:g.values};
@@ -7602,6 +7806,9 @@ async function kgeDialog(no){
     const mo=ov.querySelector('#kd_moto').value, bk=ov.querySelector('#kd_biko').value;
     if(mo!==(s.motooroshi||'')) body.motooroshi=mo; if(bk!==(s.biko||'')) body.biko=bk;
     if(!body.setup&&!('motooroshi' in body)&&!('biko' in body)){ say('変わったところがありません'); return; }
+    /* 2026-10-06：窓はすぐ閉じ、裏で送る */
+    if(body.setup) s.setup=Object.assign(s.setup||{},body.setup); if('motooroshi' in body) s.motooroshi=body.motooroshi; if('biko' in body) s.biko=body.biko;
+    recSaveBg(body,`酒母 順号${no}`); close(); if(KGE.draw) KGE.draw(); return;
     const b=ov.querySelector('#kdSave'); b.disabled=true; say('保存中…');
     try{ const r=await recApi(body,40000);
       if(r&&r.ok){ RC.shubo[no]=null; close(); await shFetchMany([no],'shubo_get',RC.shubo,()=>{}); if(KGE.draw) KGE.draw(); }
@@ -7969,6 +8176,25 @@ function stiBind(){
 
 </script>
 <!-- /shubotop -->
+<!-- bgsave -->
+<script>
+/* ================= 💾 裏で保存：読み込みに送信待ちを重ねる（2026-10-06） =================
+   酒母・仕込みの「保存」は画面を閉じて裏で送る（recSaveBg／recFlush）。送り終わる前に同じ酒母・醪を開いたとき、
+   保存前の値に戻って見えないよう、shubo_get／bunseki_get の結果（端末の控えから出す分も含む）に送信待ちの値を重ねる。
+   recApi はいくつかのブロックで包み直されているので、いちばん外側（このブロック）で包む。
+   控え：seishu-workbook_github\_src_bgsave.js　差し込み：_裏で保存を足す.py（bgsave の目印のブロック、upd の前）
+   ======================================================================================= */
+(function(){
+  const base=recApi;
+  recApi=async function(body, ms){
+    const r=await base(body, ms);
+    try{ if(body && (body.action==='shubo_get'||body.action==='bunseki_get') && r && r.ok && typeof recOverlay==='function' && recQ().length) recOverlay(body.action, body.no, r); }catch(e){}
+    return r;
+  };
+})();
+
+</script>
+<!-- /bgsave -->
 <!-- upd -->
 <script>
 /* ================= 🆕 アップデート情報（ホームの最後のアイコン）2026-10-04 =================
@@ -7978,6 +8204,10 @@ function stiBind(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-06-4','🧪','分析','「まとめて保存」も、押すとすぐ前の画面に戻るようにしました。送信は裏で行い、推奨追水や注意があれば画面の下にまとめて出ます。'],
+  ['2026-10-06-3','💾','酒母・仕込み','入力して「保存」を押すと、すぐ前の画面に戻るようにしました（酒母の表はそのまま次の入力ができます）。送信は裏で行い、終わると画面の下に「保存しました」と出ます。電波が弱いときは端末に預かり、電波が戻ると自動で送ります。仕込みの計算の注意（推奨追水など）も下に出ます。'],
+  ['2026-10-06-2','👤','やることリスト・ホーム','分類に「👤 自分」を追加。自分を選んだやることは、登録した本人にだけ表示されます（ほかの人には見えません）。「予定日」を入れると、ホームの本日の予定の下に「自分のやること」として自分にだけ出ます。'],
+  ['2026-10-06-1','📝','やることリスト','「🏢 業者別」タブを追加。業者のボタンを押すと、その業者に発注するもの（終わっていないもの）が一覧で出ます。やることを書くときに「発注先（業者）」を選べます（新しい業者もその場で登録できます）。'],
   ['2026-10-05-8','🧫','酒母','酒母のグラフの品温を、AM→PMの時間の順に1本の線でつなぐようにしました（●＝AM、○＝PM）。'],
   ['2026-10-05-7','🫁','麹・酒母','酸素濃度のボタンを青い丸の「O₂」アイコンにしました。麹は日付の左（「前日」ボタンはなくしました）、酒母は上のアイコンの並びにあります。麹の作業日に測っていないと赤く点滅します。'],
   ['2026-10-05-6','🍚','麹','上の日付をタップすると日付が横に並んで出て、スクロールして好きな日を選べるようになりました。「翌日」「今日」ボタンはなくしました。'],
