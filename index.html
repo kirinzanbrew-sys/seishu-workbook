@@ -442,7 +442,7 @@ function hmSize(){ const b=document.body; if(!b.classList.contains('hm')){ b.sty
     box.style.maxHeight=Math.max(72,avail)+'px'; box.style.height=Math.max(72,avail)+'px'; });
 }
 window.addEventListener('resize',()=>hmSize()); window.addEventListener('orientationchange',()=>setTimeout(hmSize,300));
-function head(t,s){document.body.classList.remove('hm');document.documentElement.classList.remove('hm');document.body.style.height='';hTtl.childNodes[0].nodeValue=t;hSub.textContent=(typeof nav!=='undefined'&&nav.length<=2)?'':(s||'');showWho()}   /* 2026-10-06 泰広さん指示：ホームから開いた画面では題の下のコメントを出さない */
+function head(t,s){document.body.classList.remove('hm');document.documentElement.classList.remove('hm');document.body.style.height='';hTtl.childNodes[0].nodeValue=t;hSub.textContent=(typeof nav!=='undefined'&&(nav.length<=1||nav[nav.length-2]===home||nav.length<=2))?'':(s||'');showWho()}   /* 2026-10-06 泰広さん指示：ホームから開いた画面では題の下のコメントを出さない */
 /* 右上の「名前／ID」：押すと設定を開く */
 function showWho(){
   const w=$('#who'); if(!w)return;
