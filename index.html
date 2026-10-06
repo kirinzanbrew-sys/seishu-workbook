@@ -5467,12 +5467,19 @@ function dpKinmuHTML(){
     +(agri.length?`<div><b>アグリ</b><span>${agri.join('・')}</span></div>`:'')+`</div>`;
 }
 
+/* カレンダーの題名から電話番号を消す（2026-10-06 泰広さん指示：本日の予定のカレンダーはシンプルに。場所・電話番号は出さない） */
+function dpCalTitle(t){
+  let s=String(t||'').replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  s=s.replace(/(?:TEL|Tel|tel|ＴＥＬ|電話番号|電話|携帯|☎|📞)?\s*[:：]?\s*\(?0\d{1,4}\)?[-‐－−ー―\s]?\d{1,4}[-‐－−ー―\s]?\d{3,4}/g,'');
+  s=s.replace(/[（(]\s*[)）]/g,'').replace(/\s*[／/・,、]\s*$/,'').replace(/^\s*[／/・,、]\s*/,'').replace(/\s{2,}/g,' ').trim();
+  return s||String(t||'');
+}
 /* ---- カレンダーの予定（箇条書き） ---- */
 function dpCalHTML(){
   const date=dpDate(), c=(lsGet('dp.cal2',{})||{})[date], ev=(c&&c.events)||null;
   const kd=dpShukkinDay(date);
   let li='';
-  if(ev) li=ev.slice().sort((a,b)=>(a.allDay?'0':'1'+a.start).localeCompare(b.allDay?'0':'1'+b.start)).map(x=>`<li>${x.allDay?'<b>終日</b>':`<b>${esc(x.start)}${x.end?'〜'+esc(x.end):''}</b>`}${esc(x.title)}${x.place?` <small>（${esc(x.place)}）</small>`:''}</li>`).join('');
+  if(ev) li=ev.slice().sort((a,b)=>(a.allDay?'0':'1'+a.start).localeCompare(b.allDay?'0':'1'+b.start)).map(x=>`<li>${x.allDay?'<b>終日</b>':`<b>${esc(x.start)}${x.end?'〜'+esc(x.end):''}</b>`}${esc(dpCalTitle(x.title))}</li>`).join('');   // 2026-10-06 泰広さん指示：シンプルに（場所・電話番号は出さない）
   else if(kd&&kd.n) li=String(kd.n).split(/[\/／]/).map(s=>s.trim()).filter(Boolean).map(s=>`<li>${esc(s)} <small>（出勤表の備考）</small></li>`).join('');
   if(!li) return `<div class="dp-cal"><div class="t">カレンダーの予定</div><div style="color:var(--sub);font-size:12px">${ev||!O2_URL?(DP_OFF?'明日':'今日')+'の予定はありません':'読み込んでいます…'}</div></div>`;
   return `<div class="dp-cal"><div class="t">カレンダーの予定</div><ul>${li}</ul></div>`;
@@ -6067,6 +6074,8 @@ document.addEventListener('click', e=>{
    ・👤 自分（2026-10-06 泰広さん指示）：分類で「👤 自分」を選ぶと個人のやること。登録した本人にだけ表示（ほかの人の一覧・業者別・件数には出ない。
      裏側も本人のIDで頼んだときだけ返す）。「予定日」を入れられ、ホームの本日の予定の下に本人にだけ「👤 自分のやること」として出る
      （本日：予定日がきょう以前のもの＋予定日なしで時期「今すぐ」のもの／明日：予定日が明日のもの）
+   ・済ボタン（2026-10-06 泰広さん指示）：一覧の各ボックスの右端に「済」。押すと完了（完了者・完了日時が入る）→「✓ 済み」タブへ移る。直後は「元に戻す」が出る。
+     済みタブでも分類（ジャンル）で絞り込める（分類ボタンに件数）。済みのボックスの右端は「戻す」（未着手に戻す）
    控え：seishu-workbook_github\_src_todo.js　／　裏側の控え：seishu-workbook_github\_gas_todo_Code.gs
    ================================================================ */
 const TODO_URL = "https://script.google.com/macros/s/AKfycbzD_in5q8RqzD6xlPK5s0zkBHel5p6bg2UiVie0oVz1JtN_yzhZP97HiFAjd9gjvgz6Pg/exec";   // ← Apps Script「製造部 やることリスト」をデプロイしたURL（/exec）を入れる
@@ -6151,6 +6160,15 @@ const TODO_CSS = `
 .dp-me li:first-child{border-top:0}
 .dp-me li b{font-size:11px;color:#fff;background:#b02a26;border-radius:999px;padding:1px 6px;margin-right:5px}
 .dp-me li i{font-style:normal;font-size:11px;color:#8a7aa3;margin-left:5px}
+.td-it{display:flex;gap:8px;align-items:stretch}
+.td-it .bd{flex:1;min-width:0}
+.td-ok{flex:0 0 auto;align-self:center;width:50px;height:50px;border-radius:50%;border:2px solid #6f8f2e;background:#fff;color:#4d6a1a;font-size:17px;font-weight:800;font-family:inherit;cursor:pointer;padding:0}
+.td-ok:active{background:#6f8f2e;color:#fff}
+.td-ok.back{width:auto;height:auto;border-radius:10px;border:1px solid #b9bfae;color:#666;font-size:12px;font-weight:700;padding:7px 8px}
+.td-cats button small{font-size:11px;margin-left:3px;opacity:.75}
+.td-undo{display:flex;align-items:center;gap:8px;background:#e6f3ea;border:1px solid #8fbf9f;color:#245c3c;border-radius:10px;padding:8px 10px;margin:0 0 10px;font-size:14px}
+.td-undo span{flex:1;min-width:0;word-break:break-all}
+.td-undo button{flex:0 0 auto;border:1px solid #2f7d5d;background:#fff;color:#2f7d5d;border-radius:8px;padding:5px 10px;font-weight:700;font-family:inherit;font-size:13px}
 .td-msg{font-size:13px;color:var(--sub);text-align:center;margin:6px 0}
 .td-msg.w{color:#b02a26;font-weight:700}
 `;
@@ -6274,19 +6292,21 @@ function todoScreen(){
     const sc={'進行中':'s1','止まっている':'s2','完了':'s3'}[x.status]||'';
     const mine=x.cat===TODO_ME, late=!dn&&x.due&&x.due<dtoday();
     const age=dn?`完了 ${esc(String(x.doneAt||'').slice(5,10).replace('-','/'))}${x.doneBy?'（'+esc(x.doneBy)+'）':''}`:(d===0?'今日':d+'日');
-    return `<button type="button" class="td-it ${ac} ${mine?'mine':''}" data-id="${esc(x.id)}">
+    return `<div role="button" tabindex="0" class="td-it ${ac} ${mine?'mine':''}" data-id="${esc(x.id)}"><div class="bd">
       <div class="tx">${esc(x.text)}</div>
       ${x.memo?`<div class="mm">${esc(x.memo)}</div>`:''}
       <div class="mt"><span class="pl st ${sc}">${esc(x.status||'未着手')}</span>${(v=>v?`<span class="pl vd ${v.guess?'gs':''}">🏢 ${esc(v.name)}${v.guess?'（メモから）':''}</span>`:'')(todoVendorOf(x))}${x.cat?`<span class="pl ${mine?'me':''}">${esc(todoCatL(x.cat))}</span>`:''}${x.due?`<span class="pl due ${late?'late':''}">📅 ${esc(rcMD?rcMD(x.due):x.due)}${late?' 期限切れ':''}</span>`:''}${x.when?`<span class="pl ${x.when==='今すぐ'?'w0':x.when==='今月中'?'w1':''}">${esc(x.when)}</span>`:''}
-        <span>${esc(x.by||'')}</span>${x.pend?'<span class="pend">（送信待ち）</span>':''}<span class="age">${age}</span></div></button>`;
+        <span>${esc(x.by||'')}</span>${x.pend?'<span class="pend">（送信待ち）</span>':''}<span class="age">${age}</span></div></div>
+      ${dn?`<button type="button" class="td-ok back" data-ok="0" aria-label="未完了に戻す">戻す</button>`:`<button type="button" class="td-ok" data-ok="1" aria-label="済にする">済</button>`}</div>`;
   }
   function draw(){
     TODO_REDRAW=draw;
     const open=todoOpen(), cnt=w=>open.filter(x=>x.when===w).length;
     const tabs=['すべて',TODO_VTAB,...TODO_WHENS,'完了'];
     const vc=todoVCount(), vOn=TODO.tab===TODO_VTAB;
-    let h=`<div class="td-tabs">${tabs.map(t=>{ const n=t==='すべて'?open.length:t==='完了'?0:t===TODO_VTAB?Object.values(vc).reduce((a,b)=>a+b,0):cnt(t);
-      return `<button type="button" data-t="${t}" class="${t===TODO_VTAB?'vt ':''}${TODO.tab===t?'on':''}">${t}${n?`<small>${n}</small>`:''}</button>`; }).join('')}</div>`;
+    let h=`<div class="td-tabs">${tabs.map(t=>{ const n=t==='すべて'?open.length:t==='完了'?TODO.items.filter(x=>x.status==='完了'&&todoVisible(x)).length:t===TODO_VTAB?Object.values(vc).reduce((a,b)=>a+b,0):cnt(t);
+      return `<button type="button" data-t="${t}" class="${t===TODO_VTAB?'vt ':''}${TODO.tab===t?'on':''}">${t==='完了'?'✓ 済み':t}${n?`<small>${n}</small>`:''}</button>`; }).join('')}</div>`;
+    if(TODO.undo && TODO.items.some(x=>x.id===TODO.undo.id)) h+=`<div class="td-undo"><span>「${esc(TODO.undo.text)}」を${TODO.undo.done?'済みリストに移しました':'やることに戻しました'}</span><button type="button" id="tdUndo">元に戻す</button></div>`;
     if(vOn){
       /* 発注するものがある業者を先に（件数の多い順）、ほかの業者は「ほかの業者」を押すと出る */
       const vs=TODO.vendors.map((v,i)=>({name:String(v.name||''), kind:v.kind||'', n:vc[v.name]||0, i})).filter(v=>v.name);
@@ -6303,8 +6323,10 @@ function todoScreen(){
           <button type="button" class="td-add vd" id="tdAdd" ${TODO_URL?'':'disabled'}>＋ ${esc(TODO.vendor)} に発注するものを書く</button>`;
       } else if(TODO.vendors.length) h+=`<div class="td-msg">上の業者を押すと、その業者に発注するものが出ます。</div>`;
     } else {
-      h+=`<div class="td-cats">${TODO_CATS.filter(c=>c!==TODO_ME||ST.id).map(c=>`<button type="button" data-c="${c}" class="${c===TODO_ME?'me ':''}${TODO.cat===c?'on':''}">${todoCatL(c)}</button>`).join('')}</div>
-      <button type="button" class="td-add" id="tdAdd" ${TODO_URL?'':'disabled'}>＋ やることを書く</button>`;
+      const base=(()=>{ const c=TODO.cat; TODO.cat=''; const r=list(); TODO.cat=c; return r; })();   // 分類で絞る前（件数用）
+      h+=`<div class="td-cats">${TODO_CATS.filter(c=>c!==TODO_ME||ST.id).map(c=>{ const k=base.filter(x=>x.cat===c).length;
+        return `<button type="button" data-c="${c}" class="${c===TODO_ME?'me ':''}${TODO.cat===c?'on':''}">${todoCatL(c)}${k?`<small>${k}</small>`:''}</button>`; }).join('')}</div>
+      ${TODO.tab==='完了'?'':`<button type="button" class="td-add" id="tdAdd" ${TODO_URL?'':'disabled'}>＋ やることを書く</button>`}`;
     }
     if(!TODO_URL) h+=`<div class="tl-warn" style="margin-bottom:10px">記録先（Apps Script）の設定がまだ済んでいません。設定が済むと、書き込み・共有ができるようになります。</div>`;
     if(msg) h+=`<div class="td-msg ${warn?'w':''}">${esc(msg)}</div>`;
@@ -6315,7 +6337,7 @@ function todoScreen(){
     if(TODO.cat===TODO_ME && !vOn) h+=`<p class="tl-note">👤 自分 … あなた（${esc(ST.name||'')}）にだけ表示されます。ほかの人には見えません。予定日を入れると、ホームの本日の予定の下にも出ます。</p>`;
     const q=todoQ().length;
     h+=`<p class="tl-note">すぐやるものほど上に出ます（時期：今すぐ→今月中→造り前…、同じ時期は 止まっている→未着手→進行中、さらに古いもの）。左の色：<b style="color:#c9a800">黄</b>＝30日以上、<b style="color:#e07a10">橙</b>＝60日以上、<b style="color:#d62b22">赤</b>＝90日以上。
-      押すと、状況（未着手→進行中→完了）やメモを変えられます。${q?`<br><b>送信待ち ${q}件</b>（電波が入ると自動で送られます）`:''}
+      右端の「済」を押すと「✓ 済み」に移ります（済みも分類で絞り込めます）。ボックスを押すと、状況やメモを変えられます。${q?`<br><b>送信待ち ${q}件</b>（電波が入ると自動で送られます）`:''}
       ${TODO.sheet?`<br><a href="${esc(TODO.sheet)}" target="_blank" rel="noopener">スプレッドシートで見る</a>`:''}</p>`;
     app.innerHTML=h;
     app.querySelectorAll('.td-tabs button').forEach(b=>b.onclick=()=>{ TODO.tab=b.dataset.t; lsSet('todo.tab',TODO.tab); draw(); });
@@ -6324,7 +6346,14 @@ function todoScreen(){
     const vm=$('#tdVMore'); if(vm) vm.onclick=()=>{ TODO.vAll=!TODO.vAll; if(!TODO.vAll && TODO.vendor && !todoVCount()[TODO.vendor]){ TODO.vendor=''; lsSet('todo.vendor',''); } draw(); };
     const vr=$('#tdVReg'); if(vr) vr.onclick=()=>todoVendorForm(draw);
     const a=$('#tdAdd'); if(a) a.onclick=()=>todoEdit(null, draw);
-    app.querySelectorAll('.td-it').forEach(b=>b.onclick=()=>{ const x=TODO.items.find(x=>x.id===b.dataset.id); if(x) todoEdit(x, draw); });
+    app.querySelectorAll('.td-it').forEach(b=>b.onclick=e=>{ const x=TODO.items.find(x=>x.id===b.dataset.id); if(!x) return;
+      const ok=e.target.closest('.td-ok');
+      if(ok){ e.stopPropagation(); const done=ok.dataset.ok==='1'; todoSetDone(x, done); TODO.undo={id:x.id, text:x.text, done};
+        clearTimeout(TODO.undoT); TODO.undoT=setTimeout(()=>{ TODO.undo=null; if(TODO_REDRAW===draw && nav[nav.length-1]===todoScreen) draw(); }, 8000);
+        draw(); todoFlush().then(()=>{ if(TODO_REDRAW===draw) draw(); }); return; }
+      todoEdit(x, draw); });
+    const ud=$('#tdUndo'); if(ud) ud.onclick=()=>{ const u=TODO.undo, x=u&&TODO.items.find(x=>x.id===u.id); TODO.undo=null; clearTimeout(TODO.undoT);
+      if(x) todoSetDone(x, !u.done); draw(); todoFlush().then(()=>{ if(TODO_REDRAW===draw) draw(); }); };
   }
   draw();
   if(TODO_URL){ msg=TODO.items.length?'':'読み込み中…'; draw();
@@ -6394,6 +6423,12 @@ function todoEdit(x, redraw){
     todoPush({action:'delete', id:x.id}); close(); redraw();
     todoFlush().then(()=>{ if(TODO_REDRAW===redraw) redraw(); });
   };
+}
+/* ---------- 済（完了）にする・戻す ---------- */
+function todoSetDone(x, done){
+  const me=todoMe();
+  const fields = done ? { status:'完了', doneBy:me.name, doneAt:todoNow() } : { status:'未着手', doneBy:'', doneAt:'' };
+  todoPush({action:'update', id:x.id, fields});
 }
 /* ---------- 業者を登録（業者別の「＋ 業者を登録」） ---------- */
 function todoVendorForm(redraw){
@@ -8204,6 +8239,8 @@ function stiBind(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-06-6','📅','本日の予定','カレンダーの予定をシンプルにしました（時刻と題名だけ。場所・電話番号は出しません）。'],
+  ['2026-10-06-5','✅','やることリスト','各ボックスの右端に「済」ボタン。押すと「✓ 済み」タブに移ります（すぐ下の「元に戻す」で取り消し可）。済みリストも分類（ジャンル）で絞り込めます。'],
   ['2026-10-06-4','🧪','分析','「まとめて保存」も、押すとすぐ前の画面に戻るようにしました。送信は裏で行い、推奨追水や注意があれば画面の下にまとめて出ます。'],
   ['2026-10-06-3','💾','酒母・仕込み','入力して「保存」を押すと、すぐ前の画面に戻るようにしました（酒母の表はそのまま次の入力ができます）。送信は裏で行い、終わると画面の下に「保存しました」と出ます。電波が弱いときは端末に預かり、電波が戻ると自動で送ります。仕込みの計算の注意（推奨追水など）も下に出ます。'],
   ['2026-10-06-2','👤','やることリスト・ホーム','分類に「👤 自分」を追加。自分を選んだやることは、登録した本人にだけ表示されます（ほかの人には見えません）。「予定日」を入れると、ホームの本日の予定の下に「自分のやること」として自分にだけ出ます。'],
