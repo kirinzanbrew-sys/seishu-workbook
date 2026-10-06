@@ -5415,9 +5415,9 @@ const DP_CSS = `
 .dp-cal li small{color:var(--sub)}
 .dp-ics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 6px;margin:16px 0 4px}
 /* 2026-10-06 ホーム固定：ページ全体はスクロールさせず、画面の高さに収める */
-body.hm{height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;padding-bottom:0}
+body.hm{position:fixed;top:0;right:0;bottom:0;left:0;height:auto;overflow:hidden;display:flex;flex-direction:column;padding-bottom:0}   /* iPhoneのホーム画面アプリでは100dvhが画面より短くなるので、画面の四隅に貼り付ける */
 body.hm header{flex:none;position:relative}
-body.hm #app{flex:1 1 auto;min-height:0;width:100%;display:flex;flex-direction:column;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+body.hm #app{flex:1 1 auto;min-height:0;width:100%;display:flex;flex-direction:column;padding-bottom:max(6px,env(safe-area-inset-bottom))}
 body.hm #app>*{flex:none}
 body.hm #app>.kz{height:clamp(52px,13dvh,132px)}
 body.hm #app>#dpBox{flex:1 1 auto;min-height:72px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
