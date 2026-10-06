@@ -425,10 +425,22 @@ hBack.onclick=()=>{ nav.pop(); const f=nav[nav.length-1]; if(f){f();window.scrol
   hBack.classList.toggle('hide',nav.length<=1) };
 /* 2026-10-06 ホーム固定の高さ：iPhoneのホーム画面アプリでは CSS の画面高さが実際より短いことがあるので、JSで実寸を入れる */
 function hmSize(){ const b=document.body; if(!b.classList.contains('hm')){ b.style.height=''; b.style.bottom=''; return; }
-  let h=window.innerHeight;
-  if(navigator.standalone && window.screen){ const land=window.matchMedia&&matchMedia('(orientation: landscape)').matches;
-    const sh=land?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height); if(sh>h) h=sh; }
-  b.style.bottom='auto'; b.style.height=h+'px'; }
+  /* iPhoneのホーム画面アプリでは、画面の高さが「上の安全領域（時計の帯）」の分だけ短く報告されることがある */
+  let st=0; try{ const pr=document.createElement('div'); pr.style.cssText='position:fixed;top:0;left:0;height:0;padding-top:env(safe-area-inset-top);visibility:hidden'; b.appendChild(pr); st=pr.offsetHeight; pr.remove(); }catch(e){}
+  let h=Math.max(window.innerHeight, document.documentElement.clientHeight||0);
+  const sa = navigator.standalone || (window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches));
+  if(sa && window.screen){ const land=window.matchMedia&&matchMedia('(orientation: landscape)').matches;
+    const sh=land?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height);
+    h=Math.max(h, Math.min(sh, h+st)); }
+  b.style.bottom='auto'; b.style.height=h+'px';
+  /* 予定の枠の高さを実寸で決める（アイコンが必ず全部見えるように） */
+  requestAnimationFrame(()=>{ const box=document.getElementById('dpBox'), ics=document.querySelector('#app .dp-ics'), app=document.getElementById('app');
+    if(!box||!ics||!app) return;
+    const pb=parseFloat(getComputedStyle(app).paddingBottom)||0, mt=parseFloat(getComputedStyle(ics).marginTop)||0;
+    let between=0; let n=box.nextElementSibling; while(n&&n!==ics){ between+=n.getBoundingClientRect().height; n=n.nextElementSibling; }
+    const avail=Math.floor(h - pb - box.getBoundingClientRect().top - between - mt - ics.getBoundingClientRect().height);
+    box.style.maxHeight=Math.max(72,avail)+'px'; box.style.height=Math.max(72,avail)+'px'; });
+}
 window.addEventListener('resize',()=>hmSize()); window.addEventListener('orientationchange',()=>setTimeout(hmSize,300));
 function head(t,s){document.body.classList.remove('hm');document.body.style.height='';document.body.style.bottom='';hTtl.childNodes[0].nodeValue=t;hSub.textContent=s||'';showWho()}
 /* 右上の「名前／ID」：押すと設定を開く */
@@ -754,7 +766,7 @@ function home(){
   if(!CANSAVE){h+=`<div id="boot" style="margin-top:14px"><b>ご注意：この開き方では進捗が保存されません。</b><br>
     Safari や Chrome で開き直してください。</div>`}
   app.innerHTML=h;
-  if(document.getElementById('dpBox')){ document.body.classList.add('hm'); hmSize(); }   // 2026-10-06 ホームは1画面に固定
+  if(document.getElementById('dpBox')){ document.body.classList.add('hm'); hmSize(); setTimeout(hmSize,600); }   // 2026-10-06 ホームは1画面に固定
   kirinzanBind();
   riceAlertTimer(()=>{ if(nav[nav.length-1]===home) go(home,false); });
   $('#bQuiz').onclick=()=>go(quizHome);
