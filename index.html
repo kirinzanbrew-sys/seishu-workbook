@@ -7224,7 +7224,10 @@ async function manxImport(base, onlyIds){
    ============================================================ */
 const SHARED_URL = "https://script.google.com/macros/s/AKfycbz40kdY7Y9Cn1zxtS1FKAMY8RNDsGs-K5Gc59uPs7yJHBsdZdDLxaLdU41x6IXnwakiTg/exec";   // ← Apps Script「製造ツール 共有データ」をデプロイしたURL（/exec）を入れる
 const CT_KINDS = ['資材','設備','部品'];
-const CT_PROCS = ['原料処理','麹室','酒母','仕込み','2F洗い場','新仕込1F','土蔵','旧仕込','大蔵','洗米場','1F洗い場','そのほか'];
+/* 2026-10-06 ジャンル整理：工程は日本酒の製造工程の順（国税庁「清酒の製造工程」に準拠）＋蔵の付帯業務。場所名は別の段に残す */
+const CT_STEPS = ['原料処理','製麹','酒母','仕込み','上槽','濾過','火入れ・貯蔵','調合・瓶詰','酒粕','リキュール','洗浄・衛生','分析・計測','設備・保守','ボイラー・燃料','そのほか'];
+const CT_PLACES = ['洗米場','麹室','2F洗い場','1F洗い場','新仕込1F','旧仕込','土蔵','大蔵'];
+const CT_PROCS = [...CT_STEPS, ...CT_PLACES];
 const CT_CSS = `
 .ct-top{display:flex;gap:8px;margin:12px 0 6px}
 .ct-top input{flex:1;min-width:0;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;font-family:inherit;background:var(--card);color:var(--ink)}
@@ -7297,7 +7300,8 @@ function ctScreen(){
     let h=`<div class="ct-mode"><button data-m="item" class="${CT.mode==='item'?'on':''}">📦 品目ごと</button><button data-m="co" class="${CT.mode==='co'?'on':''}">🏢 企業ごと</button></div>
       <div class="ct-top"><input id="ctQ" type="search" placeholder="${CT.mode==='co'?'会社名・品目・電話で探す':'名前・発注先・電話・品番で探す'}" value="${esc(CT.q)}"><button class="ct-new" id="ctNew" ${SHARED_URL?'':'disabled'}>＋ 登録</button></div>
       <div class="ct-chips">${['',...CT_KINDS].map(k=>`<button data-k="${k}" class="${CT.kind===k?'on':''}">${k||'すべて'}</button>`).join('')}</div>
-      <div class="ct-chips p">${CT_PROCS.map(p=>`<button data-p="${p}" class="${CT.proc===p?'on':''}">${p}</button>`).join('')}</div>`;
+      <div class="ct-chips p">${CT_STEPS.map(p=>`<button data-p="${p}" class="${CT.proc===p?'on':''}">${p}</button>`).join('')}</div>
+      <div class="ct-chips p">${CT_PLACES.map(p=>`<button data-p="${p}" class="${CT.proc===p?'on':''}">📍${p}</button>`).join('')}</div>`;
     if(!SHARED_URL) h+=`<div class="tl-warn" style="margin-top:8px">記録先（Apps Script）の設定がまだ済んでいません。設定が済むと、登録・共有ができるようになります。</div>`;
     if(CT.flash){ h+=`<div class="ct-msg g">${esc(CT.flash)}</div>`; CT.flash=''; }
     const q=ctNorm(CT.q);
@@ -7393,7 +7397,8 @@ function ctEdit(id){
     app.innerHTML=`<div class="ct-f">
       <label>名前（必須）</label><input type="text" data-f="name" value="${esc(f.name)}" placeholder="例：脱色炭、モーノポンプのOリング">
       <label>種類</label><div class="ch" data-g="kind">${CT_KINDS.map(k=>`<button data-v="${k}" class="${f.kind===k?'on':''}">${k}</button>`).join('')}</div>
-      <label>工程（いくつでも選べます）</label><div class="ch" data-g="proc">${CT_PROCS.map(p=>`<button data-v="${p}" class="${procs.includes(p)?'on':''}">${p}</button>`).join('')}</div>
+      <label>工程（いくつでも選べます）</label><div class="ch" data-g="proc">${CT_STEPS.map(p=>`<button data-v="${p}" class="${procs.includes(p)?'on':''}">${p}</button>`).join('')}</div>
+      <label>場所（使う場所があれば）</label><div class="ch" data-g="proc">${CT_PLACES.map(p=>`<button data-v="${p}" class="${procs.includes(p)?'on':''}">📍${p}</button>`).join('')}</div>
       ${fld('vendor','発注先','text','会社名（前に入れた会社は候補に出ます）')}<datalist id="ctVendors">${vendors.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
       ${hint?`<div class="hint">${esc(hint)}</div>`:''}
       ${fld('person','担当者')}${fld('tel','電話番号','tel','例：0254-00-0000')}${fld('fax','FAX','tel')}${fld('mail','メール','email')}${fld('model','品番・型番')}
@@ -8508,6 +8513,7 @@ function stiBind(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-06-12','📇','連絡先','工程のジャンルを日本酒の製造工程の順に整理しました（原料処理・製麹・酒母・仕込み・上槽・濾過・火入れ・貯蔵・調合・瓶詰・酒粕・リキュール・洗浄・衛生・分析・計測・設備・保守・ボイラー・燃料）。場所（📍麹室・土蔵など）は下の段に分けました。全件のジャンルも付け直しています。'],
   ['2026-10-06-11','📊','麹の比較・考察','温度推移のグラフに「基準の帯」を出しました。昨年（R7BY）の実績が基準で、輝は輝の基準。外れた点は橙・赤の輪で示し、下の一覧に教科副読本「麹」での意味が出ます。'],
   ['2026-10-06-10','🍚','麹','引込みの入力で、種麹①・②をリストから選べるようにしました（酵母に合わせて担当者が選びます）。'],
   ['2026-10-06-9','🏠','ホーム','すっきりさせました：上の「麒麟山酒造」、本日の予定の「予定を押すと詳細」「カレンダーの予定」の文字、出勤・休みの下の「アグリ」の行を出さないようにしました。'],
