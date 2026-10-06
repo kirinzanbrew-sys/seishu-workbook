@@ -3545,6 +3545,7 @@ const REC_CSS = `
 .rc-row .mid{min-width:0} .rc-row .b{font-weight:600;font-size:14px} .rc-row .d{font-size:12px;color:var(--sub)}
 .rc-row .r{text-align:right;font-size:12px;color:var(--sub);display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .rc-row .r b{font-size:14px;color:var(--ink)}
+.rc-row.kbg{position:relative} .rc-row.kbg>*{position:relative;z-index:1} .rc-row.kbg>.kbg-svg{position:absolute;left:6px;top:0;width:calc(100% - 6px);height:100%;z-index:0;pointer-events:none;opacity:.5}
 .rc-pl{display:inline-block;background:var(--navy);color:#fff;border-radius:6px;padding:1px 7px;font-size:12px;font-weight:700;margin-right:4px}
 .rc-pl.no{background:#eef0f3;color:var(--sub)}
 .rc-warn{display:inline-block;background:#fdecec;color:var(--ng);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700}
@@ -3753,7 +3754,8 @@ async function rcProbeSection(date,id){
     }catch(e){ rcStatus('記録できませんでした。電波を確認してください',true); } });
   try{ const s=await recApi({action:'probe_series',id},30000); const c=$('#pChart'); if(!c) return;
     if(!s||!s.ok||!s.points||!s.points.length){ c.innerHTML=`<p class="muted" style="font-size:12px">${s&&s.segs&&s.segs.length?'まだ記録がありません（10分ごとに増えます）':'この麹にはまだ品温計を付けていません'}</p>`; return; }
-    c.innerHTML=rcProbeChart(s.points)+`<details style="margin-top:6px"><summary style="font-size:12px;color:var(--sub)">数字で見る（${s.points.length}件）</summary><table class="tl-tbl"><tr><th style="text-align:left">時刻</th><th>品温計</th><th>品温</th><th>室温</th></tr>${s.points.slice().reverse().map(p=>`<tr><td style="text-align:left">${esc(p.t)}</td><td>No${p.no}${p.place?' '+esc(sh(p.place)):''}</td><td>${p.v}</td><td>${p.room??'—'}</td></tr>`).join('')}</table></details>`;
+    RC.pser=RC.pser||{}; RC.pser[id]=s.points; if($('#kTop')) $('#kTop').innerHTML=kTempChart(r,s.points);
+    c.innerHTML=($('#kTop')?'<p class="tl-note" style="margin:0">温度経過のグラフは画面の一番上にあります</p>':rcProbeChart(s.points))+`<details style="margin-top:6px"><summary style="font-size:12px;color:var(--sub)">数字で見る（${s.points.length}件）</summary><table class="tl-tbl"><tr><th style="text-align:left">時刻</th><th>品温計</th><th>品温</th><th>室温</th></tr>${s.points.slice().reverse().map(p=>`<tr><td style="text-align:left">${esc(p.t)}</td><td>No${p.no}${p.place?' '+esc(sh(p.place)):''}</td><td>${p.v}</td><td>${p.room??'—'}</td></tr>`).join('')}</table></details>`;
   }catch(e){ const c=$('#pChart'); if(c) c.innerHTML='<p class="muted" style="font-size:12px">温度経過を読み込めませんでした</p>'; }
 }
 function rcProbeChart(pts){
@@ -3820,6 +3822,61 @@ async function recFlush(){ if(RC.qBusy) return; RC.qBusy=true; let netFail=false
 window.addEventListener('online',()=>recFlush());
 setTimeout(()=>{ if(recQ().length) recFlush(); },3000);
 /* ========== 🍚 麹：今日の作業（出麹→盛→引込→洗米）と配置図 ========== */
+/* ===== 2026-10-07 泰広さん指示：麹の各ボタンの背景に温度グラフ（半透明・ボタンの大きさは変えない）。
+   押したら麹の画面の一番上に温度グラフ（記録した品温・品温計・基準の帯）がすぐ見えるように。 =====
+   横軸＝引込からの時間（cmpStages）。基準＝KSTD（一般／輝）。品温計の連続データは一度開いた麹だけ RC.pser に控えて背景にも重ねる。 */
+function kTempData(r,probe){
+  const pts=(typeof cmpStages==='function')?cmpStages(r):[], sk=kIsKaga(r)?'kaga':'ippan', a0=cmpAnchor(r);
+  let pp=[];
+  if(probe&&probe.length&&a0!=null) pp=probe.filter(p=>p&&p.ms!=null&&p.v!=null&&p.v!=='').map(p=>({h:(Number(p.ms)-a0)/3600000,v:Number(p.v),no:p.no})).filter(p=>p.h>=-2&&p.h<=90&&isFinite(p.v)).sort((a,b)=>a.h-b.h);
+  return {pts,sk,pp};
+}
+function kRowBg(r){
+  try{
+    if(cmpAnchor(r)==null) return '';
+    const d=kTempData(r,(RC.pser||{})[r['麹ID']]), S=KSTD[d.sk];
+    const lo=26,hi=44, xmax=Math.max(64,...d.pts.map(p=>p.h+2),...d.pp.map(p=>p.h+2));
+    const X=h=>(100*Math.max(0,Math.min(h,xmax))/xmax).toFixed(2), Y=v=>(40*(1-(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo))).toFixed(2);
+    const std=Object.keys(S.st).map(nm=>[S.h[nm],S.st[nm][0]]).sort((a,b)=>a[0]-b[0]);
+    const PC=['#b23b3b','#1d5fa8','#2e8b57','#b8860b'];
+    let g='';
+    if(std.length>1) g+=`<polyline fill="none" stroke="#8a8272" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke" points="${std.map(x=>X(x[0])+','+Y(x[1])).join(' ')}"/>`;
+    [...new Set(d.pp.map(p=>p.no))].forEach(n=>{ const q=d.pp.filter(p=>p.no===n); if(q.length>1) g+=`<polyline fill="none" stroke="${PC[(n-1)%4]||PC[0]}" stroke-width="1.3" vector-effect="non-scaling-stroke" points="${q.map(p=>X(p.h)+','+Y(p.v)).join(' ')}"/>`; });
+    if(d.pts.length){ const pl=d.pts.map(p=>X(p.h)+','+Y(p.v)).join(' ');
+      if(d.pts.length>1) g+=`<polygon points="${X(d.pts[0].h)},40 ${pl} ${X(d.pts[d.pts.length-1].h)},40" fill="#2a78d6" fill-opacity=".16"/><polyline fill="none" stroke="#2a78d6" stroke-width="2.2" vector-effect="non-scaling-stroke" points="${pl}"/>`;
+      g+=d.pts.map(p=>`<line x1="${X(p.h)}" y1="${Y(p.v)}" x2="${X(p.h)}" y2="${Y(p.v)}" stroke="#2a78d6" stroke-width="6" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`).join(''); }
+    return `<svg class="kbg-svg" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">${g}</svg>`;
+  }catch(e){ return ''; }
+}
+function kTempChart(r,probe){
+  try{
+    const d=kTempData(r,probe), S=KSTD[d.sk], HS=S.h;
+    const W=360,H=180,L=30,R=8,T=12,B=24;
+    const std=Object.keys(S.st).map(nm=>({nm,h:HS[nm],m:S.st[nm][0],s:Math.max(S.st[nm][1],KSD_MIN)})).sort((a,b)=>a.h-b.h);
+    const vs=d.pts.map(p=>p.v).concat(d.pp.map(p=>p.v),std.map(x=>x.m+x.s),std.map(x=>x.m-x.s)); if(d.sk==='ippan') vs.push(30,35);
+    let lo=Math.floor(Math.min(...vs)-1), hi=Math.ceil(Math.max(...vs)+1); if(!isFinite(lo)||!isFinite(hi)){ lo=26; hi=44; }
+    const xmax=Math.max(12,Math.ceil((Math.max(HS['出麹']||60,...d.pts.map(p=>p.h),...d.pp.map(p=>p.h))+2)/6)*6);
+    const X=h=>(L+(W-L-R)*Math.max(0,Math.min(h,xmax))/xmax).toFixed(1), Y=v=>(T+(H-T-B)*(1-(v-lo)/(hi-lo))).toFixed(1);
+    const PC=['#b23b3b','#1d5fa8','#2e8b57','#b8860b'], LV=['#1b2a41','#e08a00','#c0392b'];
+    let g='';
+    const ys=(hi-lo)>10?2:1; for(let v=Math.ceil(lo/ys)*ys; v<=hi; v+=ys) g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#ece7dc"/><text x="${L-4}" y="${(+Y(v)+3).toFixed(1)}" font-size="9" text-anchor="end" fill="#8a8272">${v}</text>`;
+    for(let h=0; h<=xmax; h+=12) g+=`<text x="${X(h)}" y="${H-B+12}" font-size="9" text-anchor="middle" fill="#8a8272">${h}h</text>`;
+    if(d.sk==='ippan') g+=`<rect x="${X(0.5)}" y="${Y(35)}" width="${(X(7)-X(0.5)).toFixed(1)}" height="${(Y(30)-Y(35)).toFixed(1)}" fill="#2e8b57" fill-opacity=".07" stroke="#2e8b57" stroke-opacity=".5" stroke-dasharray="3 3"/>`;
+    if(std.length>1){ const up=std.map(x=>X(x.h)+','+Y(x.m+x.s)), dn=std.slice().reverse().map(x=>X(x.h)+','+Y(x.m-x.s));
+      g+=`<polygon points="${up.concat(dn).join(' ')}" fill="#9aa0a6" fill-opacity=".22"/><polyline fill="none" stroke="#9aa0a6" stroke-dasharray="3 3" points="${std.map(x=>X(x.h)+','+Y(x.m)).join(' ')}"/>`; }
+    [...new Set(d.pp.map(p=>p.no))].forEach(n=>{ const q=d.pp.filter(p=>p.no===n); if(q.length>1) g+=`<polyline fill="none" stroke="${PC[(n-1)%4]||PC[0]}" stroke-width="1.4" stroke-opacity=".85" points="${q.map(p=>X(p.h)+','+Y(p.v)).join(' ')}"/>`; });
+    const jd=d.pts.map(p=>(typeof kJudge==='function'?kJudge(d.sk,p.nm,p.v):null));
+    if(d.pts.length>1) g+=`<polyline fill="none" stroke="#1b2a41" stroke-width="2" points="${d.pts.map(p=>X(p.h)+','+Y(p.v)).join(' ')}"/>`;
+    d.pts.forEach((p,i)=>{ const c=LV[jd[i]?jd[i].lv:0]; g+=`<circle cx="${X(p.h)}" cy="${Y(p.v)}" r="3.6" fill="${c}"/><text x="${X(p.h)}" y="${(+Y(p.v)-6).toFixed(1)}" font-size="9" text-anchor="middle" fill="${c}" font-weight="700">${cmpF(p.v)}</text>`; });
+    const chips=d.pts.map((p,i)=>`<span style="white-space:nowrap;color:${LV[jd[i]?jd[i].lv:0]}">${esc(p.nm)} <b>${cmpF(p.v)}</b>${jd[i]?jd[i].mk:''}</span>`).join('　');
+    const nos=[...new Set(d.pp.map(p=>p.no))];
+    return `<div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:14px">🌡 温度経過</b><small class="muted" style="font-size:11px">基準：${esc(S.name)}</small></div>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="麹の温度経過">${g}</svg>
+      ${d.pts.length||d.pp.length?'':'<p class="muted" style="font-size:12px;margin:0">まだ品温の記録がありません（灰色の帯＝基準）</p>'}
+      ${chips?`<div style="font-size:12px;line-height:1.7">${chips}</div>`:''}
+      <div class="tl-note" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:2px 0 0"><span>● 記録した品温（◎基準内 <span style="color:#e08a00">△</span> <span style="color:#c0392b">✕</span>）</span>${nos.map(n=>`<span><span style="display:inline-block;width:14px;height:2px;background:${PC[(n-1)%4]||PC[0]};vertical-align:middle"></span> 品温計No${n}</span>`).join('')}<span>灰色の帯＝基準 平均±1σ</span>${d.sk==='ippan'?'<span style="color:#2e8b57">緑の枠＝発芽至適30〜35℃</span>':''}<span>横軸＝引込からの時間</span></div>`;
+  }catch(e){ return '<p class="muted" style="font-size:12px">温度グラフを描けませんでした</p>'; }
+}
 async function kojiScreen(day){
   RC.kday = day || RC.kday || dtoday();
   const date = RC.kday;
@@ -3842,7 +3899,7 @@ async function kojiScreen(day){
     const map={出麹:['出麹 順番','出麹 場所',r['出麹 品温']!==''?'done':'', r['出麹 品温']!==''?`出麹 ${rcN(r['出麹 品温'])}℃`:'未',`${r['出麹 時刻']||'—'} 目標${tg['出麹']?tg['出麹'].temp:''}℃`],
       盛:['盛 順番','盛 場所',(r['留仕事 品温']!==''?'done':(r['盛 時刻']!==''?'part':'')), r['留仕事 品温']!==''?`留仕事 ${rcN(r['留仕事 品温'])}℃`:(r['仲仕事 品温']!==''?`仲仕事 ${rcN(r['仲仕事 品温'])}℃`:(r['盛 時刻']!==''?`盛 ${r['盛 時刻']}`:'未')),`盛${tg['盛後']?tg['盛後'].time:''}→仲${tg['仲仕事']?tg['仲仕事'].time:''}→留${tg['留仕事']?tg['留仕事'].time:''}`],
       引込:['引込 順番','引込 場所',(r['切返し 品温']!==''?'done':(r['引込 時刻']!==''?'part':'')), r['切返し 品温']!==''?`切返し ${rcN(r['切返し 品温'])}℃`:(r['種切 品温']!==''?`種切 ${rcN(r['種切 品温'])}℃`:(r['引込 時刻']!==''?`引込 ${r['引込 時刻']}`:'未')),`引込${tg['引込']?tg['引込'].time:''} 目標${tg['引込']?tg['引込'].temp:''}℃`]}[stage];
-    return `<button class="rc-row ${map[2]}" data-id="${esc(r['麹ID'])}" data-st="${stage}"><span class="st"></span>
+    return `<button class="rc-row kbg ${map[2]}" data-id="${esc(r['麹ID'])}" data-st="${stage}">${kRowBg(r)}<span class="st"></span>
       <span class="id">${esc(r['麹ID'])}<small>${esc(r['記号'])} ${r['麹米kg']}kg</small>${prb[r['麹ID']]?`<small class="rc-prb">品温計 No${prb[r['麹ID']]}</small>`:''}</span>
       <span class="mid">${pl(r[map[0]],r[map[1]]||(stage==='出麹'?r['盛 場所']:''))}<span class="b">${esc(r['液種'])}</span><br><span class="d">${esc(r['品種'])} ${r['精米歩合']}%${r['種麹']?'・'+esc(r['種麹']):''}${r['種麹2']?'＋'+esc(r['種麹2']):''}${r['使用日']?'・使用 '+rcMD(r['使用日']):''}${r['注意']?' ・'+esc(r['注意']):''}</span></span>
       <span class="r"><b>${map[3]}</b><span>${map[4]}</span></span></button>`; };
@@ -4199,7 +4256,8 @@ function kojiEdit(date, id, stage){
   head(`${id}（${stage}）`, `${r['液種']}　${r['品種']} ${r['精米歩合']}%　麹米 ${r['麹米kg']}kg`);
   // 2026-10-01 泰広さん指示：DRY・WETは記録しない／水分は種切だけ・輝のみ
   const defs=KOJI_FIELDS[stage].filter(d=>!(d[2]&&d[2].kagayaki)||/輝/.test([r['液種'],r['記号'],r['品種']].join('')));
-  let h=`<div class="rc-calc"><div>洗米<b>${rcMD(r['洗米日'])}</b></div><div>引込<b>${rcMD(r['引込日'])}</b></div><div>盛<b>${rcMD(r['盛日'])}</b></div><div>出麹<b>${rcMD(r['出麹日'])}</b></div><div>使用日<b>${rcMD(r['使用日'])}</b></div>
+  let h=`<div class="card" id="kTop" style="padding:8px 10px;margin-bottom:8px">${kTempChart(r,(RC.pser||{})[id])}</div>
+    <div class="rc-calc"><div>洗米<b>${rcMD(r['洗米日'])}</b></div><div>引込<b>${rcMD(r['引込日'])}</b></div><div>盛<b>${rcMD(r['盛日'])}</b></div><div>出麹<b>${rcMD(r['出麹日'])}</b></div><div>使用日<b>${rcMD(r['使用日'])}</b></div>
     <div>種麹<b>${esc(r['種麹']||'—')} ${r['種麹g']!==''?r['種麹g']+'g':''}${r['種麹2']?'<br>＋'+esc(r['種麹2'])+' '+(r['種麹2g']!==''&&r['種麹2g']!=null?r['種麹2g']+'g':''):''}</b></div><div>吸水<b>${rcN(r['吸水%'])}%</b></div>${stage!=='引込'?`<div>引込 品温<b>${rcN(r['引込 品温'])}℃</b></div>`:''}${stage==='出麹'?`<div>留仕事 品温<b>${rcN(r['留仕事 品温'])}℃</b></div>`:''}</div>
     <div class="card"><div class="rc-grid">${defs.map(([c,l,o])=>{ o=Object.assign({},o||{}); if(o.tane){ o.type='select'; o.options=rcTaneNames(r[c]); o.tane1=1; } if(o.layout==='room2') o.occ=rcOcc(j,date,id); if(o.tg&&tg[o.tg]){ o.hint=(o.type==='time'?'標準 '+(tg[o.tg].time||'—'):'目標 '+(tg[o.tg].temp??'—')+'℃'); } return rcField(rcId(c),l,r[c],o); }).join('')}</div></div>
     <div class="rc-status" id="rcStatus"></div>
@@ -8496,6 +8554,171 @@ function stiBind(){
 
 </script>
 <!-- /shubotop -->
+<!-- yeastplan -->
+<script>
+/* ================= 🧬 酵母：植菌のタイミング（🧫酒母の上段アイコン）2026-10-07 =================
+   泰広さん指示：酵母の植菌のタイミングがわかるもの。案B（仕込番号ごとの帯グラフ）。植菌だけでよい。
+   ・自社培養：植菌日＝酒母仕込日（酛立 motodate）の7日前 → 培養7日 → 酒母仕込（酵母準備表_作成指示書 第2章）
+   ・発注の酵母は植菌しない。帯の代わりに「発注締切」を出す
+       H13BY（広島）＝酒母仕込日の14日前（2週間前には発注）
+       K1801（協会）＝酒母仕込日の21日前。3週間以上前なので要注意（赤）
+   ・もと：醪管理R8BY 仕込マスタ（recState().master の motodate・yeast）。酵母が空なら酵母割当（yeastOf）
+   ・🧫酒母の上段アイコン（🌡室温・O₂・📅昨年度）の右に「🧬酵母」。次の植菌まで何日かを表示。
+     植菌が今日・明日、または発注締切まで7日以内なら橙
+   控え：seishu-workbook_github\_src_yeastplan.js（index.html の yeastplan の目印の間。shubotop の後ろ）
+   ================================================================================== */
+const YP_CULT=7;                                   // 植菌 → 酒母仕込 の日数（培養7日）
+const YP_ORDER={
+  H13BY:{lead:14, who:'広島県酒造協同組合', note:'2週間前には発注', care:false},
+  K1801:{lead:21, who:'',                 note:'3週間以上前・要注意', care:true}
+};
+const YP={all:false, open:{}};
+const YP_LBW=158;   // 左の見出し（No｜酵母｜液種）の幅
+function ypNorm(s){ const t=String(s||'').replace(/[\s　]/g,'').toUpperCase();
+  if(/13BY/.test(t)) return 'H13BY';
+  if(/1801/.test(t)) return 'K1801';
+  return String(s||'').trim(); }
+function ypYeasts(m){
+  let y=m.yeast||''; if(!y && typeof yeastOf==='function'){ try{ y=yeastOf(m.liquid,m.no); }catch(e){} }
+  return String(y||'').split(/[+＋・\/／、,，]+/).map(x=>x.trim()).filter(Boolean).map(ypNorm);
+}
+function ypItems(st){
+  const out=[];
+  ((st&&st.master)||[]).filter(m=>m.motodate).forEach(m=>{
+    const ys=ypYeasts(m);
+    (ys.length?ys:['']).forEach(name=>{
+      const o=YP_ORDER[name];
+      if(o) out.push({m, name, kind:'order', key:dadd(m.motodate,-o.lead), o});
+      else  out.push({m, name, kind:name?'cult':'none', key:dadd(m.motodate,-YP_CULT)});
+    });
+  });
+  return out.sort((a,b)=>a.m.motodate.localeCompare(b.m.motodate)||(+a.m.no)-(+b.m.no)||(a.kind==='order'?-1:1));
+}
+const ypW=d=>'日月火水木金土'[dparse(d).getDay()];
+const ypMDW=d=>`${rcMD(d)}（${ypW(d)}）`;
+function ypLeft(n){ return n===0?'今日':n===1?'明日':n<0?`${-n}日前`:`${n}日後`; }
+/* 上段アイコンの中身：次の植菌まで何日か／締切の近い発注 */
+function ypIconInfo(){
+  const st=(typeof RC!=='undefined'&&RC.state)||null; if(!st||!st.master) return {v:'—',warn:false};
+  const t=dtoday(), it=ypItems(st);
+  const cult=it.filter(x=>x.kind==='cult'&&x.key>=t).sort((a,b)=>a.key.localeCompare(b.key))[0];
+  const ord=it.filter(x=>x.kind==='order'&&x.key>=t&&rcDays(t,x.key)<=7);
+  const n=cult?rcDays(t,cult.key):null;
+  if(ord.length && (n===null||n>1)) return {v:'発注 '+ypLeft(rcDays(t,ord[0].key)).replace('日後','日'),warn:true};
+  if(n===null) return {v:'—',warn:false};
+  return {v:n===0?'植菌 今日':n===1?'植菌 明日':`あと${n}日`, warn:n<=1};
+}
+function ypIconHTML(){ const r=ypIconInfo();
+  return `<button class="st-ic${r.warn?' wn':''}" data-sti="yeast" type="button"><span class="e">🧬</span><b>${esc(r.v)}</b><small>酵母</small></button>`; }
+
+async function yeastPlanScreen(){
+  head('酵母','植菌のタイミング（酒母仕込日の7日前）');
+  rcLoading('仕込の予定を読み込んでいます…');
+  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
+  ypPaint(st);
+}
+function ypPaint(st){
+  const t=dtoday(), all=ypItems(st);
+  /* 2026-10-07 泰広さん指示：過去のは非表示。植菌日・発注締切が今日以降のものだけ（酵母未定は酒母仕込日が今日以降） */
+  const items=all.filter(x=>x.kind==='none'?x.m.motodate>=t:x.key>=t);
+  /* --- 近いこと（14日以内の植菌・発注締切） --- */
+  const soon=items.filter(x=>x.kind!=='none' && rcDays(t,x.key)<=14);
+  let h=`<div class="yp-soon">`;
+  h+=soon.length?soon.slice(0,5).map(x=>{ const n=rcDays(t,x.key);
+      const cls=x.kind==='order'?(x.o.care?'care':'ord'):(n<=1?'now':'');
+      const what=x.kind==='order'?`発注締切　${esc(x.name)}<em>${esc(x.o.who)}</em>`:`植菌　${esc(x.name)}`;
+      const late=n<0?'<i>締切を過ぎました（発注済みか確認）</i>':'';
+      return `<div class="yp-s ${cls}"><span class="d">${ypMDW(x.key)}<b>${ypLeft(n)}</b></span><span class="w">${x.m.no}号　${what}${x.kind==='order'&&x.o.care&&n>=0?'<i>⚠ 3週間以上前</i>':''}${late}</span></div>`; }).join('')
+    :`<p class="muted" style="margin:0;font-size:13px">14日以内の植菌・発注締切はありません</p>`;
+  h+=`</div>`;
+  h+=`<div style="height:6px"></div>`;   // 2026-10-07 泰広さん指示：［これから］［全部］ボタンは削除（これからの分だけ出す）
+  if(!items.length){ app.innerHTML=h+`<p class="muted" style="text-align:center;padding:20px 0">これからの植菌・発注はありません</p>`; ypBind(st); return; }
+  /* --- 帯グラフ --- */
+  const a=t;   // グラフは今日から
+  const z=dadd(items.reduce((s,x)=>x.m.motodate>s?x.m.motodate:s, items[0].m.motodate),1);
+  const N=rcDays(a,z)+1, W=22, X=d=>rcDays(a,d)*W;
+  let days='', mon='';
+  for(let i=0;i<N;i++){ const d=dadd(a,i), w=dparse(d).getDay(), dd=+d.slice(8,10);
+    days+=`<span class="yp-dc ${w===0?'su':w===6?'sa':''} ${d===t?'td':''}" style="left:${i*W}px">${dd}<small>${'日月火水木金土'[w]}</small></span>`;
+    if(i>0&&dd===1) mon+=`<span class="yp-mo" style="left:${i*W}px">${+d.slice(5,7)}月</span>`; }
+  const tl=(t>=a&&t<=z)?`<span class="yp-today" style="left:${YP_LBW+X(t)+W/2}px"></span>`:'';
+  let rows='';
+  items.forEach((x,i)=>{
+    const m=x.m, id=m.no+'_'+i, sh=X(m.motodate);
+    let bars='';
+    if(x.kind==='cult'){
+      const p=X(x.key);
+      bars=`<span class="yp-cul" style="left:${p+W/2}px;width:${sh-p}px"></span><span class="yp-dot in" style="left:${p}px">植</span>`;
+    } else if(x.kind==='order'){
+      const p=X(x.key);
+      bars=`<span class="yp-ln" style="left:${p+W/2}px;width:${sh-p}px"></span><span class="yp-dot ${x.o.care?'care':'ord'}" style="left:${p}px">発</span>`;
+    }
+    bars+=`<span class="yp-dot sk" style="left:${sh}px">仕</span>`;
+    const nm=x.kind==='none'?'酵母未定':x.name;
+    rows+=`<div class="yp-row ${m.motodate<t?'past':''}" data-yp-id="${id}"><div class="yp-lb"><span class="c1"><b>${m.no}</b></span><span class="c2 ${x.kind==='order'?(x.o.care?'care':'ord'):x.kind==='none'?'none':''}">${esc(nm)}</span><span class="c3">${esc(m.liquid||'')}</span></div><div class="yp-tr" style="width:${N*W}px">${bars}</div></div>`;
+    if(YP.open[id]){
+      const txt=x.kind==='order'
+        ?`発注締切 <b>${ypMDW(x.key)}</b>（${x.o.who?esc(x.o.who)+'・':''}${esc(x.o.note)}）→ 到着は仕込の2日前 ${ypMDW(dadd(m.motodate,-2))}まで → 酒母仕込 <b>${ypMDW(m.motodate)}</b>`
+        :x.kind==='cult'?`植菌 <b>${ypMDW(x.key)}</b> → 培養${YP_CULT}日 → 酒母仕込 <b>${ypMDW(m.motodate)}</b>`
+        :`酵母が決まっていません（醪管理R8BY › 入力_順号別）。酒母仕込 ${ypMDW(m.motodate)}`;
+      rows+=`<div class="yp-det">${m.no}号 ${esc(m.liquid||'')}${m.shuboT?'　酒母T'+esc(m.shuboT):''}<br>${txt}</div>`;
+    }
+  });
+  h+=`<div class="yp-wrap"><div class="yp-sc" id="ypSc"><div class="yp-in" style="width:${YP_LBW+N*W}px"><div class="yp-row yp-h"><div class="yp-lb yp-lbh"><span class="c1">No</span><span class="c2">酵母</span><span class="c3">液種</span><em class="yp-mon" id="ypMon"></em></div><div class="yp-hd" style="width:${N*W}px">${mon}${days}</div></div><div class="yp-body">${tl}${rows}</div></div></div></div>`;
+  h+=`<div class="yp-lg"><span><i class="yp-dot in s">植</i>植菌</span><span><i class="yp-cul s"></i>培養${YP_CULT}日</span><span><i class="yp-dot sk s">仕</i>酒母仕込</span><span><i class="yp-dot ord s">発</i>発注締切 H13BY（14日前）</span><span><i class="yp-dot care s">発</i>K1801（21日前・要注意）</span></div>`;
+  h+=`<p class="tl-note">行を押すと日付が出ます。酒母仕込日・酵母は「醪管理R8BY › 入力_順号別」から。植菌日＝酒母仕込日の${YP_CULT}日前。</p>`;
+  app.innerHTML=h; ypBind(st);
+  { const sc0=$('#ypSc'); if(sc0) app.querySelectorAll('.yp-det').forEach(d=>d.style.width=sc0.clientWidth+'px'); }
+  /* 今日が見える位置までスクロール */
+  const sc=$('#ypSc'); if(sc){ sc.scrollLeft=0;
+    const mon=()=>{ const i=Math.max(0,Math.min(N-1,Math.round(sc.scrollLeft/W))); const e=$('#ypMon'); if(e) e.textContent=(+dadd(a,i).slice(5,7))+'月'; };
+    mon(); sc.addEventListener('scroll',mon,{passive:true}); }
+}
+function ypBind(st){
+  app.querySelectorAll('.yp-row[data-yp-id]').forEach(r=>r.onclick=()=>{ const k=r.dataset.ypId; YP.open[k]=!YP.open[k];
+    const sc=$('#ypSc'), x=sc?sc.scrollLeft:0; ypPaint(st); const s2=$('#ypSc'); if(s2) s2.scrollLeft=x; });
+}
+/* 上段アイコンに足す（shubotop の stiHTML の後ろに付ける）。押したら酵母の画面 */
+(function(){ if(typeof stiHTML!=='function') return; const _h=stiHTML;
+  stiHTML=function(){ const s=_h.apply(this,arguments); return s.replace(/<\/div>\s*$/, ypIconHTML()+'</div>'); }; })();
+document.addEventListener('click', e=>{ const b=e.target.closest&&e.target.closest('.st-ic[data-sti="yeast"]'); if(!b) return;
+  e.preventDefault(); go(()=>yeastPlanScreen()); });
+(function(){ const s=document.createElement('style'); s.textContent=`
+.yp-soon{display:flex;flex-direction:column;gap:6px;margin:6px 0}
+.yp-s{display:flex;gap:10px;align-items:center;background:var(--card,#fff);border:1px solid var(--line,#e4ded1);border-radius:12px;padding:8px 10px;font-size:13px}
+.yp-s .d{min-width:86px;font-weight:700;color:var(--navy,#1f3f72);display:flex;flex-direction:column;line-height:1.25}.yp-s .d b{font-size:12px;color:var(--sub,#6b6b6b);font-weight:600}
+.yp-s .w{flex:1;line-height:1.4}.yp-s .w em{font-style:normal;font-size:11px;color:var(--sub,#6b6b6b);margin-left:6px}.yp-s .w i{font-style:normal;display:inline-block;margin-left:6px;font-size:11px;color:#b3261e;font-weight:700}
+.yp-s.now{border:2px solid #c0392b;background:#fdf0ee}.yp-s.ord{border:2px solid #e8a13a;background:#fff8ec}.yp-s.care{border:2px solid #b3261e;background:#fdecea}
+.yp-wrap{position:relative;border:1px solid var(--line,#e4ded1);border-radius:12px;background:var(--card,#fff);overflow:hidden}
+.yp-sc{overflow-x:auto;position:relative}.yp-in{position:relative}
+.yp-hd{position:relative;height:44px}.yp-row.yp-h{height:45px;cursor:default}
+.yp-mo{position:absolute;top:2px;font-size:11px;font-weight:700;color:var(--navy,#1f3f72);white-space:nowrap;padding-left:2px}
+.yp-dc{position:absolute;top:16px;width:22px;text-align:center;font-size:11px;line-height:1.1;color:var(--ink,#333)}.yp-dc small{display:block;font-size:9px;color:var(--sub,#6b6b6b)}
+.yp-dc.sa,.yp-dc.sa small{color:#1f5fa8}.yp-dc.su,.yp-dc.su small{color:#c0392b}.yp-dc.td{background:#ffe9a8;border-radius:6px}
+.yp-body{position:relative}
+.yp-today{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#e8a13a;opacity:.7;z-index:1;pointer-events:none}
+.yp-row{display:flex;height:45px;box-sizing:border-box;border-bottom:1px solid #e4ded1;cursor:pointer}.yp-row.past{opacity:.45}
+.yp-lb{position:sticky;left:0;flex:0 0 158px;width:158px;height:100%;background:var(--card,#fff);border-right:1px solid #e4ded1;box-sizing:border-box;display:flex;z-index:2;position:sticky}
+.yp-lb>span{display:flex;align-items:center;height:100%;box-sizing:border-box;padding:0 4px;border-right:1px solid #e4ded1;font-size:12px;line-height:1.15;overflow:hidden;word-break:break-all}
+.yp-lb>span:last-of-type{border-right:none}
+.yp-lb .c1{flex:0 0 32px;justify-content:center}.yp-lb .c1 b{font-size:14px;color:var(--navy,#1f3f72)}
+.yp-lb .c2{flex:0 0 66px;font-weight:700}.yp-lb .c2.ord{color:#a0610b}.yp-lb .c2.care{color:#b3261e}.yp-lb .c2.none{color:var(--sub,#6b6b6b);font-weight:400}
+.yp-lb .c3{flex:1 1 auto;min-width:0;color:var(--ink,#333);font-size:11px;word-break:normal;overflow-wrap:anywhere}
+.yp-lbh{position:sticky;border-bottom:none}.yp-lbh>span,.yp-lbh>span.c2,.yp-lbh>span.c3{align-items:flex-end;justify-content:center;padding-bottom:5px;font-size:11px;color:var(--sub,#6b6b6b);font-weight:400}
+.yp-lbh .yp-mon{position:absolute;left:6px;top:3px;font-style:normal;font-size:13px;font-weight:700;color:var(--navy,#1f3f72);background:var(--card,#fff);padding:0 2px}
+.yp-tr{position:relative;height:44px}
+.yp-cul{position:absolute;top:18px;height:8px;background:#7cc49a;border-radius:4px}
+.yp-ln{position:absolute;top:21px;height:0;border-top:2px dashed #c9b98f}
+.yp-dot{position:absolute;top:11px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;font-style:normal;z-index:1}
+.yp-dot.in{background:#c0392b}.yp-dot.sk{background:#1f5fa8;border-radius:6px}.yp-dot.ord{background:#e8a13a;transform:rotate(0)}.yp-dot.care{background:#b3261e;box-shadow:0 0 0 3px #f6c6c1}
+.yp-dot.s{position:static;display:inline-flex;width:18px;height:18px;font-size:10px;margin-right:4px;vertical-align:middle}
+.yp-cul.s{position:static;display:inline-block;width:22px;height:8px;margin-right:4px;vertical-align:middle}
+.yp-det{font-size:12px;line-height:1.6;padding:6px 12px 8px;background:#f7f4ec;border-bottom:1px solid #f1ece2;position:sticky;left:0;box-sizing:border-box;z-index:3}
+.yp-lg{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11px;color:var(--sub,#6b6b6b);margin:8px 2px}
+`; document.head.appendChild(s); })();
+
+</script>
+<!-- /yeastplan -->
 <!-- bgsave -->
 <script>
 /* ================= 💾 裏で保存：読み込みに送信待ちを重ねる（2026-10-06） =================
@@ -8524,8 +8747,8 @@ function stiBind(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
-  ['2026-10-06-14','🚚','本日の予定','米の引き取りを「本日の予定」「明日の予定」に出すようにしました（「米」の行。15:30〜の米移動）。引取予定表（AI参照データ＼米引き取り予定）から自動で入ります。押すと品種ごとの袋数・kgが出て、在庫管理を開けます。'],
-  ['2026-10-06-13','🍚','米管理・在庫管理','在庫の表の「7日先」をやめて「増減」の列にしました。1袋30kgより少し多く入っている分など、自然に増えた・減った量（kg、マイナスも可）を品種ごとに入力できます。入れた増減は、その日から先の在庫に足して表示されます。'],
+  ['2026-10-07-2','🍚','麹','麹の画面の各麹のボタンに、温度経過のグラフを半透明で出しました（青＝記録した品温、点線＝昨年の基準）。ボタンを押すと、画面の一番上に温度グラフ（基準の帯・品温計の線・◎△✕）がすぐ出ます。'],
+  ['2026-10-07-1','🧬','酒母','酒母のページの上段に「🧬酵母」を足しました。仕込番号ごとに 植菌日（酒母仕込日の7日前）→培養7日→酒母仕込 を帯グラフで見られます。H13BYは2週間前、K1801は3週間前の発注締切を表示（K1801は要注意の赤）。アイコンには次の植菌まで何日かが出ます。'],
   ['2026-10-06-12','📇','連絡先','工程のジャンルを日本酒の製造工程の順に整理しました（原料処理・製麹・酒母・仕込み・上槽・濾過・火入れ・貯蔵・調合・瓶詰・酒粕・リキュール・洗浄・衛生・分析・計測・設備・保守・ボイラー・燃料）。場所（📍麹室・土蔵など）は下の段に分けました。全件のジャンルも付け直しています。'],
   ['2026-10-06-11','📊','麹の比較・考察','温度推移のグラフに「基準の帯」を出しました。昨年（R7BY）の実績が基準で、輝は輝の基準。外れた点は橙・赤の輪で示し、下の一覧に教科副読本「麹」での意味が出ます。'],
   ['2026-10-06-10','🍚','麹','引込みの入力で、種麹①・②をリストから選べるようにしました（酵母に合わせて担当者が選びます）。'],
