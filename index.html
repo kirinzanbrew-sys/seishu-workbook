@@ -6368,6 +6368,7 @@ document.addEventListener('click', e=>{
      （本日：予定日がきょう以前のもの＋予定日なしで時期「今すぐ」のもの／明日：予定日が明日のもの）
    ・済ボタン（2026-10-06 泰広さん指示）：一覧の各ボックスの右端に「済」。押すと完了（完了者・完了日時が入る）→「✓ 済み」タブへ移る。直後は「元に戻す」が出る。
      済みタブでも分類（ジャンル）で絞り込める（分類ボタンに件数）。済みのボックスの右端は「戻す」（未着手に戻す）
+   ・📦 発注済（2026-10-07 泰広さん指示）：タブの「📦 発注済」→ 状況が「発注済」のものだけの一覧（業者ごと・発注の古い順、分類でも絞れる）
    控え：seishu-workbook_github\_src_todo.js　／　裏側の控え：seishu-workbook_github\_gas_todo_Code.gs
    ================================================================ */
 const TODO_URL = "https://script.google.com/macros/s/AKfycbzD_in5q8RqzD6xlPK5s0zkBHel5p6bg2UiVie0oVz1JtN_yzhZP97HiFAjd9gjvgz6Pg/exec";   // ← Apps Script「製造部 やることリスト」をデプロイしたURL（/exec）を入れる
@@ -6443,6 +6444,8 @@ const TODO_CSS = `
 .td-f .del{flex:0 0 auto!important;background:#fdecec;color:#b31b14}
 .td-tabs button.vt{border-color:#8a6a3a;color:#6b4e22;font-weight:700}
 .td-tabs button.vt.on{background:#8a6a3a;border-color:#8a6a3a;color:#fff}
+.td-tabs button.ot{border-color:#6b3fa0;color:#6b3fa0;font-weight:700}
+.td-tabs button.ot.on{background:#6b3fa0;border-color:#6b3fa0;color:#fff}
 .td-vs{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px}
 .td-vs button{border:1px solid #cbb994;background:#fbf7ee;border-radius:10px;padding:7px 10px;font-size:14px;font-family:inherit;color:#5a4320;line-height:1.2;text-align:left}
 .td-vs button small{display:block;font-size:10px;color:#9a8a6a;font-weight:400}
@@ -6492,6 +6495,7 @@ const TODO_CSS = `
 const TODO = { items:lsGet('todo.items',[]), at:lsGet('todo.at',0), sheet:lsGet('todo.sheet',''), busy:false, tab:lsGet('todo.tab','すべて'), cat:'',
                vendors:lsGet('todo.vendors',[]), vendor:lsGet('todo.vendor',''), vAll:false };
 const TODO_VTAB='🏢 業者別';
+const TODO_OTAB='📦 発注済';   // 2026-10-07 状況が「発注済」のものだけの一覧
 const todoQ = ()=>lsGet('todo.q',[]);
 const todoMe = ()=>({ id:String(ST.id||''), name:String(ST.name||'') });
 const todoNow = ()=>{ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
@@ -6594,9 +6598,11 @@ function todoScreen(){
                .sort((a,b)=>todoRank(a)-todoRank(b)||String(a.at||'').localeCompare(String(b.at||'')));
     }
     if(TODO.tab==='完了') xs=xs.filter(x=>x.status==='完了');
+    else if(TODO.tab===TODO_OTAB) xs=xs.filter(x=>x.status==='発注済');
     else { xs=xs.filter(x=>x.status!=='完了'); if(TODO.tab!=='すべて') xs=xs.filter(x=>x.when===TODO.tab); }
     if(TODO.cat) xs=xs.filter(x=>x.cat===TODO.cat);
     if(TODO.tab==='完了') xs.sort((a,b)=>String(b.doneAt||'').localeCompare(String(a.doneAt||'')));
+    else if(TODO.tab===TODO_OTAB) xs.sort((a,b)=>String((todoVendorOf(a)||{}).name||'\uffff').localeCompare(String((todoVendorOf(b)||{}).name||'\uffff'),'ja')||String(a.upd||a.at||'').localeCompare(String(b.upd||b.at||'')));
     else xs.sort((a,b)=>todoRank(a)-todoRank(b)||String(a.at||'').localeCompare(String(b.at||'')));   // すぐやるものほど上、同じなら古いものほど上
     return xs;
   }
@@ -6616,10 +6622,10 @@ function todoScreen(){
   function draw(){
     TODO_REDRAW=draw;
     const open=todoOpen(), cnt=w=>open.filter(x=>x.when===w).length;
-    const tabs=['すべて',TODO_VTAB,...TODO_WHENS,'完了'];
+    const tabs=['すべて',TODO_VTAB,TODO_OTAB,...TODO_WHENS,'完了'];
     const vc=todoVCount(), vOn=TODO.tab===TODO_VTAB;
-    let h=`<div class="td-tabs">${tabs.map(t=>{ const n=t==='すべて'?open.length:t==='完了'?TODO.items.filter(x=>x.status==='完了'&&todoVisible(x)).length:t===TODO_VTAB?Object.values(vc).reduce((a,b)=>a+b,0):cnt(t);
-      return `<button type="button" data-t="${t}" class="${t===TODO_VTAB?'vt ':''}${TODO.tab===t?'on':''}">${t==='完了'?'✓ 済み':t}${n?`<small>${n}</small>`:''}</button>`; }).join('')}</div>`;
+    let h=`<div class="td-tabs">${tabs.map(t=>{ const n=t==='すべて'?open.length:t==='完了'?TODO.items.filter(x=>x.status==='完了'&&todoVisible(x)).length:t===TODO_VTAB?Object.values(vc).reduce((a,b)=>a+b,0):t===TODO_OTAB?open.filter(x=>x.status==='発注済').length:cnt(t);
+      return `<button type="button" data-t="${t}" class="${t===TODO_VTAB?'vt ':t===TODO_OTAB?'ot ':''}${TODO.tab===t?'on':''}">${t==='完了'?'✓ 済み':t}${n?`<small>${n}</small>`:''}</button>`; }).join('')}</div>`;
     if(TODO.undo && TODO.items.some(x=>x.id===TODO.undo.id)) h+=`<div class="td-undo"><span>「${esc(TODO.undo.text)}」を${TODO.undo.done?'済みリストに移しました':'やることに戻しました'}</span><button type="button" id="tdUndo">元に戻す</button></div>`;
     if(vOn){
       /* 発注するものがある業者を先に（件数の多い順）、ほかの業者は「ほかの業者」を押すと出る */
@@ -6640,14 +6646,14 @@ function todoScreen(){
       const base=(()=>{ const c=TODO.cat; TODO.cat=''; const r=list(); TODO.cat=c; return r; })();   // 分類で絞る前（件数用）
       h+=`<div class="td-cats">${TODO_CATS.filter(c=>c!==TODO_ME||ST.id).map(c=>{ const k=base.filter(x=>x.cat===c).length;
         return `<button type="button" data-c="${c}" class="${c===TODO_ME?'me ':''}${TODO.cat===c?'on':''}">${todoCatL(c)}${k?`<small>${k}</small>`:''}</button>`; }).join('')}</div>
-      ${TODO.tab==='完了'?'':`<button type="button" class="td-add" id="tdAdd" ${TODO_URL?'':'disabled'}>＋ やることを書く</button>`}`;
+      ${TODO.tab==='完了'?'':TODO.tab===TODO_OTAB?`<div class="td-msg">状況が「発注済」のもの（業者ごと・発注の古い順）。届いたら右の「済」を押してください。</div>`:`<button type="button" class="td-add" id="tdAdd" ${TODO_URL?'':'disabled'}>＋ やることを書く</button>`}`;
     }
     if(!TODO_URL) h+=`<div class="tl-warn" style="margin-bottom:10px">記録先（Apps Script）の設定がまだ済んでいません。設定が済むと、書き込み・共有ができるようになります。</div>`;
     if(msg) h+=`<div class="td-msg ${warn?'w':''}">${esc(msg)}</div>`;
     const xs=list();
     if(!(vOn && !TODO.vendor))
     h+= xs.length ? xs.map(item).join('')
-      : `<div class="card" style="color:var(--sub);text-align:center">${TODO.tab==='完了'?'終わったものはまだありません。':vOn?'この業者に発注するものはありません。':'ここに入っているものはありません。'}</div>`;
+      : `<div class="card" style="color:var(--sub);text-align:center">${TODO.tab==='完了'?'終わったものはまだありません。':TODO.tab===TODO_OTAB?'発注済のものはありません。':vOn?'この業者に発注するものはありません。':'ここに入っているものはありません。'}</div>`;
     if(TODO.cat===TODO_ME && !vOn) h+=`<p class="tl-note">👤 自分 … あなた（${esc(ST.name||'')}）にだけ表示されます。ほかの人には見えません。予定日を入れると、ホームの本日の予定の下にも出ます。</p>`;
     const q=todoQ().length;
     h+=`<p class="tl-note">すぐやるものほど上に出ます（時期：今すぐ→今月中→造り前…、同じ時期は 止まっている→未着手→進行中、さらに古いもの）。左の色：<b style="color:#c9a800">黄</b>＝30日以上、<b style="color:#e07a10">橙</b>＝60日以上、<b style="color:#d62b22">赤</b>＝90日以上。
@@ -8561,19 +8567,32 @@ function stiBind(){
    ・自社培養：植菌日＝酒母仕込日（酛立 motodate）の7日前 → 培養7日 → 酒母仕込（酵母準備表_作成指示書 第2章）
    ・発注の酵母は植菌しない。帯の代わりに「発注締切」を出す
        H13BY（広島）＝酒母仕込日の14日前（2週間前には発注）
-       K1801（協会）＝酒母仕込日の21日前。3週間以上前なので要注意（赤）
+       K1801＝酒母仕込日の21日前。3週間以上前なので要注意（赤）
    ・もと：醪管理R8BY 仕込マスタ（recState().master の motodate・yeast）。酵母が空なら酵母割当（yeastOf）
-   ・🧫酒母の上段アイコン（🌡室温・O₂・📅昨年度）の右に「🧬酵母」。次の植菌まで何日かを表示。
-     植菌が今日・明日、または発注締切まで7日以内なら橙
+   ・🧫酒母の上段アイコン（🌡室温・O₂・📅昨年度）の右に「🧬酵母」。次の植菌まで何日かを表示
+   2026-10-07 追加の指示：
+   ・グラフだけを出す（上の一覧・凡例・説明は出さない）。左の見出しは No｜酵母｜液種 の3列（グラフと同じ線で区切る）
+   ・過去のは出さない。予定がある分だけ（酵母未定の行は出さない）
+   ・行を押すと変更できる：植菌日（発注締切日）・酵母名・個数（リストから）・済
+     済にしても、その日（植菌日・締切日）が過ぎるまでは消さない
+   ・発注の酵母は「着日」も入れられる → 部署カレンダー「生産本部製造担当」に終日予定で入る（サーバー側で作る・直す・消す）
+     着日が入っている発注は、着日が過ぎるまで出す。グラフには紫の「着」
+   ・変更の記録先：Apps Script「製造ツール 共有データ」（SHARED_URL）の表「酵母予定」（みんなのスマホで共有）
+       id＝R◯_仕込番号_もとの酵母／name＝酵母名／date＝日付（空＝自動）／qty＝個数／kind＝「済」／arrive＝着日／memo＝もとの酵母
+       仕込番号・液種・酒母仕込日（no・liquid・motodate）はカレンダーの説明用に一緒に送る
    控え：seishu-workbook_github\_src_yeastplan.js（index.html の yeastplan の目印の間。shubotop の後ろ）
    ================================================================================== */
 const YP_CULT=7;                                   // 植菌 → 酒母仕込 の日数（培養7日）
 const YP_ORDER={
-  H13BY:{lead:14, who:'広島県酒造協同組合', note:'2週間前には発注', care:false},
-  K1801:{lead:21, who:'',                 note:'3週間以上前・要注意', care:true}
+  H13BY:{lead:14, who:'広島県酒造協同組合', note:'2週間前には発注', care:false, unit:'本'},
+  K1801:{lead:21, who:'',                 note:'3週間以上前・要注意', care:true,  unit:'個'}
 };
-const YP={all:false, open:{}};
-const YP_LBW=158;   // 左の見出し（No｜酵母｜液種）の幅
+const YP_YEASTS=['K7','K1801','H13BY','S9arg','TR8arg','G9NFarg','まほろば芳'];   // 酵母名のリスト（仕込マスタにある名前も足す）
+const YP_QTY_MAX=20;                               // 個数のリスト 1〜20
+const YP_LBW=158;                                  // 左の見出し（No｜酵母｜液種）の幅
+const YP_TABLE='酵母予定';
+const YP={open:'', ov:lsGet('yp.ov',{}), err:'', busy:false};
+
 function ypNorm(s){ const t=String(s||'').replace(/[\s　]/g,'').toUpperCase();
   if(/13BY/.test(t)) return 'H13BY';
   if(/1801/.test(t)) return 'K1801';
@@ -8582,114 +8601,166 @@ function ypYeasts(m){
   let y=m.yeast||''; if(!y && typeof yeastOf==='function'){ try{ y=yeastOf(m.liquid,m.no); }catch(e){} }
   return String(y||'').split(/[+＋・\/／、,，]+/).map(x=>x.trim()).filter(Boolean).map(ypNorm);
 }
+function ypBY(d){ const y=+d.slice(0,4), mo=+d.slice(5,7); return 'R'+((mo>=7?y:y-1)-2018); }
+function ypDefKey(name, motodate){ const o=YP_ORDER[name]; return dadd(motodate, -(o?o.lead:YP_CULT)); }
+/* 仕込マスタ＋変更（酵母予定）から1行ずつ作る */
 function ypItems(st){
   const out=[];
   ((st&&st.master)||[]).filter(m=>m.motodate).forEach(m=>{
-    const ys=ypYeasts(m);
-    (ys.length?ys:['']).forEach(name=>{
-      const o=YP_ORDER[name];
-      if(o) out.push({m, name, kind:'order', key:dadd(m.motodate,-o.lead), o});
-      else  out.push({m, name, kind:name?'cult':'none', key:dadd(m.motodate,-YP_CULT)});
+    ypYeasts(m).forEach(orig=>{
+      const id=`${ypBY(m.motodate)}_${m.no}_${orig}`, ov=YP.ov[id]||null;
+      const name=ypNorm((ov&&ov.name)||orig), o=YP_ORDER[name]||null;
+      const auto=ypDefKey(name, m.motodate), key=(ov&&ov.date)||auto;
+      const arrive=o?((ov&&ov.arrive)||''):'';
+      out.push({id, m, orig, name, kind:o?'order':'cult', o, key, auto, moved:key!==auto, arrive,
+        last:arrive&&arrive>key?arrive:key,     // この日が過ぎたら出さない
+        qty:(ov&&ov.qty)||'', done:!!(ov&&ov.kind==='済'), by:(ov&&(ov.updBy||ov.by))||''});
     });
   });
-  return out.sort((a,b)=>a.m.motodate.localeCompare(b.m.motodate)||(+a.m.no)-(+b.m.no)||(a.kind==='order'?-1:1));
+  return out.sort((a,b)=>a.key.localeCompare(b.key)||(+a.m.no)-(+b.m.no));
 }
 const ypW=d=>'日月火水木金土'[dparse(d).getDay()];
 const ypMDW=d=>`${rcMD(d)}（${ypW(d)}）`;
-function ypLeft(n){ return n===0?'今日':n===1?'明日':n<0?`${-n}日前`:`${n}日後`; }
-/* 上段アイコンの中身：次の植菌まで何日か／締切の近い発注 */
+const ypUnit=n=>(YP_ORDER[n]&&YP_ORDER[n].unit)||'個';
+
+/* ---- 記録先（製造ツール 共有データ／表「酵母予定」） ---- */
+async function ypApi(body, ms){
+  if(typeof SHARED_URL==='undefined'||!SHARED_URL) throw new Error('記録先の設定がまだ済んでいません');
+  const ctl=typeof AbortController!=='undefined'?new AbortController():null, t=ctl?setTimeout(()=>ctl.abort(), ms||25000):null;
+  try{
+    body.table=YP_TABLE; body.who={ id:String((typeof ST!=='undefined'&&ST&&ST.id)||''), name:String((typeof ST!=='undefined'&&ST&&ST.name)||'') };
+    const r=await fetch(SHARED_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow',signal:ctl?ctl.signal:undefined});
+    const j=await r.json(); if(!j||!j.ok) throw new Error((j&&j.error)||'保存できませんでした'); return j;
+  }catch(e){ if(e&&e.name==='AbortError') throw new Error('時間がかかりすぎました。電波のよい所でもう一度'); throw e; }
+  finally{ if(t) clearTimeout(t); }
+}
+function ypKeep(j){ const ov={}; (j.items||[]).forEach(x=>{ if(x.id) ov[x.id]=x; }); YP.ov=ov; lsSet('yp.ov',ov); }
+async function ypFetch(){ try{ ypKeep(await ypApi({action:'list'},20000)); YP.err=''; return true; }
+  catch(e){ YP.err=/その表はありません/.test(String(e.message||e))?'変更の記録先（表「酵母予定」）がまだできていません。表示だけできます。':String(e.message||e); return false; } }
+
+/* ---- 上段アイコンの中身：次の植菌まで何日か／締切の近い発注 ---- */
 function ypIconInfo(){
   const st=(typeof RC!=='undefined'&&RC.state)||null; if(!st||!st.master) return {v:'—',warn:false};
-  const t=dtoday(), it=ypItems(st);
-  const cult=it.filter(x=>x.kind==='cult'&&x.key>=t).sort((a,b)=>a.key.localeCompare(b.key))[0];
-  const ord=it.filter(x=>x.kind==='order'&&x.key>=t&&rcDays(t,x.key)<=7);
+  const t=dtoday(), it=ypItems(st).filter(x=>!x.done && x.key>=t);
+  const cult=it.filter(x=>x.kind==='cult')[0];
+  const ord=it.filter(x=>x.kind==='order' && rcDays(t,x.key)<=7);
   const n=cult?rcDays(t,cult.key):null;
-  if(ord.length && (n===null||n>1)) return {v:'発注 '+ypLeft(rcDays(t,ord[0].key)).replace('日後','日'),warn:true};
+  if(ord.length && (n===null||n>1)){ const k=rcDays(t,ord[0].key); return {v:k===0?'発注 今日':'発注 '+k+'日',warn:true}; }
   if(n===null) return {v:'—',warn:false};
   return {v:n===0?'植菌 今日':n===1?'植菌 明日':`あと${n}日`, warn:n<=1};
 }
 function ypIconHTML(){ const r=ypIconInfo();
   return `<button class="st-ic${r.warn?' wn':''}" data-sti="yeast" type="button"><span class="e">🧬</span><b>${esc(r.v)}</b><small>酵母</small></button>`; }
 
+/* ---- 画面（グラフだけ） ---- */
 async function yeastPlanScreen(){
   head('酵母','植菌のタイミング（酒母仕込日の7日前）');
   rcLoading('仕込の予定を読み込んでいます…');
   const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
-  ypPaint(st);
+  YP.open=''; ypPaint(st);
+  const top=nav[nav.length-1];
+  ypFetch().then(()=>{ if(nav[nav.length-1]===top && !YP.open) ypPaint(st); });
 }
 function ypPaint(st){
-  const t=dtoday(), all=ypItems(st);
-  /* 2026-10-07 泰広さん指示：過去のは非表示。植菌日・発注締切が今日以降のものだけ（酵母未定は酒母仕込日が今日以降） */
-  const items=all.filter(x=>x.kind==='none'?x.m.motodate>=t:x.key>=t);
-  /* --- 近いこと（14日以内の植菌・発注締切） --- */
-  const soon=items.filter(x=>x.kind!=='none' && rcDays(t,x.key)<=14);
-  let h=`<div class="yp-soon">`;
-  h+=soon.length?soon.slice(0,5).map(x=>{ const n=rcDays(t,x.key);
-      const cls=x.kind==='order'?(x.o.care?'care':'ord'):(n<=1?'now':'');
-      const what=x.kind==='order'?`発注締切　${esc(x.name)}<em>${esc(x.o.who)}</em>`:`植菌　${esc(x.name)}`;
-      const late=n<0?'<i>締切を過ぎました（発注済みか確認）</i>':'';
-      return `<div class="yp-s ${cls}"><span class="d">${ypMDW(x.key)}<b>${ypLeft(n)}</b></span><span class="w">${x.m.no}号　${what}${x.kind==='order'&&x.o.care&&n>=0?'<i>⚠ 3週間以上前</i>':''}${late}</span></div>`; }).join('')
-    :`<p class="muted" style="margin:0;font-size:13px">14日以内の植菌・発注締切はありません</p>`;
-  h+=`</div>`;
-  h+=`<div style="height:6px"></div>`;   // 2026-10-07 泰広さん指示：［これから］［全部］ボタンは削除（これからの分だけ出す）
-  if(!items.length){ app.innerHTML=h+`<p class="muted" style="text-align:center;padding:20px 0">これからの植菌・発注はありません</p>`; ypBind(st); return; }
-  /* --- 帯グラフ --- */
-  const a=t;   // グラフは今日から
-  const z=dadd(items.reduce((s,x)=>x.m.motodate>s?x.m.motodate:s, items[0].m.motodate),1);
+  const t=dtoday();
+  /* 過去は出さない。済でも当日（着日があれば着日）までは出す */
+  const items=ypItems(st).filter(x=>x.last>=t);
+  let h=YP.err?`<div class="yp-msg">${esc(YP.err)}</div>`:'';
+  if(!items.length){ app.innerHTML=h+`<p class="muted" style="text-align:center;padding:20px 0">これからの植菌・発注はありません</p>`; return; }
+  const a=t, z=dadd(items.reduce((s,x)=>x.m.motodate>s?x.m.motodate:s, items[0].m.motodate),1);
   const N=rcDays(a,z)+1, W=22, X=d=>rcDays(a,d)*W;
   let days='', mon='';
   for(let i=0;i<N;i++){ const d=dadd(a,i), w=dparse(d).getDay(), dd=+d.slice(8,10);
     days+=`<span class="yp-dc ${w===0?'su':w===6?'sa':''} ${d===t?'td':''}" style="left:${i*W}px">${dd}<small>${'日月火水木金土'[w]}</small></span>`;
     if(i>0&&dd===1) mon+=`<span class="yp-mo" style="left:${i*W}px">${+d.slice(5,7)}月</span>`; }
-  const tl=(t>=a&&t<=z)?`<span class="yp-today" style="left:${YP_LBW+X(t)+W/2}px"></span>`:'';
+  const tl=`<span class="yp-today" style="left:${YP_LBW+X(t)+W/2}px"></span>`;
   let rows='';
-  items.forEach((x,i)=>{
-    const m=x.m, id=m.no+'_'+i, sh=X(m.motodate);
+  items.forEach(x=>{
+    const m=x.m, sh=X(m.motodate), p=X(x.key), dn=x.done?' dn':'';
     let bars='';
     if(x.kind==='cult'){
-      const p=X(x.key);
-      bars=`<span class="yp-cul" style="left:${p+W/2}px;width:${sh-p}px"></span><span class="yp-dot in" style="left:${p}px">植</span>`;
-    } else if(x.kind==='order'){
-      const p=X(x.key);
-      bars=`<span class="yp-ln" style="left:${p+W/2}px;width:${sh-p}px"></span><span class="yp-dot ${x.o.care?'care':'ord'}" style="left:${p}px">発</span>`;
+      bars=`<span class="yp-cul" style="left:${p+W/2}px;width:${Math.max(0,sh-p)}px"></span>`+(x.key>=t?`<span class="yp-dot in${dn}" style="left:${p}px">${x.done?'✓':'植'}</span>`:'');
+    } else {
+      bars=`<span class="yp-ln" style="left:${Math.max(0,p)+W/2}px;width:${Math.max(0,sh-Math.max(0,p))}px"></span>`+(x.key>=t?`<span class="yp-dot ${x.o.care?'care':'ord'}${dn}" style="left:${p}px">${x.done?'✓':'発'}</span>`:'');
+      if(x.arrive && x.arrive>=t) bars+=`<span class="yp-dot ar" style="left:${X(x.arrive)}px">着</span>`;
     }
     bars+=`<span class="yp-dot sk" style="left:${sh}px">仕</span>`;
-    const nm=x.kind==='none'?'酵母未定':x.name;
-    rows+=`<div class="yp-row ${m.motodate<t?'past':''}" data-yp-id="${id}"><div class="yp-lb"><span class="c1"><b>${m.no}</b></span><span class="c2 ${x.kind==='order'?(x.o.care?'care':'ord'):x.kind==='none'?'none':''}">${esc(nm)}</span><span class="c3">${esc(m.liquid||'')}</span></div><div class="yp-tr" style="width:${N*W}px">${bars}</div></div>`;
-    if(YP.open[id]){
-      const txt=x.kind==='order'
-        ?`発注締切 <b>${ypMDW(x.key)}</b>（${x.o.who?esc(x.o.who)+'・':''}${esc(x.o.note)}）→ 到着は仕込の2日前 ${ypMDW(dadd(m.motodate,-2))}まで → 酒母仕込 <b>${ypMDW(m.motodate)}</b>`
-        :x.kind==='cult'?`植菌 <b>${ypMDW(x.key)}</b> → 培養${YP_CULT}日 → 酒母仕込 <b>${ypMDW(m.motodate)}</b>`
-        :`酵母が決まっていません（醪管理R8BY › 入力_順号別）。酒母仕込 ${ypMDW(m.motodate)}`;
-      rows+=`<div class="yp-det">${m.no}号 ${esc(m.liquid||'')}${m.shuboT?'　酒母T'+esc(m.shuboT):''}<br>${txt}</div>`;
-    }
+    if(x.qty) bars+=`<span class="yp-qty" style="left:${Math.max(0,p)+W+4}px">${esc(x.qty)}${ypUnit(x.name)}</span>`;
+    const cls=x.kind==='order'?(x.o.care?'care':'ord'):'';
+    rows+=`<div class="yp-row${YP.open===x.id?' on':''}" data-yp-id="${esc(x.id)}"><div class="yp-lb"><span class="c1"><b>${m.no}</b></span><span class="c2 ${cls}">${esc(x.name)}${x.done?'<i>済</i>':''}</span><span class="c3">${esc(m.liquid||'')}</span></div><div class="yp-tr" style="width:${N*W}px">${bars}</div></div>`;
+    if(YP.open===x.id) rows+=ypEditHTML(x);
   });
   h+=`<div class="yp-wrap"><div class="yp-sc" id="ypSc"><div class="yp-in" style="width:${YP_LBW+N*W}px"><div class="yp-row yp-h"><div class="yp-lb yp-lbh"><span class="c1">No</span><span class="c2">酵母</span><span class="c3">液種</span><em class="yp-mon" id="ypMon"></em></div><div class="yp-hd" style="width:${N*W}px">${mon}${days}</div></div><div class="yp-body">${tl}${rows}</div></div></div></div>`;
-  h+=`<div class="yp-lg"><span><i class="yp-dot in s">植</i>植菌</span><span><i class="yp-cul s"></i>培養${YP_CULT}日</span><span><i class="yp-dot sk s">仕</i>酒母仕込</span><span><i class="yp-dot ord s">発</i>発注締切 H13BY（14日前）</span><span><i class="yp-dot care s">発</i>K1801（21日前・要注意）</span></div>`;
-  h+=`<p class="tl-note">行を押すと日付が出ます。酒母仕込日・酵母は「醪管理R8BY › 入力_順号別」から。植菌日＝酒母仕込日の${YP_CULT}日前。</p>`;
-  app.innerHTML=h; ypBind(st);
-  { const sc0=$('#ypSc'); if(sc0) app.querySelectorAll('.yp-det').forEach(d=>d.style.width=sc0.clientWidth+'px'); }
-  /* 今日が見える位置までスクロール */
-  const sc=$('#ypSc'); if(sc){ sc.scrollLeft=0;
-    const mon=()=>{ const i=Math.max(0,Math.min(N-1,Math.round(sc.scrollLeft/W))); const e=$('#ypMon'); if(e) e.textContent=(+dadd(a,i).slice(5,7))+'月'; };
-    mon(); sc.addEventListener('scroll',mon,{passive:true}); }
+  const sc0=$('#ypSc'), x0=sc0?sc0.scrollLeft:0;
+  app.innerHTML=h;
+  const sc=$('#ypSc');
+  if(sc){ app.querySelectorAll('.yp-ed').forEach(d=>d.style.width=sc.clientWidth+'px'); sc.scrollLeft=x0;
+    const monF=()=>{ const i=Math.max(0,Math.min(N-1,Math.round(sc.scrollLeft/W))); const e=$('#ypMon'); if(e) e.textContent=(+dadd(a,i).slice(5,7))+'月'; };
+    monF(); sc.addEventListener('scroll',monF,{passive:true}); }
+  ypBind(st, items);
 }
-function ypBind(st){
-  app.querySelectorAll('.yp-row[data-yp-id]').forEach(r=>r.onclick=()=>{ const k=r.dataset.ypId; YP.open[k]=!YP.open[k];
-    const sc=$('#ypSc'), x=sc?sc.scrollLeft:0; ypPaint(st); const s2=$('#ypSc'); if(s2) s2.scrollLeft=x; });
+/* 変更の欄（行の下に開く） */
+function ypQtyOpts(name, cur){ const u=ypUnit(name);
+  return ['', ...Array.from({length:YP_QTY_MAX},(_,i)=>String(i+1))].map(q=>`<option value="${q}" ${String(cur)===q?'selected':''}>${q?q+u:'—'}</option>`).join(''); }
+function ypEditHTML(x){
+  const names=[...new Set([...YP_YEASTS, x.orig, x.name])].filter(Boolean);
+  const ord=x.kind==='order';
+  return `<div class="yp-ed" data-ed="${esc(x.id)}">
+    <div class="yp-edh">${x.m.no}号 ${esc(x.m.liquid||'')}　酒母仕込 ${ypMDW(x.m.motodate)}</div>
+    <div class="yp-edg">
+      <label><span>酵母</span><select id="ypName">${names.map(n=>`<option ${n===x.name?'selected':''}>${esc(n)}</option>`).join('')}</select></label>
+      <label><span id="ypDateLb">${ord?'発注締切日':'植菌日'}</span><input type="date" id="ypDate" value="${esc(x.key)}"><i id="ypAuto">${x.moved?'自動なら '+ypMDW(x.auto):'自動（仕込の'+(x.o?x.o.lead:YP_CULT)+'日前）'}</i></label>
+      <label><span id="ypQtyLb">${ord&&x.name==='H13BY'?'本数':'個数'}</span><select id="ypQty">${ypQtyOpts(x.name,x.qty)}</select></label>
+      <label><span id="ypDoneLb">${ord?'発注':'植菌'}</span><button type="button" id="ypDone" class="yp-tg${x.done?' on':''}">${x.done?'✓ 済':'まだ'}</button></label>
+      <label class="yp-arr" id="ypArrBox" style="${ord?'':'display:none'}"><span>着日（カレンダーに入ります）</span><input type="date" id="ypArr" value="${esc(x.arrive)}"><i>到着の目安：仕込の2日前 ${ypMDW(dadd(x.m.motodate,-2))}まで</i></label>
+    </div>
+    <div class="yp-edb"><button type="button" class="rc-ghost" id="ypClose">閉じる</button>${x.moved?'<button type="button" class="rc-ghost" id="ypReset">日付を自動に戻す</button>':''}<button type="button" class="yp-ok" id="ypSave">保存</button></div>
+    <div class="yp-st" id="ypSt">${x.by?'最後に変更：'+esc(x.by):''}</div>
+  </div>`;
+}
+function ypBind(st, items){
+  app.querySelectorAll('.yp-row[data-yp-id]').forEach(r=>r.onclick=()=>{ const k=r.dataset.ypId; YP.open=YP.open===k?'':k; ypPaint(st); });
+  const ed=app.querySelector('.yp-ed'); if(!ed) return;
+  const x=items.find(i=>i.id===ed.dataset.ed); if(!x) return;
+  let dateTouched=false, done=x.done;
+  const nm=$('#ypName'), dt=$('#ypDate'), au=$('#ypAuto'), qt=$('#ypQty');
+  dt.oninput=()=>{ dateTouched=true; };
+  nm.onchange=()=>{ const n=ypNorm(nm.value), o=YP_ORDER[n], auto=ypDefKey(n,x.m.motodate), q=qt.value;
+    $('#ypDateLb').textContent=o?'発注締切日':'植菌日'; $('#ypDoneLb').textContent=o?'発注':'植菌';
+    $('#ypQtyLb').textContent=n==='H13BY'?'本数':'個数'; qt.innerHTML=ypQtyOpts(n,q);
+    $('#ypArrBox').style.display=o?'':'none';
+    if(!dateTouched && !x.moved){ dt.value=auto; }
+    au.textContent='自動なら '+ypMDW(auto); };
+  $('#ypDone').onclick=e=>{ e.stopPropagation(); done=!done; const b=$('#ypDone'); b.classList.toggle('on',done); b.textContent=done?'✓ 済':'まだ'; };
+  $('#ypClose').onclick=()=>{ YP.open=''; ypPaint(st); };
+  const save=async(reset)=>{
+    const n=ypNorm(nm.value), auto=ypDefKey(n,x.m.motodate);
+    const date=reset?'':(dt.value && dt.value!==auto ? dt.value : '');
+    const arrive=YP_ORDER[n]?($('#ypArr').value||''):'';
+    const item={id:x.id, name:n, kind:done?'済':'', qty:qt.value, unit:ypUnit(n), date, arrive, memo:x.orig,
+      no:String(x.m.no), liquid:String(x.m.liquid||''), motodate:x.m.motodate};
+    const prev=YP.ov[x.id];
+    YP.ov[x.id]=Object.assign({}, prev||{}, item, {updBy:String((typeof ST!=='undefined'&&ST&&ST.name)||'')}); lsSet('yp.ov',YP.ov);
+    const s=$('#ypSt'); if(s){ s.textContent=arrive||(prev&&prev.arrive)?'保存しています…（カレンダーも直します）':'保存しています…'; s.className='yp-st'; }
+    $('#ypSave').disabled=true;
+    try{ const j=await ypApi({action:'save', item},30000); ypKeep(j); YP.err=''; YP.open=''; ypPaint(st);
+      if(typeof rcStatus==='function') rcStatus(j.calErr?'保存しました（カレンダーには入りませんでした：'+j.calErr+'）':'酵母の予定を保存しました'); }
+    catch(e){ if(prev) YP.ov[x.id]=prev; else delete YP.ov[x.id]; lsSet('yp.ov',YP.ov);
+      const s2=$('#ypSt'); if(s2){ s2.textContent='保存できませんでした：'+(e.message||e); s2.className='yp-st w'; } const b=$('#ypSave'); if(b) b.disabled=false; }
+  };
+  $('#ypSave').onclick=()=>save(false);
+  const rs=$('#ypReset'); if(rs) rs.onclick=()=>save(true);
 }
 /* 上段アイコンに足す（shubotop の stiHTML の後ろに付ける）。押したら酵母の画面 */
 (function(){ if(typeof stiHTML!=='function') return; const _h=stiHTML;
   stiHTML=function(){ const s=_h.apply(this,arguments); return s.replace(/<\/div>\s*$/, ypIconHTML()+'</div>'); }; })();
 document.addEventListener('click', e=>{ const b=e.target.closest&&e.target.closest('.st-ic[data-sti="yeast"]'); if(!b) return;
   e.preventDefault(); go(()=>yeastPlanScreen()); });
+/* 起動して少ししたら、裏で変更（酵母予定）を取っておく → アイコンの日数にも反映 */
+setTimeout(()=>{ try{ if(typeof ST!=='undefined'&&ST&&ST.token) ypFetch(); }catch(e){} }, 3000);
 (function(){ const s=document.createElement('style'); s.textContent=`
-.yp-soon{display:flex;flex-direction:column;gap:6px;margin:6px 0}
-.yp-s{display:flex;gap:10px;align-items:center;background:var(--card,#fff);border:1px solid var(--line,#e4ded1);border-radius:12px;padding:8px 10px;font-size:13px}
-.yp-s .d{min-width:86px;font-weight:700;color:var(--navy,#1f3f72);display:flex;flex-direction:column;line-height:1.25}.yp-s .d b{font-size:12px;color:var(--sub,#6b6b6b);font-weight:600}
-.yp-s .w{flex:1;line-height:1.4}.yp-s .w em{font-style:normal;font-size:11px;color:var(--sub,#6b6b6b);margin-left:6px}.yp-s .w i{font-style:normal;display:inline-block;margin-left:6px;font-size:11px;color:#b3261e;font-weight:700}
-.yp-s.now{border:2px solid #c0392b;background:#fdf0ee}.yp-s.ord{border:2px solid #e8a13a;background:#fff8ec}.yp-s.care{border:2px solid #b3261e;background:#fdecea}
-.yp-wrap{position:relative;border:1px solid var(--line,#e4ded1);border-radius:12px;background:var(--card,#fff);overflow:hidden}
+.yp-msg{font-size:12px;color:#a0610b;background:#fff8ec;border:1px solid #e8a13a;border-radius:10px;padding:6px 10px;margin:6px 0}
+.yp-wrap{position:relative;border:1px solid var(--line,#e4ded1);border-radius:12px;background:var(--card,#fff);overflow:hidden;margin-top:6px}
 .yp-sc{overflow-x:auto;position:relative}.yp-in{position:relative}
 .yp-hd{position:relative;height:44px}.yp-row.yp-h{height:45px;cursor:default}
 .yp-mo{position:absolute;top:2px;font-size:11px;font-weight:700;color:var(--navy,#1f3f72);white-space:nowrap;padding-left:2px}
@@ -8697,24 +8768,36 @@ document.addEventListener('click', e=>{ const b=e.target.closest&&e.target.close
 .yp-dc.sa,.yp-dc.sa small{color:#1f5fa8}.yp-dc.su,.yp-dc.su small{color:#c0392b}.yp-dc.td{background:#ffe9a8;border-radius:6px}
 .yp-body{position:relative}
 .yp-today{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#e8a13a;opacity:.7;z-index:1;pointer-events:none}
-.yp-row{display:flex;height:45px;box-sizing:border-box;border-bottom:1px solid #e4ded1;cursor:pointer}.yp-row.past{opacity:.45}
-.yp-lb{position:sticky;left:0;flex:0 0 158px;width:158px;height:100%;background:var(--card,#fff);border-right:1px solid #e4ded1;box-sizing:border-box;display:flex;z-index:2;position:sticky}
+.yp-row{display:flex;height:45px;box-sizing:border-box;border-bottom:1px solid #e4ded1;cursor:pointer}.yp-row.on{background:#f3f7fc}
+.yp-lb{position:sticky;left:0;flex:0 0 158px;width:158px;height:100%;background:var(--card,#fff);border-right:1px solid #e4ded1;box-sizing:border-box;display:flex;z-index:2}
+.yp-row.on .yp-lb{background:#eef3fb}
 .yp-lb>span{display:flex;align-items:center;height:100%;box-sizing:border-box;padding:0 4px;border-right:1px solid #e4ded1;font-size:12px;line-height:1.15;overflow:hidden;word-break:break-all}
 .yp-lb>span:last-of-type{border-right:none}
 .yp-lb .c1{flex:0 0 32px;justify-content:center}.yp-lb .c1 b{font-size:14px;color:var(--navy,#1f3f72)}
-.yp-lb .c2{flex:0 0 66px;font-weight:700}.yp-lb .c2.ord{color:#a0610b}.yp-lb .c2.care{color:#b3261e}.yp-lb .c2.none{color:var(--sub,#6b6b6b);font-weight:400}
+.yp-lb .c2{flex:0 0 66px;font-weight:700;flex-wrap:wrap;align-content:center}.yp-lb .c2.ord{color:#a0610b}.yp-lb .c2.care{color:#b3261e}
+.yp-lb .c2 i{font-style:normal;font-size:10px;font-weight:700;color:#2e6b4f;background:#e3f1e8;border-radius:6px;padding:0 4px;margin-left:3px}
 .yp-lb .c3{flex:1 1 auto;min-width:0;color:var(--ink,#333);font-size:11px;word-break:normal;overflow-wrap:anywhere}
-.yp-lbh{position:sticky;border-bottom:none}.yp-lbh>span,.yp-lbh>span.c2,.yp-lbh>span.c3{align-items:flex-end;justify-content:center;padding-bottom:5px;font-size:11px;color:var(--sub,#6b6b6b);font-weight:400}
+.yp-lbh>span,.yp-lbh>span.c2,.yp-lbh>span.c3{align-items:flex-end;align-content:flex-end;justify-content:center;padding-bottom:5px;font-size:11px;color:var(--sub,#6b6b6b);font-weight:400}
 .yp-lbh .yp-mon{position:absolute;left:6px;top:3px;font-style:normal;font-size:13px;font-weight:700;color:var(--navy,#1f3f72);background:var(--card,#fff);padding:0 2px}
 .yp-tr{position:relative;height:44px}
 .yp-cul{position:absolute;top:18px;height:8px;background:#7cc49a;border-radius:4px}
 .yp-ln{position:absolute;top:21px;height:0;border-top:2px dashed #c9b98f}
 .yp-dot{position:absolute;top:11px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;font-style:normal;z-index:1}
-.yp-dot.in{background:#c0392b}.yp-dot.sk{background:#1f5fa8;border-radius:6px}.yp-dot.ord{background:#e8a13a;transform:rotate(0)}.yp-dot.care{background:#b3261e;box-shadow:0 0 0 3px #f6c6c1}
-.yp-dot.s{position:static;display:inline-flex;width:18px;height:18px;font-size:10px;margin-right:4px;vertical-align:middle}
-.yp-cul.s{position:static;display:inline-block;width:22px;height:8px;margin-right:4px;vertical-align:middle}
-.yp-det{font-size:12px;line-height:1.6;padding:6px 12px 8px;background:#f7f4ec;border-bottom:1px solid #f1ece2;position:sticky;left:0;box-sizing:border-box;z-index:3}
-.yp-lg{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11px;color:var(--sub,#6b6b6b);margin:8px 2px}
+.yp-dot.in{background:#c0392b}.yp-dot.sk{background:#1f5fa8;border-radius:6px}.yp-dot.ord{background:#e8a13a}.yp-dot.care{background:#b3261e;box-shadow:0 0 0 3px #f6c6c1}
+.yp-dot.ar{background:#7b4fb3;border-radius:6px}
+.yp-dot.dn{background:#2e8b57;box-shadow:none}
+.yp-qty{position:absolute;top:2px;font-size:10px;font-weight:700;color:var(--navy,#1f3f72);white-space:nowrap;z-index:1}
+.yp-ed{position:sticky;left:0;box-sizing:border-box;background:#f7f4ec;border-bottom:1px solid #e4ded1;padding:8px 12px 10px;z-index:3;font-size:13px}
+.yp-edh{font-weight:700;color:var(--navy,#1f3f72);margin-bottom:6px}
+.yp-edg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.yp-edg label{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--sub,#6b6b6b)}
+.yp-edg label.yp-arr{grid-column:1/-1}
+.yp-edg select,.yp-edg input{font:inherit;font-size:15px;padding:6px 8px;border:1px solid #cfc6b4;border-radius:8px;background:#fff;color:var(--ink,#333);min-width:0}
+.yp-edg i{font-style:normal;font-size:10px}
+.yp-tg{font:inherit;font-size:15px;padding:6px 8px;border:1px solid #cfc6b4;border-radius:8px;background:#fff;color:var(--sub,#6b6b6b)}.yp-tg.on{background:#2e8b57;border-color:#2e8b57;color:#fff;font-weight:700}
+.yp-edb{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
+.yp-ok{font:inherit;font-size:14px;font-weight:700;background:#1f3f72;color:#fff;border:none;border-radius:10px;padding:8px 18px}.yp-ok:disabled{opacity:.5}
+.yp-st{font-size:12px;color:var(--sub,#6b6b6b);margin-top:6px}.yp-st.w{color:#b02a26;font-weight:700}
 `; document.head.appendChild(s); })();
 
 </script>
@@ -8747,8 +8830,9 @@ document.addEventListener('click', e=>{ const b=e.target.closest&&e.target.close
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-07-3','📝','やることリスト','上のタブに「📦 発注済」を足しました。状況を「発注済」にしたものだけが一覧で見られます（業者ごと・発注の古い順。分類でも絞り込めます）。届いたら「済」を押してください。'],
   ['2026-10-07-2','🍚','麹','麹の画面の各麹のボタンに、温度経過のグラフを半透明で出しました（青＝記録した品温、点線＝昨年の基準）。ボタンを押すと、画面の一番上に温度グラフ（基準の帯・品温計の線・◎△✕）がすぐ出ます。'],
-  ['2026-10-07-1','🧬','酒母','酒母のページの上段に「🧬酵母」を足しました。仕込番号ごとに 植菌日（酒母仕込日の7日前）→培養7日→酒母仕込 を帯グラフで見られます。H13BYは2週間前、K1801は3週間前の発注締切を表示（K1801は要注意の赤）。アイコンには次の植菌まで何日かが出ます。'],
+  ['2026-10-07-1','🧬','酒母','酒母のページの上段に「🧬酵母」を足しました。仕込番号ごとに 植菌日（酒母仕込日の7日前）→培養7日→酒母仕込 をグラフで見られます。H13BYは2週間前、K1801は3週間前が発注締切（K1801は赤）。行を押すと 植菌日・締切日・酵母名・個数・済 を変更でき、発注した酵母は着日を入れると部署カレンダーに入ります。過去の分と酵母未定の仕込は出しません。'],
   ['2026-10-06-12','📇','連絡先','工程のジャンルを日本酒の製造工程の順に整理しました（原料処理・製麹・酒母・仕込み・上槽・濾過・火入れ・貯蔵・調合・瓶詰・酒粕・リキュール・洗浄・衛生・分析・計測・設備・保守・ボイラー・燃料）。場所（📍麹室・土蔵など）は下の段に分けました。全件のジャンルも付け直しています。'],
   ['2026-10-06-11','📊','麹の比較・考察','温度推移のグラフに「基準の帯」を出しました。昨年（R7BY）の実績が基準で、輝は輝の基準。外れた点は橙・赤の輪で示し、下の一覧に教科副読本「麹」での意味が出ます。'],
   ['2026-10-06-10','🍚','麹','引込みの入力で、種麹①・②をリストから選べるようにしました（酵母に合わせて担当者が選びます）。'],
