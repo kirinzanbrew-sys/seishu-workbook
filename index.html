@@ -5261,7 +5261,7 @@ async function moromiSetup(no, st){
    ・時刻は画面に出さない（2026-09-30 泰広さん指示）。DP_T の時刻は左からの並び順を決めるためだけに使う
    ・勤務予定：出勤表（MFG.shukkin）のその日の出勤・休みの氏名を予定の下に小さく（2026-10-01）
    ・ろ過・火入はデータの置き場が決まったら足す
-   ・分析本数（2026-10-01 泰広さん指示）：その日の本数を小さく出す。16:30以降、明日の本数が18本を超えるときは赤い帯を点滅（酒母＝酛立の翌日〜酛卸（添の前日）、醪＝留を1日目として3日目〜上槽予定日）
+   ・分析本数（2026-10-01 泰広さん指示）：その日の本数を小さく出す。16:30以降、明日の本数が18本を超えるときは赤い帯を点滅（酒母＝酛立を1日目として3日目〜酛卸（添の前日）※2026-10-06 修正、醪＝留を1日目として3日目〜上槽予定日）
    ・👤 自分のやること（2026-10-06）：予定の枠の下に、やることリストの「自分」を本人にだけ（dpMeHTML は _src_todo.js）
    控え：seishu-workbook_github\_src_day.js
    ======================================================================== */
@@ -5394,7 +5394,7 @@ function dpItems(date){
 const DP_BUN_MAX=18, DP_BUN_AT=16*60+30;
 function dpBunseki(date){
   const st=dpState(); if(!st) return null; const M=st.master||[];
-  const sb=M.filter(m=>m.motodate && m.motodate<date && (!m.soe || date<=dadd(m.soe,-1)));
+  const sb=M.filter(m=>m.motodate && dadd(m.motodate,2)<=date && (!m.soe || date<=dadd(m.soe,-1)));   // 2026-10-06 泰広さん指示：酒母は仕込み（酛立）を1日目として3日目から
   const mr=M.filter(m=>m.tome && dadd(m.tome,2)<=date && (!m.joso || date<=m.joso));
   return {sb,mr,n:sb.length+mr.length};
 }
@@ -5470,16 +5470,34 @@ function dpKinmuHTML(){
 /* カレンダーの題名から電話番号を消す（2026-10-06 泰広さん指示：本日の予定のカレンダーはシンプルに。場所・電話番号は出さない） */
 function dpCalTitle(t){
   let s=String(t||'').replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  if(/酵母/.test(s)){   // 2026-10-06 泰広さん指示：酵母の種類は出さない（カッコの中＝時刻以外と、酵母の名前・記号を消す）
+    s=s.replace(/[（(][^）)]*[）)]/g,m=>/^[（(]\s*\d{1,2}:\d{2}/.test(m)?m:'')
+       .replace(/(試験場酵母|きょうかい酵母|協会酵母|協会\d+号|K-?\d+号?|[A-Z]{1,3}\d+[A-Za-z]*(?:arg|BY)?)/g,'').replace(/\s+([（(])/g,'$1');
+  }
   s=s.replace(/(?:TEL|Tel|tel|ＴＥＬ|電話番号|電話|携帯|☎|📞)?\s*[:：]?\s*\(?0\d{1,4}\)?[-‐－−ー―\s]?\d{1,4}[-‐－−ー―\s]?\d{3,4}/g,'');
   s=s.replace(/[（(]\s*[)）]/g,'').replace(/\s*[／/・,、]\s*$/,'').replace(/^\s*[／/・,、]\s*/,'').replace(/\s{2,}/g,' ').trim();
   return s||String(t||'');
 }
 /* ---- カレンダーの予定（箇条書き） ---- */
+let DP_CAL_LAST=[];
+(function(){ const s=document.createElement('style'); s.textContent='.dp-cal li.dp-cl{cursor:pointer}.dp-cal li.dp-cl i{font-style:normal;color:var(--sub);margin-left:4px}.dp-cal li.dp-cl:active{background:#f3efe4}'; document.head.appendChild(s); })();
+/* 押すと詳細（題名そのまま・時刻・場所・説明欄） */
+document.addEventListener('click', e=>{
+  const li=e.target.closest && e.target.closest('[data-dpcal]'); if(!li) return;
+  const x=DP_CAL_LAST[+li.dataset.dpcal]; if(!x) return;
+  const lines=[x.allDay?'終日':`${x.start}${x.end?'〜'+x.end:''}`];
+  if(x.place) lines.push('場所：'+x.place);
+  String(x.desc||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean).forEach(s=>lines.push(s));
+  if(!('desc' in x)) lines.push('（説明欄は、サーバーの更新後に出ます）');
+  dpSheet({d:{title:x.title, lines}});
+});
 function dpCalHTML(){
   const date=dpDate(), c=(lsGet('dp.cal2',{})||{})[date], ev=(c&&c.events)||null;
   const kd=dpShukkinDay(date);
   let li='';
-  if(ev) li=ev.slice().sort((a,b)=>(a.allDay?'0':'1'+a.start).localeCompare(b.allDay?'0':'1'+b.start)).map(x=>`<li>${x.allDay?'<b>終日</b>':`<b>${esc(x.start)}${x.end?'〜'+esc(x.end):''}</b>`}${esc(dpCalTitle(x.title))}</li>`).join('');   // 2026-10-06 泰広さん指示：シンプルに（場所・電話番号は出さない）
+  /* 2026-10-06 泰広さん指示：シンプルに（場所・電話番号・酵母の種類は出さない。「終日」も出さない）。押すと詳細 */
+  if(ev){ DP_CAL_LAST=ev.slice().sort((a,b)=>(a.allDay?'0':'1'+a.start).localeCompare(b.allDay?'0':'1'+b.start));
+    li=DP_CAL_LAST.map((x,i)=>`<li class="dp-cl" data-dpcal="${i}">${x.allDay?'':`<b>${esc(x.start)}${x.end?'〜'+esc(x.end):''}</b>`}${esc(dpCalTitle(x.title))}<i>›</i></li>`).join(''); }
   else if(kd&&kd.n) li=String(kd.n).split(/[\/／]/).map(s=>s.trim()).filter(Boolean).map(s=>`<li>${esc(s)} <small>（出勤表の備考）</small></li>`).join('');
   if(!li) return `<div class="dp-cal"><div class="t">カレンダーの予定</div><div style="color:var(--sub);font-size:12px">${ev||!O2_URL?(DP_OFF?'明日':'今日')+'の予定はありません':'読み込んでいます…'}</div></div>`;
   return `<div class="dp-cal"><div class="t">カレンダーの予定</div><ul>${li}</ul></div>`;
@@ -5849,7 +5867,7 @@ function bnDraftSet(date,d){ if(Object.keys(d).length) lsSet('bn.draft.'+date,d)
 /* その日に分析する仕込（ホームの dpBunseki と同じ決まり） */
 function bnTargets(st,date){
   const M=(st&&st.master)||[], out=[];
-  M.filter(m=>m.motodate && m.motodate<date && (!m.soe || date<=dadd(m.soe,-1)))
+  M.filter(m=>m.motodate && dadd(m.motodate,2)<=date && (!m.soe || date<=dadd(m.soe,-1)))   // 2026-10-06：酒母は酛立を1日目として3日目から
    .sort((a,b)=>a.motodate.localeCompare(b.motodate)||a.no-b.no)
    .forEach(m=>{ const d=rcShuboDay(m,date); if(d>=1&&d<=13) out.push({k:'sb',m,d}); });
   M.filter(m=>m.tome && dadd(m.tome,2)<=date && (!m.joso || date<=m.joso) && ((st.today||{})[m.no]||{}).state!=='上槽済')
@@ -8239,6 +8257,8 @@ function stiBind(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-06-8','📅','本日の予定','カレンダーの予定から「終日」と酵母の種類を出さないようにしました。予定を押すと詳細（題名・時刻・場所・説明）が出ます。'],
+  ['2026-10-06-7','🧪','本日の予定・分析','分析の本数の数え方を直しました。酒母は仕込み（酛立）を1日目として3日目から数えます（1・2日目は分析しないため）。分析の画面に出る酒母も3日目からです。'],
   ['2026-10-06-6','📅','本日の予定','カレンダーの予定をシンプルにしました（時刻と題名だけ。場所・電話番号は出しません）。'],
   ['2026-10-06-5','✅','やることリスト','各ボックスの右端に「済」ボタン。押すと「✓ 済み」タブに移ります（すぐ下の「元に戻す」で取り消し可）。済みリストも分類（ジャンル）で絞り込めます。'],
   ['2026-10-06-4','🧪','分析','「まとめて保存」も、押すとすぐ前の画面に戻るようにしました。送信は裏で行い、推奨追水や注意があれば画面の下にまとめて出ます。'],
