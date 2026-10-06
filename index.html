@@ -8571,7 +8571,7 @@ function stiBind(){
    ・もと：醪管理R8BY 仕込マスタ（recState().master の motodate・yeast）。酵母が空なら酵母割当（yeastOf）
    ・🧫酒母の上段アイコン（🌡室温・O₂・📅昨年度）の右に「🧬酵母」。次の植菌まで何日かを表示
    2026-10-07 追加の指示：
-   ・グラフだけを出す（上の一覧・凡例・説明は出さない）。左の見出しは No｜酵母｜液種 の3列（グラフと同じ線で区切る）
+   ・グラフだけを出す（上の一覧・凡例・説明は出さない）。左の見出しは No｜液種｜酵母 の3列（グラフと同じ線で区切る。2026-10-07 泰広さん指示で 液種→酵母 の順に）
    ・過去のは出さない。予定がある分だけ（酵母未定の行は出さない）
    ・行を押すと変更できる：植菌日（発注締切日）・酵母名・個数（リストから）・済
      済にしても、その日（植菌日・締切日）が過ぎるまでは消さない
@@ -8589,7 +8589,7 @@ const YP_ORDER={
 };
 const YP_YEASTS=['K7','K1801','H13BY','S9arg','TR8arg','G9NFarg','まほろば芳'];   // 酵母名のリスト（仕込マスタにある名前も足す）
 const YP_QTY_MAX=20;                               // 個数のリスト 1〜20
-const YP_LBW=158;                                  // 左の見出し（No｜酵母｜液種）の幅
+const YP_LBW=158;                                  // 左の見出し（No｜液種｜酵母）の幅
 const YP_TABLE='酵母予定';
 const YP={open:'', ov:lsGet('yp.ov',{}), err:'', busy:false};
 
@@ -8687,10 +8687,10 @@ function ypPaint(st){
     bars+=`<span class="yp-dot sk" style="left:${sh}px">仕</span>`;
     if(x.qty) bars+=`<span class="yp-qty" style="left:${Math.max(0,p)+W+4}px">${esc(x.qty)}${ypUnit(x.name)}</span>`;
     const cls=x.kind==='order'?(x.o.care?'care':'ord'):'';
-    rows+=`<div class="yp-row${YP.open===x.id?' on':''}" data-yp-id="${esc(x.id)}"><div class="yp-lb"><span class="c1"><b>${m.no}</b></span><span class="c2 ${cls}">${esc(x.name)}${x.done?'<i>済</i>':''}</span><span class="c3">${esc(m.liquid||'')}</span></div><div class="yp-tr" style="width:${N*W}px">${bars}</div></div>`;
+    rows+=`<div class="yp-row${YP.open===x.id?' on':''}" data-yp-id="${esc(x.id)}"><div class="yp-lb"><span class="c1"><b>${m.no}</b></span><span class="c3">${esc(m.liquid||'')}</span><span class="c2 ${cls}">${esc(x.name)}${x.done?'<i>済</i>':''}</span></div><div class="yp-tr" style="width:${N*W}px">${bars}</div></div>`;
     if(YP.open===x.id) rows+=ypEditHTML(x);
   });
-  h+=`<div class="yp-wrap"><div class="yp-sc" id="ypSc"><div class="yp-in" style="width:${YP_LBW+N*W}px"><div class="yp-row yp-h"><div class="yp-lb yp-lbh"><span class="c1">No</span><span class="c2">酵母</span><span class="c3">液種</span><em class="yp-mon" id="ypMon"></em></div><div class="yp-hd" style="width:${N*W}px">${mon}${days}</div></div><div class="yp-body">${tl}${rows}</div></div></div></div>`;
+  h+=`<div class="yp-wrap"><div class="yp-sc" id="ypSc"><div class="yp-in" style="width:${YP_LBW+N*W}px"><div class="yp-row yp-h"><div class="yp-lb yp-lbh"><span class="c1">No</span><span class="c3">液種</span><span class="c2">酵母</span><em class="yp-mon" id="ypMon"></em></div><div class="yp-hd" style="width:${N*W}px">${mon}${days}</div></div><div class="yp-body">${tl}${rows}</div></div></div></div>`;
   const sc0=$('#ypSc'), x0=sc0?sc0.scrollLeft:0;
   app.innerHTML=h;
   const sc=$('#ypSc');
