@@ -2542,16 +2542,17 @@ function zaikoScreen(day){
     const live = Z.vars.filter((v,i)=>((at?Z.days[at].s[i]:0)||0)||(today?today.i[i]||today.o[i]:0));
     const doneN = live.filter(v=>zv[v]).length;
     h += `<div class="mf-sec">${djp(ZAI_DAY)} 終わりの在庫<span>確認 ${doneN}/${live.length} 品種</span></div>
-      <div class="tl-scroll"><table class="tl-tbl zt" style="width:100%"><thead><tr><th>品種・歩合</th><th>在庫</th><th>袋</th><th>受入</th><th>払出</th><th>7日先</th><th>確認</th></tr></thead><tbody>`;
+      <div class="tl-scroll"><table class="tl-tbl zt" style="width:100%"><thead><tr><th>品種・歩合</th><th>在庫</th><th>袋</th><th>受入</th><th>払出</th><th>増減</th><th>確認</th></tr></thead><tbody>`;
     let tS=0,tI=0,tO=0,tF=0,tM=0;
     const RC = riceCalc();
     const mib = (RC && RC.hasHiki) ? RC.balAt(dadd(ZAI_DAY,1)) : null;   // 引取予定を足した見通し（この日の終わり）
     Z.vars.forEach((v,i)=>{
       const m=v.match(/^(.+?)(\d+)%$/); const lab = m?`<b>${esc(m[1])}</b>${ratioBadge(Number(m[2]))}`:esc(v);
       const raw=st[i]||0, mi = mib ? (mib[i]||0) : null;
-      const s = (mi===null) ? raw : mi;                    // 表に出すのは「引取予定を入れた在庫」
-      const dim = !s && !raw && !inn[i] && !out[i] && !fut[i];
-      tS+=s; tI+=inn[i]||0; tO+=out[i]||0; tF+=fut[i]; tM+=raw;
+      const rzc = rzCum(v, ZAI_DAY), rzd = rzVal(v, ZAI_DAY);   // 増減（累計／この日の分）
+      const s = ((mi===null) ? raw : mi) + rzc;            // 表に出すのは「引取予定と増減を入れた在庫」
+      const dim = !s && !raw && !inn[i] && !out[i] && !fut[i] && !rzd;
+      tS+=s; tI+=inn[i]||0; tO+=out[i]||0; tF+=rzd; tM+=raw;
       const dq = difMap[v];
       const gap = (mi!==null && Math.abs(mi-raw)>0.05);
       const zr = zv[v];
@@ -2562,12 +2563,13 @@ function zaikoScreen(day){
       if(dim) btn = '';
       h += `<tr style="${dim?'opacity:.4':''}"><td style="white-space:nowrap">${lab}</td>
         <td class="${s<0?'mf-neg':''}" style="font-weight:700">${kgfmt(s)}${dq?`<span class="zx" data-zdif="${esc(v)}">※</span>`:''}
-          ${gap?`<div style="font-size:10.5px;font-weight:400;color:var(--sub);white-space:nowrap">受払欄 ${kgfmt(raw)}</div>`:''}</td>
+          ${gap?`<div style="font-size:10.5px;font-weight:400;color:var(--sub);white-space:nowrap">受払欄 ${kgfmt(raw)}</div>`:''}
+          ${Math.abs(rzc)>=0.05?`<div style="font-size:10.5px;font-weight:400;color:var(--sub);white-space:nowrap">増減 ${rzc>0?'＋':''}${kgfmt(rzc)}込み</div>`:''}</td>
         <td class="${s<0?'mf-neg':''}" style="white-space:nowrap;font-size:12px">${s?bags(s):'—'}</td>
-        <td>${inn[i]?kgfmt(inn[i]):''}</td><td>${out[i]?kgfmt(out[i]):''}</td><td style="color:var(--sub)">${fut[i]?kgfmt(fut[i]):''}</td>
+        <td>${inn[i]?kgfmt(inn[i]):''}</td><td>${out[i]?kgfmt(out[i]):''}</td><td class="rzc">${dim?'':`<input class="rzin" type="number" step="0.1" data-rz="${esc(v)}" value="${rzd?(Math.round(rzd*10)/10):''}" placeholder="±">`}</td>
         <td class="zvc">${btn}</td></tr>`;
     });
-    h += `<tr class="tot"><td>合計</td><td class="${tS<0?'mf-neg':''}">${kgfmt(tS)}</td><td></td><td>${tI?kgfmt(tI):''}</td><td>${tO?kgfmt(tO):''}</td><td>${tF?kgfmt(tF):''}</td><td></td></tr></tbody></table></div>
+    h += `<tr class="tot"><td>合計</td><td class="${tS<0?'mf-neg':''}">${kgfmt(tS)}</td><td></td><td>${tI?kgfmt(tI):''}</td><td>${tO?kgfmt(tO):''}</td><td>${Math.abs(tF)>=0.05?(tF>0?'＋':'')+kgfmt(tF):''}</td><td></td></tr></tbody></table></div>
       <p class="tl-note">単位はkg。${mib?`<b>在庫</b>は<b>引取予定を入れて計算した数</b>です（受入が品種受払にまだ入力されていなくても正しく出ます）。<br>
         小さい「受払欄」は、造りexの品種受払にいま入っている在庫の値です。受入を入力していない分だけマイナスになります。`
         :'いまの数は品種受払の在庫欄そのままです。引取予定が届くと、それを入れて計算した数に変わります。'}
@@ -2598,6 +2600,7 @@ function zaikoScreen(day){
     h += hikitoriSoon(ZAI_DAY);
     app.innerHTML = h + mfgSrcInfo('zaiko','造りex 仕込調整 品種受払');
     bindDayNav(zaikoScreen);
+    rzBind(render);
     $('#zHist').onclick=()=>go(zcheckScreen);
     const hall=$('#hkAll'); if(hall) hall.onclick=()=>go(()=>hikitoriScreen());
     app.querySelectorAll('[data-zdif]').forEach(b=>b.onclick=()=>{
@@ -2649,6 +2652,7 @@ function zaikoScreen(day){
     };
   };
   mfgOpen(render);
+  rzFetch().then(ch=>{ if(ch) rzRedraw(render); }).catch(()=>{});
 }
 
 /* ---------- ずれと確認の履歴 ---------- */
@@ -5459,10 +5463,10 @@ async function moromiSetup(no, st){
    ======================================================================== */
 const DP_T = {
   shuboShikomi:['10:00','11:00'], motooroshi:['15:00','16:00'],
-  shikomi:['09:00','10:30'], senmai:['10:30','12:30'], joso:['08:00','12:00'], kasu:['13:00','15:00'], yabuta:['15:00','16:00'], seisou:['15:30','17:00'],
+  shikomi:['09:00','10:30'], senmai:['10:30','12:30'], joso:['08:00','12:00'], kasu:['13:00','15:00'], yabuta:['15:00','16:00'], seisou:['15:30','17:00'], kome:['15:30','15:45'],
   koji:{ 盛:['08:30',50], 仲仕事:[null,15], 留仕事:[null,15], 引込:['09:40',50], 種切:[null,15], 切返し:[null,15], 出麹:['13:00',50] }
 };
-const DP_LANES = [['koji','麹'],['shubo','酒母'],['shk','仕込み'],['sen','洗米'],['joso','上槽・粕'],['etc','清掃']];
+const DP_LANES = [['koji','麹'],['shubo','酒母'],['shk','仕込み'],['sen','洗米'],['joso','上槽・粕'],['kome','米'],['etc','清掃']];
 const DP_CSS = `
 .dp{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:10px 0 0;padding:8px 8px 6px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .dp-h{display:flex;align-items:baseline;gap:6px;font-weight:800;color:var(--navy);font-size:15px;margin:0 2px 6px}
@@ -5487,7 +5491,7 @@ const DP_CSS = `
 .dp-empty{color:var(--sub);font-size:13px;text-align:center;padding:16px 0}
 .dp-k{background:#fbf3d2;border-color:#d8b43c}.dp-s{background:#fde8e4;border-color:#d0806e}.dp-m{background:#e7f0fb;border-color:#5a8fd0}
 .dp-w{background:#eaf6e0;border-color:#6aa84f}.dp-j{background:#ece6f7;border-color:#8a6cc8}.dp-u{background:#f1ede6;border-color:#9a8a70}
-.dp-o{background:#e3f4ea;border-color:#2f7d5d}.dp-on{background:#fdecec;border-color:#d62b22;color:#b31b14}
+.dp-o{background:#e3f4ea;border-color:#2f7d5d}.dp-r{background:#fff1dc;border-color:#d48a2a}.dp-on{background:#fdecec;border-color:#d62b22;color:#b31b14}
 .dp-kn{margin:6px 2px 0;padding:5px 0 0;border-top:1px dashed var(--line);font-size:11px;line-height:1.55;color:var(--ink)}
 .dp-kn div{display:flex;gap:6px}.dp-kn b{flex:none;color:var(--navy);font-weight:700;min-width:3.6em}
 .dp-kn .off b{color:#b31b14}.dp-kn small{color:var(--sub);font-size:10px}
@@ -5587,6 +5591,13 @@ function dpItems(date){
     const kg=ents.reduce((a,x)=>a+x.kg,0);
     add('sen',DP_T.senmai[0],DP_T.senmai[1],`洗米${ents.length}件`,'dp-w',{title:`洗米（${ents.length}件・${Math.round(kg).toLocaleString('ja-JP')}kg）`,time:DP_T.senmai.join('〜')+'（目安）',
       lines:ents.map(x=>`${x.g}${x.kb}　${x.rice} ${x.ratio}%　${x.prod||''} No.${x.no}　${kgfmt(x.kg)}kg`),open:()=>senmaiScreen(date),openL:'洗米チェックを開く'});
+  }
+  // 米の引き取り（2026-10-06 泰広さん指示）：引取予定表（MFG.hikitori）から自動。15:30〜 米移動（5人ほど・約15分）
+  const H=MFG&&MFG.hikitori, hk=H&&H.days&&H.days[date];
+  if(hk&&Object.keys(hk).length){
+    const bag=(H&&H.bag)||BAG_KG, vs=Object.keys(hk), nb=vs.reduce((a,v)=>a+(Number(hk[v])||0),0);
+    add('kome',DP_T.kome[0],DP_T.kome[1],`米引取 ${nb}袋`,'dp-r',{title:`米の引き取り（${nb}袋・${kgfmt(nb*bag)}kg）`,time:'15:30〜 米移動（5人ほど・約15分）',
+      lines:vs.map(v=>`${v}　${hk[v]}袋（${kgfmt((Number(hk[v])||0)*bag)}kg）`),open:()=>zaikoScreen(date),openL:'在庫管理を開く'});
   }
   return out;
 }
@@ -8513,6 +8524,8 @@ function stiBind(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-06-14','🚚','本日の予定','米の引き取りを「本日の予定」「明日の予定」に出すようにしました（「米」の行。15:30〜の米移動）。引取予定表（AI参照データ＼米引き取り予定）から自動で入ります。押すと品種ごとの袋数・kgが出て、在庫管理を開けます。'],
+  ['2026-10-06-13','🍚','米管理・在庫管理','在庫の表の「7日先」をやめて「増減」の列にしました。1袋30kgより少し多く入っている分など、自然に増えた・減った量（kg、マイナスも可）を品種ごとに入力できます。入れた増減は、その日から先の在庫に足して表示されます。'],
   ['2026-10-06-12','📇','連絡先','工程のジャンルを日本酒の製造工程の順に整理しました（原料処理・製麹・酒母・仕込み・上槽・濾過・火入れ・貯蔵・調合・瓶詰・酒粕・リキュール・洗浄・衛生・分析・計測・設備・保守・ボイラー・燃料）。場所（📍麹室・土蔵など）は下の段に分けました。全件のジャンルも付け直しています。'],
   ['2026-10-06-11','📊','麹の比較・考察','温度推移のグラフに「基準の帯」を出しました。昨年（R7BY）の実績が基準で、輝は輝の基準。外れた点は橙・赤の輪で示し、下の一覧に教科副読本「麹」での意味が出ます。'],
   ['2026-10-06-10','🍚','麹','引込みの入力で、種麹①・②をリストから選べるようにしました（酵母に合わせて担当者が選びます）。'],
@@ -8715,5 +8728,64 @@ function zaiSheet(r, st, redraw){
 }
 </script>
 <style>/* 2026-10-06 泰広さん指示：説明文が多いので注記は出さない */ .tl-note,.sh-note,.mf-info{display:none!important}</style>
+<script>
+/* ================= 🍚 米の増減（米管理→在庫管理）2026-10-06 泰広さん指示 =================
+   ・1袋30kg表記だが実際は0.1kgずつ多いなど、自然に増減する分を品種・日付ごとに入れる（単位kg、マイナス可）
+   ・在庫管理の表の「増減」列で入力 → その日以降の在庫に累計で足して表示（造りexの品種受払・※のずれ判定には入れない）
+   ・記録先：Apps Script「製造ツール 共有データ」の表「米増減」（name＝品種・歩合／date／qty）。1品種1日1行（id＝rz_日付_品種） */
+const RZ = { items: lsGet('rz.items', []), pending:false };
+async function rzApi(body){
+  if(typeof SHARED_URL==='undefined' || !SHARED_URL) throw new Error('記録先の設定がまだです');
+  body.table='米増減'; body.who={ id:String(ST.id||''), name:String(ST.name||'') };
+  const r=await fetch(SHARED_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow'});
+  const j=await r.json();
+  if(!j||!j.ok) throw new Error((j&&/その表はありません/.test(j.error||''))?'サーバー側の更新（Apps Script「製造ツール 共有データ」の新バージョン）がまだです':((j&&j.error)||'受け取れませんでした'));
+  return j;
+}
+function rzKeep(j){ const a=JSON.stringify(RZ.items); RZ.items=(j.items||[]); lsSet('rz.items', RZ.items); return a!==JSON.stringify(RZ.items); }
+async function rzFetch(){ return rzKeep(await rzApi({action:'list'})); }
+function rzNum(x){ const n=Number(x&&x.qty); return isFinite(n)?n:0; }
+function rzVal(v,d){ const x=RZ.items.find(x=>x.name===v && x.date===d); return x?rzNum(x):0; }
+function rzCum(v,d){ return Math.round(RZ.items.filter(x=>x.name===v && x.date && x.date<=d).reduce((a,x)=>a+rzNum(x),0)*10)/10; }
+function rzRedraw(render){
+  const a=document.activeElement;
+  if(app.dataset.mfg!=='zaiRender') return;
+  if(a && a.classList && a.classList.contains('rzin')){ RZ.pending=true; return; }   // 入力中は描き直さない
+  RZ.pending=false; render();
+}
+function rzBind(render){
+  const day=ZAI_DAY;
+  app.querySelectorAll('.rzin').forEach(inp=>{
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter') inp.blur(); });
+    inp.addEventListener('blur',()=>setTimeout(()=>{ if(RZ.pending) rzRedraw(render); },80));
+    inp.addEventListener('change',async()=>{
+      const v=inp.dataset.rz, t=String(inp.value||'').trim();
+      let n = t===''?0:Number(t);
+      if(!isFinite(n)){ inp.value=''; return; }
+      n=Math.round(n*10)/10;
+      const id='rz_'+day+'_'+v, old=RZ.items.find(x=>x.id===id);
+      if(!old && !n) return;
+      // 先に端末側へ反映
+      if(old) old.qty = n?String(n):''; else RZ.items.push({ id, name:v, date:day, qty:String(n), unit:'kg' });
+      lsSet('rz.items', RZ.items);
+      inp.classList.remove('ng'); inp.classList.add('sv');
+      rzRedraw(render);
+      try{
+        rzKeep(await rzApi({action:'save', item:{ id, name:v, kind:'増減', qty:n?String(n):'', unit:'kg', date:day, memo:'' }}));
+        rzRedraw(render);
+      }catch(e){
+        alert('増減を保存できませんでした：'+String(e.message||e));
+        const b=app.querySelector(`.rzin[data-rz="${CSS.escape(v)}"]`); if(b){ b.classList.remove('sv'); b.classList.add('ng'); }
+      }
+    });
+  });
+}
+</script>
+<style>/* 米の増減の入力欄 */
+.zt td.rzc{padding:2px 4px}
+.zt .rzin{width:58px;font-size:16px;padding:4px 5px;border:1px solid var(--line,#ccc);border-radius:6px;text-align:right;background:#fffef6}
+.zt .rzin.sv{background:#eef7ea}
+.zt .rzin.ng{border-color:#d9534f;background:#fdeeee}
+</style>
 </body>
 </html>
