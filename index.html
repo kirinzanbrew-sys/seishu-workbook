@@ -424,7 +424,7 @@ function go(fn,push=true){ if(push)nav.push(fn); fn(); window.scrollTo(0,0);
 hBack.onclick=()=>{ nav.pop(); const f=nav[nav.length-1]; if(f){f();window.scrollTo(0,0)}
   hBack.classList.toggle('hide',nav.length<=1) };
 /* 2026-10-06 ホーム固定の高さ：iPhoneのホーム画面アプリでは CSS の画面高さが実際より短いことがあるので、JSで実寸を入れる */
-function hmSize(){ const b=document.body; if(!b.classList.contains('hm')){ b.style.height=''; b.style.bottom=''; return; }
+function hmSize(){ const b=document.body; if(!b.classList.contains('hm')){ b.style.height=''; document.documentElement.classList.remove('hm'); return; }
   /* iPhoneのホーム画面アプリでは、画面の高さが「上の安全領域（時計の帯）」の分だけ短く報告されることがある */
   let st=0; try{ const pr=document.createElement('div'); pr.style.cssText='position:fixed;top:0;left:0;height:0;padding-top:env(safe-area-inset-top);visibility:hidden'; b.appendChild(pr); st=pr.offsetHeight; pr.remove(); }catch(e){}
   let h=Math.max(window.innerHeight, document.documentElement.clientHeight||0);
@@ -432,7 +432,7 @@ function hmSize(){ const b=document.body; if(!b.classList.contains('hm')){ b.sty
   if(sa && window.screen){ const land=window.matchMedia&&matchMedia('(orientation: landscape)').matches;
     const sh=land?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height);
     h=Math.max(h, Math.min(sh, h+st)); }
-  b.style.bottom='auto'; b.style.height=h+'px';
+  document.documentElement.classList.add('hm'); b.style.height=h+'px';
   /* 予定の枠の高さを実寸で決める（アイコンが必ず全部見えるように） */
   requestAnimationFrame(()=>{ const box=document.getElementById('dpBox'), ics=document.querySelector('#app .dp-ics'), app=document.getElementById('app');
     if(!box||!ics||!app) return;
@@ -442,7 +442,7 @@ function hmSize(){ const b=document.body; if(!b.classList.contains('hm')){ b.sty
     box.style.maxHeight=Math.max(72,avail)+'px'; box.style.height=Math.max(72,avail)+'px'; });
 }
 window.addEventListener('resize',()=>hmSize()); window.addEventListener('orientationchange',()=>setTimeout(hmSize,300));
-function head(t,s){document.body.classList.remove('hm');document.body.style.height='';document.body.style.bottom='';hTtl.childNodes[0].nodeValue=t;hSub.textContent=s||'';showWho()}
+function head(t,s){document.body.classList.remove('hm');document.documentElement.classList.remove('hm');document.body.style.height='';hTtl.childNodes[0].nodeValue=t;hSub.textContent=s||'';showWho()}
 /* 右上の「名前／ID」：押すと設定を開く */
 function showWho(){
   const w=$('#who'); if(!w)return;
@@ -5434,7 +5434,8 @@ const DP_CSS = `
 .dp-cal li small{color:var(--sub)}
 .dp-ics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 6px;margin:16px 0 4px}
 /* 2026-10-06 ホーム固定：ページ全体はスクロールさせず、画面の高さに収める */
-body.hm{position:fixed;top:0;right:0;bottom:0;left:0;height:auto;overflow:hidden;display:flex;flex-direction:column;padding-bottom:0}   /* iPhoneのホーム画面アプリでは100dvhが画面より短くなるので、画面の四隅に貼り付ける */
+html.hm{overflow:hidden;overscroll-behavior:none}
+body.hm{height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;padding-bottom:0}   /* iPhoneのホーム画面アプリでは100dvhが画面より短くなるので、画面の四隅に貼り付ける */
 body.hm header{flex:none;position:relative}
 body.hm #app{flex:1 1 auto;min-height:0;width:100%;display:flex;flex-direction:column;padding-bottom:max(6px,env(safe-area-inset-bottom))}
 body.hm #app>*{flex:none}
