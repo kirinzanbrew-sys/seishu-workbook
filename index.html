@@ -3927,12 +3927,47 @@ const CMP_STG=[['引込','引込 時刻','引込 品温'],['種切','種切 時�
 const CMP_MET=[['吸水%','吸水%'],['引込 品温','引込℃'],['種切 品温','種切℃'],['切返し 品温','切返し℃'],['盛前 品温','盛前℃'],['盛後 品温','盛後℃'],['仲仕事 品温','仲仕事℃'],['留仕事 品温','留仕事℃'],['出麹 品温','出麹℃'],['麹歩合','麹歩合'],['引込→出麹 h','引→出 h'],['盛→仲仕事 h','盛→仲 h'],['留仕事→出麹 h','留→出 h'],['種切 水分%','種切水分%']];
 const CMP_BY=[['tane','種麹（①＋②）'],['tane1','種麹①だけ'],['liquid','液種'],['kind','品種'],['kubun','区分（酛添仲留）']];
 const CMP_MM=[['smv','日本酒度',1],['aa','アミノ酸度',4],['ta','酸度',3],['alc','アルコール',2],['bmd','BMD',5],['t','品温',6]];
+/* ---- 麹の品温の基準（2026-10-06 追加）----
+   判定の物差し＝自蔵の実績（R7BY）。外れたときの意味は 清酒学校 教科副読本「麹」（保管庫 醸造ナレッジベース/資料要約/教科副読本_麹.md）。
+   st：工程→[平均℃, 標準偏差, 本数]。h：引込からの標準時間（グラフの帯の位置。判定は工程名で行う）。
+   一般＝R7BY 統合データ「麹記録」の輝以外297麹（盛前〜出麹だけ。引込〜切返しの記録は無い）。
+   輝＝R7BY kagayaki 5仕込20麹（製麹/R7BY の仕込別ノート。時間は所要時間一覧の平均）。
+   作り直しは保管庫 杜氏/生産本部製造ツール_保守手順書.md「麹の品温の基準」。 */
+const KSTD={
+  ippan:{name:'一般 R7BY 297麹',st:{'盛前':[33.62,0.82,276],'盛後':[32.70,0.72,275],'仲仕事':[36.76,0.45,83],'留仕事':[39.28,0.58,280],'出麹':[41.98,0.69,278]},
+    h:{'引込':0,'種切':0.8,'切返し':6.5,'盛前':23.3,'盛後':23.3,'仲仕事':30.0,'留仕事':37.5,'出麹':59.5}},
+  kaga:{name:'輝 R7BY 20麹',st:{'引込':[38.70,1.22,19],'種切':[32.66,0.93,20],'切返し':[30.09,0.32,20],'盛前':[31.12,0.38,20],'盛後':[30.81,0.57,20],'仲仕事':[36.76,0.19,20],'留仕事':[39.88,0.34,19],'出麹':[41.77,0.34,20]},
+    h:{'引込':0,'種切':1.7,'切返し':6.7,'盛前':23.2,'盛後':23.2,'仲仕事':35.7,'留仕事':39.0,'出麹':61.5}}
+};
+const KSD_MIN=0.3;   // 標準偏差がこれより小さいときはこの値で判定（輝の仲仕事0.19など、帯が細すぎて0.3℃で✕になるのを防ぐ）
+const KSTD_BOOK={lo:30,hi:35,stages:['種切','切返し']};   // 一般の引込〜切返しは自蔵記録が無いので、教科副読本の発芽至適温度 30〜35℃（p.3）で見る
+const KSTD_WHY={   // 外れたときの意味（教科副読本「麹」。ページは原本の印刷ページ）
+  '引込':{hi:'蒸米が熱いまま。柔らかい蒸米は低めに包む（p.4）',lo:'低すぎると発芽が遅れる。硬い蒸米は高めに包む（p.4）'},
+  '種切':{hi:'発芽の至適は30〜35℃（p.3）。高いと立ち上がりが早く状貌が進みやすい',lo:'発芽が遅れる（至適30〜35℃ p.3）。立ち上がりの差は まず蒸米水分を疑い、包み温度で補正（p.4）'},
+  '切返し':{hi:'前半を高温・多湿で進めすぎると煙臭（4-VG）のリスク（p.9, p.15）',lo:'発芽・初期増殖が遅れる（至適30〜35℃ p.3）'},
+  '盛前':{hi:'盛までに状貌が進みすぎの方向。盛を進めすぎないのが酵素力のコツ（p.9）',lo:'立ち上がりが遅れている。蒸米水分・床の温度を確認（p.4）'},
+  '盛後':{hi:'盛までに状貌が進みすぎの方向（p.9）。前半を多湿で進めすぎない（p.15）',lo:'立ち上がりが遅れている。蒸米水分・床の温度を確認（p.4）'},
+  '仲仕事':{hi:'盛以降は発熱が急増（盛3.7→仲6.6kcal/kg/h p.11）。乾湿差で蒸発させて冷やす',lo:'32.5〜35℃に長くいると蛋白分解系が相対的に高い麹に＝アミノ酸が増える方向（p.8〜9）'},
+  '留仕事':{hi:'発熱（最盛期7kcal/kg/h）を逃がせていない。品温は乾燥＝冷却で制御（p.11〜12）',lo:'でんぷん分解系（α・GA）は37.5℃付近で高い（p.8）。上がり不足は糖化力不足の方向'},
+  '出麹':{hi:'末期の昇温でもでんぷん分解系は落ちないが、蛋白分解系は下がる（p.9, p.16）＝アミノ酸少なめの方向',lo:'末期の上げ不足。末期はしっかり上げる（p.9）。糖化力が出にくい方向'}
+};
+const kIsKaga=r=>/輝/.test([r['液種'],r['記号'],r['品種']].join(''));
+function kJudge(kk,nm,v){ const S=KSTD[kk].st[nm];
+  if(S){ const q=Math.max(S[1],KSD_MIN), z=(v-S[0])/q, a=Math.abs(z), lv=a<=1?0:(a<=2?1:2);
+    return {lv,hi:z>0,mk:['◎','△','✕'][lv],ref:`${cmpF(S[0])}±${cmpF(q)}℃`}; }
+  if(kk==='ippan'&&KSTD_BOOK.stages.includes(nm)){ const b=KSTD_BOOK, lv=(v<b.lo||v>b.hi)?1:0; return {lv,hi:v>b.hi,mk:lv?'△':'◎',ref:`${b.lo}〜${b.hi}℃（教科書）`}; }
+  return null; }
+function kStdHours(sk,K){   // 帯の位置：一般＝今季の記録の平均時間（3本以上ある工程）、無ければ設定の標準時刻。輝＝R7BY輝の平均
+  const H=Object.assign({},KSTD[sk].h); if(sk!=='ippan') return H;
+  const by={}; K.filter(r=>!kIsKaga(r)).forEach(r=>cmpStages(r).forEach(p=>{ (by[p.nm]=by[p.nm]||[]).push(p.h); }));
+  Object.keys(by).forEach(n=>{ if(by[n].length>=3) H[n]=cmpMean(by[n]); }); H['盛前']=H['盛後']=H['盛後']??H['盛前'];
+  return H; }
 const cmpNum=v=>(v===''||v===null||v===undefined||isNaN(Number(v)))?null:Number(v);
 const cmpMean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:null;
 const cmpSd=a=>{ if(a.length<2) return null; const m=cmpMean(a); return Math.sqrt(a.reduce((s,x)=>s+(x-m)*(x-m),0)/(a.length-1)); };
 const cmpF=(v,d=1)=>v==null?'—':(Math.round(v*Math.pow(10,d))/Math.pow(10,d)).toFixed(d);
 const cmpDot=(c,s=9)=>`<i style="width:${s}px;height:${s}px;border-radius:50%;background:${c};display:inline-block;margin-right:4px;vertical-align:middle"></i>`;
-function cmpOpt(){ return Object.assign({tab:'a',by:'tane',kubun:'',liquid:'',ck:'all',mm:'smv',probe:true,each:true,list:false,hide:[]}, lsGet('cmp.opt',{})); }
+function cmpOpt(){ return Object.assign({tab:'a',by:'tane',kubun:'',liquid:'',ck:'all',mm:'smv',probe:true,each:true,list:false,hide:[],std:'auto'}, lsGet('cmp.opt',{})); }
 function cmpKey(r,by){
   if(by==='tane1') return r['種麹']||'（種麹未入力）';
   if(by==='liquid') return r['液種']||'—';
@@ -3963,7 +3998,7 @@ function cmpStages(r){   // 各工程の品温を「引込からの経過時間�
 }
 function cmpChart(o){   // o: {id, series:[{c,pts:[[x,y,label,note]],w,op,bold,label}], xmax, xlab, ylab, xu, yu, xd, yd, direct}
   const W=360,H=230,L=34,R=10,T=12,B=28, pw=W-L-R, ph=H-T-B;
-  const all=o.series.flatMap(s=>s.pts.map(p=>p[1]));
+  const all=o.series.flatMap(s=>s.pts.map(p=>p[1])).concat((o.bands||[]).flatMap(b=>b.pts.flatMap(p=>[p[1],p[2]])));
   let y0=Math.floor(Math.min(...all)-0.5), y1=Math.ceil(Math.max(...all)+0.5); if(!isFinite(y0)||!isFinite(y1)){ y0=0; y1=1; } if(y1-y0<2){ y0-=1; y1+=1; }
   const xmax=o.xmax||1, X=x=>L+Math.max(0,x)/xmax*pw, Y=y=>T+(y1-y)/(y1-y0)*ph;
   const st=(y1-y0)>12?Math.ceil((y1-y0)/6):((y1-y0)>6?2:1), xs=xmax>40?12:(xmax>20?6:(xmax>10?2:1));
@@ -3973,12 +4008,18 @@ function cmpChart(o){   // o: {id, series:[{c,pts:[[x,y,label,note]],w,op,bold,l
   g+=`<line x1="${L}" x2="${W-R}" y1="${T+ph}" y2="${T+ph}" stroke="#9ca3af" stroke-width="1"/><text x="${W-R}" y="${H-1}" text-anchor="end" font-size="10" fill="#6b7280">${esc(o.xlab||'')}</text><text x="${L}" y="${T-3}" font-size="10" fill="#6b7280">${esc(o.ylab||'')}</text>`;
   const path=p=>p.map((q,i)=>(i?'L':'M')+X(q[0]).toFixed(1)+' '+Y(q[1]).toFixed(1)).join(' ');
   let s='';
+  (o.bands||[]).forEach(b=>{ if(!b.pts.length) return;   // 基準の帯（pts：[x, 下, 上]）
+    const pp=b.pts.length===1?[[b.pts[0][0]-0.8,b.pts[0][2]],[b.pts[0][0]+0.8,b.pts[0][2]],[b.pts[0][0]+0.8,b.pts[0][1]],[b.pts[0][0]-0.8,b.pts[0][1]]]
+      :b.pts.map(p=>[p[0],p[2]]).concat(b.pts.slice().reverse().map(p=>[p[0],p[1]]));
+    s+=`<path d="${path(pp)} Z" fill="${b.c}" fill-opacity="${b.op||.4}" stroke="${b.sc||'none'}" stroke-dasharray="${b.dash||''}" stroke-width="1"/>`;
+    if(b.mid&&b.pts.length>1) s+=`<path d="${path(b.pts.map(p=>[p[0],(p[1]+p[2])/2]))}" fill="none" stroke="#6b7280" stroke-width="1" stroke-dasharray="4 3"/>`; });
   o.series.filter(x=>!x.bold).forEach(x=>{ if(x.pts.length>1) s+=`<path d="${path(x.pts)}" fill="none" stroke="${x.c}" stroke-width="${x.w||1}" stroke-opacity="${x.op||.3}" stroke-linejoin="round"/>`; else if(x.pts.length===1) s+=`<circle cx="${X(x.pts[0][0])}" cy="${Y(x.pts[0][1])}" r="2.5" fill="${x.c}" fill-opacity="${x.op||.3}"/>`; });
   o.series.filter(x=>x.bold).forEach(x=>{ s+=`<path d="${path(x.pts)}" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round"/><path d="${path(x.pts)}" fill="none" stroke="${x.c}" stroke-width="2.2" stroke-linejoin="round"/>`+x.pts.map(q=>`<circle cx="${X(q[0])}" cy="${Y(q[1])}" r="${x.pts.length>12?2.6:4}" fill="${x.c}" stroke="#fff" stroke-width="${x.pts.length>12?1:2}"/>`).join(''); });
+  (o.marks||[]).forEach(m=>{ s+=`<circle cx="${X(m[0])}" cy="${Y(m[1])}" r="4.5" fill="#fff" fill-opacity=".6" stroke="${m[2]}" stroke-width="2.2"/>`; });   // 基準から外れた点
   if(o.direct){ const lb=o.series.filter(x=>x.bold&&x.pts.length).map(x=>{ const q=x.pts[x.pts.length-1]; return {px:X(q[0]),y:Y(q[1])-7,t:x.label}; }).sort((a,b)=>a.y-b.y);
     for(let i=1;i<lb.length;i++) if(lb[i].y-lb[i-1].y<11) lb[i].y=lb[i-1].y+11;   // 名前が重ならないよう縦にずらす
     lb.forEach(l=>{ s+=`<text x="${l.px>W-70?l.px-8:l.px+6}" y="${l.y}" font-size="10" fill="#22262b" text-anchor="${l.px>W-70?'end':'start'}" stroke="#fff" stroke-width="3" paint-order="stroke">${esc(l.t)}</text>`; }); }
-  const hot=o.series.filter(x=>x.bold).flatMap(x=>x.pts.map(q=>({x:X(q[0]),y:Y(q[1]),t:`${x.label}｜${q[2]||''} ${cmpF(q[0],o.xd??1)}${o.xu||''}：${cmpF(q[1],o.yd??1)}${o.yu||''}${q[3]?'（'+q[3]+'）':''}`})));
+  const hot=o.series.filter(x=>x.bold).flatMap(x=>x.pts.map(q=>({x:X(q[0]),y:Y(q[1]),t:`${x.label}｜${q[2]||''} ${cmpF(q[0],o.xd??1)}${o.xu||''}：${cmpF(q[1],o.yd??1)}${o.yu||''}${q[3]?'（'+q[3]+'）':''}`}))).concat((o.marks||[]).map(m=>({x:X(m[0]),y:Y(m[1]),t:m[3]})));
   RC['cmpHot_'+o.id]={hot,W,H};
   return `<div class="cmp-chart card" data-id="${o.id}" style="position:relative;padding:6px"><svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;touch-action:pan-y">${g}${s}<line class="cmp-x" x1="0" x2="0" y1="${T}" y2="${T+ph}" stroke="#22262b" stroke-width="1" stroke-dasharray="3 3" style="display:none"/></svg><div class="cmp-tip" style="display:none;position:absolute;top:0;left:0;background:#22262b;color:#fff;font-size:12px;padding:4px 7px;border-radius:6px;pointer-events:none;white-space:nowrap"></div></div>`;
 }
@@ -4045,15 +4086,37 @@ async function compareScreen(force){
         const pr=o.probe&&d.probe&&d.probe[r['麹ID']]; if(pr&&pr.length){ const pp=pr.filter(q=>q[0]>=0&&q[0]<=72); if(pp.length){ series.push({c:g.c,pts:pp,w:1,op:.45}); pp.forEach(q=>xmax=Math.max(xmax,q[0])); } } });
       const av=avgStages(g); if(av.length){ series.push({c:g.c,pts:av,bold:true,label:g.k}); av.forEach(q=>xmax=Math.max(xmax,q[0])); } });
     const nProbe=F.filter(r=>d.probe&&d.probe[r['麹ID']]&&d.probe[r['麹ID']].length).length;
+    // 基準（自動＝表示中の麹がすべて輝なら輝、それ以外は一般）。1本ずつの判定は その麹の種類の基準で行う
+    const sk=o.std==='auto'?(F.length&&F.every(kIsKaga)?'kaga':'ippan'):o.std, S=KSTD[sk], H=S?kStdHours(sk,K):null;
+    const bands=[], marks=[], outs=[];
+    if(S){ const pts=CMP_STG.map(x=>x[0]).filter(n=>S.st[n]).map(n=>{ const q=Math.max(S.st[n][1],KSD_MIN); return [H[n]-(n==='盛前'?0.4:0),S.st[n][0],q]; }).sort((a,b)=>a[0]-b[0]);
+      bands.push({c:'#9aa0a6',op:.18,pts:pts.map(p=>[p[0],p[1]-2*p[2],p[1]+2*p[2]])});
+      bands.push({c:'#6b7280',op:.25,mid:true,pts:pts.map(p=>[p[0],p[1]-p[2],p[1]+p[2]])});
+      if(sk==='ippan') bands.push({c:'#1baf7a',op:.08,sc:'#1baf7a',dash:'3 3',pts:[[H['種切']-0.5,KSTD_BOOK.lo,KSTD_BOOK.hi],[H['切返し']+0.5,KSTD_BOOK.lo,KSTD_BOOK.hi]]});
+      pts.forEach(p=>xmax=Math.max(xmax,p[0]));
+      vis.forEach(g=>g.rows.forEach(r=>{ const kk=kIsKaga(r)?'kaga':'ippan';
+        cmpStages(r).forEach(p=>{ const j=kJudge(kk,p.nm,p.v); if(!j||!j.lv) return;
+          marks.push([p.h,p.v,j.lv===2?'#e34948':'#eda100',`${r['麹ID']} ${p.nm} ${cmpF(p.v)}℃ ${j.mk} 基準${j.ref}`]); outs.push({r,nm:p.nm,v:p.v,j}); }); })); }
     h+=legend(groups);
-    h+= series.length ? cmpChart({id:'b',series,xmax:Math.max(12,Math.ceil(xmax/6)*6),xlab:'引込からの時間 h',ylab:'品温 ℃',xu:'h',yu:'℃',direct:vis.length<=4})
+    h+= series.length ? cmpChart({id:'b',series,bands,marks,xmax:Math.max(12,Math.ceil(xmax/6)*6),xlab:'引込からの時間 h',ylab:'品温 ℃',xu:'h',yu:'℃',direct:vis.length<=4})
       : `<p class="muted" style="text-align:center;padding:20px 0">品温の記録がありません</p>`;
     h+=`<div style="display:flex;flex-wrap:wrap;gap:14px;margin:6px 0;font-size:13px">
         <label><input type="checkbox" id="cmpEach" ${o.each?'checked':''}> 1本ずつの線（記録した品温）</label>
-        <label><input type="checkbox" id="cmpProbe" ${o.probe?'checked':''}> 品温計の連続データ（${nProbe}本）</label></div>
+        <label><input type="checkbox" id="cmpProbe" ${o.probe?'checked':''}> 品温計の連続データ（${nProbe}本）</label>
+        <label>基準 ${sel('cmpStd',o.std,[['auto','自動'],['ippan','一般（R7BY）'],['kaga','輝（R7BY）'],['none','出さない']])}</label></div>
+      ${S?`<p class="tl-note" style="background:#f4f5f7;border-radius:8px;padding:6px 8px">灰色の帯＝<b>基準（${esc(S.name)}）</b>。濃い帯（点線＝平均）の中なら標準、薄い帯は±2σ。<span style="color:#eda100">●橙の輪</span>＝やや外れ（1〜2σ）、<span style="color:#e34948">●赤の輪</span>＝要注意（2σ超）。輝の麹は輝の基準、ほかは一般の基準で判定（下の表の◎△✕も組ごとに同じ）。${sk==='ippan'?'緑の点線枠＝教科副読本の発芽の至適 30〜35℃（p.3。一般は引込〜切返しの自蔵記録が無いため）。':''}帯の時刻は${sk==='ippan'?'今季の記録の平均（3本未満の工程は設定の標準時刻）':'R7BY輝の平均'}。判定は工程名で行うので、時刻がずれていても品温で判定します。</p>`:''}
       <p class="tl-note">太い線＝その組の平均（工程ごとに、平均の時間と平均の品温を結んだもの）。細い線＝1本ずつ。横軸は「引込日＋引込時刻」からの時間（引込時刻が空の麹は8:00として計算）。線の点を押すと値が出ます。凡例を押すとその組を消せます。</p>`;
-    h+=`<div class="tl-scroll"><table class="rc-kv"><tr><th>工程</th>${vis.map(g=>`<th>${cmpDot(g.c,8)}${esc(g.k)}</th>`).join('')}</tr>
-      ${CMP_STG.map(s=>s[0]).map(n=>`<tr><td>${n}</td>${vis.map(g=>{ const a=avgStages(g).find(q=>q[2]===n); return `<td>${a?`<b>${cmpF(a[1])}℃</b> <small style="color:var(--sub)">${cmpF(a[0])}h・${a[3]}</small>`:'—'}</td>`; }).join('')}</tr>`).join('')}</table></div>`;
+    const MKC=['#1baf7a','#eda100','#e34948'];
+    const refCell=n=>{ if(!S) return ''; const x=S.st[n]; return `<td style="background:#f4f5f7">${x?`<b>${cmpF(x[0])}℃</b> <small style="color:var(--sub)">±${cmpF(Math.max(x[1],KSD_MIN))}・${x[2]}本</small>`:(sk==='ippan'&&KSTD_BOOK.stages.includes(n)?`<small>${KSTD_BOOK.lo}〜${KSTD_BOOK.hi}℃<br>教科書 p.3</small>`:'—')}</td>`; };
+    const avgAll=vis.map(g=>avgStages(g));
+    h+=`<div class="tl-scroll"><table class="rc-kv"><tr><th>工程</th>${S?`<th style="background:#eceef1">基準<br><small>${esc(S.name)}</small></th>`:''}${vis.map(g=>`<th>${cmpDot(g.c,8)}${esc(g.k)}</th>`).join('')}</tr>
+      ${CMP_STG.map(s=>s[0]).map(n=>`<tr><td>${n}</td>${refCell(n)}${vis.map((g,gi)=>{ const a=avgAll[gi].find(q=>q[2]===n); const j=a&&S?kJudge(g.rows.every(kIsKaga)?'kaga':'ippan',n,a[1]):null;
+        return `<td>${a?`<b>${cmpF(a[1])}℃</b>${j?` <b style="color:${MKC[j.lv]}">${j.mk}</b>`:''} <small style="color:var(--sub)">${cmpF(a[0])}h・${a[3]}</small>`:'—'}</td>`; }).join('')}</tr>`).join('')}</table></div>`;
+    if(S){ const n2=outs.filter(x=>x.j.lv===2).length, n1=outs.length-n2;
+      const L=outs.slice().sort((a,b)=>b.j.lv-a.j.lv||String(b.r['引込日']).localeCompare(String(a.r['引込日']))).slice(0,60);
+      h+=`<details style="margin:8px 0" ${o.ng?'open':''} id="cmpNg"><summary style="font-size:13px;cursor:pointer">基準から外れた点 <b>${outs.length}</b>件（<span style="color:#e34948">✕ ${n2}</span>・<span style="color:#eda100">△ ${n1}</span>）と、教科副読本での意味</summary>
+        ${L.length?`<div class="tl-scroll"><table class="rc-kv"><tr><th></th><th>麹</th><th>工程</th><th>品温</th><th>基準</th><th>考えられること（教科副読本「麹」）</th></tr>${L.map(x=>`<tr><td><b style="color:${MKC[x.j.lv]}">${x.j.mk}</b></td><td>${esc(x.r['麹ID'])}<br><small style="color:var(--sub)">${esc(x.r['液種']||'')}・${rcMD(x.r['引込日'])}</small></td><td>${x.nm}</td><td><b>${cmpF(x.v)}℃</b><br><small>${x.j.hi?'高い':'低い'}</small></td><td><small>${esc(x.j.ref)}</small></td><td style="white-space:normal;min-width:200px"><small>${esc((KSTD_WHY[x.nm]||{})[x.j.hi?'hi':'lo']||'')}</small></td></tr>`).join('')}</table></div>`:'<p class="muted">外れた点はありません</p>'}
+        <p class="tl-note">外れ＝すぐ失敗ではありません。原因は「麹→蒸米（吸水・蒸米水分）」の順にさかのぼり、出来は「醪・製品」タブの結果と合わせて判断します（製造判断ハブの考え方）。</p></details>`; }
   }
 
   if(o.tab==='c'){
@@ -4100,7 +4163,8 @@ async function compareScreen(force){
   app.querySelectorAll('.rc-tabs button').forEach(b=>b.onclick=()=>{ o.tab=b.dataset.t; o.hide=[]; save(); compareScreen(); });
   const on=(id,f)=>{ const e=$('#'+id); if(e) e.onchange=()=>{ f(e); save(); compareScreen(); }; };
   on('cmpBy',e=>{ o.by=e.value; o.hide=[]; }); on('cmpKb',e=>o.kubun=e.value); on('cmpLq',e=>o.liquid=e.value); on('cmpCk',e=>{ o.ck=e.value; o.hide=[]; }); on('cmpMm',e=>o.mm=e.value);
-  on('cmpEach',e=>o.each=e.checked); on('cmpProbe',e=>o.probe=e.checked);
+  on('cmpEach',e=>o.each=e.checked); on('cmpProbe',e=>o.probe=e.checked); on('cmpStd',e=>o.std=e.value);
+  if($('#cmpNg')) $('#cmpNg').addEventListener('toggle',e=>{ o.ng=e.target.open; save(); });
   app.querySelectorAll('.cmp-lg').forEach(b=>b.onclick=()=>{ const k=b.dataset.k; o.hide=o.hide.includes(k)?o.hide.filter(x=>x!==k):o.hide.concat([k]); save(); compareScreen(); });
   if($('#cmpList')) $('#cmpList').onclick=()=>{ o.list=!o.list; save(); compareScreen(); };
   app.querySelectorAll('.rc-row[data-no]').forEach(b=>b.onclick=()=>go(()=>karteScreen(b.dataset.no)));
@@ -5845,16 +5909,17 @@ async function moromiHome(){
   const date=SHK_DAY==='today'?today:dadd(today,1);
   const ev=st.shkVer?shkEvents(st,date):[];
   let h=`<div class="rc-status" id="rcStatus"></div>`;
+  h+=`<button class="sh-link zai-go" id="shkZai">🧰 資材の在庫<span>›</span></button>`;
   h+=`<div class="shk-today"><div class="t">${SHK_DAY==='today'?'きょう':'あす'}の仕込み・資材<small>${djp(date)}</small></div>
     <div class="shk-tabs"><button data-dy="today" class="${SHK_DAY==='today'?'on':''}">きょう</button><button data-dy="tom" class="${SHK_DAY!=='today'?'on':''}">あす</button></div>
     ${!st.shkVer?`<div class="tl-warn" style="margin:0">汲水・資材は、Apps Script「醸造記録 R8BY」に <b>仕込み一覧_追加.gs</b> を入れると出ます。</div>`
       : ev.length?ev.map(shkEventHTML).join(''):`<div class="shk-none">${SHK_DAY==='today'?'きょう':'あす'}の仕込み・資材はありません</div>`}
     ${st.shkVer?`<p class="tl-note" style="margin:4px 2px 0">汲水・kg は計画（造りexの配合）、資材は液種マスタの量。実際と違うときは杜氏に確認。</p>`:''}</div>`;
-  h+=`<div class="shk-sec">仕込中<small>添〜留の前 ${shk.length}本</small></div>`;
+  h+=`<div class="shk-sec">仕込中<small>${shk.length}本</small></div>`;
   h+=shk.length?shk.map(x=>shkRowHTML(x.m,'shikomi',today,x.t)).join(''):`<div class="shk-none">ありません</div>`;
-  h+=`<div class="shk-sec">醪中<small>留から上槽まで ${mor.length}本・「未」＝今日の品温（AM）がまだ</small></div>`;
+  h+=`<div class="shk-sec">醪中<small>${mor.length}本</small></div>`;
   h+=mor.length?mor.map(({m,t,d})=>moromiRowHTML(m,t,d)).join(''):`<div class="shk-none">ありません</div>`;
-  h+=`<div class="shk-sec">予定<small>まだ仕込んでいないもの 全${plan.length}本</small></div>`;
+  h+=`<div class="shk-sec">予定<small>${plan.length}本</small></div>`;
   h+=plan.length?plan.map(x=>shkRowHTML(x.m,'plan',today,x.t)).join(''):`<div class="shk-none">ありません</div>`;
   h+=`<button class="sh-link" id="shkDone">🍶 上槽済（${done.length}本）<span>›</span></button>
     <div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="rcReload">更新</button><span class="tl-note" style="margin:0">押すとその仕込の経過表と仕込み配合（汲水・資材）が開きます。</span></div>`;
@@ -5863,6 +5928,7 @@ async function moromiHome(){
   bind();
   app.querySelectorAll('[data-dy]').forEach(b=>b.onclick=()=>{ SHK_DAY=b.dataset.dy; moromiHome(); });
   $('#shkDone').onclick=()=>go(()=>shkDoneScreen());
+  { const zb=$('#shkZai'); if(zb) zb.onclick=()=>go(zaiScreen); }
   $('#rcReload').onclick=async()=>{ rcStatus('更新中…'); await recState(true); mor.forEach(({m})=>RC.bun[m.no]=null); moromiHome(); };
   const myTop=nav[nav.length-1];
   shFetchMany(mor.filter(({m})=>!RC.bun[m.no]).map(({m})=>m.no),'bunseki_get',RC.bun,no=>{
@@ -7455,7 +7521,7 @@ async function znLoad(force){
 function znBtnHTML(kind,no){
   const t=kind==='shubo'?'昨年度の同じ時期の酒母':'昨年度の同じ時期の仕込み';
   const s=no?(kind==='shubo'?'この酒母の酛立日の前後':'この仕込の添日の前後'):'きょうの前後（‹ › で週を移せます）';
-  return `<button class="zn-btn" data-zn="${kind}" data-zno="${no||''}">📅 <span>${t}<small>${s}・分析${kind==='shubo'?'酒母':'醪'}シートと同じ並び</small></span><span class="go">›</span></button>`;
+  return `<button class="zn-btn" data-zn="${kind}" data-zno="${no||''}">📅 <span>${t}</span><span class="go">›</span></button>`;
 }
 function znBindBtn(root){ (root||app).querySelectorAll('.zn-btn[data-zn]').forEach(b=>b.onclick=()=>go(()=>znScreen(b.dataset.zn,{no:b.dataset.zno||''}))); }
 
@@ -7860,7 +7926,7 @@ function kgHomeBox(kind){
       let list, draw;
       if(kind==='moromi'){
         list=st.master.filter(m=>(T[m.no]||{}).state!=='上槽済' && m.tome && m.soe && today>=m.soe).sort((a,b)=>String(a.tome).localeCompare(String(b.tome))||a.no-b.no);
-        const hd=$('#kgHd'); if(hd) hd.innerHTML=`仕込中・醪中の経過<small>${list.length}本・右へ送ると上槽予定まで</small>`;
+        const hd=$('#kgHd'); if(hd) hd.innerHTML=`仕込中・醪中の経過<small>${list.length}本</small>`;
         draw=()=>kgBox(box, kgFieldsMoromi, kgMoromiRows(list,today,T), {setKind:'moromi', today:true, jo:'上槽予定', outLabel:'上槽予定の後', empty:'仕込中・醪中の仕込はありません', note:'左の順号を押すと1本の画面（入力）'}, no=>go(()=>moromiSheet(no)));
         draw();
         let tm=null; shFetchMany(list.filter(m=>!RC.bun[m.no]).map(m=>m.no),'bunseki_get',RC.bun,()=>{ clearTimeout(tm); tm=setTimeout(draw,150); });
@@ -8442,6 +8508,7 @@ function stiBind(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-06-11','📊','麹の比較・考察','温度推移のグラフに「基準の帯」を出しました。昨年（R7BY）の実績が基準で、輝は輝の基準。外れた点は橙・赤の輪で示し、下の一覧に教科副読本「麹」での意味が出ます。'],
   ['2026-10-06-10','🍚','麹','引込みの入力で、種麹①・②をリストから選べるようにしました（酵母に合わせて担当者が選びます）。'],
   ['2026-10-06-9','🏠','ホーム','すっきりさせました：上の「麒麟山酒造」、本日の予定の「予定を押すと詳細」「カレンダーの予定」の文字、出勤・休みの下の「アグリ」の行を出さないようにしました。'],
   ['2026-10-06-8','📅','本日の予定','カレンダーの予定から「終日」と酵母の種類を出さないようにしました。予定を押すと詳細（題名・時刻・場所・説明）が出ます。'],
@@ -8511,5 +8578,136 @@ try{ if(ST && ST.token && nav.length<=1 && app.querySelector('#bUpd') && updBadg
 </script>
 <!-- /upd -->
 <!-- /tools -->
+<script>
+/* ================= 🧰 資材の在庫（仕込みの中）2026-10-06 泰広さん指示 =================
+   ・使う量：醸造記録 R8BY の資材予定（st.shizai＝液種マスタ×仕込計画）を全タンク合計
+   ・在庫：アプリで「棚卸（その日の朝にある数）」「入荷」を入れる → Apps Script「製造ツール 共有データ」の表「資材在庫」
+   ・現在庫＝最後の棚卸 ＋ それ以後の入荷 − 棚卸の日〜きのうに使う予定だった量
+   ・これから使う＝きょう以降の予定の合計　／　不足＝これから使う − 現在庫 */
+const ZAI = { items: lsGet('zai.items', []), err: '' };
+async function zaiApi(body){
+  if(typeof SHARED_URL==='undefined' || !SHARED_URL) throw new Error('記録先の設定がまだです');
+  body.table='資材在庫'; body.who={ id:String(ST.id||''), name:String(ST.name||'') };
+  const r=await fetch(SHARED_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow'});
+  const j=await r.json();
+  if(!j||!j.ok) throw new Error((j&&/その表はありません/.test(j.error||''))?'サーバー側の更新（Apps Script「製造ツール 共有データ」の新バージョン）がまだです':((j&&j.error)||'受け取れませんでした'));
+  return j;
+}
+function zaiKeep(j){ ZAI.items=(j.items||[]); lsSet('zai.items', ZAI.items); }
+function zaiCalc(st){
+  const today=dtoday(), Z=(st&&st.shizai)||{}, map={};
+  const get=(n,u)=>map[n]||(map[n]={ name:n, unit:u||'', plan:[], log:[] });
+  Object.keys(Z).forEach(no=>(Z[no]||[]).forEach(z=>{ if(!z||!z.name) return; const q=shN(z.qty); if(q===null) return;
+    const r=get(z.name, z.unit); if(!r.unit && z.unit) r.unit=z.unit; r.plan.push({ no, date:z.date||'', qty:q, timing:z.timing||'' }); }));
+  ZAI.items.forEach(x=>{ if(!x.name) return; const r=get(x.name, x.unit); if(!r.unit && x.unit) r.unit=x.unit; r.log.push(x); });
+  Object.values(map).forEach(r=>{
+    const tana=r.log.filter(x=>x.kind==='棚卸' && x.date).sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.at||'').localeCompare(String(a.at||'')))[0];
+    const from=tana?tana.date:'';
+    let st=tana?(Number(tana.qty)||0):0;
+    r.log.forEach(x=>{ if(x.kind==='入荷' && (!from || String(x.date)>=from)) st+=Number(x.qty)||0; });
+    r.plan.forEach(p=>{ if(p.date && p.date<today && (!from || p.date>=from)) st-=p.qty; });
+    r.has=!!tana || r.log.some(x=>x.kind==='入荷');
+    r.stock=Math.round(st*1000)/1000;
+    r.need=Math.round(r.plan.filter(p=>!p.date || p.date>=today).reduce((a,p)=>a+p.qty,0)*1000)/1000;
+    r.short=r.has?Math.max(0, Math.round((r.need-r.stock)*1000)/1000):null;
+    r.tana=tana||null;
+  });
+  return Object.values(map).sort((a,b)=>((b.short>0)-(a.short>0)) || ((a.has?1:0)-(b.has?1:0)) || a.name.localeCompare(b.name,'ja'));
+}
+(function(){ const s=document.createElement('style'); s.textContent=`
+.zai-go{margin:10px 0 0}
+.zai-hd,.zai-row{display:grid;grid-template-columns:1fr 64px 76px 60px;gap:4px;align-items:center}
+.zai-hd{font-size:11px;color:var(--sub);padding:8px 10px 4px;text-align:right}
+.zai-hd span:first-child{text-align:left}
+.zai-row{width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin:0 0 6px;font-family:inherit;color:var(--ink);text-align:right;cursor:pointer;font-size:15px}
+.zai-row .n{text-align:left;font-weight:700;font-size:14px;line-height:1.3}
+.zai-row .n small{display:block;font-weight:400;color:var(--sub);font-size:11px}
+.zai-row .s{font-weight:800}
+.zai-row.ng{border-left:6px solid #c0392b}
+.zai-row.ng .s{color:#c0392b}
+.zai-row.ok .s{color:#2f7d5d}
+.zai-row .na{color:#b9b29f;font-size:12px}
+.zai-f{padding:10px 16px 16px;overflow:auto}
+.zai-f .sum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 10px}
+.zai-f .sum div{background:#f6f3ea;border-radius:10px;padding:6px 8px;text-align:center}
+.zai-f .sum b{display:block;font-size:18px}
+.zai-f .sum small{font-size:11px;color:var(--sub)}
+.zai-f .sum .ng b{color:#c0392b}
+.zai-f .ch{display:flex;gap:6px;margin:6px 0}
+.zai-f .ch button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 0;font-size:14px;font-family:inherit}
+.zai-f .ch button.on{background:#6f8f2e;border-color:#6f8f2e;color:#fff;font-weight:700}
+.zai-f .in{display:flex;gap:6px;align-items:center;margin:6px 0}
+.zai-f .in input{flex:1;min-width:0;font-size:17px;padding:9px;border:1px solid var(--line);border-radius:10px;font-family:inherit}
+.zai-f .ok{width:100%;border:0;border-radius:12px;background:#6f8f2e;color:#fff;font-size:16px;font-weight:700;padding:12px;font-family:inherit;margin:6px 0 4px}
+.zai-f .ok:disabled{background:#b9bfae}
+.zai-f h4{margin:14px 0 4px;font-size:13px;color:var(--navy)}
+.zai-f ul{list-style:none;margin:0;padding:0}
+.zai-f li{display:flex;gap:8px;align-items:center;padding:6px 2px;border-bottom:1px dashed var(--line);font-size:14px}
+.zai-f li .d{width:4.2em;color:var(--sub)}
+.zai-f li .q{margin-left:auto;font-weight:700}
+.zai-f li .del{border:1px solid #e3b4b4;background:#fff;color:#b23b3b;border-radius:8px;font-size:12px;padding:3px 8px;font-family:inherit}
+.zai-f li.today{background:#fff6d6}
+`; document.head.appendChild(s); })();
+async function zaiScreen(){
+  head('資材の在庫','');
+  rcLoading();
+  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
+  const me=nav[nav.length-1];
+  const draw=()=>{
+    if(nav[nav.length-1]!==me) return;
+    const rows=zaiCalc(st);
+    let h=ZAI.err?`<div class="tl-warn" style="margin-top:10px">${esc(ZAI.err)}</div>`:'';
+    h+=`<div class="zai-hd"><span>資材</span><span>在庫</span><span>これから使う</span><span>不足</span></div>`;
+    h+=rows.length?rows.map((r,i)=>`<button class="zai-row ${r.short>0?'ng':r.has?'ok':''}" data-i="${i}">
+        <span class="n">${esc(r.name)}<small>${esc(r.unit)}${r.tana?`・棚卸 ${rcMD(r.tana.date)}`:''}</small></span>
+        <span>${r.has?shkNum(r.stock):'<span class="na">未入力</span>'}</span>
+        <span>${shkNum(r.need)||'0'}</span>
+        <span class="s">${r.short===null?'—':r.short>0?shkNum(r.short):'足りる'}</span></button>`).join('')
+      :`<div class="shk-none">資材の予定がありません</div>`;
+    app.innerHTML=h;
+    app.querySelectorAll('.zai-row').forEach(b=>b.onclick=()=>zaiSheet(rows[+b.dataset.i], st, async()=>{ draw(); }));
+  };
+  draw();
+  try{ zaiKeep(await zaiApi({action:'list'})); ZAI.err=''; }catch(e){ ZAI.err=String(e.message||e); }
+  draw();
+  ZAI.redraw=draw;
+}
+function zaiSheet(r, st, redraw){
+  const today=dtoday(), f={ kind:'棚卸', qty:'', date:today };
+  const m=document.createElement('div'); m.className='o2-mask';
+  const render=()=>{
+    const cur=zaiCalc(st).find(x=>x.name===r.name)||r;
+    const fut=cur.plan.filter(p=>!p.date||p.date>=today).sort((a,b)=>String(a.date).localeCompare(String(b.date))||a.no-b.no);
+    const log=cur.log.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.at||'').localeCompare(String(a.at||'')));
+    m.innerHTML=`<div class="o2-sheet" style="max-height:88vh"><div class="t">${esc(cur.name)}<button type="button" class="x">閉じる</button></div>
+      <div class="zai-f">
+        <div class="sum"><div><b>${cur.has?shkNum(cur.stock):'—'}</b><small>在庫 ${esc(cur.unit)}</small></div>
+          <div><b>${shkNum(cur.need)||'0'}</b><small>これから使う</small></div>
+          <div class="${cur.short>0?'ng':''}"><b>${cur.short===null?'—':cur.short>0?shkNum(cur.short):'0'}</b><small>不足</small></div></div>
+        <div class="ch">${['棚卸','入荷'].map(k=>`<button type="button" data-k="${k}" class="${f.kind===k?'on':''}">${k==='棚卸'?'棚卸（今ある数）':'入荷'}</button>`).join('')}</div>
+        <div class="in"><input type="text" inputmode="decimal" id="zaiQty" placeholder="数量" value="${esc(f.qty)}"><span>${esc(cur.unit)}</span><input type="date" id="zaiDate" value="${esc(f.date)}"></div>
+        <button type="button" class="ok" id="zaiOk" disabled>登録する</button>
+        <h4>これから使う予定</h4>
+        <ul>${fut.length?fut.map(p=>`<li class="${p.date===today?'today':''}"><span class="d">${p.date?rcMD(p.date):'—'}</span><span>順号${esc(String(p.no))} ${esc(p.timing==='留日'?'留':p.timing)}</span><span class="q">${shkNum(p.qty)}</span></li>`).join(''):'<li>なし</li>'}</ul>
+        <h4>棚卸・入荷の記録</h4>
+        <ul>${log.length?log.map(x=>`<li><span class="d">${rcMD(x.date)}</span><span>${esc(x.kind)} ${esc(x.by||'')}</span><span class="q">${shkNum(x.qty)}</span><button type="button" class="del" data-id="${esc(x.id)}">消す</button></li>`).join(''):'<li>まだありません</li>'}</ul>
+      </div></div>`;
+    m.querySelector('.x').onclick=()=>m.remove();
+    m.querySelectorAll('.ch button').forEach(b=>b.onclick=()=>{ f.kind=b.dataset.k; f.qty=m.querySelector('#zaiQty').value; f.date=m.querySelector('#zaiDate').value||today; render(); });
+    const q=m.querySelector('#zaiQty'), ok=m.querySelector('#zaiOk');
+    q.oninput=()=>{ ok.disabled=shN(q.value)===null; };
+    ok.onclick=async()=>{ const v=shN(q.value); if(v===null) return; ok.disabled=true; ok.textContent='送っています…';
+      try{ zaiKeep(await zaiApi({action:'save', item:{ name:cur.name, kind:f.kind, qty:String(v), unit:cur.unit, date:m.querySelector('#zaiDate').value||today, memo:'' }}));
+        ZAI.err=''; f.qty=''; render(); redraw(); }
+      catch(e){ ok.textContent=String(e.message||e); setTimeout(()=>{ ok.textContent='登録する'; ok.disabled=false; }, 2500); } };
+    m.querySelectorAll('.del').forEach(b=>b.onclick=async()=>{
+      if(b.dataset.s!=='1'){ b.dataset.s='1'; b.textContent='本当に消す'; return; }
+      b.disabled=true; try{ zaiKeep(await zaiApi({action:'delete', id:b.dataset.id})); render(); redraw(); }catch(e){ b.textContent='失敗'; } });
+  };
+  m.onclick=e=>{ if(e.target===m) m.remove(); };
+  document.body.appendChild(m); render();
+}
+</script>
+<style>/* 2026-10-06 泰広さん指示：説明文が多いので注記は出さない */ .tl-note,.sh-note,.mf-info{display:none!important}</style>
 </body>
 </html>
