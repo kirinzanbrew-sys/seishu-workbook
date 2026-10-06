@@ -252,7 +252,7 @@ textarea{width:100%;height:150px;font-family:ui-monospace,monospace;font-size:12
 <body>
 <header><div class="hin">
   <button class="btn-back hide" id="back">‹ 戻る</button>
-  <h1 id="ttl">製造ツール<span class="sm" id="sub">麒麟山酒造</span></h1>
+  <h1 id="ttl">製造ツール<span class="sm" id="sub"></span></h1>
   <button class="who hide" id="who" aria-label="設定を開く"></button>
 </div></header>
 <div class="wrap" id="app">
@@ -705,7 +705,7 @@ function home(){
   if(!ST.token){nav=[];loginScreen();return}
   if(!QUESTIONS.length){nav=[];loginScreen('問題データを読み込めませんでした。もう一度ログインしてください。');return}
   flush();
-  head('製造ツール','麒麟山酒造');
+  head('製造ツール','');   // 2026-10-06 泰広さん指示：上部の「麒麟山酒造」は出さない
   const all=QUESTIONS, done=all.filter(q=>lvl(q.id)>0).length;
   // 稲そのものの色。上が実った穂の黄金、下へいくほど葉の青田。模様も 穂 → 籾 → 葉。
   const hexes = [
@@ -5431,7 +5431,7 @@ function dpPlanHTML(){
   const d=dparse(date), nx=dparse(dadd(dtoday(),1)), td=dparse(dtoday());
   const md=x=>`${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`;
   let h=`<div class="dp-tabs"><button type="button" data-dpd="0" class="${DP_OFF===0?'on':''}">本日の予定 ${md(td)}</button><button type="button" data-dpd="1" class="${DP_OFF===1?'on':''}">明日の予定 ${md(nx)}</button></div>
-    <div class="dp-note">予定を押すと詳細</div>${dpBunHTML()}`;
+    ${dpBunHTML()}`;   // 2026-10-06 泰広さん指示：「予定を押すと詳細」の文字は出さない
   if(!items.length){ h+=`<div class="dp-empty">${dpState()||(RC.koji&&RC.koji[date])?(DP_OFF?'明日':'今日')+'の作業予定はありません':'予定を読み込んでいます…'}</div>`; DP_LAST=[]; return h; }
   let lo=7*60, hi=17*60; items.forEach(x=>{ lo=Math.min(lo,Math.floor(x.s/60)*60); hi=Math.max(hi,Math.ceil(x.e/60)*60); });
   const span=hi-lo, px=v=>((v-lo)/span*100).toFixed(2)+'%';
@@ -5464,7 +5464,7 @@ function dpKinmuHTML(){
   if(!on.length&&!off.length&&!agri.length) return '';
   return `<div class="dp-kn"><div><b>出勤 ${on.length}</b><span>${on.join('・')||'—'}</span></div>`
     +`<div class="off"><b>休み ${off.length}</b><span>${off.join('・')||'—'}</span></div>`
-    +(agri.length?`<div><b>アグリ</b><span>${agri.join('・')}</span></div>`:'')+`</div>`;
+    +`</div>`;   // 2026-10-06 泰広さん指示：アグリの行は出さない
 }
 
 /* カレンダーの題名から電話番号を消す（2026-10-06 泰広さん指示：本日の予定のカレンダーはシンプルに。場所・電話番号は出さない） */
@@ -5499,8 +5499,8 @@ function dpCalHTML(){
   if(ev){ DP_CAL_LAST=ev.slice().sort((a,b)=>(a.allDay?'0':'1'+a.start).localeCompare(b.allDay?'0':'1'+b.start));
     li=DP_CAL_LAST.map((x,i)=>`<li class="dp-cl" data-dpcal="${i}">${x.allDay?'':`<b>${esc(x.start)}${x.end?'〜'+esc(x.end):''}</b>`}${esc(dpCalTitle(x.title))}<i>›</i></li>`).join(''); }
   else if(kd&&kd.n) li=String(kd.n).split(/[\/／]/).map(s=>s.trim()).filter(Boolean).map(s=>`<li>${esc(s)} <small>（出勤表の備考）</small></li>`).join('');
-  if(!li) return `<div class="dp-cal"><div class="t">カレンダーの予定</div><div style="color:var(--sub);font-size:12px">${ev||!O2_URL?(DP_OFF?'明日':'今日')+'の予定はありません':'読み込んでいます…'}</div></div>`;
-  return `<div class="dp-cal"><div class="t">カレンダーの予定</div><ul>${li}</ul></div>`;
+  if(!li) return `<div class="dp-cal"><div style="color:var(--sub);font-size:12px">${ev||!O2_URL?(DP_OFF?'明日':'今日')+'の予定はありません':'読み込んでいます…'}</div></div>`;
+  return `<div class="dp-cal"><ul>${li}</ul></div>`;   // 2026-10-06 泰広さん指示：「カレンダーの予定」の見出しは出さない
 }
 
 /* ---- ホーム全体（home() から呼ばれる。六角形の代わりに角丸アイコン） ---- */
@@ -8257,6 +8257,7 @@ function stiBind(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-06-9','🏠','ホーム','すっきりさせました：上の「麒麟山酒造」、本日の予定の「予定を押すと詳細」「カレンダーの予定」の文字、出勤・休みの下の「アグリ」の行を出さないようにしました。'],
   ['2026-10-06-8','📅','本日の予定','カレンダーの予定から「終日」と酵母の種類を出さないようにしました。予定を押すと詳細（題名・時刻・場所・説明）が出ます。'],
   ['2026-10-06-7','🧪','本日の予定・分析','分析の本数の数え方を直しました。酒母は仕込み（酛立）を1日目として3日目から数えます（1・2日目は分析しないため）。分析の画面に出る酒母も3日目からです。'],
   ['2026-10-06-6','📅','本日の予定','カレンダーの予定をシンプルにしました（時刻と題名だけ。場所・電話番号は出しません）。'],
