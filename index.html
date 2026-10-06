@@ -264,7 +264,6 @@ textarea{width:100%;height:150px;font-family:ui-monospace,monospace;font-size:12
   </div>
 </div>
 <noscript><div class="wrap"><div id="boot"><b>JavaScriptが無効です。</b><br>ブラウザの設定でJavaScriptを有効にしてください。</div></div></noscript>
-<footer>製造ツール v2.1 ／ 社内限定・IDとパスワードが必要です</footer>
 
 <script>
 window.onerror=function(m,s,l,c){
@@ -424,7 +423,7 @@ function go(fn,push=true){ if(push)nav.push(fn); fn(); window.scrollTo(0,0);
   hBack.classList.toggle('hide',nav.length<=1) }
 hBack.onclick=()=>{ nav.pop(); const f=nav[nav.length-1]; if(f){f();window.scrollTo(0,0)}
   hBack.classList.toggle('hide',nav.length<=1) };
-function head(t,s){hTtl.childNodes[0].nodeValue=t;hSub.textContent=s||'';showWho()}
+function head(t,s){document.body.classList.remove('hm');hTtl.childNodes[0].nodeValue=t;hSub.textContent=s||'';showWho()}
 /* 右上の「名前／ID」：押すと設定を開く */
 function showWho(){
   const w=$('#who'); if(!w)return;
@@ -718,7 +717,7 @@ function home(){
     {id:'bWash', e:'🫧', lb:'タンク<br>洗浄管理', c:['#cbe075','#b1c95c'], t:'momi'},
     {id:'bCalc', e:'🧮', lb:'各種<br>計算ツール', c:['#c5da68','#abc351'], t:'momi'},
     {id:'bTodo', e:'📝', lb:'やること<br>リスト',   c:['#bfd45e','#a5bc48'], t:'momi', n:(typeof todoBadge==='function'?todoBadge():0)},
-    {id:'bLib',  e:'🧬', lb:'酵母・麹<br>情報',   c:['#b8cd54','#9eb440'], t:'momi'},
+    {id:'bLib',  e:'📈', lb:'最新<br>TREND',   c:['#b8cd54','#9eb440'], t:'momi'},
     {id:'bMan',  e:'📘', lb:'マニュアル',         c:['#a9c95f','#8fb247'], t:'ha', tag:(typeof manxAlert==='function'?manxAlert():'')},
     {id:'bCt',   e:'📇', lb:'連絡先',             c:['#a3cd73','#89b55a'], t:'ha'},
     {href:'seishu-jiten.html', e:'📖', lb:'逆引き検索', c:['#9fd286','#85ba6b'], t:'ha'},
@@ -748,6 +747,7 @@ function home(){
   if(!CANSAVE){h+=`<div id="boot" style="margin-top:14px"><b>ご注意：この開き方では進捗が保存されません。</b><br>
     Safari や Chrome で開き直してください。</div>`}
   app.innerHTML=h;
+  if(document.getElementById('dpBox')) document.body.classList.add('hm');   // 2026-10-06 ホームは1画面に固定
   kirinzanBind();
   riceAlertTimer(()=>{ if(nav[nav.length-1]===home) go(home,false); });
   $('#bQuiz').onclick=()=>go(quizHome);
@@ -1698,7 +1698,7 @@ function riceScreen(){
    全国の酵母・種麹のデータ。毎朝のネット調査でサーバー側が増えていく。
    端末に丸ごと持つので、一度読み込めば通信できないときも使える。 */
 let LIB = lsGet('lib.cache', null), LIB_ERR = '', LIB_LOADING = null;
-const LIB_TAB = {v:'ask'};                 // ask=提案 / find=さがす
+const LIB_TAB = {v:'trend'};               // trend=トレンド / ask=提案 / find=さがす
 const LIB_SEL = {aroma:'', taste:[], kire:'', yoin:'', acid:'', power:'', foam:'', use:[], kind:'酵母', kura:''};
 const LIB_FIND = {q:'', group:'', kind:''};
 
@@ -1782,18 +1782,119 @@ function libBind(){
   app.querySelectorAll('[data-lib]').forEach(b=>b.onclick=()=>go(()=>libDetail(b.dataset.lib)));
 }
 
+/* ================= 📈 最新TREND（2026-10-06） =================
+   毎朝6:35の調査タスク（Claude）がスプレッドシート「銘柄ウォッチ」（日報／銘柄ウォッチ）に書く。
+   それを Apps Script「製造ツール 共有データ」（SHARED_URL）の action:'trend' で読むだけ。 */
+const TREND = { d: lsGet('trend.cache', null), at: lsGet('trend.at', 0), sel:'', err:'', busy:false, more:false };
+async function trendFetch(){
+  if(TREND.busy) return; TREND.busy = true;
+  try{
+    if(typeof SHARED_URL==='undefined' || !SHARED_URL) throw new Error('記録先の設定がまだ済んでいません');
+    const r = await fetch(SHARED_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'trend'}),redirect:'follow'});
+    const j = await r.json();
+    if(!j || !j.ok) throw new Error((j&&j.error)==='unknown action' ? 'サーバー側の更新（Apps Script「製造ツール 共有データ」の新バージョン）がまだです' : ((j&&j.error)||'受け取れませんでした'));
+    TREND.d = j; TREND.at = Date.now(); TREND.err = '';
+    lsSet('trend.cache', j); lsSet('trend.at', TREND.at);
+  }catch(e){ TREND.err = String(e.message||e); }
+  TREND.busy = false;
+}
+function trendMd(t){
+  const inl = x => esc(x)
+    .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+    .replace(/(https?:\/\/[^\s<>）)]+)/g, u=>`<a href="${u}" target="_blank" rel="noopener" class="tr-src">出典</a>`);
+  const out = []; let list = '';
+  const close = ()=>{ if(list){ out.push(`</${list}>`); list=''; } };
+  String(t||'').split(/\r?\n/).forEach(line=>{
+    const l = line.trim(); if(!l){ close(); return; }
+    let m;
+    if((m = l.match(/^[-・*]\s+(.*)/))){ if(list!=='ul'){ close(); out.push('<ul>'); list='ul'; } out.push(`<li>${inl(m[1])}</li>`); }
+    else if((m = l.match(/^\d+[.．、]\s*(.*)/))){ if(list!=='ol'){ close(); out.push('<ol>'); list='ol'; } out.push(`<li>${inl(m[1])}</li>`); }
+    else { close(); out.push(`<p>${inl(l)}</p>`); }
+  });
+  close(); return out.join('');
+}
+function trendSections(body){
+  const secs = []; let cur = null;
+  String(body||'').split(/\r?\n/).forEach(line=>{
+    const m = line.match(/^#{2,3}\s*(.+)/);
+    if(m){ cur = { h: m[1].replace(/^\d+[.．]\s*/,'').trim(), t: [] }; secs.push(cur); }
+    else if(cur) cur.t.push(line);
+  });
+  return secs.map(x=>({ h:x.h, t:x.t.join('\n') }));
+}
+function trendBody(){
+  if(!TREND.d && !TREND.busy && !TREND.err){ setTimeout(()=>trendFetch().then(()=>{ if(app.dataset.mfg==='libRender' && LIB_RERENDER) LIB_RERENDER(); }),0); }
+  let h = '';
+  if(TREND.err) h += `<div class="mf-warn">${esc(TREND.err)}<button class="btn" id="trReload" style="margin-top:6px">もう一度読み込む</button></div>`;
+  const d = TREND.d;
+  if(!d){ return h + `<div class="card" style="color:var(--sub)">${TREND.busy||!TREND.err?'トレンドを読み込んでいます…':'まだ読み込めていません。'}</div>`; }
+  const days = d.days || [];
+  if(!days.length) h += `<div class="card" style="color:var(--sub)">まだ日報がありません。毎朝6:35ごろの調査で入ります。</div>`;
+  else {
+    const day = days.find(x=>x.date===TREND.sel) || days[0];
+    h += `<div class="tr-days">` + days.slice(0,7).map(x=>`<button class="lb-opt ${x.date===day.date?'on':''}" data-trd="${esc(x.date)}">${esc(x.date.slice(5).replace('-','/'))}</button>`).join('') + `</div>`;
+    h += `<div class="card tr-sum"><div class="tr-h">${esc(day.date)}　今日の3行まとめ</div>${trendMd(day.sum)}</div>`;
+    const secs = trendSections(day.body);
+    const hint = secs.find(x=>/ヒント/.test(x.h));
+    if(hint) h += `<div class="card tr-hint"><div class="tr-h">💡 ${esc(hint.h)}</div>${trendMd(hint.t)}</div>`;
+    secs.filter(x=>x!==hint).forEach(x=>{
+      h += `<details class="card tr-sec"><summary>${esc(x.h)}</summary>${trendMd(x.t)}</details>`;
+    });
+    if(day.url) h += `<p class="mf-info"><a href="${esc(day.url)}" target="_blank" rel="noopener">この日の日報（Googleドキュメント）を開く</a></p>`;
+  }
+  const w = d.watch || [];
+  if(w.length){
+    const n = TREND.more ? w.length : 12;
+    h += `<div class="mf-sec">銘柄ウォッチ<span>${w.length}件・最近話題に出た順</span></div>`;
+    h += w.slice(0,n).map(x=>`<div class="card tr-w">
+      <div class="lb-nm">${esc(x.name)}</div>
+      <div class="lb-sub">${[x.kura,x.pref].filter(v=>v&&v!=='—').map(esc).join('／')}${x.last?`　最終 ${esc(x.last.slice(5).replace('-','/'))}`:''}</div>
+      <div style="font-size:14px;margin-top:4px">${esc(x.topic)}${x.url?`　<a href="${esc(x.url)}" target="_blank" rel="noopener" class="tr-src">出典</a>`:''}</div></div>`).join('');
+    if(w.length>12) h += `<button class="btn" id="trMore" style="border:1px solid var(--line);background:#fff">${TREND.more?'▲ たたむ':'▼ すべて見る'}</button>`;
+  }
+  h += `<p class="mf-info">毎朝6:35ごろの調査で更新されます。${TREND.at?'この端末の読み込み '+new Date(TREND.at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}<br>
+    話題の内容は出典を見て確かめてから使ってください。<button class="btn" id="trReload2" style="margin-top:6px;border:1px solid var(--line);background:#fff">最新を読み込む</button></p>`;
+  return h;
+}
+function trendBind(render){
+  app.querySelectorAll('[data-trd]').forEach(b=>b.onclick=()=>{ TREND.sel=b.dataset.trd; render(); });
+  const re = async()=>{ TREND.err=''; TREND.busy=false; render(); await trendFetch(); render(); };
+  ['trReload','trReload2'].forEach(id=>{ const b=$('#'+id); if(b) b.onclick=re; });
+  const m=$('#trMore'); if(m) m.onclick=()=>{ TREND.more=!TREND.more; render(); };
+  if(TREND.d && Date.now()-TREND.at > 3*3600000 && !TREND.busy){ trendFetch().then(()=>{ if(app.dataset.mfg==='libRender') render(); }); }
+}
+(function(){ const st=document.createElement('style'); st.textContent=`
+  .tr-days{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 8px}
+  .tr-h{font-weight:700;margin-bottom:6px}
+  .tr-sum ul,.tr-hint ol,.tr-sec ul,.tr-sec ol{margin:4px 0 0 1.2em;padding:0}
+  .tr-sum li,.tr-hint li,.tr-sec li{margin:4px 0;line-height:1.6;font-size:15px}
+  .tr-hint{border-left:4px solid #b8cd54}
+  .tr-sec summary{font-weight:700;cursor:pointer;padding:2px 0}
+  .tr-sec p{margin:6px 0;font-size:15px}
+  .tr-src{font-size:12px;color:var(--sub);white-space:nowrap}
+  .tr-w{padding:10px 12px}
+`; document.head.appendChild(st); })();
+
 function libScreen(){
   const render=function libRender(){
     app.dataset.mfg='libRender';
-    head('酵母・麹情報','造りたい酒から、合う酵母・種麹をさがす');
+    head('最新TREND','流行りの日本酒と、合う酵母・種麹をさがす');
     let h = '';
-    if(LIB_ERR) h += `<div class="mf-warn">${esc(LIB_ERR)}<button class="btn" style="margin-top:6px" onclick="libReload()">もう一度読み込む</button></div>`;
-    if(!libItems().length){
-      app.innerHTML = h + `<div class="card">ライブラリがこの端末にまだありません。
-        <button class="btn p" style="margin-top:10px" onclick="libReload()">読み込む</button></div>`;
+    const tabs = `<div class="mf-tabs"><button data-lt="trend" class="${LIB_TAB.v==='trend'?'on':''}">トレンド</button><button data-lt="ask" class="${LIB_TAB.v==='ask'?'on':''}">提案</button><button data-lt="find" class="${LIB_TAB.v==='find'?'on':''}">さがす</button></div>`;
+    if(LIB_TAB.v==='trend'){
+      app.innerHTML = tabs + trendBody();
+      app.querySelectorAll('[data-lt]').forEach(b=>b.onclick=()=>{ LIB_TAB.v=b.dataset.lt; render(); });
+      trendBind(render);
       return;
     }
-    h += `<div class="mf-tabs"><button data-lt="ask" class="${LIB_TAB.v==='ask'?'on':''}">提案</button><button data-lt="find" class="${LIB_TAB.v==='find'?'on':''}">さがす</button></div>`;
+    if(LIB_ERR) h += `<div class="mf-warn">${esc(LIB_ERR)}<button class="btn" style="margin-top:6px" onclick="libReload()">もう一度読み込む</button></div>`;
+    if(!libItems().length){
+      app.innerHTML = tabs + h + `<div class="card">ライブラリがこの端末にまだありません。
+        <button class="btn p" style="margin-top:10px" onclick="libReload()">読み込む</button></div>`;
+      app.querySelectorAll('[data-lt]').forEach(b=>b.onclick=()=>{ LIB_TAB.v=b.dataset.lt; render(); });
+      return;
+    }
+    h += tabs;
     h += (LIB_TAB.v==='ask') ? libAskBody() : libFindBody();
     h += `<p class="mf-info">収録 ${libItems().length}件（酵母 ${LIB.counts&&LIB.counts['酵母']||0}／種麹 ${LIB.counts&&LIB.counts['種麹']||0}）・最終更新 ${esc(LIB.updated||'—')}<br>
       毎朝の調査で少しずつ増えます。数値や特性は出典を見て確かめてから使ってください。</p>`;
@@ -1889,7 +1990,7 @@ function libFindList(){
 
 function libDetail(name){
   const e = libItems().find(x=>x.name===name);
-  head(name, '酵母・麹情報');
+  head(name, '最新TREND');
   if(!e){ app.innerHTML='<div class="card">見つかりませんでした。</div>'; return; }
   const row=(k,v)=> v ? `<div class="lb-row"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>` : '';
   const rowA=(k,v)=> (libArr(v).length) ? row(k, libArr(v).join('・')) : '';
@@ -3537,7 +3638,7 @@ function rcMultiBind(){ app.querySelectorAll('.rc-multi').forEach(box=>{ const i
     const order=[...box.querySelectorAll('button')].map(x=>x.dataset.v); const on=[...box.querySelectorAll('button.on')].map(x=>x.dataset.v);
     inp.value=order.filter(v=>on.includes(v)).join(', '); }); }); }
 function rcField(id,label,val,opt){ opt=opt||{}; const hint=opt.hint?`<i>${esc(opt.hint)}</i>`:'';
-  if(opt.type==='select') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><select id="${id}"><option value="">—</option>${opt.options.map(o=>`<option ${String(o)===String(val)?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`;
+  if(opt.type==='select') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><select id="${id}"${opt.tane1?' data-tane':''}><option value="">—</option>${opt.options.map(o=>`<option ${String(o)===String(val)?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`;
   if(opt.type==='text') return `<label class="rc-f"><span>${esc(label)} ${hint}</span><input type="text" id="${id}" value="${esc(val??'')}"></label>`;
   if(opt.type==='multi'&&opt.layout==='room2') return rcRoom2Picker(id,label,val,opt.occ||{});
   if(opt.type==='multi'){ const cur=rcPlaces(val);
@@ -3987,8 +4088,16 @@ async function compareScreen(force){
   $('#cmpReload').onclick=()=>compareScreen(true);
 }
 
+/* 2026-10-06 泰広さん指示：種麹はリストから選ぶ（酵母によって使い分け。担当者が入力）。
+   選択肢＝麹管理R8BY「種麹集計」の種麹名（＝シート「リスト」の種麹）。読み込めないときは既定の一覧。 */
+const RC_TANE_DEF=['酛立用','醪用','丸吟','吟香','吟味','白夜','ハイG','Roots36'];
+function rcTaneNames(cur){ const L=(RC.tane&&RC.tane.list||[]).map(x=>x.name).filter(Boolean); const a=(L.length?L:RC_TANE_DEF).slice(); if(cur&&!a.includes(String(cur))) a.push(String(cur)); return a; }
+function rcTanePrefetch(){ if(RC.tane||RC.tanePf) return; RC.tanePf=1;
+  recApi({action:'tane_get'},40000).then(t=>{ RC.tanePf=0; if(!(t&&t.ok)) return; RC.tane=t;
+    document.querySelectorAll('select[data-tane]').forEach(sel=>{ const have=[...sel.options].map(o=>o.value); rcTaneNames(sel.value).forEach(n=>{ if(!have.includes(n)){ const op=document.createElement('option'); op.textContent=n; sel.appendChild(op); } }); });
+  }).catch(()=>{ RC.tanePf=0; }); }
 const KOJI_FIELDS = {
-  引込:[['引込 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['引込 場所','場所（1号室）',{type:'select',options:RC_PLACE1}],['種麹','種麹①',{type:'text'}],['割合%','種麹① の割合 %',{step:'1'}],['種麹2','種麹②（2種類使うときだけ）',{type:'text'}],['割合2%','種麹② の割合 %',{step:'1'}],
+  引込:[['引込 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['引込 場所','場所（1号室）',{type:'select',options:RC_PLACE1}],['種麹','種麹①',{tane:true}],['割合%','種麹① の割合 %',{step:'1'}],['種麹2','種麹②（2種類使うときだけ）',{tane:true}],['割合2%','種麹② の割合 %',{step:'1'}],
     ['引込 時刻','引込 時刻',{type:'time',tg:'引込'}],['引込 品温','引込 品温 ℃',{tg:'引込'}],
     ['種切 時刻','種切 時刻',{type:'time',tg:'種切'}],['種切 品温','種切 品温 ℃',{tg:'種切'}],['種切 水分%','種切 水分 %（輝のみ）',{kagayaki:true}],['ねせ h','ねせ 時間 h'],['ねせ 品温','ねせ 品温 ℃'],
     ['切返し 時刻','切返し 時刻',{type:'time',tg:'切返し'}],['切返し 品温','切返し 品温 ℃',{tg:'切返し'}],['備考','備考',{type:'ta'}]],
@@ -4005,12 +4114,12 @@ function kojiEdit(date, id, stage){
   const defs=KOJI_FIELDS[stage].filter(d=>!(d[2]&&d[2].kagayaki)||/輝/.test([r['液種'],r['記号'],r['品種']].join('')));
   let h=`<div class="rc-calc"><div>洗米<b>${rcMD(r['洗米日'])}</b></div><div>引込<b>${rcMD(r['引込日'])}</b></div><div>盛<b>${rcMD(r['盛日'])}</b></div><div>出麹<b>${rcMD(r['出麹日'])}</b></div><div>使用日<b>${rcMD(r['使用日'])}</b></div>
     <div>種麹<b>${esc(r['種麹']||'—')} ${r['種麹g']!==''?r['種麹g']+'g':''}${r['種麹2']?'<br>＋'+esc(r['種麹2'])+' '+(r['種麹2g']!==''&&r['種麹2g']!=null?r['種麹2g']+'g':''):''}</b></div><div>吸水<b>${rcN(r['吸水%'])}%</b></div>${stage!=='引込'?`<div>引込 品温<b>${rcN(r['引込 品温'])}℃</b></div>`:''}${stage==='出麹'?`<div>留仕事 品温<b>${rcN(r['留仕事 品温'])}℃</b></div>`:''}</div>
-    <div class="card"><div class="rc-grid">${defs.map(([c,l,o])=>{ o=Object.assign({},o||{}); if(o.layout==='room2') o.occ=rcOcc(j,date,id); if(o.tg&&tg[o.tg]){ o.hint=(o.type==='time'?'標準 '+(tg[o.tg].time||'—'):'目標 '+(tg[o.tg].temp??'—')+'℃'); } return rcField(rcId(c),l,r[c],o); }).join('')}</div></div>
+    <div class="card"><div class="rc-grid">${defs.map(([c,l,o])=>{ o=Object.assign({},o||{}); if(o.tane){ o.type='select'; o.options=rcTaneNames(r[c]); o.tane1=1; } if(o.layout==='room2') o.occ=rcOcc(j,date,id); if(o.tg&&tg[o.tg]){ o.hint=(o.type==='time'?'標準 '+(tg[o.tg].time||'—'):'目標 '+(tg[o.tg].temp??'—')+'℃'); } return rcField(rcId(c),l,r[c],o); }).join('')}</div></div>
     <div class="rc-status" id="rcStatus"></div>
     <div class="rc-actions"><button class="rc-ghost" id="rcCancel">やめる</button><button class="rc-btn" id="rcSave">保存</button></div>
     <p class="tl-note">保存すると「麹管理R8BY › 麹DB」に書き込まれ、入力者（${esc(rcUser())}）が入力ログに残ります。</p>
     <div id="rcProbe"></div>`;
-  app.innerHTML=h;
+  app.innerHTML=h; if(stage==='引込') rcTanePrefetch();
   rcMultiBind();
   rcProbeSection(date,id);
   $('#rcCancel').onclick=()=>hBack.click();
@@ -5305,6 +5414,16 @@ const DP_CSS = `
 .dp-cal li b{color:var(--navy);margin-right:4px;font-variant-numeric:tabular-nums}
 .dp-cal li small{color:var(--sub)}
 .dp-ics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 6px;margin:16px 0 4px}
+/* 2026-10-06 ホーム固定：ページ全体はスクロールさせず、画面の高さに収める */
+body.hm{height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;padding-bottom:0}
+body.hm header{flex:none;position:relative}
+body.hm #app{flex:1 1 auto;min-height:0;width:100%;display:flex;flex-direction:column;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+body.hm #app>*{flex:none}
+body.hm #app>.kz{height:clamp(52px,13dvh,132px)}
+body.hm #app>#dpBox{flex:1 1 auto;min-height:72px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+body.hm .dp-ics{margin:clamp(6px,1.6dvh,16px) 0 0;gap:clamp(4px,1.3dvh,12px) 6px}
+@media (max-height:740px){ body.hm .dp-ic .ico{width:48px;height:48px;font-size:23px;border-radius:13px} body.hm .dp-ic .lb{font-size:11px;line-height:1.3} }
+@media (max-height:620px){ body.hm .dp-ic .ico{width:42px;height:42px;font-size:20px;border-radius:12px} body.hm #app>.kz{display:none} }
 .dp-ic{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:0;padding:0;font-family:inherit;color:var(--ink);text-decoration:none;cursor:pointer}
 .dp-ic .ico{width:56px;height:56px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:27px;box-shadow:0 2px 5px rgba(84,72,24,.18),inset 0 -2px 0 rgba(0,0,0,.06)}
 .dp-ic .lb{font-size:11px;font-weight:700;line-height:1.2;text-align:center;color:#26210f}
@@ -6078,7 +6197,7 @@ document.addEventListener('click', e=>{
 <!-- todo -->
 <script>
 /* ================= 📝 やることリスト（2026-10-02） =================
-   ホームの「各種計算ツール」と「酵母・麹情報」の間のアイコンから開く。
+   ホームの「各種計算ツール」と「最新TREND」の間のアイコンから開く。
    やらなければいけないのに手が付いていないこと（修理・購入・作成など）を、みんなで書き込んで共有する一覧。
    ・担当欄はなし。登録者・完了者は右上の「ID／名前」から自動で入る
    ・上のタブで「時期」、その下のボタンで「分類」を絞り込む
@@ -8257,6 +8376,7 @@ function stiBind(){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-06-10','🍚','麹','引込みの入力で、種麹①・②をリストから選べるようにしました（酵母に合わせて担当者が選びます）。'],
   ['2026-10-06-9','🏠','ホーム','すっきりさせました：上の「麒麟山酒造」、本日の予定の「予定を押すと詳細」「カレンダーの予定」の文字、出勤・休みの下の「アグリ」の行を出さないようにしました。'],
   ['2026-10-06-8','📅','本日の予定','カレンダーの予定から「終日」と酵母の種類を出さないようにしました。予定を押すと詳細（題名・時刻・場所・説明）が出ます。'],
   ['2026-10-06-7','🧪','本日の予定・分析','分析の本数の数え方を直しました。酒母は仕込み（酛立）を1日目として3日目から数えます（1・2日目は分析しないため）。分析の画面に出る酒母も3日目からです。'],
