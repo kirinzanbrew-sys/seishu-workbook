@@ -423,7 +423,14 @@ function go(fn,push=true){ if(push)nav.push(fn); fn(); window.scrollTo(0,0);
   hBack.classList.toggle('hide',nav.length<=1) }
 hBack.onclick=()=>{ nav.pop(); const f=nav[nav.length-1]; if(f){f();window.scrollTo(0,0)}
   hBack.classList.toggle('hide',nav.length<=1) };
-function head(t,s){document.body.classList.remove('hm');hTtl.childNodes[0].nodeValue=t;hSub.textContent=s||'';showWho()}
+/* 2026-10-06 ホーム固定の高さ：iPhoneのホーム画面アプリでは CSS の画面高さが実際より短いことがあるので、JSで実寸を入れる */
+function hmSize(){ const b=document.body; if(!b.classList.contains('hm')){ b.style.height=''; b.style.bottom=''; return; }
+  let h=window.innerHeight;
+  if(navigator.standalone && window.screen){ const land=window.matchMedia&&matchMedia('(orientation: landscape)').matches;
+    const sh=land?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height); if(sh>h) h=sh; }
+  b.style.bottom='auto'; b.style.height=h+'px'; }
+window.addEventListener('resize',()=>hmSize()); window.addEventListener('orientationchange',()=>setTimeout(hmSize,300));
+function head(t,s){document.body.classList.remove('hm');document.body.style.height='';document.body.style.bottom='';hTtl.childNodes[0].nodeValue=t;hSub.textContent=s||'';showWho()}
 /* 右上の「名前／ID」：押すと設定を開く */
 function showWho(){
   const w=$('#who'); if(!w)return;
@@ -747,7 +754,7 @@ function home(){
   if(!CANSAVE){h+=`<div id="boot" style="margin-top:14px"><b>ご注意：この開き方では進捗が保存されません。</b><br>
     Safari や Chrome で開き直してください。</div>`}
   app.innerHTML=h;
-  if(document.getElementById('dpBox')) document.body.classList.add('hm');   // 2026-10-06 ホームは1画面に固定
+  if(document.getElementById('dpBox')){ document.body.classList.add('hm'); hmSize(); }   // 2026-10-06 ホームは1画面に固定
   kirinzanBind();
   riceAlertTimer(()=>{ if(nav[nav.length-1]===home) go(home,false); });
   $('#bQuiz').onclick=()=>go(quizHome);
