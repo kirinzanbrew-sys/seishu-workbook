@@ -6241,9 +6241,11 @@ const TODO_ME = '自分';   // 個人のやること（登録した本人にだ�
 const todoCatL = c=>c===TODO_ME?'👤 自分':c;
 const TODO_WHENS = ['今すぐ','今月中','造り前','造り期間中','甑倒し後','夏場','来期'];
 const TODO_STATS = ['未着手','進行中','発注済','止まっている','完了'];
-const TODO_RINGI = '【稟議】';   // メモの先頭に付けて「稟議が要る」印にする
-const todoRingi = x=>String((x&&x.memo)||'').startsWith(TODO_RINGI);
-const todoMemoBody = m=>String(m||'').replace(/^【稟議】\s*/,'');
+const TODO_RINGIS = ['なし','未提出','提出済','承認済'];   // 稟議（メモの先頭に【稟議:提出済】の形で保存）
+const todoRingiOf = x=>{ const m=String((x&&x.memo)||'').match(/^【稟議(?:[:：](未提出|提出済|承認済))?】/); return m?(m[1]||'未提出'):'なし'; };
+const todoRingi = x=>todoRingiOf(x)!=='なし';
+const todoMemoBody = m=>String(m||'').replace(/^【稟議[^】]*】\s*/,'');
+const todoMemoWith = (body,r)=>(!r||r==='なし')?body:`【稟議:${r}】`+(body?' '+body:'');
 const TODO_CSS = `
 .td-tabs{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 0 8px;margin-top:6px}
 .td-tabs button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 12px;font-size:14px;font-family:inherit;color:var(--ink)}
@@ -6266,7 +6268,14 @@ const TODO_CSS = `
 .td-it .st.s4{background:#efe6f8;color:#6b3fa0}
 .td-it button.st{border:1px solid rgba(0,0,0,.12);font-family:inherit;font-size:12px;cursor:pointer;line-height:1.5}
 .td-it button.st::after{content:' ▾';font-size:10px;opacity:.7}
-.td-it .rg{background:#fff1e6;color:#b4500e;font-weight:700;border:1px solid #f1c49f}
+.td-it .rg{background:#fff1e6;color:#b4500e;font-weight:700;border:1px solid #f1c49f;font-family:inherit;font-size:12px;cursor:pointer;line-height:1.5}
+.td-it .rg::after{content:' ▾';font-size:10px;opacity:.7}
+.td-it .rg.r2{background:#e3eefb;color:#1f5f9a;border-color:#b9d3ef}
+.td-it .rg.r3{background:#e6f3ea;color:#2f7d5d;border-color:#b7dcc4}
+.td-f .ch.rgc button.on{background:#d9822b;border-color:#d9822b}
+.td-f .ch.rgc button.on[data-v="提出済"]{background:#1f5f9a;border-color:#1f5f9a}
+.td-f .ch.rgc button.on[data-v="承認済"]{background:#2f7d5d;border-color:#2f7d5d}
+.td-f .ch.rgc button.on[data-v="なし"]{background:#8a8577;border-color:#8a8577}
 .td-pop{position:fixed;z-index:60;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:4px;min-width:130px}
 .td-pop button{display:block;width:100%;text-align:left;border:0;background:none;padding:9px 12px;font-size:15px;font-family:inherit;color:var(--ink);border-radius:8px}
 .td-pop button.on{background:#eef4dc;font-weight:700}
@@ -6465,7 +6474,7 @@ function todoScreen(){
     return `<div role="button" tabindex="0" class="td-it ${ac} ${mine?'mine':''}" data-id="${esc(x.id)}"><div class="bd">
       <div class="tx">${esc(x.text)}</div>
       ${todoMemoBody(x.memo)?`<div class="mm">${esc(todoMemoBody(x.memo))}</div>`:''}
-      <div class="mt"><button type="button" class="pl st ${sc} td-stb" aria-label="状況を変える">${esc(x.status||'未着手')}</button>${todoRingi(x)?'<span class="pl rg">稟議</span>':''}${(v=>v?`<span class="pl vd ${v.guess?'gs':''}">🏢 ${esc(v.name)}${v.guess?'（メモから）':''}</span>`:'')(todoVendorOf(x))}${x.cat?`<span class="pl ${mine?'me':''}">${esc(todoCatL(x.cat))}</span>`:''}${x.due?`<span class="pl due ${late?'late':''}">📅 ${esc(rcMD?rcMD(x.due):x.due)}${late?' 期限切れ':''}</span>`:''}${x.when?`<span class="pl ${x.when==='今すぐ'?'w0':x.when==='今月中'?'w1':''}">${esc(x.when)}</span>`:''}
+      <div class="mt"><button type="button" class="pl st ${sc} td-stb" aria-label="状況を変える">${esc(x.status||'未着手')}</button>${todoRingi(x)?(r=>`<button type="button" class="pl rg ${r==='提出済'?'r2':r==='承認済'?'r3':''} td-rgb" aria-label="稟議を変える">稟議 ${r}</button>`)(todoRingiOf(x)):''}${(v=>v?`<span class="pl vd ${v.guess?'gs':''}">🏢 ${esc(v.name)}${v.guess?'（メモから）':''}</span>`:'')(todoVendorOf(x))}${x.cat?`<span class="pl ${mine?'me':''}">${esc(todoCatL(x.cat))}</span>`:''}${x.due?`<span class="pl due ${late?'late':''}">📅 ${esc(rcMD?rcMD(x.due):x.due)}${late?' 期限切れ':''}</span>`:''}${x.when?`<span class="pl ${x.when==='今すぐ'?'w0':x.when==='今月中'?'w1':''}">${esc(x.when)}</span>`:''}
         <span>${esc(x.by||'')}</span>${x.pend?'<span class="pend">（送信待ち）</span>':''}<span class="age">${age}</span></div></div>
       ${dn?`<button type="button" class="td-ok back" data-ok="0" aria-label="未完了に戻す">戻す</button>`:`<button type="button" class="td-ok" data-ok="1" aria-label="済にする">済</button>`}</div>`;
   }
@@ -6519,6 +6528,8 @@ function todoScreen(){
     app.querySelectorAll('.td-it').forEach(b=>b.onclick=e=>{ const x=TODO.items.find(x=>x.id===b.dataset.id); if(!x) return;
       const stb=e.target.closest('.td-stb');
       if(stb){ e.stopPropagation(); todoStatPick(stb, x, draw); return; }
+      const rgb=e.target.closest('.td-rgb');
+      if(rgb){ e.stopPropagation(); todoStatPick(rgb, x, draw, 'ringi'); return; }
       const ok=e.target.closest('.td-ok');
       if(ok){ e.stopPropagation(); const done=ok.dataset.ok==='1'; todoSetDone(x, done); TODO.undo={id:x.id, text:x.text, done};
         clearTimeout(TODO.undoT); TODO.undoT=setTimeout(()=>{ TODO.undo=null; if(TODO_REDRAW===draw && nav[nav.length-1]===todoScreen) draw(); }, 8000);
@@ -6533,10 +6544,11 @@ function todoScreen(){
 }
 
 /* ---------- 状況を一覧から変える（小さなボタン → リスト） 2026-10-06 ---------- */
-function todoStatPick(btn, x, redraw){
+function todoStatPick(btn, x, redraw, kind){
+  const rk=kind==='ringi';
   document.querySelectorAll('.td-pop').forEach(p=>p.remove());
-  const cur=x.status||'未着手', pop=document.createElement('div'); pop.className='td-pop';
-  pop.innerHTML=TODO_STATS.map(v=>`<button type="button" data-v="${v}" class="${v===cur?'on':''}">${v===cur?'✓ ':''}${v}</button>`).join('');
+  const cur=rk?todoRingiOf(x):(x.status||'未着手'), pop=document.createElement('div'); pop.className='td-pop';
+  pop.innerHTML=(rk?'<div style="font-size:12px;color:var(--sub);padding:4px 12px 2px">稟議</div>':'')+(rk?TODO_RINGIS:TODO_STATS).map(v=>`<button type="button" data-v="${v}" class="${v===cur?'on':''}">${v===cur?'✓ ':''}${v}</button>`).join('');
   document.body.appendChild(pop);
   const r=btn.getBoundingClientRect(), ph=pop.offsetHeight, pw=pop.offsetWidth;
   let top=r.bottom+4; if(top+ph>window.innerHeight-8) top=Math.max(8, r.top-ph-4);
@@ -6545,7 +6557,8 @@ function todoStatPick(btn, x, redraw){
   setTimeout(()=>document.addEventListener('pointerdown', off, true), 0);
   pop.querySelectorAll('button').forEach(b=>b.onclick=ev=>{ ev.stopPropagation(); pop.remove(); document.removeEventListener('pointerdown', off, true);
     const v=b.dataset.v; if(v===cur) return;
-    if(v==='完了') todoSetDone(x, true);
+    if(rk){ todoPush({action:'update', id:x.id, fields:{ memo:todoMemoWith(todoMemoBody(x.memo), v) }}); }
+    else if(v==='完了') todoSetDone(x, true);
     else { const fields={status:v}; if(cur==='完了'){ fields.doneBy=''; fields.doneAt=''; } todoPush({action:'update', id:x.id, fields}); }
     redraw(); todoFlush().then(()=>{ if(TODO_REDRAW===redraw) redraw(); }); });
 }
@@ -6553,7 +6566,7 @@ function todoStatPick(btn, x, redraw){
 function todoEdit(x, redraw){
   const isNew=!x;
   const vNew=TODO.tab===TODO_VTAB && TODO.vendor;
-  const f={ text:x?x.text:'', cat:x?x.cat:'', when:x?x.when:(TODO_WHENS.includes(TODO.tab)?TODO.tab:''), status:x?(x.status||'未着手'):'未着手', memo:x?todoMemoBody(x.memo):'', ringi:x?todoRingi(x):false,
+  const f={ text:x?x.text:'', cat:x?x.cat:'', when:x?x.when:(TODO_WHENS.includes(TODO.tab)?TODO.tab:''), status:x?(x.status||'未着手'):'未着手', memo:x?todoMemoBody(x.memo):'', ringi:x?todoRingiOf(x):'なし',
             vendor:x?((todoVendorOf(x)||{}).name||''):(vNew?TODO.vendor:''), due:x?(x.due||''):'' };
   const canMe = !!ST.id && (isNew || String(x.byId||'')===String(ST.id));   // 「自分」にできるのは登録した本人だけ
   if(isNew && TODO.cat && !vNew) f.cat=TODO.cat;
@@ -6572,7 +6585,7 @@ function todoEdit(x, redraw){
       <label>発注先（業者）</label>${vSel}
       <label>時期</label>${chips('when',TODO_WHENS)}
       ${isNew?'':`<label>状況</label>${chips('status',TODO_STATS,'stc')}`}
-      <label>稟議</label><button type="button" class="rgb ${f.ringi?'on':''}" id="tdRingi">${f.ringi?'✓ 稟議が要る':'稟議'}</button>
+      <label>稟議（要るときは、あげたかどうかを選ぶ）</label>${chips('ringi',TODO_RINGIS,'rgc')}
       <label>メモ（見積額・サイズ・枚数など）</label><textarea id="tdMemo" rows="3">${esc(f.memo)}</textarea>
       ${isNew?`<div class="inf">登録者は「${esc(ST.name||'（名前未設定）')}」で入ります。</div>`
         :`<div class="inf">登録：${esc(x.by||'')}　${esc(String(x.at||'').slice(0,10))}${x.upd?`<br>最後に直した人：${esc(x.updBy||'')}　${esc(String(x.upd).slice(0,16))}`:''}${x.doneAt?`<br>完了：${esc(x.doneBy||'')}　${esc(String(x.doneAt).slice(0,10))}`:''}</div>`}
@@ -6583,17 +6596,16 @@ function todoEdit(x, redraw){
   m.onclick=e=>{ if(e.target===m) close(); };
   m.querySelector('.x').onclick=close;
   m.querySelectorAll('.ch').forEach(g=>g.querySelectorAll('button').forEach(b=>b.onclick=()=>{
-    const k=g.dataset.k; f[k]=(f[k]===b.dataset.v && k!=='status')?'':b.dataset.v;
+    const k=g.dataset.k; f[k]=(f[k]===b.dataset.v && k!=='status' && k!=='ringi')?'':b.dataset.v;
     g.querySelectorAll('button').forEach(o=>o.classList.toggle('on',o.dataset.v===f[k]));
     if(k==='cat') m.querySelector('#tdDueW').style.display=f.cat===TODO_ME?'block':'none'; }));
-  const rgb=m.querySelector('#tdRingi'); rgb.onclick=()=>{ f.ringi=!f.ringi; rgb.classList.toggle('on',f.ringi); rgb.textContent=f.ringi?'✓ 稟議が要る':'稟議'; };
   const ok=m.querySelector('.ok'), tx=m.querySelector('#tdText');
   const chk=()=>{ ok.disabled=!tx.value.trim(); }; tx.oninput=chk; chk();
   if(isNew) setTimeout(()=>tx.focus(),50);
   const vs=m.querySelector('#tdVendor'), vn=m.querySelector('#tdVNew');
   vs.onchange=()=>{ vn.style.display=vs.value==='__new'?'block':'none'; if(vs.value==='__new') vn.focus(); };
   ok.onclick=()=>{
-    f.text=tx.value.trim(); f.memo=todoMemoBody(m.querySelector('#tdMemo').value.trim()); if(f.ringi) f.memo=TODO_RINGI+(f.memo?' '+f.memo:''); if(!f.text) return;
+    f.text=tx.value.trim(); f.memo=todoMemoWith(todoMemoBody(m.querySelector('#tdMemo').value.trim()), f.ringi); if(!f.text) return;
     f.due = f.cat===TODO_ME ? (m.querySelector('#tdDue').value||'') : '';
     f.vendor = vs.value==='__new' ? todoVendorAdd(vn.value) : todoVendorAdd(vs.value);   // 一覧にない業者はここで登録
     const me=todoMe();
