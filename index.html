@@ -7965,12 +7965,28 @@ function kgMoromiRows(list, today, T){
       sub:`<small>${esc(m.sym||'')} ${esc(m.liquid||'')}</small><small>T${esc(m.tank||'')}・${dT>=1?dT+'日目':'留まで'+(1-dT)+'日'}</small><small>上槽予定 ${rcMD(m.joso)}</small>${!b?'<small>読み込み中…</small>':''}${t.warn?`<small class="wn">${esc(t.warn)}</small>`:''}`,
       days, n:jo||Math.max(days.length,dT), today:dT, jo}; });
 }
+/* 酒母の表：順号の下に使用酵母を大きく（2026-10-07 泰広さん指示）。🧬酵母で変えた酵母名を優先 */
+function kgYeastNames(m){
+  let ys=[];
+  try{ if(typeof ypYeasts==='function'){ ys=ypYeasts(m).map(orig=>{ let nm=orig;
+      try{ if(typeof YP!=='undefined'&&YP.ov&&m.motodate){ const ov=YP.ov[`${ypBY(m.motodate)}_${m.no}_${orig}`]; if(ov&&ov.name) nm=ypNorm(ov.name); } }catch(e){}
+      return nm; }); } }catch(e){}
+  if(!ys.length){ let y=m.yeast||''; if(!y&&typeof yeastOf==='function'){ try{ y=yeastOf(m.liquid,m.no); }catch(e){} }
+    ys=String(y||'').split(/[+＋・\/／、,，]+/).map(x=>x.trim()).filter(Boolean); }
+  return ys;
+}
+function kgYeastHTML(m){
+  const ys=kgYeastNames(m);
+  if(!ys.length) return '<span class="ky ky-no">酵母 未定</span>';
+  const L=Math.max(...ys.map(y=>y.length)), fs=L<=6?19:L<=9?15:12;
+  return `<span class="ky" style="font-size:${fs}px">${ys.map(y=>`<i>${esc(y)}</i>`).join('')}</span>`;
+}
 function kgShuboRows(list, today){
   return list.map(m=>{ const s=RC.shubo[m.no], dT=rcShuboDay(m,today);
     const oro=(s&&(s.motooroshi||s.motooroshiPlan))||(m.soe?dadd(m.soe,-1):''); const jo=oro?rcDays(m.motodate,oro)+1:13;
     const days=s&&s.days?s.days.map(d=>({day:d.day,date:d.date,sm:d.be,alc:d.alc,ta:d.ta,aa:d.aa,tAM:d.temp,tPM:d.tPM,biko:d.biko,_r:d})):[];
     const miss=s&&typeof shSetupMissing==='function'&&dT>=1?shSetupMissing(s):[];
-    const head=`<b>${esc(String(m.no))}</b><span class="tk tkin">T<input class="kg-i tki" data-no="${esc(String(m.no))}" data-day="0" data-k="shuboT" value="${esc(m.shuboT==null?'':String(m.shuboT))}" type="text" inputmode="numeric" autocomplete="off" placeholder="未" aria-label="順号${esc(String(m.no))} 酒母タンク"></span><small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small><small>${dT>=1?dT+'日目':'酛立まで'+(1-dT)+'日'}</small><small>酛卸 ${rcMD(oro)}${m.tank?'→T'+esc(m.tank):''}</small>${!s?'<small>読み込み中…</small>':''}${miss.length?'<small class="wn">仕込時の値 未入力</small>':''}<span class="kg-edl">✎ 仕込時・酛卸</span>`;
+    const head=`<b>${esc(String(m.no))}</b>${kgYeastHTML(m)}<span class="tk tkin">T<input class="kg-i tki" data-no="${esc(String(m.no))}" data-day="0" data-k="shuboT" value="${esc(m.shuboT==null?'':String(m.shuboT))}" type="text" inputmode="numeric" autocomplete="off" placeholder="未" aria-label="順号${esc(String(m.no))} 酒母タンク"></span><small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small><small>${dT>=1?dT+'日目':'酛立まで'+(1-dT)+'日'}</small><small>酛卸 ${rcMD(oro)}${m.tank?'→T'+esc(m.tank):''}</small>${!s?'<small>読み込み中…</small>':''}${miss.length?'<small class="wn">仕込時の値 未入力</small>':''}<span class="kg-edl">✎ 仕込時・酛卸</span>`;
     return {no:m.no, label:m.no, head, start:m.motodate, set:{x:{...((s&&s.setup)||{}), date:m.motodate}},
       edit:!!s, lock:miss.length>0, edMax:Math.min(dT, days.length, 13), noAna:2,
       sub:`<small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small><small>${m.shuboT?'T'+esc(m.shuboT)+'・':''}${dT>=1?dT+'日目':'酛立まで'+(1-dT)+'日'}</small><small>酛卸 ${rcMD(oro)}</small>${!s?'<small>読み込み中…</small>':''}${miss.length?'<small class="wn">仕込時の値 未入力</small>':''}`,
@@ -8240,6 +8256,7 @@ window.addEventListener('resize',()=>{ clearTimeout(KGE.rt); KGE.rt=setTimeout((
 .kg-t.bgc td.out{background:rgba(230,225,212,.45)}
 .kg-t.bgc td.mg:not(.tday):not(.jo):not(.out){background:rgba(232,240,250,.55)}
 .kg-t.ed .n b{display:block;font-size:24px;line-height:1.1;font-weight:800}
+.kg-t .n .ky{display:block;font-weight:800;color:#1d6b3a;line-height:1.15;margin:1px 0 2px;word-break:break-all}.kg-t .n .ky i{display:block;font-style:normal}.kg-t .n .ky-no{font-size:11px;color:var(--sub);font-weight:600}
 .kg-t.ed .f{font-size:10px;letter-spacing:-.3px}
 .kg-t .n .tk{display:block;font-size:15px;font-weight:800;color:#8a4b00;line-height:1.2;margin:1px 0 2px}
 .kg-t .n .kg-edl{display:inline-block;margin-top:4px;font-size:10px;color:#1f5fa8;border:1px solid #9fb3cf;border-radius:6px;padding:1px 4px;background:#fff;white-space:nowrap}
@@ -8830,6 +8847,7 @@ setTimeout(()=>{ try{ if(typeof ST!=='undefined'&&ST&&ST.token) ypFetch(); }catc
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-07-4','🧫','酒母','酒母の表の左、仕込番号（順号）の下に 使用酵母 を大きく出しました（🧬酵母で酵母名を変えた場合はそちらが出ます。2種類使うときは2段で表示）。'],
   ['2026-10-07-3','📝','やることリスト','上のタブに「📦 発注済」を足しました。状況を「発注済」にしたものだけが一覧で見られます（業者ごと・発注の古い順。分類でも絞り込めます）。届いたら「済」を押してください。'],
   ['2026-10-07-2','🍚','麹','麹の画面の各麹のボタンに、温度経過のグラフを半透明で出しました（青＝記録した品温、点線＝昨年の基準）。ボタンを押すと、画面の一番上に温度グラフ（基準の帯・品温計の線・◎△✕）がすぐ出ます。'],
   ['2026-10-07-1','🧬','酒母','酒母のページの上段に「🧬酵母」を足しました。仕込番号ごとに 植菌日（酒母仕込日の7日前）→培養7日→酒母仕込 をグラフで見られます。H13BYは2週間前、K1801は3週間前が発注締切（K1801は赤）。行を押すと 植菌日・締切日・酵母名・個数・済 を変更でき、発注した酵母は着日を入れると部署カレンダーに入ります。過去の分と酵母未定の仕込は出しません。'],
