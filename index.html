@@ -8867,14 +8867,15 @@ setTimeout(()=>{ try{ if(typeof ST!=='undefined'&&ST&&ST.token) ypFetch(); }catc
 /* ================= ℹ 酒母・仕込み：順号・酵母の下の「情報」ボタン（2026-10-07 泰広さん指示） =================
    押すと、それまでに使った麹（麹DB）と米の吸水（洗米吸水）の履歴。仕込みでは酒母の情報も。データは仕込カルテ（recApi karte）を使う */
 const KI_ST=['酛','添','仲','留'];
-function kiBtn(no,kind){ return `<button type="button" class="kg-info" data-no="${esc(String(no))}" data-kind="${kind}" aria-label="順号${esc(String(no))}の情報">ℹ 情報</button>`; }
+function kiBtn(no,kind){ return `<button type="button" class="kg-info" data-no="${esc(String(no))}" data-kind="${kind}" aria-label="順号${esc(String(no))}の情報" title="情報">ℹ</button>`; }
 (function(){
   const oS=window.kgShuboRows, oM=window.kgMoromiRows;
   if(typeof oS==='function') window.kgShuboRows=function(...a){ const rows=oS.apply(this,a);
-    rows.forEach(r=>{ if(r.head&&r.head.indexOf('kg-info')<0){ const b=kiBtn(r.no,'shubo'), k='<span class="tk tkin">'; r.head=r.head.indexOf(k)>=0?r.head.replace(k,b+k):r.head+b; } }); return rows; };
+    /* 2026-10-07 泰広さん指示：「〇日目」は出さない・情報ボタンは一番下 */
+    rows.forEach(r=>{ if(r.head&&r.head.indexOf('kg-info')<0){ r.head=r.head.replace(/<small>\d+日目<\/small>/g,'')+kiBtn(r.no,'shubo'); } }); return rows; };
   if(typeof oM==='function') window.kgMoromiRows=function(list,...a){ const rows=oM.call(this,list,...a);
     rows.forEach(r=>{ if(r.head) return; const m=list.find(x=>String(x.no)===String(r.no))||rcMaster(r.no)||{};
-      const y=(typeof kgYeastHTML==='function')?kgYeastHTML(m):''; r.sub=y+kiBtn(r.no,'moromi')+(r.sub||''); }); return rows; };
+      const y=(typeof kgYeastHTML==='function')?kgYeastHTML(m):''; r.sub=y+String(r.sub||'').replace(/・\d+日目/g,'').replace(/<small>\d+日目<\/small>/g,'')+kiBtn(r.no,'moromi'); }); return rows; };
   document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('.kg-info'); if(!b) return;
     e.stopPropagation(); e.preventDefault(); kiDialog(b.dataset.no, b.dataset.kind); }, true);
 })();
@@ -8924,7 +8925,10 @@ async function kiDialog(no, kind){
   if(!k){ const b=ov.querySelector('#kiBody'); if(b) b.innerHTML='<p class="muted" style="padding:14px 0;color:var(--ng)">読み込めませんでした。電波を確認してもう一度押してください。</p>'; }
 }
 (function(){ const s=document.createElement('style'); s.textContent=`
-.kg-t .n .kg-info{display:block;margin:3px 0 3px;padding:3px 8px;font-size:12px;font-weight:700;color:#fff;background:#3d6fa8;border:0;border-radius:8px;cursor:pointer;white-space:nowrap}
+.kg-t .n .kg-info{display:flex;align-items:center;justify-content:center;width:26px;height:26px;margin:8px auto 2px;padding:0;font-size:15px;font-weight:800;font-family:Georgia,serif;color:#fff;background:#3d6fa8;border:0;border-radius:50%;cursor:pointer}
+.kg-t .n > b{margin-bottom:6px}
+.kg-t .n .ky{margin:6px 0 8px !important}
+.kg-t .n .tk{margin:6px 0 6px !important}
 .kg-t .n .kg-info:active{background:#2c5585}
 .ki-dl{max-width:760px}
 .ki-t td,.ki-t th{white-space:nowrap;font-size:12px;padding:3px 5px}
@@ -8941,6 +8945,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-07-6','ℹ','酒母・仕込み','酒母と仕込みの表の左、順号のマスの一番下に丸い「ℹ」ボタンを付けました。押すと、それまでに使った麹（種麹・吸水・各工程の品温・出麹・麹歩合）と米の吸水の履歴が見られます。仕込みでは酒母の情報（仕込時の値・経過・酛卸）も出ます。仕込みにも酵母を表示し、順号・酵母・タンク番号の間をあけ、「〇日目」の表示はやめました。'],
   ['2026-10-07-5','🟩','麹','麹の温度グラフで 40〜42℃ を緑の帯で示しました（グルコースの生成に関わる温度帯）。グラフの下に「40〜42℃にいた時間」が出ます（品温計があればその連続データ、無ければ記録した品温から）。📊麹の比較・考察の温度推移にも緑の帯と、組ごとの平均時間の行を足しました。'],
   ['2026-10-07-4','🧫','酒母','酒母の表の左、仕込番号（順号）の下に 使用酵母 を大きく出しました（🧬酵母で酵母名を変えた場合はそちらが出ます。2種類使うときは2段で表示）。'],
   ['2026-10-07-3','📝','やることリスト','上のタブに「📦 発注済」を足しました。状況を「発注済」にしたものだけが一覧で見られます（業者ごと・発注の古い順。分類でも絞り込めます）。届いたら「済」を押してください。'],
