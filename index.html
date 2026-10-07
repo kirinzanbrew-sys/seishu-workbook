@@ -5532,7 +5532,8 @@ async function moromiSetup(no, st){
 <script>
 /* ================= 📋 ホーム「本日の予定」（2026-09-30） =================
    泰広さん指示：1日の予定を枠の中で（横＝時刻）。カレンダーの予定はその下に箇条書き。アイコンは角丸。
-   ・レーン：麹／酒母／仕込み／洗米／上槽・粕（ヤブタ準備＝上槽前日）／清掃（月末清掃＝月の最後の出勤日）。予定のある作業だけ出す
+   ・時間軸は 8:00〜17:00 に固定（2026-10-07）。蒸米の仕上がり 9:40（DP_MUSHI）を基準に、酒母仕込＝すぐ・仕込み＝20分後から（DP_AFTER）
+   ・レーン：蒸米（前日の洗米）／麹／酒母／仕込み／洗米／上槽・粕（ヤブタ準備＝上槽前日）／清掃（月末清掃＝月の最後の出勤日）。予定のある作業だけ出す
    ・予定を押すと下から詳細 →「〇〇の画面を開く」
    ・もと：麹＝麹管理R8BY（koji_today、時刻は麹管理の設定）／酒母・仕込み・上槽＝醪管理R8BY 仕込マスタ（recState）／
            洗米・上槽・粕・備考＝出勤表・洗米予定表（MFG）／カレンダー＝酸素濃度測定記録の Apps Script（予定.gs：cal_day）
@@ -5548,7 +5549,12 @@ const DP_T = {
   shikomi:['09:00','10:30'], senmai:['10:30','12:30'], joso:['08:00','12:00'], kasu:['13:00','15:00'], yabuta:['15:00','16:00'], seisou:['15:30','17:00'], kome:['15:30','15:45'],
   koji:{ 盛:['08:30',50], 仲仕事:[null,15], 留仕事:[null,15], 引込:['09:40',50], 種切:[null,15], 切返し:[null,15], 出麹:['13:00',50] }
 };
-const DP_LANES = [['koji','麹'],['shubo','酒母'],['shk','仕込み'],['sen','洗米'],['joso','上槽・粕'],['kome','米'],['etc','清掃']];
+/* 蒸米の仕上がり（2026-10-07 泰広さん指示）：9:40 が基準。酒母仕込・仕込み（添・仲・留）はここから前後させる
+   蒸米の仕上がりが変わったら DP_MUSHI だけ直す（酒母仕込・仕込みが一緒に動く）。時間軸は DP_AX（8:00〜17:00） */
+const DP_MUSHI=['08:30','09:40'];                  // 蒸米 スタート・仕上がり
+const DP_AFTER={ shubo:[0,60], shikomi:[20,140] };  // 仕上がりから何分後に始め、何分かかるか（酒母仕込＝すぐ／仕込み＝放冷して20分後〜12:00）
+const DP_AX=['08:00','17:00'];
+const DP_LANES = [['mushi','蒸米'],['koji','麹'],['shubo','酒母'],['shk','仕込み'],['sen','洗米'],['joso','上槽・粕'],['kome','米'],['etc','清掃']];
 const DP_CSS = `
 .dp{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:10px 0 0;padding:8px 8px 6px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .dp-h{display:flex;align-items:baseline;gap:6px;font-weight:800;color:var(--navy);font-size:15px;margin:0 2px 6px}
@@ -5633,19 +5639,28 @@ function dpItems(date){
     const mori=rows.filter(r=>r['盛日']===date), hik=rows.filter(r=>r['引込日']===date), dek=rows.filter(r=>r['出麹日']===date);
     kst('盛',mori); kst('仲仕事',mori); kst('留仕事',mori); kst('引込',hik); kst('種切',hik); kst('切返し',hik); kst('出麹',dek);
   }
+  // 蒸米（2026-10-07）：前日に洗米した米を 8:30 から蒸し、9:40 に仕上がる
+  const MU=dpMin(DP_MUSHI[1]), aft=(k)=>[dpHM(MU+DP_AFTER[k][0]), DP_AFTER[k][1]];
+  { const S0=MFG&&MFG.senmai, s0=S0&&S0.days&&S0.days[dadd(date,-1)];
+    if(s0&&s0.e&&s0.e.length){
+      const cols=S0.cols||[]; const ents=s0.e.map(e=>({kb:(cols[e[0]]||[])[0]||'',g:(cols[e[0]]||[])[1]||'',rice:e[1],ratio:e[2],prod:e[4],no:e[5],kg:Number(e[6]||0)}));
+      const kinds=[...new Set(ents.map(x=>x.kb+x.g))], kg=ents.reduce((a,x)=>a+x.kg,0);
+      add('mushi',DP_MUSHI[0],DP_MUSHI[1],`蒸米 ${kinds.join('・')}`,'dp-u',{title:`蒸米（${kinds.join('・')}・${Math.round(kg).toLocaleString('ja-JP')}kg）`,time:`${DP_MUSHI[0]}〜 ${DP_MUSHI[1]} 仕上がり`,
+        lines:[`${DP_MUSHI[1]} 仕上がり（酒母仕込・仕込みはこの時刻に合わせる）`,...ents.map(x=>`${x.kb}${x.g}　${x.rice} ${x.ratio}%　${x.prod||''} No.${x.no}　${kgfmt(x.kg)}kg`)]});
+    } }
   // 酒母・仕込み・上槽（仕込マスタ）
   const st=dpState();
   if(st){
     const M=st.master||[];
     const nm=m=>`No.${m.no} ${m.sym||''}　${m.liquid||''}`;
     const sh=M.filter(m=>m.motodate===date);
-    if(sh.length) add('shubo',DP_T.shuboShikomi[0],DP_T.shuboShikomi[1],`仕込${sh.map(m=>m.no).join('・')}`,'dp-s',{title:'酒母仕込',time:DP_T.shuboShikomi.join('〜')+'（目安）',lines:sh.map(m=>`${nm(m)}${m.shuboT?'　T'+m.shuboT:''}${m.yeast?'　酵母 '+m.yeast:''}`),open:()=>shuboHome(),openL:'酒母の画面を開く'});
+    if(sh.length) add('shubo',aft('shubo')[0],aft('shubo')[1],`仕込${sh.map(m=>m.no).join('・')}`,'dp-s',{title:'酒母仕込',time:`${aft('shubo')[0]}〜（蒸米 ${DP_MUSHI[1]} 仕上がりに合わせる）`,lines:sh.map(m=>`${nm(m)}${m.shuboT?'　T'+m.shuboT:''}${m.yeast?'　酵母 '+m.yeast:''}`),open:()=>shuboHome(),openL:'酒母の画面を開く'});
     const mo=M.filter(m=>m.soe&&dadd(m.soe,-1)===date);
     if(mo.length) add('shubo',DP_T.motooroshi[0],DP_T.motooroshi[1],`酛卸${mo.map(m=>m.no).join('・')}`,'dp-s',{title:'酛卸',time:DP_T.motooroshi.join('〜')+'（目安・添の前日）',lines:mo.map(m=>`${nm(m)}${m.shuboT?'　T'+m.shuboT:''} → T${m.tank||''}`),open:()=>shuboHome(),openL:'酒母の画面を開く'});
     const soe=M.filter(m=>m.soe===date), naka=M.filter(m=>m.soe&&dadd(m.soe,2)===date), tome=M.filter(m=>m.tome===date);
     if(soe.length||naka.length||tome.length){
       const lb=[soe.length?'添'+soe.map(m=>m.no).join('・'):'',naka.length?'仲'+naka.map(m=>m.no).join('・'):'',tome.length?'留'+tome.map(m=>m.no).join('・'):''].filter(Boolean).join(' ');
-      add('shk',DP_T.shikomi[0],DP_T.shikomi[1],lb,'dp-m',{title:'仕込み',time:DP_T.shikomi.join('〜')+'（目安）',
+      add('shk',aft('shikomi')[0],aft('shikomi')[1],lb,'dp-m',{title:'仕込み',time:`${aft('shikomi')[0]}〜（蒸米 ${DP_MUSHI[1]} 仕上がりに合わせる）`,
         lines:[...soe.map(m=>`添　${nm(m)}　T${m.tank||''}`),...naka.map(m=>`仲　${nm(m)}　T${m.tank||''}`),...tome.map(m=>`留　${nm(m)}　T${m.tank||''}`)],open:()=>moromiHome(),openL:'仕込みの画面を開く'});
     }
     const jo=M.filter(m=>m.joso===date);
@@ -5729,7 +5744,8 @@ function dpPlanHTML(){
   let h=`<div class="dp-tabs"><button type="button" data-dpd="0" class="${DP_OFF===0?'on':''}">本日の予定 ${md(td)}</button><button type="button" data-dpd="1" class="${DP_OFF===1?'on':''}">明日の予定 ${md(nx)}</button></div>
     ${dpBunHTML()}`;   // 2026-10-06 泰広さん指示：「予定を押すと詳細」の文字は出さない
   if(!items.length){ h+=`<div class="dp-empty">${dpState()||(RC.koji&&RC.koji[date])?(DP_OFF?'明日':'今日')+'の作業予定はありません':'予定を読み込んでいます…'}</div>`; DP_LAST=[]; return h; }
-  let lo=7*60, hi=17*60; items.forEach(x=>{ lo=Math.min(lo,Math.floor(x.s/60)*60); hi=Math.max(hi,Math.ceil(x.e/60)*60); });
+  const lo=dpMin(DP_AX[0]), hi=dpMin(DP_AX[1]);   // 2026-10-07 泰広さん指示：時間軸は 8:00〜17:00 に固定
+  items.forEach(x=>{ x.s=Math.min(Math.max(x.s,lo),hi-10); x.e=Math.min(Math.max(x.e,x.s+10),hi); });
   const span=hi-lo, px=v=>((v-lo)/span*100).toFixed(2)+'%';
   const lanes=DP_LANES.filter(([k])=>items.some(x=>x.lane===k));
   h+=`<div class="dp-g"><div><div class="ax"></div>${lanes.map(([k,l])=>`<div class="ln">${l}</div>`).join('')}</div><div class="dp-a" style="height:${16+30*lanes.length}px">`;
@@ -8979,6 +8995,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-07-9','📋','ホーム','本日の予定の時間の幅を 8:00〜17:00 に固定しました。蒸米の段を足し、蒸米の仕上がり 9:40 を基準に、酒母仕込はすぐ（9:40〜）、仕込み（添・仲・留）は放冷して 10:00〜 の並びにしました。'],
+  ['2026-10-07-8','⚠','麹','麹の苦味の注意を出すようにしました。鍋倉さん（2026-10-06）の条件「種切・盛前の品温が高すぎる（バカ破精）」「仲仕事を省いて中間温度帯を飛ばす」に当てはまる麹を、昨年度（R7BY）の温度経過と比べて判定します。麹の画面の上に赤い帯と、各麹に「⚠ 苦味 強／注意」。各麹の画面では温度グラフの下に理由が出ます。出麹のときは味見して苦味を確かめてください。'],
   ['2026-10-07-7','🧫','酒母','酒母の表の左で、液種を太字で大きく Be の行の横、酵母を alc の行の横、タンク番号を アミノ酸 の行の横に大きく出しました。ℹ ボタンも大きくしました。'],
   ['2026-10-07-6','ℹ','酒母・仕込み','酒母と仕込みの表の左、順号のマスの一番下に丸い「ℹ」ボタンを付けました。押すと、それまでに使った麹（種麹・吸水・各工程の品温・出麹・麹歩合）と米の吸水の履歴が見られます。仕込みでは酒母の情報（仕込時の値・経過・酛卸）も出ます。仕込みにも酵母を表示し、順号・酵母・タンク番号の間をあけ、「〇日目」の表示はやめました。'],
   ['2026-10-07-5','🟩','麹','麹の温度グラフで 40〜42℃ を緑の帯で示しました（グルコースの生成に関わる温度帯）。グラフの下に「40〜42℃にいた時間」が出ます（品温計があればその連続データ、無ければ記録した品温から）。📊麹の比較・考察の温度推移にも緑の帯と、組ごとの平均時間の行を足しました。'],
@@ -9056,6 +9074,95 @@ try{ if(ST && ST.token && nav.length<=1 && app.querySelector('#bUpd') && updBadg
 
 </script>
 <!-- /upd -->
+<!-- nigami -->
+<script>
+/* ================= ⚠ 麹の苦味注意（2026-10-07 泰広さん指示） =================
+   鍋倉氏（2026-10-06 メール）の2条件を、麹の温度経過と昨年度（R7BY）の実績に照らして自動で判定し、注意を出す。
+   ① 前半の品温が高い（種切・盛前が必要以上に高い→バカ破精→酵素力価が低く苦い麹）
+      → 引込〜盛後の品温を KSTD（R7BY：一般297麹／輝20麹）で判定。高い側の △=1点・✕=2点。合計2点で「注意」、3点以上で「強」
+   ② 仲仕事を省いて中間温度帯を飛ばす（ペプチダーゼ不足→苦味ペプチド）
+      → 盛と留仕事があり仲仕事が空欄。昨年度の同じ銘柄で仲仕事をしていた率（KGM_R7_NAKA）が半分以上なら「強」、
+        昨年度もしていない銘柄（伝辛など）は「参考」。盛のあと留仕事前なら「これから仲仕事」を注意
+   ほか参考：仲→留仕事が2時間未満（須藤顧問：6時間かけて上げる）／出麹42℃超（同：最高後は42℃以下）
+   出す場所：麹の画面（上に赤い帯＋各麹に「⚠ 苦味」）／各麹の画面（温度グラフの下に理由）
+   根拠ノート：保管庫 醸造ナレッジベース/ノート/製麹_酒質に合わせた麹造り_透明感と苦味.md
+   控え：seishu-workbook_github\_src_nigami.js　差し込み：_苦味注意を足す.py */
+const KGM_R7_NAKA={   // R7BY 統合データ「麹記録」：留仕事の記録がある麹のうち仲仕事の記録がある本数 [あり, 全体]（輝は製麹/R7BY）
+  '伝辛':[0,96],'ながれぼし':[30,40],'超辛':[0,24],'やわらか':[1,22],'ぽたりぽたり越淡麗':[12,16],'ユキノシタ':[7,16],'輝':[20,20],
+  '金雲母':[6,8],'なごり雪':[0,8],'紅葉純米':[6,8],'とろりとろり':[4,8],'普通純米':[0,7],'ぽたりぽたり五百万石':[3,5],
+  '一片氷心':[4,4],'遠雷':[3,4],'純米大吟醸':[4,4],'低アル純米':[1,4],'火鉢':[2,3]};
+function kgmR7(r){
+  if(kIsKaga(r)) return {nm:'輝',v:KGM_R7_NAKA['輝']};
+  const n=String(r['液種']||'').replace(/[\s　]/g,''); if(!n) return null;
+  const ks=Object.keys(KGM_R7_NAKA);
+  const k=ks.find(x=>x===n)||ks.filter(x=>n.includes(x)).sort((a,b)=>b.length-a.length)[0]||ks.find(x=>n.length>=2&&x.includes(n));
+  return k?{nm:k,v:KGM_R7_NAKA[k]}:null; }
+function kgmCheck(r){
+  const out=[]; if(typeof kJudge!=='function'||typeof cmpStages!=='function') return {lv:0,items:out};
+  const sk=kIsKaga(r)?'kaga':'ippan', P={}; cmpStages(r).forEach(p=>{ P[p.nm]=p; });
+  // ① 前半の品温
+  let sc=0; const hi=[];
+  ['引込','種切','切返し','盛前','盛後'].forEach(nm=>{ const p=P[nm]; if(!p) return; const j=kJudge(sk,nm,p.v); if(!j||!j.lv||!j.hi) return; sc+=j.lv; hi.push(`${nm} <b>${cmpF(p.v)}℃</b>${j.mk}<span style="font-size:11px;color:#7a5a50">（昨年度 ${j.ref}）</span>`); });
+  if(hi.length) out.push({lv:sc>=3?2:(sc>=2?1:0),k:'前半の品温が高い（バカ破精の方向）',t:hi.join('・'),
+    why:'種切・盛前の品温が必要以上に高く、米が柔らかい段階でハゼが回りすぎた麹は、白くフワフワした見た目のわりに酵素力価が低く、苦くなりやすい（鍋倉氏）。出麹の味見で苦味を確かめる。'});
+  // ② 中間温度帯
+  const R7=kgmR7(r), rate=R7&&R7.v[1]?R7.v[0]/R7.v[1]:null, r7t=R7?`昨年度の${R7.nm}は ${R7.v[0]}/${R7.v[1]}本 仲仕事あり`:'昨年度の同じ銘柄の記録なし';
+  const mo=P['盛後']||P['盛前'], na=P['仲仕事'], to=P['留仕事'];
+  if(mo&&!na&&to){ const lv=rate==null?1:(rate>=0.5?2:0);
+    out.push({lv,k:'仲仕事なし（中間温度帯を飛ばしている）',t:`盛 ${cmpF(mo.v)}℃ → 留仕事 ${cmpF(to.v)}℃ を <b>${cmpF(to.h-mo.h)}時間</b>で。${r7t}${lv===0?'（この銘柄は昨年度も仲仕事なしが標準）':''}`,
+      why:'仲仕事を省いて中間温度帯をすっ飛ばすと、タンパク分解酵素・ペプチダーゼが極端に不足し、苦味をもつペプチドが増えると考えられる（鍋倉氏）。仲仕事をしたのに空欄なら記録漏れなので入力を。'}); }
+  else if(mo&&!na&&!to&&rate!=null&&rate>=0.5){
+    out.push({lv:1,k:'これから仲仕事',t:`${r7t}。仲仕事を入れて中間温度帯（36〜37℃）を通す`,why:'中間温度帯を飛ばすとペプチダーゼが不足し、苦味ペプチドが増える（鍋倉氏）。'}); }
+  if(na&&to){ const hh=to.h-na.h; if(hh>0&&hh<2) out.push({lv:1,k:'仲→留仕事が短い',t:`仲仕事 ${cmpF(na.v)}℃ → 留仕事 ${cmpF(to.v)}℃ を <b>${cmpF(hh)}時間</b>`,
+    why:'苦味を抑える製麹経過：仲仕事から仕舞仕事まで6時間かけてゆっくり上げる。早く上がるなら二仲（R4技術講習会 須藤顧問）。'}); }
+  // 参考：出麹
+  const de=P['出麹']; if(de&&de.v>42) out.push({lv:0,k:'出麹 42℃超',t:`出麹 ${cmpF(de.v)}℃`,
+    why:'苦味を抑える製麹経過では、最高をとった後の品温を42℃以下に抑える（須藤顧問）。昨年度の一般麹の平均は41.98℃なので参考。'});
+  return {lv:out.length?Math.max(...out.map(x=>x.lv)):0,items:out};
+}
+const kgmChip=lv=>lv>=2?'<small class="kgm-chip s">⚠ 苦味 強</small>':(lv===1?'<small class="kgm-chip">⚠ 苦味 注意</small>':'');
+function kgmInject(){
+  const date=RC.kday, j=RC.koji&&RC.koji[date]; if(!j||!$('#kDate')||app.querySelector('.kgm-ban')) return;
+  const hits=[];
+  (j.koji||[]).filter(r=>r['出麹日']===date||r['盛日']===date).forEach(r=>{
+    const c=kgmCheck(r); if(c.lv<1) return; hits.push([r,c]);
+    app.querySelectorAll('.rc-row[data-id]').forEach(b=>{ if(b.dataset.id===r['麹ID']){ const s=b.querySelector('.id'); if(s) s.insertAdjacentHTML('beforeend',kgmChip(c.lv)); } }); });
+  if(!hits.length) return;
+  const line=([r,c])=>{ const st=r['出麹日']===date?'出麹':'盛';
+    return `<button type="button" class="kgm-l" data-id="${esc(r['麹ID'])}" data-st="${st}"><b>${esc(r['麹ID'])}</b><span class="lq">${esc(r['液種']||'')}・${st}</span>${kgmChip(c.lv)}<br><span>${c.items.filter(x=>x.lv>=1).map(x=>esc(x.k)).join('／')}</span></button>`; };
+  const nOut=hits.filter(([r])=>r['出麹日']===date).length, nMo=hits.length-nOut;
+  const d=document.createElement('div'); d.className='kgm-ban';
+  d.innerHTML=`<div class="kgm-t">⚠ 苦味の注意<small>出麹 ${nOut}本・盛 ${nMo}本／鍋倉氏の条件×昨年度の温度経過</small></div>${hits.map(line).join('')}
+    <div class="kgm-f">出麹の麹は<b>味見して苦味を確認</b>し、備考に書いてください。押すと理由が出ます。</div>`;
+  const at=app.querySelector('.rc-sum'); if(at) at.after(d); else app.prepend(d);
+  d.querySelectorAll('.kgm-l').forEach(b=>b.onclick=()=>go(()=>kojiEdit(date,b.dataset.id,b.dataset.st)));
+}
+function kgmCardHTML(r){
+  const c=kgmCheck(r); if(!c.items.length) return '';
+  const ic=lv=>lv>=2?'<span class="kgm-chip s">強</span>':(lv===1?'<span class="kgm-chip">注意</span>':'<span class="kgm-chip i">参考</span>');
+  return `<div class="card kgm-card"><b style="font-size:14px">⚠ 苦味の注意</b><small class="muted" style="font-size:11px">　鍋倉氏の条件×昨年度（R7BY）</small>
+    ${c.items.map(x=>`<div class="kgm-i">${ic(x.lv)} <b>${esc(x.k)}</b><div>${x.t}</div><small>${esc(x.why)}</small></div>`).join('')}
+    <p class="tl-note" style="margin:4px 0 0">根拠：保管庫「製麹_酒質に合わせた麹造り_透明感と苦味」</p></div>`; }
+(function(){
+  const s=document.createElement('style'); s.textContent=`
+.kgm-chip{display:inline-block;margin-top:2px;font-size:10px;font-weight:700;color:#fff;background:#e08a00;border-radius:8px;padding:0 6px;line-height:1.6}
+.kgm-chip.s{background:#c0392b}.kgm-chip.i{background:#8a8272}
+.kgm-ban{background:#fdecea;border:1px solid #e3a39b;color:#5c1a10;border-radius:10px;padding:8px 10px;margin:6px 0 8px;font-size:13px}
+.kgm-t{font-weight:700;font-size:14px;color:#a3271a;margin-bottom:4px}.kgm-t small{font-weight:400;font-size:11px;color:#8a4a40;margin-left:6px}
+.kgm-l{display:block;width:100%;text-align:left;background:#fff;border:1px solid #f0c4be;border-radius:8px;padding:5px 8px;margin:4px 0;font:inherit;color:inherit}
+.kgm-l .lq{font-size:11px;color:#8a4a40;margin:0 6px}.kgm-l span{font-size:12px}
+.kgm-f{font-size:11px;color:#8a4a40;margin-top:4px}
+.kgm-card{border:1px solid #e3a39b;background:#fff8f6;padding:8px 10px;margin-bottom:8px}
+.kgm-i{border-top:1px dashed #f0c4be;padding:5px 0;font-size:13px}.kgm-i:first-of-type{border-top:0}.kgm-i small{display:block;color:#7a5a50;font-size:11px;margin-top:2px}`;
+  document.head.appendChild(s);
+  const f=window.kojiScreen; if(typeof f==='function') window.kojiScreen=function(...a){ const p=f.apply(this,a); Promise.resolve(p).then(()=>{ try{ kgmInject(); }catch(e){} }); return p; };
+  const g=window.kojiEdit; if(typeof g==='function') window.kojiEdit=function(...a){ const p=g.apply(this,a);
+    try{ const j=RC.koji[a[0]], r=j&&j.koji.find(x=>x['麹ID']===a[1]), t=$('#kTop'); if(r&&t){ const h=kgmCardHTML(r); if(h) t.insertAdjacentHTML('afterend',h); } }catch(e){}
+    return p; };
+})();
+
+</script>
+<!-- /nigami -->
 <!-- /tools -->
 <script>
 /* ================= 🧰 資材の在庫（仕込みの中）2026-10-06 泰広さん指示 =================
