@@ -8995,6 +8995,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-08-1','🖥','全体（PC）','パソコンで開いたとき、横にスクロールしないと見えなかった表は、画面の横幅いっぱいに広げて表示するようにしました。スマホ・iPadの見え方は今までどおりです。'],
   ['2026-10-07-9','📋','ホーム','本日の予定の時間の幅を 8:00〜17:00 に固定しました。蒸米の段を足し、蒸米の仕上がり 9:40 を基準に、酒母仕込はすぐ（9:40〜）、仕込み（添・仲・留）は放冷して 10:00〜 の並びにしました。'],
   ['2026-10-07-8','⚠','麹','麹の苦味の注意を出すようにしました。鍋倉さん（2026-10-06）の条件「種切・盛前の品温が高すぎる（バカ破精）」「仲仕事を省いて中間温度帯を飛ばす」に当てはまる麹を、昨年度（R7BY）の温度経過と比べて判定します。麹の画面の上に赤い帯と、各麹に「⚠ 苦味 強／注意」。各麹の画面では温度グラフの下に理由が出ます。出麹のときは味見して苦味を確かめてください。'],
   ['2026-10-07-7','🧫','酒母','酒母の表の左で、液種を太字で大きく Be の行の横、酵母を alc の行の横、タンク番号を アミノ酸 の行の横に大きく出しました。ℹ ボタンも大きくしました。'],
@@ -9354,5 +9355,56 @@ function rzBind(render){
 .zt .rzin.sv{background:#eef7ea}
 .zt .rzin.ng{border-color:#d9534f;background:#fdeeee}
 </style>
+<!-- pcwide -->
+<style>
+/* ================= 🖥 PCで見るとき、横に長い表は画面の幅いっぱいに広げる（2026-10-08） =================
+   泰広さん指示：PCは横が広いので、横のスペースを使う表は広げて表示。スマホには影響させない。
+   ・対象は「PC」だけ＝画面幅900px以上 かつ マウス操作（hover:hover・pointer:fine）。スマホ・iPad（指で操作）は対象外
+   ・画面の中に「横にはみ出してスクロールになっている表」があるときだけ body に pc-wide を付ける
+   ・別の画面に移る（head() が呼ばれる）と外れる。洗米予定表の yo-wide とは別の仕組み
+   控え：seishu-workbook_github\_src_pcwide.html（index.html の pcwide の目印の間）。差し込み _PC横幅を足す.py
+   ===================================================================================== */
+@media (min-width:900px) and (hover:hover) and (pointer:fine){
+  body.pc-wide .wrap, body.pc-wide header .hin{max-width:none}
+  body.pc-wide .wrap{padding-left:24px;padding-right:24px}
+}
+</style>
+<script>
+(function(){
+  const MQ = window.matchMedia('(min-width:900px) and (hover:hover) and (pointer:fine)');
+  const B = document.body;
+  // 横スクロールになっている「表」を探す（タブやチップの横並びは数えない）
+  function hasWideTable(){
+    const els = app.querySelectorAll('*');
+    for(const el of els){
+      if(el.scrollWidth <= el.clientWidth + 8) continue;
+      const cs = getComputedStyle(el);
+      if(!/(auto|scroll)/.test(cs.overflowX)) continue;
+      if(el.closest('[style*="position:fixed"]')) continue;
+      if(el.querySelector('table') || el.tagName==='TABLE' || /(^|\s)([\w-]*-tw|tl-scroll|kn-wrap|yp-sc)(\s|$)/.test(el.className)) return true;
+    }
+    // 表そのものが .wrap の幅より広い（はみ出している）
+    const w = app.clientWidth;
+    for(const t of app.querySelectorAll('table')){ if(t.offsetParent && t.offsetWidth > w + 8) return true; }
+    return false;
+  }
+  let tm = 0;
+  function check(){
+    clearTimeout(tm);
+    tm = setTimeout(()=>{
+      if(!MQ.matches){ B.classList.remove('pc-wide'); return; }
+      if(B.classList.contains('pc-wide')) return;     // 一度広げたら、その画面のあいだは広げたまま（行ったり来たりしない）
+      if(hasWideTable()) B.classList.add('pc-wide');
+    }, 120);
+  }
+  // 画面が変わったら一旦外して、描き終わってから測り直す
+  const _head = head;
+  head = function(){ B.classList.remove('pc-wide'); const r=_head.apply(this, arguments); check(); return r; };
+  new MutationObserver(check).observe(app, {childList:true, subtree:true});
+  window.addEventListener('resize', ()=>{ if(!MQ.matches) B.classList.remove('pc-wide'); check(); });
+  check();
+})();
+</script>
+<!-- /pcwide -->
 </body>
 </html>
