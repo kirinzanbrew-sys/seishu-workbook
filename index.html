@@ -8862,6 +8862,76 @@ setTimeout(()=>{ try{ if(typeof ST!=='undefined'&&ST&&ST.token) ypFetch(); }catc
 
 </script>
 <!-- /bgsave -->
+<!-- kginfo -->
+<script>
+/* ================= ℹ 酒母・仕込み：順号・酵母の下の「情報」ボタン（2026-10-07 泰広さん指示） =================
+   押すと、それまでに使った麹（麹DB）と米の吸水（洗米吸水）の履歴。仕込みでは酒母の情報も。データは仕込カルテ（recApi karte）を使う */
+const KI_ST=['酛','添','仲','留'];
+function kiBtn(no,kind){ return `<button type="button" class="kg-info" data-no="${esc(String(no))}" data-kind="${kind}" aria-label="順号${esc(String(no))}の情報">ℹ 情報</button>`; }
+(function(){
+  const oS=window.kgShuboRows, oM=window.kgMoromiRows;
+  if(typeof oS==='function') window.kgShuboRows=function(...a){ const rows=oS.apply(this,a);
+    rows.forEach(r=>{ if(r.head&&r.head.indexOf('kg-info')<0){ const b=kiBtn(r.no,'shubo'), k='<span class="tk tkin">'; r.head=r.head.indexOf(k)>=0?r.head.replace(k,b+k):r.head+b; } }); return rows; };
+  if(typeof oM==='function') window.kgMoromiRows=function(list,...a){ const rows=oM.call(this,list,...a);
+    rows.forEach(r=>{ if(r.head) return; const m=list.find(x=>String(x.no)===String(r.no))||rcMaster(r.no)||{};
+      const y=(typeof kgYeastHTML==='function')?kgYeastHTML(m):''; r.sub=y+kiBtn(r.no,'moromi')+(r.sub||''); }); return rows; };
+  document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('.kg-info'); if(!b) return;
+    e.stopPropagation(); e.preventDefault(); kiDialog(b.dataset.no, b.dataset.kind); }, true);
+})();
+function kiUseDate(M,st){ return st==='酛'?M.motodate:st==='添'?M.soe:st==='仲'?M.naka:st==='留'?M.tome:''; }
+function kiSort(a,b,ka,kb){ return KI_ST.indexOf(ka)-KI_ST.indexOf(kb) || String(a._r||'').localeCompare(String(b._r||'')); }
+function kiBody(k, kind, no){
+  const M=k.master||rcMaster(no)||{}, today=dtoday(), sec=(t,body)=>`<div class="rc-h" style="margin-top:12px">${t}</div>${body}`;
+  const used=d=>d&&d<=today, tag=d=>used(d)?'':' <small class="ki-yo">予定</small>';
+  const stOk=st=>kind==='moromi'||st==='酛';
+  const kv=o=>`<div class="rc-calc">${o.map(([l,v])=>`<div>${l}<b>${v}</b></div>`).join('')}</div>`;
+  let h='';
+  // 配合・日程
+  h+=sec('配合・日程', kind==='shubo'
+    ? kv([['酵母',esc(M.yeast||'—')],['乳酸',esc(M.nyusan||(k.shubo&&k.shubo.head&&k.shubo.head.nyusan)||'—')+'ml'],['酒母T',esc(M.shuboT||'—')],['酛立',rcMD(M.motodate)],['酛卸',rcMD((k.shubo&&(k.shubo.motooroshi||k.shubo.motooroshiPlan))||(M.soe?dadd(M.soe,-1):''))],['醪T',esc(M.tank||'—')]])
+    : kv([['麹米',esc(M.kome||'—')],['掛米',esc(M.kake||'—')],['総米',(M.soumai||'—')+'kg'],['酵母',esc(M.yeast||'—')],['添',rcMD(M.soe)],['仲',rcMD(M.naka)],['留',rcMD(M.tome)],['上槽予定',rcMD(M.joso)]]));
+  // 麹
+  const kj=(k.koji||[]).filter(r=>stOk(String(r['区分']||''))).sort((a,b)=>kiSort(a,b,String(a['区分']),String(b['区分'])));
+  h+=sec(`🍚 麹${kind==='shubo'?'（酒母麹）':'（酛・添・仲・留）'}`, kj.length?`<div class="tl-scroll"><table class="rc-kv ki-t"><tr><th>麹</th><th>使用日</th><th>品種</th><th>%</th><th>kg</th><th>種麹</th><th>吸水%</th><th>引込℃</th><th>盛後℃</th><th>仲℃</th><th>留℃</th><th>出麹℃</th><th>出麹水分</th><th>出麹kg</th><th>麹歩合</th><th>引→出h</th><th>備考</th></tr>${kj.map(r=>`<tr class="${used(r['使用日'])?'':'ki-fut'}"><td><b>${esc(r['麹ID']||r['区分'])}</b>${tag(r['使用日'])}</td><td>${rcMD(r['使用日'])}</td><td>${esc(r['品種']||'')}</td><td>${rcN(r['精米歩合'])}</td><td>${rcN(r['麹米kg'])}</td><td>${esc(r['種麹']||'')}${r['種麹2']?'＋'+esc(r['種麹2']):''}</td><td>${rcN(r['吸水%'])}</td><td>${rcN(r['引込 品温'])}</td><td>${rcN(r['盛後 品温'])}</td><td>${rcN(r['仲仕事 品温'])}</td><td>${rcN(r['留仕事 品温'])}</td><td><b>${rcN(r['出麹 品温'])}</b></td><td>${rcN(r['出麹 水分%'])}</td><td>${rcN(r['出麹重量kg'])}</td><td>${rcN(r['麹歩合'])}</td><td>${rcN(r['引込→出麹 h'])}</td><td style="text-align:left;white-space:normal;min-width:90px">${esc(r['備考']||'')}${r['注意']?` <span class="rc-warn">${esc(r['注意'])}</span>`:''}</td></tr>`).join('')}</table></div>`:'<p class="muted">麹の記録なし</p>');
+  // 吸水
+  const ws=(k.wash||[]).filter(w=>stOk(String(w.stage||''))).sort((a,b)=>kiSort(a,b,String(a.stage),String(b.stage))||(String(a.rice)==='麹'?-1:1));
+  h+=sec(`💧 米の吸水${kind==='shubo'?'（酒母）':''}`, ws.length?`<div class="tl-scroll"><table class="rc-kv ki-t"><tr><th>段</th><th>米</th><th>品種</th><th>%</th><th>kg</th><th>洗米日</th><th>浸漬分</th><th>水温</th><th>吸水%</th></tr>${ws.map(w=>{ const d=kiUseDate(M,String(w.stage)); return `<tr class="${used(d)||used(w.date)?'':'ki-fut'}"><td><b>${esc(w.stage)}</b>${used(d)||used(w.date)?'':' <small class="ki-yo">予定</small>'}</td><td>${esc(w.rice)}</td><td>${esc(w.kind||'')}</td><td>${rcN(w.ratio)}</td><td>${rcN(w.kg)}</td><td>${rcMD(w.date)}</td><td>${rcN(w.shinseki)}</td><td>${rcN(w.suion)}</td><td><b>${rcN(w.kyusui)}</b></td></tr>`; }).join('')}</table></div>`:'<p class="muted">洗米の記録なし</p>');
+  // 仕込み：酒母の情報
+  if(kind==='moromi'){
+    const s=k.shubo||{}, u=s.setup||{};
+    const sd=(s.days||[]).filter(x=>[x.temp,x.tPM,x.be,x.ta,x.alc,x.aa,x.biko].some(v=>v!==''&&v!=null));
+    h+=sec('🧫 酒母', kv([['酒母T',esc(M.shuboT||'—')],['記号',esc(M.shuboSym||'—')],['酛立',rcMD(M.motodate)],['酛卸',rcMD(s.motooroshi||s.motooroshiPlan||'')],['乳酸',esc(M.nyusan||(s.head&&s.head.nyusan)||'—')+'ml'],...SH_SETUP.map(([f,l,un])=>[l,u[f]!==''&&u[f]!=null?esc(String(u[f]))+un:'—'])])
+      +(sd.length?`<div class="tl-scroll"><table class="rc-kv ki-t"><tr><th>日</th><th>日付</th><th>品温AM</th><th>PM</th><th>Be</th><th>酸度</th><th>alc</th><th>アミノ酸</th><th>備考</th></tr>${sd.map(x=>`<tr><td>${x.day}</td><td>${rcMD(x.date)}</td><td>${rcN(x.temp)}</td><td>${rcN(x.tPM)}</td><td>${rcN(x.be)}</td><td>${rcN(x.ta)}</td><td>${rcN(x.alc)}</td><td>${rcN(x.aa)}</td><td style="text-align:left;white-space:normal;min-width:70px">${esc(x.biko||'')}</td></tr>`).join('')}</table></div>`:'<p class="muted">酒母の経過の記録なし</p>')
+      +(s.biko?`<p class="tl-note">酒母の備考：${esc(s.biko)}</p>`:''));
+  }
+  return h;
+}
+async function kiDialog(no, kind){
+  const m=rcMaster(no)||{};
+  const ov=document.createElement('div'); ov.className='kge-ov';
+  const ttl=`<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--navy)">${kind==='shubo'?'🧫 酒母':'🍶 仕込み'} 順号 ${esc(String(no))}</b><span class="muted" style="font-size:12px">${esc((kind==='shubo'?m.shuboSym:m.sym)||m.sym||'')} ${esc(m.liquid||'')}・酵母 ${esc(m.yeast||'—')}</span><button class="rc-ghost" id="kiX" style="margin-left:auto;padding:4px 10px">閉じる</button></div>`;
+  ov.innerHTML=`<div class="kge-dl ki-dl" role="dialog" aria-label="順号${esc(String(no))}の情報">${ttl}<div id="kiBody"><p class="muted" style="padding:14px 0">麹・吸水の履歴を集めています…</p></div>
+    <button class="sh-link" id="kiKarte" style="margin-top:12px">📋 仕込カルテを開く（上槽・原酒評価まで）<span>›</span></button></div>`;
+  app.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
+  ov.querySelector('#kiX').onclick=close;
+  ov.querySelector('#kiKarte').onclick=()=>{ close(); go(()=>karteScreen(no)); };
+  const draw=k=>{ const b=ov.querySelector('#kiBody'); if(b&&document.body.contains(ov)) b.innerHTML=kiBody(k,kind,no); };
+  let k=RC.karte&&RC.karte[no];
+  if(k) draw(k);
+  try{ const r=await recApi({action:'karte',no},50000); if(r&&r.ok){ RC.karte[no]=r; draw(r); return; } }catch(e){}
+  if(!k){ const b=ov.querySelector('#kiBody'); if(b) b.innerHTML='<p class="muted" style="padding:14px 0;color:var(--ng)">読み込めませんでした。電波を確認してもう一度押してください。</p>'; }
+}
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-t .n .kg-info{display:block;margin:3px 0 3px;padding:3px 8px;font-size:12px;font-weight:700;color:#fff;background:#3d6fa8;border:0;border-radius:8px;cursor:pointer;white-space:nowrap}
+.kg-t .n .kg-info:active{background:#2c5585}
+.ki-dl{max-width:760px}
+.ki-t td,.ki-t th{white-space:nowrap;font-size:12px;padding:3px 5px}
+.ki-t tr.ki-fut td{color:#9a9a9a}
+.ki-yo{font-size:10px;color:#fff;background:#b9b2a3;border-radius:4px;padding:0 3px;font-weight:600}`; document.head.appendChild(s); })();
+</script>
+<!-- /kginfo -->
 <!-- upd -->
 <script>
 /* ================= 🆕 アップデート情報（ホームの最後のアイコン）2026-10-04 =================
