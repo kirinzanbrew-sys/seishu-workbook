@@ -3767,6 +3767,7 @@ function rcProbeChart(pts){
   const ticks=[]; for(let v=lo; v<=hi; v+=Math.max(1,Math.round((hi-lo)/4))) ticks.push(v);
   const f=ms=>{ const d=new Date(ms); return (d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+('0'+d.getMinutes()).slice(-2); };
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="品温の経過">
+    ${(hi>KZONE.lo&&lo<KZONE.hi)?`<rect x="${L}" y="${Y(Math.min(hi,KZONE.hi))}" width="${W-L-R}" height="${Y(Math.max(lo,KZONE.lo))-Y(Math.min(hi,KZONE.hi))}" fill="${KZONE.c}" fill-opacity=".18"/>`:''}
     ${ticks.map(v=>`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e6e1d6"/><text x="${L-4}" y="${Y(v)+3}" font-size="9" text-anchor="end" fill="#8a8272">${v}</text>`).join('')}
     ${line(pts,'room','#b9b2a3',1.2)}${PCOL.map((col,i)=>line(pts.filter(p=>p.no===i+1),'v',col,2)).join('')}
     <text x="${L}" y="${H-5}" font-size="9" fill="#8a8272">${f(x0)}</text><text x="${W-R}" y="${H-5}" font-size="9" text-anchor="end" fill="#8a8272">${f(x1)}</text></svg>
@@ -3825,6 +3826,23 @@ setTimeout(()=>{ if(recQ().length) recFlush(); },3000);
 /* ===== 2026-10-07 泰広さん指示：麹の各ボタンの背景に温度グラフ（半透明・ボタンの大きさは変えない）。
    押したら麹の画面の一番上に温度グラフ（記録した品温・品温計・基準の帯）がすぐ見えるように。 =====
    横軸＝引込からの時間（cmpStages）。基準＝KSTD（一般／輝）。品温計の連続データは一度開いた麹だけ RC.pser に控えて背景にも重ねる。 */
+/* ===== 2026-10-07 泰広さん指示：40〜42℃ の温度帯（グルコース生成に関わる）を緑の帯で示し、この帯にいた時間を出す =====
+   kZoneH(pts,maxGap)：[[時間h,品温]] を直線で結び、40〜42℃ の中にいた時間（h）。maxGap より間があく所は数えない（品温計を外していた所）
+   品温計（10分ごと）があればそれを主に、無ければ記録した品温（工程の点を直線で結んだ目安）で出す */
+const KZONE={lo:40,hi:42,c:'#1baf7a',tc:'#178a5f'};
+function kZoneH(pts,maxGap){ const q=(pts||[]).filter(p=>p&&isFinite(p[0])&&isFinite(p[1])).slice().sort((a,b)=>a[0]-b[0]); let t=0;
+  for(let i=1;i<q.length;i++){ const h0=q[i-1][0],v0=+q[i-1][1],h1=q[i][0],v1=+q[i][1], dt=h1-h0; if(!(dt>0)||(maxGap&&dt>maxGap)) continue;
+    if(v0===v1){ if(v0>=KZONE.lo&&v0<=KZONE.hi) t+=dt; continue; }
+    const a=Math.min(v0,v1), b=Math.max(v0,v1), ov=Math.max(0,Math.min(b,KZONE.hi)-Math.max(a,KZONE.lo)); t+=dt*ov/(b-a); }
+  return q.length>1?t:null; }
+function kZoneHM(h){ if(h==null) return '—'; const m=Math.round(h*60); return m<60?m+'分':Math.floor(m/60)+'時間'+(m%60?(m%60)+'分':''); }
+function kZoneCalc(d){ const rec=d.pts.length>1?kZoneH(d.pts.map(p=>[p.h,p.v])):null, probe=[];
+  [...new Set(d.pp.map(p=>p.no))].forEach(n=>{ const h=kZoneH(d.pp.filter(p=>p.no===n).map(p=>[p.h,p.v]),1); if(h!=null) probe.push([n,h]); });
+  return {rec,probe}; }
+function kZoneLine(d){ const z=kZoneCalc(d);
+  const pr=z.probe.map(([n,h])=>`品温計No${n} <b>${kZoneHM(h)}</b>`).join('　');
+  const rc=z.rec!=null?`${pr?'　':''}記録した品温から <b>${kZoneHM(z.rec)}</b><small style="color:var(--sub)">（点を直線で結んだ目安）</small>`:'';
+  return `<div style="font-size:12px;background:#e8f6ef;color:#14532d;border-radius:6px;padding:3px 8px;margin-top:4px">🟩 40〜42℃にいた時間：${pr||rc?pr+rc:'<span style="color:var(--sub)">まだ計算できません（品温の記録が2点以上で出ます）</span>'}</div>`; }
 function kTempData(r,probe){
   const pts=(typeof cmpStages==='function')?cmpStages(r):[], sk=kIsKaga(r)?'kaga':'ippan', a0=cmpAnchor(r);
   let pp=[];
@@ -3839,7 +3857,7 @@ function kRowBg(r){
     const X=h=>(100*Math.max(0,Math.min(h,xmax))/xmax).toFixed(2), Y=v=>(40*(1-(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo))).toFixed(2);
     const std=Object.keys(S.st).map(nm=>[S.h[nm],S.st[nm][0]]).sort((a,b)=>a[0]-b[0]);
     const PC=['#b23b3b','#1d5fa8','#2e8b57','#b8860b'];
-    let g='';
+    let g=`<rect x="0" y="${Y(KZONE.hi)}" width="100" height="${(Y(KZONE.lo)-Y(KZONE.hi)).toFixed(2)}" fill="${KZONE.c}" fill-opacity=".16"/>`;
     if(std.length>1) g+=`<polyline fill="none" stroke="#8a8272" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke" points="${std.map(x=>X(x[0])+','+Y(x[1])).join(' ')}"/>`;
     [...new Set(d.pp.map(p=>p.no))].forEach(n=>{ const q=d.pp.filter(p=>p.no===n); if(q.length>1) g+=`<polyline fill="none" stroke="${PC[(n-1)%4]||PC[0]}" stroke-width="1.3" vector-effect="non-scaling-stroke" points="${q.map(p=>X(p.h)+','+Y(p.v)).join(' ')}"/>`; });
     if(d.pts.length){ const pl=d.pts.map(p=>X(p.h)+','+Y(p.v)).join(' ');
@@ -3854,6 +3872,7 @@ function kTempChart(r,probe){
     const W=360,H=180,L=30,R=8,T=12,B=24;
     const std=Object.keys(S.st).map(nm=>({nm,h:HS[nm],m:S.st[nm][0],s:Math.max(S.st[nm][1],KSD_MIN)})).sort((a,b)=>a.h-b.h);
     const vs=d.pts.map(p=>p.v).concat(d.pp.map(p=>p.v),std.map(x=>x.m+x.s),std.map(x=>x.m-x.s)); if(d.sk==='ippan') vs.push(30,35);
+    vs.push(KZONE.lo,KZONE.hi);
     let lo=Math.floor(Math.min(...vs)-1), hi=Math.ceil(Math.max(...vs)+1); if(!isFinite(lo)||!isFinite(hi)){ lo=26; hi=44; }
     const xmax=Math.max(12,Math.ceil((Math.max(HS['出麹']||60,...d.pts.map(p=>p.h),...d.pp.map(p=>p.h))+2)/6)*6);
     const X=h=>(L+(W-L-R)*Math.max(0,Math.min(h,xmax))/xmax).toFixed(1), Y=v=>(T+(H-T-B)*(1-(v-lo)/(hi-lo))).toFixed(1);
@@ -3861,6 +3880,7 @@ function kTempChart(r,probe){
     let g='';
     const ys=(hi-lo)>10?2:1; for(let v=Math.ceil(lo/ys)*ys; v<=hi; v+=ys) g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#ece7dc"/><text x="${L-4}" y="${(+Y(v)+3).toFixed(1)}" font-size="9" text-anchor="end" fill="#8a8272">${v}</text>`;
     for(let h=0; h<=xmax; h+=12) g+=`<text x="${X(h)}" y="${H-B+12}" font-size="9" text-anchor="middle" fill="#8a8272">${h}h</text>`;
+    g+=`<rect x="${L}" y="${Y(KZONE.hi)}" width="${W-L-R}" height="${(Y(KZONE.lo)-Y(KZONE.hi)).toFixed(1)}" fill="${KZONE.c}" fill-opacity=".2"/><text x="${W-R-2}" y="${(+Y(KZONE.hi)+9).toFixed(1)}" font-size="8" text-anchor="end" fill="${KZONE.tc}" font-weight="700">40〜42℃</text>`;
     if(d.sk==='ippan') g+=`<rect x="${X(0.5)}" y="${Y(35)}" width="${(X(7)-X(0.5)).toFixed(1)}" height="${(Y(30)-Y(35)).toFixed(1)}" fill="#2e8b57" fill-opacity=".07" stroke="#2e8b57" stroke-opacity=".5" stroke-dasharray="3 3"/>`;
     if(std.length>1){ const up=std.map(x=>X(x.h)+','+Y(x.m+x.s)), dn=std.slice().reverse().map(x=>X(x.h)+','+Y(x.m-x.s));
       g+=`<polygon points="${up.concat(dn).join(' ')}" fill="#9aa0a6" fill-opacity=".22"/><polyline fill="none" stroke="#9aa0a6" stroke-dasharray="3 3" points="${std.map(x=>X(x.h)+','+Y(x.m)).join(' ')}"/>`; }
@@ -3874,7 +3894,8 @@ function kTempChart(r,probe){
       <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="麹の温度経過">${g}</svg>
       ${d.pts.length||d.pp.length?'':'<p class="muted" style="font-size:12px;margin:0">まだ品温の記録がありません（灰色の帯＝基準）</p>'}
       ${chips?`<div style="font-size:12px;line-height:1.7">${chips}</div>`:''}
-      <div class="tl-note" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:2px 0 0"><span>● 記録した品温（◎基準内 <span style="color:#e08a00">△</span> <span style="color:#c0392b">✕</span>）</span>${nos.map(n=>`<span><span style="display:inline-block;width:14px;height:2px;background:${PC[(n-1)%4]||PC[0]};vertical-align:middle"></span> 品温計No${n}</span>`).join('')}<span>灰色の帯＝基準 平均±1σ</span>${d.sk==='ippan'?'<span style="color:#2e8b57">緑の枠＝発芽至適30〜35℃</span>':''}<span>横軸＝引込からの時間</span></div>`;
+      ${kZoneLine(d)}
+      <div class="tl-note" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:2px 0 0"><span>● 記録した品温（◎基準内 <span style="color:#e08a00">△</span> <span style="color:#c0392b">✕</span>）</span>${nos.map(n=>`<span><span style="display:inline-block;width:14px;height:2px;background:${PC[(n-1)%4]||PC[0]};vertical-align:middle"></span> 品温計No${n}</span>`).join('')}<span style="color:#178a5f;font-weight:700">緑の帯＝40〜42℃</span><span>灰色の帯＝基準 平均±1σ</span>${d.sk==='ippan'?'<span style="color:#2e8b57">緑の点線枠＝発芽至適30〜35℃</span>':''}<span>横軸＝引込からの時間</span></div>`;
   }catch(e){ return '<p class="muted" style="font-size:12px">温度グラフを描けませんでした</p>'; }
 }
 async function kojiScreen(day){
@@ -4159,20 +4180,23 @@ async function compareScreen(force){
         cmpStages(r).forEach(p=>{ const j=kJudge(kk,p.nm,p.v); if(!j||!j.lv) return;
           marks.push([p.h,p.v,j.lv===2?'#e34948':'#eda100',`${r['麹ID']} ${p.nm} ${cmpF(p.v)}℃ ${j.mk} 基準${j.ref}`]); outs.push({r,nm:p.nm,v:p.v,j}); }); })); }
     h+=legend(groups);
-    h+= series.length ? cmpChart({id:'b',series,bands,marks,xmax:Math.max(12,Math.ceil(xmax/6)*6),xlab:'引込からの時間 h',ylab:'品温 ℃',xu:'h',yu:'℃',direct:vis.length<=4})
+    const xmB=Math.max(12,Math.ceil(xmax/6)*6); bands.unshift({c:'#1baf7a',op:.16,pts:[[0,40,42],[xmB,40,42]]});   // 2026-10-07 40〜42℃の緑の帯
+    h+= series.length ? cmpChart({id:'b',series,bands,marks,xmax:xmB,xlab:'引込からの時間 h',ylab:'品温 ℃',xu:'h',yu:'℃',direct:vis.length<=4})
       : `<p class="muted" style="text-align:center;padding:20px 0">品温の記録がありません</p>`;
     h+=`<div style="display:flex;flex-wrap:wrap;gap:14px;margin:6px 0;font-size:13px">
         <label><input type="checkbox" id="cmpEach" ${o.each?'checked':''}> 1本ずつの線（記録した品温）</label>
         <label><input type="checkbox" id="cmpProbe" ${o.probe?'checked':''}> 品温計の連続データ（${nProbe}本）</label>
         <label>基準 ${sel('cmpStd',o.std,[['auto','自動'],['ippan','一般（R7BY）'],['kaga','輝（R7BY）'],['none','出さない']])}</label></div>
       ${S?`<p class="tl-note" style="background:#f4f5f7;border-radius:8px;padding:6px 8px">灰色の帯＝<b>基準（${esc(S.name)}）</b>。濃い帯（点線＝平均）の中なら標準、薄い帯は±2σ。<span style="color:#eda100">●橙の輪</span>＝やや外れ（1〜2σ）、<span style="color:#e34948">●赤の輪</span>＝要注意（2σ超）。輝の麹は輝の基準、ほかは一般の基準で判定（下の表の◎△✕も組ごとに同じ）。${sk==='ippan'?'緑の点線枠＝教科副読本の発芽の至適 30〜35℃（p.3。一般は引込〜切返しの自蔵記録が無いため）。':''}帯の時刻は${sk==='ippan'?'今季の記録の平均（3本未満の工程は設定の標準時刻）':'R7BY輝の平均'}。判定は工程名で行うので、時刻がずれていても品温で判定します。</p>`:''}
-      <p class="tl-note">太い線＝その組の平均（工程ごとに、平均の時間と平均の品温を結んだもの）。細い線＝1本ずつ。横軸は「引込日＋引込時刻」からの時間（引込時刻が空の麹は8:00として計算）。線の点を押すと値が出ます。凡例を押すとその組を消せます。</p>`;
+      <p class="tl-note"><b style="color:#178a5f">緑の帯＝40〜42℃</b>（グルコース生成に関わる温度帯）。この帯にいた時間は下の表の「40〜42℃の時間」（品温計の連続データがある麹はそれで、無い麹は記録した品温を直線で結んだ目安）。太い線＝その組の平均（工程ごとに、平均の時間と平均の品温を結んだもの）。細い線＝1本ずつ。横軸は「引込日＋引込時刻」からの時間（引込時刻が空の麹は8:00として計算）。線の点を押すと値が出ます。凡例を押すとその組を消せます。</p>`;
     const MKC=['#1baf7a','#eda100','#e34948'];
     const refCell=n=>{ if(!S) return ''; const x=S.st[n]; return `<td style="background:#f4f5f7">${x?`<b>${cmpF(x[0])}℃</b> <small style="color:var(--sub)">±${cmpF(Math.max(x[1],KSD_MIN))}・${x[2]}本</small>`:(sk==='ippan'&&KSTD_BOOK.stages.includes(n)?`<small>${KSTD_BOOK.lo}〜${KSTD_BOOK.hi}℃<br>教科書 p.3</small>`:'—')}</td>`; };
     const avgAll=vis.map(g=>avgStages(g));
     h+=`<div class="tl-scroll"><table class="rc-kv"><tr><th>工程</th>${S?`<th style="background:#eceef1">基準<br><small>${esc(S.name)}</small></th>`:''}${vis.map(g=>`<th>${cmpDot(g.c,8)}${esc(g.k)}</th>`).join('')}</tr>
       ${CMP_STG.map(s=>s[0]).map(n=>`<tr><td>${n}</td>${refCell(n)}${vis.map((g,gi)=>{ const a=avgAll[gi].find(q=>q[2]===n); const j=a&&S?kJudge(g.rows.every(kIsKaga)?'kaga':'ippan',n,a[1]):null;
-        return `<td>${a?`<b>${cmpF(a[1])}℃</b>${j?` <b style="color:${MKC[j.lv]}">${j.mk}</b>`:''} <small style="color:var(--sub)">${cmpF(a[0])}h・${a[3]}</small>`:'—'}</td>`; }).join('')}</tr>`).join('')}</table></div>`;
+        return `<td>${a?`<b>${cmpF(a[1])}℃</b>${j?` <b style="color:${MKC[j.lv]}">${j.mk}</b>`:''} <small style="color:var(--sub)">${cmpF(a[0])}h・${a[3]}</small>`:'—'}</td>`; }).join('')}</tr>`).join('')}
+      ${(()=>{ const zr=r=>{ const pr=d.probe&&d.probe[r['麹ID']]; const zp=pr&&pr.length>1?kZoneH(pr,1):null; return zp!=null?zp:kZoneH(cmpStages(r).map(p=>[p.h,p.v])); };
+        return `<tr style="background:#e8f6ef"><td>40〜42℃の時間<br><small style="color:var(--sub)">グルコース生成</small></td>${S?'<td style="background:#f4f5f7">—</td>':''}${vis.map(g=>{ const xs=g.rows.map(zr).filter(x=>x!=null); return `<td>${xs.length?`<b>${cmpF(cmpMean(xs))}h</b> <small style="color:var(--sub)">${xs.length>1?'±'+cmpF(cmpSd(xs))+'・':''}${xs.length}本</small>`:'—'}</td>`; }).join('')}</tr>`; })()}</table></div>`;
     if(S){ const n2=outs.filter(x=>x.j.lv===2).length, n1=outs.length-n2;
       const L=outs.slice().sort((a,b)=>b.j.lv-a.j.lv||String(b.r['引込日']).localeCompare(String(a.r['引込日']))).slice(0,60);
       h+=`<details style="margin:8px 0" ${o.ng?'open':''} id="cmpNg"><summary style="font-size:13px;cursor:pointer">基準から外れた点 <b>${outs.length}</b>件（<span style="color:#e34948">✕ ${n2}</span>・<span style="color:#eda100">△ ${n1}</span>）と、教科副読本での意味</summary>
@@ -8847,6 +8871,7 @@ setTimeout(()=>{ try{ if(typeof ST!=='undefined'&&ST&&ST.token) ypFetch(); }catc
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-07-5','🟩','麹','麹の温度グラフで 40〜42℃ を緑の帯で示しました（グルコースの生成に関わる温度帯）。グラフの下に「40〜42℃にいた時間」が出ます（品温計があればその連続データ、無ければ記録した品温から）。📊麹の比較・考察の温度推移にも緑の帯と、組ごとの平均時間の行を足しました。'],
   ['2026-10-07-4','🧫','酒母','酒母の表の左、仕込番号（順号）の下に 使用酵母 を大きく出しました（🧬酵母で酵母名を変えた場合はそちらが出ます。2種類使うときは2段で表示）。'],
   ['2026-10-07-3','📝','やることリスト','上のタブに「📦 発注済」を足しました。状況を「発注済」にしたものだけが一覧で見られます（業者ごと・発注の古い順。分類でも絞り込めます）。届いたら「済」を押してください。'],
   ['2026-10-07-2','🍚','麹','麹の画面の各麹のボタンに、温度経過のグラフを半透明で出しました（青＝記録した品温、点線＝昨年の基準）。ボタンを押すと、画面の一番上に温度グラフ（基準の帯・品温計の線・◎△✕）がすぐ出ます。'],
