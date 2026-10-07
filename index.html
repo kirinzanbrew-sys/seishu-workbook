@@ -8870,7 +8870,15 @@ const KI_ST=['酛','添','仲','留'];
 function kiBtn(no,kind){ return `<button type="button" class="kg-info" data-no="${esc(String(no))}" data-kind="${kind}" aria-label="順号${esc(String(no))}の情報" title="情報">ℹ</button>`; }
 (function(){
   const oS=window.kgShuboRows, oM=window.kgMoromiRows;
-  if(typeof oS==='function') window.kgShuboRows=function(...a){ const rows=oS.apply(this,a);
+  if(typeof oS==='function') window.kgShuboRows=function(...a){ const rows=oS.apply(this,a), L=a[0]||[];
+    /* 2026-10-07 泰広さん指示：液種を太字で大きく（記号は小さく残す） */
+    rows.forEach(r=>{ const m=L.find(x=>String(x.no)===String(r.no))||rcMaster(r.no); if(!m||!r.head||!m.liquid) return;
+      const sm=`<small>${esc(m.shuboSym||m.sym||'')} ${esc(m.liquid||'')}</small>`; if(r.head.indexOf(sm)<0) return;
+      const n=String(m.liquid).length, fs=n<=4?18:n<=5?15:n<=6?12:13;
+      /* 液種は Be の行の横（順号のすぐ下）、記号は元の場所に小さく */
+      const kl=`<span class="kl" style="font-size:${fs}px">${esc(m.liquid)}</span>`;
+      r.head=r.head.replace(sm,(m.shuboSym||m.sym)?`<small>${esc(m.shuboSym||m.sym)}</small>`:'');
+      const k2='<span class="ky'; r.head=r.head.indexOf(k2)>=0?r.head.replace(k2,kl+k2):r.head.replace('</b>','</b>'+kl); });
     /* 2026-10-07 泰広さん指示：「〇日目」は出さない・情報ボタンは一番下 */
     rows.forEach(r=>{ if(r.head&&r.head.indexOf('kg-info')<0){ r.head=r.head.replace(/<small>\d+日目<\/small>/g,'')+kiBtn(r.no,'shubo'); } }); return rows; };
   if(typeof oM==='function') window.kgMoromiRows=function(list,...a){ const rows=oM.call(this,list,...a);
@@ -8879,6 +8887,27 @@ function kiBtn(no,kind){ return `<button type="button" class="kg-info" data-no="
   document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('.kg-info'); if(!b) return;
     e.stopPropagation(); e.preventDefault(); kiDialog(b.dataset.no, b.dataset.kind); }, true);
 })();
+/* 酒母の表：酵母は alc の行、タンク番号は アミノ酸 の行の高さに合わせる（2026-10-07 泰広さん指示）。描いたあと位置を測って上の余白を足す */
+function kiPlace(box){
+  /* 2026-10-07 泰広さん指示：順号・液種・酵母・タンク番号を均等な間隔に。タンク番号はアミノ酸の行の高さ、間の3つの空きを同じにする */
+  (box||app).querySelectorAll('.kg-t.ed td.n[data-kgno]').forEach(td=>{
+    const no=td.dataset.kgno, trs=[...td.closest('table').querySelectorAll('tr[data-kg]')].filter(t=>t.dataset.kg===no);
+    const at=lb=>trs.find(t=>{ const f=t.querySelector('td.f'); return f&&f.textContent.trim()===lb; });
+    const b=td.querySelector(':scope > b'), els=[td.querySelector('.kl'),td.querySelector('.ky'),td.querySelector('.tk')].filter(Boolean), tgt=at('アミノ酸');
+    if(!b) return;
+    b.style.setProperty('margin-bottom','0px','important');
+    els.forEach(e=>e.style.setProperty('margin-top','6px','important'));
+    if(!tgt||!els.length) return;
+    for(let k=0;k<4;k++){
+      const H=[b,...els].slice(0,-1).reduce((a,e)=>a+e.getBoundingClientRect().height,0);
+      const gap=Math.max(6,Math.floor((tgt.getBoundingClientRect().top+2-b.getBoundingClientRect().top-H)/els.length));
+      const cur=parseFloat(els[0].style.marginTop)||0; if(Math.abs(gap-cur)<1) break;
+      els.forEach(e=>e.style.setProperty('margin-top',gap+'px','important'));
+    }
+  });
+}
+(function(){ const o=window.kgBg; if(typeof o!=='function') return;
+  window.kgBg=function(box,...a){ try{ kiPlace(box); }catch(e){} return o.call(this,box,...a); }; })();
 function kiUseDate(M,st){ return st==='酛'?M.motodate:st==='添'?M.soe:st==='仲'?M.naka:st==='留'?M.tome:''; }
 function kiSort(a,b,ka,kb){ return KI_ST.indexOf(ka)-KI_ST.indexOf(kb) || String(a._r||'').localeCompare(String(b._r||'')); }
 function kiBody(k, kind, no){
@@ -8929,6 +8958,11 @@ async function kiDialog(no, kind){
 .kg-t .n > b{margin-bottom:6px}
 .kg-t .n .ky{margin:6px 0 8px !important}
 .kg-t .n .tk{margin:6px 0 6px !important}
+.kg-t.ed .n .ky{margin-bottom:4px !important}
+.kg-t.ed .n .tk{font-size:22px;line-height:1.1;margin-bottom:6px !important}
+.kg-t.ed .n .tk .kg-i.tki{width:56px;font-size:22px;padding:1px 3px}
+.kg-t .n .kl{display:block;font-weight:800;color:var(--navy);line-height:1.2;margin:2px 0 4px;word-break:break-all}
+.kg-t.ed .n .kg-info{width:40px;height:40px;font-size:22px;margin:10px auto 4px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .kg-t .n .kg-info:active{background:#2c5585}
 .ki-dl{max-width:760px}
 .ki-t td,.ki-t th{white-space:nowrap;font-size:12px;padding:3px 5px}
@@ -8945,6 +8979,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-07-7','🧫','酒母','酒母の表の左で、液種を太字で大きく Be の行の横、酵母を alc の行の横、タンク番号を アミノ酸 の行の横に大きく出しました。ℹ ボタンも大きくしました。'],
   ['2026-10-07-6','ℹ','酒母・仕込み','酒母と仕込みの表の左、順号のマスの一番下に丸い「ℹ」ボタンを付けました。押すと、それまでに使った麹（種麹・吸水・各工程の品温・出麹・麹歩合）と米の吸水の履歴が見られます。仕込みでは酒母の情報（仕込時の値・経過・酛卸）も出ます。仕込みにも酵母を表示し、順号・酵母・タンク番号の間をあけ、「〇日目」の表示はやめました。'],
   ['2026-10-07-5','🟩','麹','麹の温度グラフで 40〜42℃ を緑の帯で示しました（グルコースの生成に関わる温度帯）。グラフの下に「40〜42℃にいた時間」が出ます（品温計があればその連続データ、無ければ記録した品温から）。📊麹の比較・考察の温度推移にも緑の帯と、組ごとの平均時間の行を足しました。'],
   ['2026-10-07-4','🧫','酒母','酒母の表の左、仕込番号（順号）の下に 使用酵母 を大きく出しました（🧬酵母で酵母名を変えた場合はそちらが出ます。2種類使うときは2段で表示）。'],
