@@ -3934,15 +3934,14 @@ async function kojiScreen(day){
   const sec=(t,sub,list,fn)=>`<div class="rc-h">${t}<small>${sub}</small></div>`+(list.length?list.map(fn).join(''):`<p class="muted" style="margin:0 0 6px;font-size:13px">なし</p>`);
   let h=`<div class="rc-nav">${typeof o2Btn==='function'?o2Btn('koji',{icon:1}):''}<button class="d rc-dbtn" id="kDate">${djp(date)} <small>▾</small></button></div>
     <div class="rc-dstrip" id="kStrip" style="display:none"></div>
-    <div class="rc-sum"><div><span class="k">出麹</span><span class="v">${out.length}<small> 本 ${kgfmt(kg(out))}kg</small></span></div><div><span class="k">盛（仲・留仕事）</span><span class="v">${mori.length}<small> 本 ${kgfmt(kg(mori))}kg</small></span></div>
-      <div><span class="k">引込（種切・切返し）</span><span class="v">${hik.length}<small> 本 ${kgfmt(kg(hik))}kg</small></span></div><div><span class="k">洗米（麹米）</span><span class="v">${wash.length}<small> 口 ${kgfmt(wash.reduce((s,w)=>s+(Number(w.kg)||0),0))}kg</small></span></div></div>
+    <div class="rc-sum" style="grid-template-columns:repeat(3,1fr)"><div><span class="k">午前　盛（仲・留仕事）</span><span class="v">${mori.length}<small> 本 ${kgfmt(kg(mori))}kg</small></span></div>
+      <div><span class="k">午前　引込（種切・切返し）</span><span class="v">${hik.length}<small> 本 ${kgfmt(kg(hik))}kg</small></span></div><div><span class="k">午後　出麹</span><span class="v">${out.length}<small> 本 ${kgfmt(kg(out))}kg</small></span></div></div>
     ${rcRoomCard(j.room)}${rcProbeCard(j.probes)}
     <div style="display:flex;gap:6px;margin:6px 0"><button class="rc-ghost" id="kTane" style="flex:1">🧫 種麹の仕入・在庫</button><button class="rc-ghost" id="kCmp" style="flex:1">📊 麹の比較・考察</button></div>
     <div class="rc-status" id="rcStatus"></div>`;
-  h+=sec('出麹','朝いちばん。品温・重量を記録',out.sort((a,b)=>(a['出麹 順番']||99)-(b['出麹 順番']||99)),r=>row(r,'出麹'));
-  h+=sec('盛・仲仕事・留仕事','盛の順番と棚を決めて記録',mori.sort((a,b)=>(a['盛 順番']||99)-(b['盛 順番']||99)),r=>row(r,'盛'));
-  h+=sec('引込み・種切・切返し','1号室の置き場所を決めて記録',hik.sort((a,b)=>(a['引込 順番']||99)-(b['引込 順番']||99)),r=>row(r,'引込'));
-  h+=sec('洗米（麹米）の吸水','米温・水温・浸漬・吸水%',wash,wrow);
+  h+=sec('午前　盛・仲仕事・留仕事','盛の順番と棚を決めて記録',mori.sort((a,b)=>(a['盛 順番']||99)-(b['盛 順番']||99)),r=>row(r,'盛'));
+  h+=sec('午前　引込み・種切・切返し','1号室の置き場所を決めて記録',hik.sort((a,b)=>(a['引込 順番']||99)-(b['引込 順番']||99)),r=>row(r,'引込'));
+  h+=sec('午後　出麹','品温・重量を記録',out.sort((a,b)=>(a['出麹 順番']||99)-(b['出麹 順番']||99)),r=>row(r,'出麹'));
   h+=`<div class="rc-h">配置図<small>どの麹をどこに置いたか（順番・場所は各麹の画面で入れる）</small></div>
     <div class="card"><b style="font-size:13px">1号室（引込み）</b>${map1(hik,'引込 場所')}<b style="font-size:13px">2号室${out.length?'（上＝出麹で埋まっている箱／下＝盛）':'（盛）'}</b>${rcMap2(out,mori,j.probes)}</div>
     <p class="tl-note">目標品温・標準時刻は「麹管理R8BY › 設定」。印刷・履歴分析・週間予定は <a href="${REC_SS_KOJI}" target="_blank" rel="noopener">スプレッドシート（PC）</a>。</p>`;
@@ -9022,6 +9021,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-08-4','🍚','麹','麹の画面から「洗米（麹米）の吸水」の欄を外しました。作業の順に、午前：盛 → 午前：引込み → 午後：出麹 と並べ替えました（上の数字の箱も同じ順）。'],
   ['2026-10-08-3','🌾','米管理（在庫管理）','増減の欄に「+0.3」のようにプラスを付けて入れても保存されなかったのを直しました（＋・－・全角の数字も入れられます）。入力したら Enter（次へ）で次の品種の欄に移れます。保存は裏で行い、画面の下に「保存しました」と出ます。'],
   ['2026-10-08-2','📋','ホーム','本日の予定の蒸米の段を、麹の引込・酒母仕込・仕込みが終わるまで伸ばしました（蒸米はその間ずっと同時作業）。いつもと違う段取りの日（10/9 は 8:00 から蒸米を飛ばし、麹 → 酒母の順）に合わせて並べられるようにし、カレンダーの全体会議などの「会議」も予定の枠に出るようにしました。'],
   ['2026-10-08-1','🖥','全体（PC）','パソコンで開いたとき、横にスクロールしないと見えなかった表は、画面の横幅いっぱいに広げて表示するようにしました。スマホ・iPadの見え方は今までどおりです。'],
