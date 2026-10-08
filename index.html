@@ -3611,6 +3611,9 @@ const REC_CSS = `
 .rc-map div{background:#fff;border:1px solid var(--line);border-radius:7px;min-height:44px;padding:3px 4px;font-size:11px;text-align:center;display:flex;flex-direction:column;justify-content:center}
 .rc-map div b{color:var(--sub);font-size:10px;font-weight:600}
 .rc-map div.on{background:#e9f3ec;border-color:var(--ok)} .rc-map div.on b{color:var(--ok)}
+.k-rm{display:flex;align-items:baseline;gap:10px;font-size:14px;margin:2px 0 0}
+.k-rm .t{font-weight:700;color:var(--navy);font-size:16px}.k-rm .t small{font-size:11px;color:var(--sub);font-weight:500}
+.k-rm .st{color:#b23b3b;font-size:12px;font-weight:700}
 .rc-map div em{font-style:normal;font-weight:700;color:var(--navy);font-size:12px;line-height:1.2}
 .rc-tabs{display:flex;gap:6px;margin:12px 0 8px}
 .rc-tabs button{flex:1;padding:9px;border:1px solid var(--line);background:#fff;border-radius:9px;font-family:inherit;font-size:14px;color:var(--sub);cursor:pointer}
@@ -3679,6 +3682,11 @@ function rcField(id,label,val,opt){ opt=opt||{}; const hint=opt.hint?`<i>${esc(o
 function rcDiff(defs, orig){ const out={}; defs.forEach(([c])=>{ const el=$('#'+rcId(c)); if(!el)return; const v=el.value; if(String(v)!==String(orig[c]??'')) out[c]=v; }); return out; }
 const rcId=c=>'rc_'+c.replace(/[^\w]/g,m=>m.charCodeAt(0).toString(16));
 
+/* 2026-10-08 配置図の中の品温計の札（番号＋今の温度）と、部屋の横の室温 */
+function rcPbTag(pr,n){ const x=(pr||{})[n]||{}; return `<i class="pb">No${n} ${(x.temp!=null&&!x.stale)?x.temp+'℃':'—'}</i>`; }
+function rcRoomTag(x){ if(!x) return '';
+  if(x.stale) return `<span class="st">停止中 ${esc(x.time||'')}から</span>`;
+  return `<span class="t">${x.temp!=null?x.temp:'—'}<small>℃</small> ${x.hum!=null?x.hum:'—'}<small>%</small></span>`; }
 /* 麹室の室温・湿度（おんどとり → 醸造記録 R8BY が10分ごとに取得。2026-09-29 追加） */
 function rcRoomCard(rm){
   if(!rm||(!rm.r1&&!rm.r2)) return '';
@@ -3718,7 +3726,7 @@ function rcMap2(out,mori,probes){
   const oPl=r=>rcPlaces(r['出麹 場所']).length?rcPlaces(r['出麹 場所']):rcPlaces(r['盛 場所']);
   const ids=(list,fn,pl)=>list.filter(r=>fn(r).includes(pl)).map(r=>r['麹ID']);
   const pb=(pl,a)=>Object.entries(probes||{}).filter(([n,x])=>x&&x.id&&x.place===pl&&a.includes(x.id)).map(([n])=>n);
-  const half=(a,cls,pl)=>{ const p=pb(pl,a); return `<div class="${cls}" style="${a.length?`background:${RC_KCOL[String(a[0]).charAt(0)]||'#e9f3ec'}`:''}">${a.map(x=>`<em>${esc(x)}</em>`).join('')}${p.map(n=>`<i class="pb">No${n}</i>`).join('')}</div>`; };
+  const half=(a,cls,pl)=>{ const p=pb(pl,a); return `<div class="${cls}" style="${a.length?`background:${RC_KCOL[String(a[0]).charAt(0)]||'#e9f3ec'}`:''}">${a.map(x=>`<em>${esc(x)}</em>`).join('')}${p.map(n=>rcPbTag(probes,n)).join('')}</div>`; };
   const box=(lb,pl)=>{ const o=ids(out,oPl,pl), m=ids(mori,r=>rcPlaces(r['盛 場所']),pl);
     return `<div class="bx"><b>${lb}</b>${out.length?half(o,'up',pl):''}${half(m,'dn',pl)}</div>`; };
   const grp=a=>`<div class="g" style="flex:${a.length} 1 0">${a.join('')}</div>`;
@@ -3932,22 +3940,24 @@ async function kojiScreen(day){
       <span class="id">${esc(w.stage)}${w.no}<small>${esc(w.rice)}</small></span>
       <span class="mid"><span class="b">${esc(w.liquid)}</span><br><span class="d">${esc(w.kind)} ${w.ratio}%・${w.kg}kg</span></span>
       <span class="r"><b>${w.kyusui!==''?'吸水 '+rcN(w.kyusui)+'%':'未'}</b><span>${w.shinseki!==''?'浸漬'+w.shinseki+'分':''} ${w.suion!==''?'水温'+w.suion+'℃':''}</span></span></button>`;
-  const map1=(list,pc)=>`<div class="rc-map" style="grid-template-columns:repeat(4,1fr)">${['D','C','B','A'].map(p=>{ const x=list.filter(r=>rcPlaces(r[pc]).includes(p)); const pn=Object.entries(j.probes||{}).filter(([n,q])=>q&&q.id&&q.place===p&&x.some(r=>r['麹ID']===q.id)).map(([n])=>n); return `<div class="${x.length?'on':''}"><b>${p}</b>${x.map(r=>`<em>${esc(r['麹ID'])} ${r['麹米kg']}kg</em>`).join('')}${pn.map(n=>`<i class="pb">No${n}</i>`).join('')}</div>`; }).join('')}</div><div class="tl-note" style="margin:-4px 0 6px;display:flex;justify-content:space-between"><span>奥</span><span>手前</span></div>`;
+  const map1=(list,pc)=>`<div class="rc-map" style="grid-template-columns:repeat(4,1fr)">${['D','C','B','A'].map(p=>{ const x=list.filter(r=>rcPlaces(r[pc]).includes(p)); const pn=Object.entries(j.probes||{}).filter(([n,q])=>q&&q.id&&q.place===p&&x.some(r=>r['麹ID']===q.id)).map(([n])=>n); return `<div class="${x.length?'on':''}"><b>${p}</b>${x.map(r=>`<em>${esc(r['麹ID'])} ${r['麹米kg']}kg</em>`).join('')}${pn.map(n=>rcPbTag(j.probes,n)).join('')}</div>`; }).join('')}</div><div class="tl-note" style="margin:-4px 0 6px;display:flex;justify-content:space-between"><span>奥</span><span>手前</span></div>`;
   const map2=(list,pc)=>`<div class="tl-note">麹棚</div><div class="rc-map" style="grid-template-columns:repeat(5,1fr)">${[10,9,8,7,6,5,4,3,2,1].map(i=>{ const x=list.filter(r=>r[pc]==='麹棚'+i); return `<div class="${x.length?'on':''}"><b>棚${i}</b>${x.map(r=>`<em>${esc(r['麹ID'])}</em>`).join('')}</div>`; }).join('')}</div>
     <div class="tl-note">天幕</div><div class="rc-map" style="grid-template-columns:repeat(5,1fr)">${['L5','L4','L3','L2','L1','R5','R4','R3','R2','R1'].map(n=>{ const x=list.filter(r=>r[pc]==='天幕'+n); return `<div class="${x.length?'on':''}"><b>${n}</b>${x.map(r=>`<em>${esc(r['麹ID'])}</em>`).join('')}</div>`; }).join('')}</div>`;
   const sec=(t,sub,list,fn)=>`<div class="rc-h">${t}<small>${sub}</small></div>`+(list.length?list.map(fn).join(''):`<p class="muted" style="margin:0 0 6px;font-size:13px">なし</p>`);
+  const rmJ=j.room||{}, prJ=j.probes||{}, onMap=new Set([...hik,...out,...mori].map(r=>r['麹ID']));
+  const pbEx=Object.entries(prJ).filter(([n,x])=>x&&x.id&&(!x.place||!onMap.has(x.id)));
+  const mapCard=`<div class="rc-h">配置図<small>順番・場所は各麹の画面で入れる</small></div>
+    <div class="card k-mapc"><div class="k-rm"><b>1号室</b>${rcRoomTag(rmJ.r1)}</div>${map1(hik,'引込 場所')}<div class="k-rm"><b>2号室</b>${rcRoomTag(rmJ.r2)}</div>${rcMap2(out,mori,prJ)}${pbEx.length?`<p class="tl-note" style="margin:4px 0 0">配置図にない品温計：${pbEx.map(([n,x])=>`No${n}（${esc(x.id)}）${(x.temp!=null&&!x.stale)?x.temp+'℃':'—'}`).join('　')}</p>`:''}${rmJ.at?`<p class="tl-note" style="margin:4px 0 0">おんどとり ${esc(rmJ.at)} 取得</p>`:''}</div>`;
   let h=`<div class="rc-nav">${typeof o2Btn==='function'?o2Btn('koji',{icon:1}):''}<button class="d rc-dbtn" id="kDate">${djp(date)} <small>▾</small></button><button class="k-ic" id="kTane" type="button" title="種麹の仕入・在庫" aria-label="種麹の仕入・在庫"><span>種</span></button><button class="k-ic" id="kCmp" type="button" title="麹の比較・考察" aria-label="麹の比較・考察"><span class="i">i</span></button></div>
     <div class="rc-dstrip" id="kStrip" style="display:none"></div>
     <div class="rc-sum" style="grid-template-columns:repeat(3,1fr)"><div><span class="k">盛（仲・留仕事）</span><span class="v">${mori.length}<small> 本 ${kgfmt(kg(mori))}kg</small></span></div>
       <div><span class="k">引込（種切・切返し）</span><span class="v">${hik.length}<small> 本 ${kgfmt(kg(hik))}kg</small></span></div><div><span class="k">出麹</span><span class="v">${out.length}<small> 本 ${kgfmt(kg(out))}kg</small></span></div></div>
-    ${rcRoomCard(j.room)}${rcProbeCard(j.probes)}
+    ${mapCard}
     <div class="rc-status" id="rcStatus"></div>`;
   h+=sec('盛・仲仕事・留仕事','盛の順番と棚を決めて記録',mori.sort((a,b)=>(a['盛 順番']||99)-(b['盛 順番']||99)),r=>row(r,'盛'));
   h+=sec('引込み・種切・切返し','1号室の置き場所を決めて記録',hik.sort((a,b)=>(a['引込 順番']||99)-(b['引込 順番']||99)),r=>row(r,'引込'));
   h+=sec('出麹','品温・重量を記録',out.sort((a,b)=>(a['出麹 順番']||99)-(b['出麹 順番']||99)),r=>row(r,'出麹'));
-  h+=`<div class="rc-h">配置図<small>どの麹をどこに置いたか（順番・場所は各麹の画面で入れる）</small></div>
-    <div class="card"><b style="font-size:13px">1号室（引込み）</b>${map1(hik,'引込 場所')}<b style="font-size:13px">2号室${out.length?'（上＝出麹で埋まっている箱／下＝盛）':'（盛）'}</b>${rcMap2(out,mori,j.probes)}</div>
-    <p class="tl-note">目標品温・標準時刻は「麹管理R8BY › 設定」。印刷・履歴分析・週間予定は <a href="${REC_SS_KOJI}" target="_blank" rel="noopener">スプレッドシート（PC）</a>。</p>`;
+  h+=`<p class="tl-note">目標品温・標準時刻は「麹管理R8BY › 設定」。印刷・履歴分析・週間予定は <a href="${REC_SS_KOJI}" target="_blank" rel="noopener">スプレッドシート（PC）</a>。</p>`;
   app.innerHTML=h;
   if($('#kTane')) $('#kTane').onclick=()=>go(()=>taneScreen());
   if($('#kCmp')) $('#kCmp').onclick=()=>go(()=>compareScreen());
@@ -9078,6 +9088,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-08-7','🍚','麹','配置図を上（日付の下）に移しました。1号室・2号室の横に部屋の温度・湿度、配置図の中の品温計（No）の札に今の温度を出します。見出しの「引込み」「盛」は外しました。'],
   ['2026-10-08-6','🍚','麹','麹の画面の上の日付ボタンを半分の幅にして、隣に青い丸のアイコンを置きました。「種」＝種麹の仕入・在庫、「i」＝麹の比較・考察。'],
   ['2026-10-08-5','📋','ホーム','本日の予定のボタンを押すと、きのう〜2週間先の日付の一覧から選べるようにしました（右に蒸米・添・会議など主な作業）。段を細くして枠に納め、カレンダーは3件まで（ほか◯件で全部）、出勤者だけ表示（押すと休みも）。全体会議は会議の段を作らず、全員の段に赤い帯で重ねました。「きょうの洗米」「在庫チェック」の行はなくしました。'],
   ['2026-10-08-4','🍚','麹','麹の画面から「洗米（麹米）の吸水」の欄を外しました。作業の順に、盛 → 引込み → 出麹 と並べ替えました（上の数字の箱も同じ順）。'],
