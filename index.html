@@ -5654,6 +5654,12 @@ body.hm .dp-ics{margin:clamp(6px,1.6dvh,16px) 0 0;gap:clamp(4px,1.3dvh,12px) 6px
 .dp-mtg span{position:absolute;left:3px;top:-1px;font-size:9.5px;font-weight:800;color:#b31b14;white-space:nowrap;line-height:12px}
 .dp-kn{cursor:pointer}.dp-kn .tg{color:var(--sub);font-size:10px;margin-left:4px;flex:none}
 .dp-cal .more{display:block;margin:0 0 0 auto;border:0;background:none;color:var(--navy);font-size:11px;font-family:inherit;cursor:pointer;padding:2px 0}
+/* 2026-10-08 泰広さん指示（案1）：ホームは山の写真を一番上から。紺の帯・「戻る」・「製造ツール」は出さない（ほかの画面は今まで通り） */
+body.hm header{position:absolute;left:0;right:0;top:0;background:linear-gradient(180deg,rgba(15,30,50,.45),rgba(15,30,50,0));box-shadow:none}
+body.hm header #back,body.hm header #ttl{display:none}
+body.hm header .who{margin-left:auto;background:rgba(15,30,50,.35);border-color:rgba(255,255,255,.5);color:#fff}
+body.hm #app>.kz{height:calc(clamp(52px,13dvh,132px) + 56px + min(env(safe-area-inset-top),48px))}
+@media (max-height:620px){ body.hm #app>.kz{display:block;height:calc(52px + min(env(safe-area-inset-top),48px))} }
 `; document.head.appendChild(s); })();
 
 const dpMin=t=>{ const m=String(t||'').match(/^(\d{1,2}):(\d{2})/); return m?(+m[1])*60+(+m[2]):null; };
@@ -9088,6 +9094,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-08-8','🏔','ホーム','ホームの山の写真を画面の一番上から出すようにしました（紺色の帯と「戻る」「製造ツール」の文字をなくし、IDのボタンだけ写真の上に）。ほかの画面は今まで通りです。'],
   ['2026-10-08-7','🍚','麹','配置図を上（日付の下）に移しました。1号室・2号室の横に部屋の温度・湿度、配置図の中の品温計（No）の札に今の温度を出します。見出しの「引込み」「盛」は外しました。'],
   ['2026-10-08-6','🍚','麹','麹の画面の上の日付ボタンを半分の幅にして、隣に青い丸のアイコンを置きました。「種」＝種麹の仕入・在庫、「i」＝麹の比較・考察。'],
   ['2026-10-08-5','📋','ホーム','本日の予定のボタンを押すと、きのう〜2週間先の日付の一覧から選べるようにしました（右に蒸米・添・会議など主な作業）。段を細くして枠に納め、カレンダーは3件まで（ほか◯件で全部）、出勤者だけ表示（押すと休みも）。全体会議は会議の段を作らず、全員の段に赤い帯で重ねました。「きょうの洗米」「在庫チェック」の行はなくしました。'],
