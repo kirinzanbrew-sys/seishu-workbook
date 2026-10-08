@@ -5312,9 +5312,10 @@ const DP_MUSHI=['08:30','09:40'];                  // 蒸米 スタート・仕�
 const DP_AFTER={ shubo:[0,60], shikomi:[20,140] };  // 仕上がりから何分後に始め、何分かかるか（酒母仕込＝すぐ／仕込み＝放冷して20分後〜12:00）
 const DP_AX=['08:00','17:00'];
 /* 特別対応の日（2026-10-08 泰広さん指示）。いつもと違う段取りの日だけ足す（済んだ日は消してよい）
-   mushi：蒸米を飛ばし始める時刻（＝仕上がり）／order：その後の順番（前の作業が終わったら次）／note：蒸米の詳細に出す一言 */
+   mushi：蒸米を飛ばし始める時刻（＝仕上がり）／order：その後の順番（前の作業が終わったら次）／note：蒸米の詳細に出す一言
+   skip：その日だけ出さない麹の工程（例 ['切返し']。2026-10-09 追加）／senmai：その日だけの洗米の時刻（例 ['10:30','12:00']） */
 const DP_SPECIAL={
-  '2026-10-09':{ mushi:'08:00', order:['koji','shubo','shk'], note:'特別対応：8:00 から蒸米を飛ばす（麹 → 酒母の順）。午後は全体会議' }
+  '2026-10-09':{ mushi:'08:00', order:['koji','shubo','shk'], skip:['切返し'], senmai:['10:30','12:00'], note:'特別対応：8:00 から蒸米を飛ばす（麹 → 酒母の順）。午後は全体会議のため麹の切返しはなし・洗米は午前10:30から' }
 };
 const DP_MTG_PM=['13:00','17:00'], DP_MTG_AM=['08:00','12:00'];   // カレンダーの「会議」で時刻がないとき（午後／午前）
 const DP_LUNCH=['12:00','13:00'];   // 2026-10-09 泰広さん指示：昼休み（全部の担当の段に薄い帯で重ねる）
@@ -5430,7 +5431,7 @@ function dpItems(date){
     const pl=r=>String(r['盛 場所']||r['引込 場所']||'').replace(/麹棚/g,'棚').replace(/天幕/g,'');
     const line=r=>`${r['麹ID']}　${r['液種']||''} ${r['品種']||''}${r['精米歩合']?r['精米歩合']+'%':''}　${r['麹米kg']||''}kg${pl(r)?'　'+pl(r):''}`;
     const hk0=dpMin((tg['引込']||{}).time||DP_T.koji['引込'][0]), sft=(SP&&SP.mushi)?dpMin(SP.mushi)-hk0:0;
-    const kst=(k,list)=>{ if(!list.length) return; const T=DP_T.koji[k]; let t=(tg[k==='盛'?'盛後':k]||{}).time||T[0]; if(!t) return;
+    const kst=(k,list)=>{ if(!list.length) return; if(SP&&SP.skip&&SP.skip.indexOf(k)>=0) return;   /* 2026-10-09：特別対応の日は skip の工程を出さない */ const T=DP_T.koji[k]; let t=(tg[k==='盛'?'盛後':k]||{}).time||T[0]; if(!t) return;
       if(sft&&/^(引込|種切|切返し)$/.test(k)) t=dpHM(dpMin(t)+sft);
       const o=add('koji',t,T[1],(T[1]<20?k.slice(0,1):`${k}${list.length}`),'dp-k',{title:`麹　${k}（${list.length}本）`,time:t,lines:list.map(line),open:()=>kojiScreen(date),openL:'麹の画面を開く'},T[1]<20); if(o&&k==='引込') USE.push(o); };
     const mori=rows.filter(r=>r['盛日']===date), hik=rows.filter(r=>r['引込日']===date), dek=rows.filter(r=>r['出麹日']===date);
@@ -5489,7 +5490,8 @@ function dpItems(date){
   if(sd&&sd.e&&sd.e.length){
     const cols=S.cols||[]; const ents=sd.e.map(e=>({kb:(cols[e[0]]||[])[0]||'',g:(cols[e[0]]||[])[1]||'',rice:e[1],ratio:e[2],prod:e[4],no:e[5],kg:Number(e[6]||0)}));
     const kg=ents.reduce((a,x)=>a+x.kg,0);
-    add('sen',DP_T.senmai[0],DP_T.senmai[1],`洗米${ents.length}件`,'dp-w',{title:`洗米（${ents.length}件・${Math.round(kg).toLocaleString('ja-JP')}kg）`,time:DP_T.senmai.join('〜')+'（目安）',
+    const SN=(SP&&SP.senmai)||DP_T.senmai;   // 2026-10-09：特別対応の日は DP_SPECIAL の senmai
+    add('sen',SN[0],SN[1],`洗米${ents.length}件`,'dp-w',{title:`洗米（${ents.length}件・${Math.round(kg).toLocaleString('ja-JP')}kg）`,time:SN.join('〜')+'（目安）',
       lines:ents.map(x=>`${x.g}${x.kb}　${x.rice} ${x.ratio}%　${x.prod||''} No.${x.no}　${kgfmt(x.kg)}kg`),open:()=>senmaiScreen(date),openL:'洗米チェックを開く'});
   }
   // 米の引き取り（2026-10-06 泰広さん指示）：引取予定表（MFG.hikitori）から自動。15:30〜 米移動（5人ほど・約15分）
@@ -8835,6 +8837,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-09-4','🍚','ホーム','10/9（金）は午後に全体会議のため、本日の予定から麹の切返しをはずし、洗米を午前10:30からにしました（特別対応の日の設定）。'],
   ['2026-10-09-3','🍚','ホーム','本日の予定で、通常の洗米を13:00からの並びにしました（昼休みのあと）。蒸米が13:00を過ぎる日は、蒸米が終わってから並びます。'],
   ['2026-10-09-2','🍙','ホーム','本日の予定に、12:00〜13:00 の昼休みを薄い帯で出すようにしました。蒸米の棒は「蒸米」だけの表示にしました（米の区分は押すと出ます）。'],
   ['2026-10-09-1','🍚','ホーム','本日の予定の並びを直しました。仕込みは蒸米と同じ時刻に終わり、洗米は蒸米が終わってから並びます（蒸米中は洗米しない）。'],
