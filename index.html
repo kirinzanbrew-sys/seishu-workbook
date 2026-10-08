@@ -76,87 +76,6 @@ h2{font-size:15px;margin:22px 0 10px;font-weight:600;color:var(--navy);
 .kz-pride{text-align:center;font-size:11.5px;color:var(--sub);margin:12px 4px 0}
 .kz-pride b{color:var(--gold)}
 
-/* ===== ホーム：亀甲（六角形）ならべ ===== */
-/* 正六角形：高さ＝幅×1.1547。3列を等間隔に並べる（ずらして噛み合わせない）。 */
-.hx{--g:10px;--w:calc((100% - 2 * var(--g)) / 3);margin:10px 0 2px;user-select:none}
-.hx .row{display:flex;gap:var(--g);justify-content:space-between}
-.hx .row + .row{margin-top:12px}
-.hxb{width:var(--w);aspect-ratio:1 / 1.1547;flex:0 0 auto;position:relative;
-  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
-  -webkit-clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
-  border:0;padding:0;margin:0;font-family:inherit;color:#26210f;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  text-decoration:none;overflow:hidden;transition:filter .12s,transform .12s;
-  filter:drop-shadow(0 2px 3px rgba(84,72,24,.22))}
-.hxb::after{content:"";position:absolute;inset:0;pointer-events:none;
-  background:linear-gradient(152deg,rgba(255,255,255,.42),rgba(255,255,255,0) 56%)}
-.hxb:active{filter:drop-shadow(0 1px 2px rgba(84,72,24,.2)) brightness(1.06);transform:scale(.93)}
-.hxb{will-change:transform}
-/* 稲の模様（穂・籾・葉）。墨の線をうっすら */
-.hxb .tex{position:absolute;inset:0;z-index:0;pointer-events:none}
-
-/* ---- 出てくるときの動き（1つずつ順に） ---- */
-@keyframes hxIn{
-  0%  {opacity:0;transform:scale(.62) translateY(12px)}
-  62% {opacity:1;transform:scale(1.045) translateY(0)}
-  100%{opacity:1;transform:scale(1) translateY(0)}
-}
-.hx .hxb{animation:hxIn .46s cubic-bezier(.22,1.1,.36,1) both;
-  animation-delay:calc(var(--i,0) * 42ms)}
-.hx .hxw{animation:hxIn .46s cubic-bezier(.22,1.1,.36,1) both;
-  animation-delay:calc(var(--i,0) * 42ms)}
-.hx .hxw .hxb{animation:none}
-
-/* ---- 光が一度すっと流れる ---- */
-.hxb .sheen{position:absolute;top:0;left:0;width:55%;height:100%;z-index:2;pointer-events:none;
-  background:linear-gradient(105deg,rgba(255,255,255,0),rgba(255,255,255,.55),rgba(255,255,255,0));
-  transform:translateX(-160%) skewX(-12deg);
-  animation:hxSheen 1.15s ease-out both;
-  animation-delay:calc(var(--i,0) * 42ms + 300ms)}
-@keyframes hxSheen{0%{transform:translateX(-160%) skewX(-12deg)}100%{transform:translateX(330%) skewX(-12deg)}}
-
-/* ---- 赤い丸：ゆっくり脈打つ ---- */
-@keyframes hxPulse{
-  0%,72%,100%{transform:scale(1)}
-  80%{transform:scale(1.18)}
-  88%{transform:scale(1)}
-}
-.hxn{animation:hxPop .3s cubic-bezier(.2,1.4,.4,1) both calc(var(--i,0) * 42ms + 380ms),
-  hxPulse 3.2s ease-in-out 1.6s infinite;transform-origin:center}
-@keyframes hxPop{0%{opacity:0;transform:scale(0)}100%{opacity:1;transform:scale(1)}}
-
-/* ---- 「きょう」の行はあとから浮き上がる ---- */
-@keyframes hxUp{0%{opacity:0;transform:translateY(9px)}100%{opacity:1;transform:translateY(0)}}
-.hx-today span{animation:hxUp .42s ease-out both;animation-delay:calc(440ms + var(--i,0) * 70ms)}
-
-@media (prefers-reduced-motion:reduce){
-  .hx .hxb,.hx .hxw,.hxb .sheen,.hxn,.hx-today span,.hxtag{animation:none!important}
-  .hxb .sheen{display:none}
-}
-.hxb .e{font-size:clamp(20px,6.4vw,26px);line-height:1;position:relative;z-index:1}
-.hxb .lb{font-size:clamp(9.5px,2.9vw,11.5px);font-weight:700;line-height:1.25;text-align:center;
-  padding:0 7px;position:relative;z-index:1;letter-spacing:-.02em}
-.hxb .sm{display:block;font-weight:400;font-size:.86em;opacity:.7}
-.hxw{position:relative;flex:0 0 auto;width:var(--w);aspect-ratio:1 / 1.1547}
-.hxw .hxb{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto}
-/* 在庫未確認の赤い帯（16:45以降。米管理の六角形の中に重ねる） */
-@keyframes hxBlink{0%,100%{opacity:1}50%{opacity:.3}}
-.hxtag{position:absolute;left:6%;right:6%;bottom:17%;z-index:3;background:#d62b22;color:#fff;
-  font-size:9.5px;font-weight:700;text-align:center;border-radius:4px;padding:2.5px 0;
-  letter-spacing:.01em;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.25);
-  animation:hxBlink 1.1s ease-in-out infinite}
-.hx-today span.w.bl{animation:hxUp .42s ease-out both,hxBlink 1.1s ease-in-out 1s infinite}
-.hxn{position:absolute;top:8%;right:7%;z-index:3;background:#d62b22;color:#fff;
-  font-size:11px;font-weight:700;min-width:21px;height:21px;border-radius:99px;
-  display:flex;align-items:center;justify-content:center;padding:0 6px;
-  border:2px solid var(--paper);pointer-events:none}
-.hx-today{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:16px 2px 2px}
-.hx-today span{font-size:12px;color:var(--sub);background:#fff;border:1px solid var(--line);
-  border-radius:99px;padding:3px 11px;white-space:nowrap}
-.hx-today b{color:var(--navy);font-size:12.5px}
-.hx-today span.w{border-color:#e6b9b6;background:#fdf3f2;color:#8a2c28}
-.hx-today span.w b{color:#b02a26}
-
 .ring{width:46px;height:46px;flex:0 0 46px;position:relative}
 .ring svg{transform:rotate(-90deg)}
 .ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -646,45 +565,9 @@ function homeBadge(kind){
   }
   return 0;
 }
-function homeToday(){
-  const M=homeMfg(); if(!M) return '';
-  const d=homeDay(); const out=[];
-  const S=M.senmai;
-  if(S&&S.days&&S.days[d]){
-    const e=S.days[d].e||[];
-    const kg=e.reduce((a,x)=>a+Number(x[6]||0),0);
-    out.push(`<span>きょうの洗米 <b>${e.length}件・${Math.round(kg).toLocaleString('ja-JP')}kg</b></span>`);
-  }
-  const left=homeRiceLeft();
-  if(left) out.push(riceAlertOn()
-    ? `<span class="w bl">⚠ 在庫未確認 <b>${left}品種</b></span>`
-    : `<span class="w">在庫チェック 残り <b>${left}品種</b></span>`);
-  const cal=homeBadge('cal');
-  if(cal) out.push(`<span>振休の承認待ち <b>${cal}件</b></span>`);
-  if(!out.length) return '';
-  return `<div class="hx-today">${out.map((x,i)=>x.replace('<span','<span style="--i:'+i+'"')).join('')}</div>`;
-}
 
 /* ===== 六角形の中の稲の模様 =====
    ho＝実った穂の粒、momi＝籾のすじ、ha＝葉脈。墨の細い線をうっすら重ねる。 */
-function hexTex(kind){
-  const o = a => `stroke="#3d3413" stroke-opacity="${a}" fill="none" stroke-linecap="round"`;
-  let g = '';
-  if(kind==='ho'){
-    for(let c=0;c<3;c++){ const bx=26+c*24;
-      for(let i=0;i<7;i++){ const y=14+i*12, dx=(i%2?4:-4);
-        g += `<ellipse cx="${bx+dx}" cy="${y}" rx="4.6" ry="7" ${o(.17)} stroke-width="1.4" transform="rotate(${dx>0?14:-14} ${bx+dx} ${y})"/>`; } }
-  } else if(kind==='momi'){
-    for(let i=-4;i<=4;i++){ const x=50+i*9;
-      g += `<path d="M${x},6 C${x+i*1.6},34 ${x+i*1.6},66 ${x},94" ${o(.16)} stroke-width="1.6"/>`; }
-  } else if(kind==='ha'){
-    g = `<path d="M50,4 C50,35 50,68 50,96" ${o(.22)} stroke-width="2"/>`;
-    for(let i=0;i<7;i++){ const y=14+i*11.5;
-      g += `<path d="M50,${y} C36,${y+3} 26,${y+9} 20,${y+17}" ${o(.15)} stroke-width="1.5"/>`;
-      g += `<path d="M50,${y} C64,${y+3} 74,${y+9} 80,${y+17}" ${o(.15)} stroke-width="1.5"/>`; }
-  } else return '';
-  return `<svg class="tex" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${g}</svg>`;
-}
 
 /* ===== 麒麟山の帯 =====
    同じフォルダに kirinzan.jpg があればその写真を、無ければ描いた稜線を出す。
@@ -744,24 +627,7 @@ function home(){
     {href:'voice.html', e:'🎙', lb:'Sake Tour<br>Guide', c:['#8abd6c','#70a453'], t:'ha'},
     {id:'bUpd', e:'🆕', lb:'アップデート<br>情報', c:['#7fb465','#669b4d'], t:'ha', n:(typeof updBadge==='function'?updBadge():0)}
   ];
-  const hex = (x,i) => {
-    const inner = `${hexTex(x.t)}<span class="sheen"></span><span class="e">${x.e}</span><span class="lb">${x.lb}</span>`;
-    const st = `--i:${i};background:linear-gradient(150deg,${x.c[0]},${x.c[1]})`;
-    const b = x.href
-      ? `<a class="hxb" href="${x.href}" style="${st}">${inner}</a>`
-      : `<button class="hxb" id="${x.id}" style="${st}">${inner}</button>`;
-    if(!x.n && !x.tag) return b;
-    return `<span class="hxw" style="--i:${i}">${b}`
-      + (x.tag ? `<span class="hxtag">${x.tag}</span>` : '')
-      + (x.n ? `<span class="hxn">${x.n}</span>` : '')
-      + `</span>`;
-  };
-  let rows='';
-  for(let r=0;r<4;r++) rows += `<div class="row">${hexes.slice(r*3,r*3+3).map((x,i)=>hex(x,r*3+i)).join('')}</div>`;
-  let h=(typeof dpHome==='function')?dpHome(hexes):`${kirinzanBand()}
-  <div style="height:12px"></div>
-  <div class="hx">${rows}</div>
-  ${homeToday()}`;
+  let h=dpHome(hexes);   // 2026-10-09 六角形のホーム（読み込み途中の仮表示）を廃止
   if(ONLINE_OK&&ST.q.length){h+=`<div class="muted" style="text-align:center;margin-top:10px">未送信の記録が${ST.q.length}件あります（電波が入ると自動で送られます）</div>`}
   if(!CANSAVE){h+=`<div id="boot" style="margin-top:14px"><b>ご注意：この開き方では進捗が保存されません。</b><br>
     Safari や Chrome で開き直してください。</div>`}
@@ -1124,7 +990,7 @@ window.onerror=function(m,s,l,c){
   if(e)e.textContent='['+l+':'+c+'] '+m;
   return false;
 };
-(async function boot(){
+async function boot(){
   try{
     if(ST.token && ST.data){ applyData(ST.data); go(home); refreshData(); }
     else if(ST.token){ 
@@ -1138,7 +1004,13 @@ window.onerror=function(m,s,l,c){
     if(ST.token&&ST.data){ applyData(ST.data); go(home); }
     else { nav=[]; loginScreen('通信できませんでした。電波の良い場所でお試しください。'); }
   }
-})();
+}
+/* 2026-10-09 ちらつき対策：ファイルを最後まで読み込んでからホームを1回だけ描く
+   （以前は読み込み途中で古い六角形のホームを描き、あとで本日の予定つきに描き直していた） */
+if(document.readyState==='loading'){
+  try{ head('製造ツール',''); app.innerHTML='<div class="muted" style="text-align:center;margin-top:40px">読み込んでいます…</div>'; }catch(e){}
+  document.addEventListener('DOMContentLoaded', ()=>boot());
+} else boot();
 
 /* 裏で最新の問題データを取り直す */
 async function refreshData(){
@@ -1643,10 +1515,6 @@ function yeastOf(prod, no){
 function prodChip(p){ const c=MFG_PROD_COLORS[p]||['#eef0f3','#333']; return `<span class="mf-prod" style="background:${c[0]};color:${c[1]}">${esc(p)}</span>`; }
 function ratioBadge(r){ return `<span class="mf-bdg" style="background:${MFG_RATIO_COLORS[r]||'#555'}">${r}%</span>`; }
 
-async function mfgLoad(force){
-  if(MFG && !force) { mfgRefresh(); return MFG; }
-  return mfgRefresh();
-}
 function mfgRefresh(){
   if(MFG_LOADING) return MFG_LOADING;
   MFG_LOADING = (async()=>{
@@ -2055,10 +1923,6 @@ function libDetail(name){
 })();
 const YO_TAB = {v:'tbl'};
 let YO_YM = null, YO_SEL = null, YO_G = lsGet('tool.yoG','all');   // 'all' / '麹' / '掛'
-function yoteiTabs(on){
-  return `<div class="mf-tabs"><button data-yt="tbl" class="${on==='tbl'?'on':''}">表</button><button data-yt="pdf" class="${on==='pdf'?'on':''}">PDF</button></div>`;
-}
-function bindYoTabs(){ app.querySelectorAll('[data-yt]').forEach(b=>b.onclick=()=>{ YO_TAB.v=b.dataset.yt; yoteiScreen(); }); }
 function yoteiScreen(){
   const render=function yoRender(){
     app.dataset.mfg='yoRender';
@@ -2182,61 +2046,6 @@ function yoDay(d){
 
 /* ---------- 洗米予定表（PDF） ---------- */
 let MFG_PDF = null;                 // { url, name, bytes }（この画面を開いている間だけ持つ）
-function b64ToBlob(b64, type){
-  const bin = atob(b64), n = bin.length, a = new Uint8Array(n);
-  for(let i=0;i<n;i++) a[i] = bin.charCodeAt(i);
-  return new Blob([a], {type: type || 'application/pdf'});
-}
-function senmaiPdfScreen(){
-  const render=function pdfRender(){
-    app.dataset.mfg='pdfRender';
-    head('洗米予定表','会社PCで作った予定表をそのまま表示');
-    const m = (MFG&&MFG.meta&&MFG.meta.senmaiPdf)||null;
-    let h = yoteiTabs('pdf') + mfgErrView();
-    if(!m || !m.file){
-      h += `<div class="card">洗米予定表のPDFがまだ届いていません。<br>
-        <span style="color:var(--sub);font-size:13px">会社PCの「造りex＼洗米予定表」フォルダにPDFを置くと、数分でここに届きます。</span>
-        <button class="btn p" style="margin-top:10px" onclick="mfgReload()">もう一度読み込む</button></div>`;
-      app.innerHTML = h; bindYoTabs(); return;
-    }
-    const kb = m.bytes ? Math.round(m.bytes/1024) : 0;
-    h += `<div class="card">
-      <div style="font-size:17px;font-weight:700">${esc(m.file)}</div>
-      <div style="color:var(--sub);font-size:13px;margin-top:4px">作成 ${tjp(m.mtime)}${kb?`　/　${kb}KB`:''}</div>
-      <div id="pdfBox" style="margin-top:12px">
-        <button class="btn p" id="bPdfGo">洗米予定表</button>
-        <p class="tl-note">通信で受け取るので、電波の良いところでどうぞ。一度開けば、この画面にいる間は再読み込みしません。</p>
-      </div></div>`;
-    app.innerHTML = h;
-    bindYoTabs();
-    const box = $('#pdfBox');
-    const showLinks = () => {
-      box.innerHTML = `
-        <a class="btn p" href="${MFG_PDF.url}" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">別の画面で開く</a>
-        <a class="btn" href="${MFG_PDF.url}" download="${esc(MFG_PDF.name)}" style="display:block;text-align:center;text-decoration:none;margin-top:8px;border:1px solid var(--line);background:var(--card,#fff);color:var(--navy)">端末に保存する</a>
-        <iframe src="${MFG_PDF.url}" style="width:100%;height:70vh;border:1px solid var(--line);border-radius:10px;margin-top:10px;background:#fff"></iframe>
-        <p class="tl-note">iPhoneでは下の枠に1ページ目だけ出ることがあります。全部見るときは「別の画面で開く」から。</p>`;
-    };
-    if(MFG_PDF){ showLinks(); return; }
-    $('#bPdfGo').onclick=async()=>{
-      const b=$('#bPdfGo'); b.disabled=true; b.textContent='受け取っています…';
-      try{
-        const j = await apiT({action:'mfg_pdf', token:ST.token, kind:'senmai'}, 60000);
-        if(j && j.ok && j.b64){
-          MFG_PDF = { url: URL.createObjectURL(b64ToBlob(j.b64)), name: m.file, bytes: m.bytes };
-          showLinks();
-        } else {
-          b.disabled=false; b.textContent='洗米予定表';
-          box.insertAdjacentHTML('beforeend', `<div class="mf-warn">${j&&j.err==='no_pdf'?'サーバーにPDFがまだ届いていません。':'受け取れませんでした。'}</div>`);
-        }
-      }catch(e){
-        b.disabled=false; b.textContent='洗米予定表';
-        box.insertAdjacentHTML('beforeend', '<div class="mf-warn">通信できませんでした。電波の良いところでもう一度お試しください。</div>');
-      }
-    };
-  };
-  mfgOpen(render);
-}
 
 /* ---------- 洗米チェック ---------- */
 let SEN_DAY = null;
@@ -3151,11 +2960,6 @@ function wsFetch(){
   WS_BG=(async()=>{ let ok=false; try{ const j=await washApi({action:'wash_get'},25000); if(j&&j.ok){ wsApply(j.data); ok=true; } }catch(e){} WS_BG=null; return ok; })();
   return WS_BG;
 }
-async function wsLoad(force){
-  wsFromCache();
-  if(!force && WS.plan.length && Date.now()-WS.loadedAt<60000) return true;
-  return wsFetch();
-}
 /* ホームを開いたときに裏で取っておく（タンク洗浄を開いた瞬間に出せるように） */
 function wsPrefetch(){ try{ wsFromCache(); if(Date.now()-WS.loadedAt>5*60000) wsFetch(); }catch(e){} }
 function wsStatus(t,warn){ const s=$('#wsStatus'); if(!s)return; s.textContent=t; s.className='ws-status'+(warn?' warn':''); if(!warn) setTimeout(()=>{ if(s.textContent===t) s.textContent=''; },4000); }
@@ -3660,7 +3464,6 @@ async function recState(force){
 function rcLoading(t){ app.innerHTML=`<div class="card" style="margin-top:16px;text-align:center;color:var(--sub)">${t||'読み込んでいます…'}</div>`; }
 function rcFail(t){ app.innerHTML=`<div class="tl-warn" style="margin-top:14px">${t||'読み込めませんでした。電波の届く所でもう一度開いてください。'}</div>`; }
 function rcMaster(no){ return ((RC.state&&RC.state.master)||[]).find(m=>String(m.no)===String(no))||null; }
-function rcToday(no){ return (RC.state&&RC.state.today&&RC.state.today[no])||null; }
 function rcMoromiDay(m,date){ if(!m||!m.tome) return null; return rcDays(m.tome,date||dtoday())+1; }   // 留＝1日目
 function rcShuboDay(m,date){ if(!m||!m.motodate) return null; return rcDays(m.motodate,date||dtoday())+1; }
 function rcPlaces(v){ return String(v??'').split(/\s*[,、]\s*/).map(x=>x.trim()).filter(Boolean); }
@@ -3688,21 +3491,7 @@ function rcRoomTag(x){ if(!x) return '';
   if(x.stale) return `<span class="st">停止中 ${esc(x.time||'')}から</span>`;
   return `<span class="t">${x.temp!=null?x.temp:'—'}<small>℃</small> ${x.hum!=null?x.hum:'—'}<small>%</small></span>`; }
 /* 麹室の室温・湿度（おんどとり → 醸造記録 R8BY が10分ごとに取得。2026-09-29 追加） */
-function rcRoomCard(rm){
-  if(!rm||(!rm.r1&&!rm.r2)) return '';
-  const one=(x,l)=>{ if(!x) return `<div><span class="k">${l}</span><span class="v">—</span></div>`;
-    if(x.stale) return `<div style="background:#fdecec"><span class="k">${l}</span><span class="v" style="color:#b23b3b;font-size:14px">停止中<small> ${esc(x.time||'')}から</small></span></div>`;
-    return `<div><span class="k">${l}</span><span class="v">${x.temp!=null?x.temp:'—'}<small>℃</small>　${x.hum!=null?x.hum:'—'}<small>%</small></span></div>`; };
-  return `<div class="rc-sum" style="grid-template-columns:repeat(2,1fr)">${one(rm.r1,'1号室（引込）いま')}${one(rm.r2,'2号室（盛・出麹）いま')}</div>
-    <p class="tl-note" style="margin:-6px 0 8px">おんどとり ${esc(rm.at||'')} 取得</p>`;
-}
 /* 品温計 No1〜No4（おんどとり）の今の値と、どの麹に付いているか（2026-09-29） */
-function rcProbeCard(pr){
-  if(!pr) return '';
-  const cell=n=>{ const x=pr[n]||{}; const t=(x.temp!=null&&!x.stale)?`${x.temp}<small>℃</small>`:'<small>—</small>';
-    return `<div${x.id?' style="background:#eef6ff"':''}><span class="k">No${n}${x.id?` ・ <b>${esc(x.id)}</b>${x.place?' '+esc(String(x.place).replace('麹棚','棚').replace('天幕','')):''}`:''}</span><span class="v">${t}</span></div>`; };
-  return `<div class="rc-sum">${[1,2,3,4].map(cell).join('')}</div><p class="tl-note" style="margin:-6px 0 8px">品温計は各麹の画面で「付ける／外す」。付けている間の温度経過が残ります。</p>`;
-}
 /* 2号室の配置図：各マスの上半分＝この日に出麹する麹（午前の盛では使えない）、下半分＝この日に盛る麹 */
 const RC_KCOL={留:'#CC99FF',仲:'#B4C6E7',添:'#C5E0B3',酛:'#FFE598'};
 /* 2号室の箱を選ぶ（配置図と同じ並び）。occ={箱:{out:[出麹で埋まっている麹],mori:[ほかに盛る麹]}}。出麹が1つも無い日は上下に分けない */
@@ -4451,25 +4240,6 @@ async function shuboInput(no, day){
 }
 
 /* ========== 🍶 仕込み：一覧 → 仕込カルテ（吸水・麹・酒母・醪・上槽粕・最終分析・原酒評価） ========== */
-async function shikomiScreen(f){
-  if(f) RC.filter=f;
-  head('仕込み','仕込ごとのカルテ・上槽・原酒評価');
-  rcLoading('仕込の一覧を読み込んでいます…');
-  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
-  const today=dtoday();
-  const stateOf=m=>{ const t=st.today[m.no]||{}; if(t.state==='上槽済') return ['上槽済','done']; const d=rcMoromiDay(m,today); if(d>=1) return [`醪 ${d}日目`,'now']; const sd=rcShuboDay(m,today); if(sd>=1) return [`酒母 ${sd}日目`,'part']; return ['予定','']; };
-  const F=RC.filter; const list=st.master.map(m=>({m,s:stateOf(m)})).filter(x=>F==='all'||(F==='now'&&x.s[1]==='now')||(F==='shubo'&&x.s[1]==='part')||(F==='done'&&x.s[1]==='done')||(F==='plan'&&x.s[1]===''));
-  let h=`<div class="rc-bar">${[['now','醪中'],['shubo','酒母'],['plan','予定'],['done','上槽済'],['all','全部']].map(([k,l])=>`<button class="rc-chip ${F===k?'on':''}" data-f="${k}">${l}</button>`).join('')}<span style="flex:1"></span><button class="rc-ghost" id="rcReload">更新</button></div><div class="rc-status" id="rcStatus"></div>`;
-  h+=list.length?list.map(({m,s})=>{ const t=st.today[m.no]||{}; return `<button class="rc-row ${s[1]}" data-no="${m.no}"><span class="st"></span>
-      <span class="id">${m.no}<small>${esc(m.sym)} T${m.tank}</small></span>
-      <span class="mid"><span class="b">${esc(m.liquid)}</span><br><span class="d">酛立 ${rcMD(m.motodate)}・添 ${rcMD(m.soe)}・留 ${rcMD(m.tome)}・上槽予定 ${rcMD(m.joso)}</span>${t.warn?`<br><span class="rc-warn">${esc(t.warn)}</span>`:''}</span>
-      <span class="r"><b>${s[0]}</b><span>${t.smv!==''&&t.smv!==undefined?`日本酒度 ${rcN(t.smv)}`:''}</span></span></button>`; }).join(''):`<p class="muted" style="text-align:center;padding:20px 0">該当なし</p>`;
-  h+=`<p class="tl-note">印刷用の仕込カルテ・仕込一覧・資材予定は <a href="${REC_SS_MOROMI}" target="_blank" rel="noopener">醪管理R8BY（スプレッドシート）</a>。仕込計画が変わったら 造りex の帳票から作り直す（杜氏）。</p>`;
-  app.innerHTML=h;
-  app.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>shikomiScreen(b.dataset.f));
-  app.querySelectorAll('.rc-row[data-no]').forEach(b=>b.onclick=()=>go(()=>karteScreen(b.dataset.no)));
-  $('#rcReload').onclick=async()=>{ rcStatus('更新中…'); await recState(true); shikomiScreen(); };
-}
 async function karteScreen(no, force){
   const m=rcMaster(no)||{};
   head(`仕込カルテ 順号 ${no}`, `${m.sym||''}号　${m.liquid||''}　T${m.tank||''}`);
@@ -4782,7 +4552,9 @@ async function fastPrefetch(){
 })();
 /* アプリに戻ってきたとき（5分以上たっていれば）も先読み */
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState==='visible' && Date.now()-FAST.last>5*60000) setTimeout(fastPrefetch, 500);
+  if(document.visibilityState!=='visible') return;
+  try{ if(document.getElementById('dpBox') && typeof dpRedraw==='function') dpRedraw(); }catch(e){}   // 2026-10-09 戻ったらすぐ今日の予定に
+  if(Date.now()-FAST.last>5*60000) setTimeout(fastPrefetch, 500);
 });
 /* ログアウトしたら、この端末に保存した記録系の控えを消す */
 (function(){ const _lo=logout; logout=function(){ PC.delPrefix('rec:'); PC.delPrefix('man:'); return _lo.apply(this, arguments); }; })();
@@ -5423,11 +5195,6 @@ shuboInput = async function(no, day, focus){
 };
 
 /* ================= 🍶 仕込み（醪） ================= */
-function moromiList(st){
-  const today=dtoday();
-  return st.master.map(m=>({m,t:st.today[m.no]||{},d:rcMoromiDay(m,today)}))
-    .filter(x=>x.d!==null && x.t.state!=='上槽済' && x.d>=-2).sort((a,b)=>a.m.tome.localeCompare(b.m.tome)||a.m.no-b.m.no);
-}
 function moromiRowHTML(m,t,d){
   const b=RC.bun[m.no], dd=b&&b.days||[], td=d>=1&&dd[d-1];
   const tAM=td?shN(td.tAM):null;
@@ -5437,28 +5204,6 @@ function moromiRowHTML(m,t,d){
     <span class="c"><small>日本酒度</small>${t.smv!==''&&t.smv!==undefined?rcN(t.smv):'—'}</span>
     <span class="c"><small>alc</small>${t.alc!==''&&t.alc!==undefined?rcN(t.alc):'—'}</span>
     <span class="c ${d>=1&&b&&tAM===null?'miss':''}"><small>今日の品温</small>${d<1?'—':!b?'…':tAM===null?'未':shF(tAM)}</span></button>`;
-}
-async function moromiHome(){
-  head('仕込み','分析醪（今日の一覧 → 1本ずつの経過表）・仕込カルテ');
-  rcLoading('醪の一覧を読み込んでいます…');
-  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
-  const list=moromiList(st);
-  const done=st.master.filter(m=>(st.today[m.no]||{}).state==='上槽済').length;
-  let h=`<div class="rc-status" id="rcStatus"></div>`;
-  h+=list.length?list.map(({m,t,d})=>moromiRowHTML(m,t,d)).join(''):`<p class="muted" style="text-align:center;padding:20px 0">醪中の仕込はありません</p>`;
-  h+=`<button class="sh-link" id="shKarte">📋 仕込カルテ（予定・上槽済・原酒評価）<span>›</span></button>
-    <div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="rcReload">更新</button><span class="tl-note" style="margin:0">「未」＝今日の品温（AM）がまだ。押すとその醪の経過表（分析醪シートと同じ並び）が開きます。${done?`上槽済 ${done}本はカルテから。`:''}</span></div>`;
-  app.innerHTML=h;
-  const bind=()=>app.querySelectorAll('.sh-row[data-no]').forEach(b=>b.onclick=()=>go(()=>moromiSheet(b.dataset.no)));
-  bind();
-  $('#shKarte').onclick=()=>go(()=>shikomiScreen());
-  $('#rcReload').onclick=async()=>{ rcStatus('更新中…'); await recState(true); list.forEach(({m})=>RC.bun[m.no]=null); moromiHome(); };
-  const myTop=nav[nav.length-1];
-  shFetchMany(list.filter(({m,d})=>d>=1&&!RC.bun[m.no]).map(({m})=>m.no),'bunseki_get',RC.bun,no=>{
-    if(nav[nav.length-1]!==myTop) return;
-    const b=app.querySelector(`.sh-row[data-no="${no}"]`), x=list.find(y=>String(y.m.no)===String(no));
-    if(b&&x){ const t=document.createElement('div'); t.innerHTML=moromiRowHTML(x.m,x.t,x.d); b.replaceWith(t.firstElementChild); bind(); }
-  });
 }
 async function moromiSheet(no){
   const m=rcMaster(no)||{};
@@ -5572,6 +5317,7 @@ const DP_SPECIAL={
   '2026-10-09':{ mushi:'08:00', order:['koji','shubo','shk'], note:'特別対応：8:00 から蒸米を飛ばす（麹 → 酒母の順）。午後は全体会議' }
 };
 const DP_MTG_PM=['13:00','17:00'], DP_MTG_AM=['08:00','12:00'];   // カレンダーの「会議」で時刻がないとき（午後／午前）
+const DP_VIS_MIN=90;   // 2026-10-08：蔵見学で終わりの時刻が無いとき、始まりから何分を帯にするか
 const DP_LANES = [['mushi','蒸米'],['koji','麹'],['shubo','酒母'],['shk','仕込み'],['sen','洗米'],['joso','上槽・粕'],['kome','米'],['etc','清掃']];   // 会議は段を作らず各担当の段に重ねる（2026-10-08）
 const DP_CSS = `
 .dp{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:10px 0 0;padding:8px 8px 6px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
@@ -5652,6 +5398,9 @@ body.hm .dp-ics{margin:clamp(6px,1.6dvh,16px) 0 0;gap:clamp(4px,1.3dvh,12px) 6px
 .dp-b{height:18px;line-height:18px;font-size:10px;z-index:1}
 .dp-mtg{position:absolute;bottom:0;background:rgba(214,43,34,.10);border:0;border-left:2px solid #d62b22;z-index:0;cursor:pointer;padding:0;font-family:inherit}
 .dp-mtg span{position:absolute;left:3px;top:-1px;font-size:9.5px;font-weight:800;color:#b31b14;white-space:nowrap;line-height:12px}
+/* 2026-10-08 泰広さん指示：蔵見学は全担当の段に薄く時間帯を重ねる */
+.dp-vis{position:absolute;bottom:0;background:rgba(31,63,109,.07);border:0;border-left:2px dashed rgba(31,63,109,.45);z-index:0;cursor:pointer;padding:0;font-family:inherit}
+.dp-vis span{position:absolute;left:3px;top:-1px;font-size:9.5px;font-weight:700;color:rgba(31,63,109,.75);white-space:nowrap;line-height:12px}
 .dp-kn{cursor:pointer}.dp-kn .tg{color:var(--sub);font-size:10px;margin-left:4px;flex:none}
 .dp-cal .more{display:block;margin:0 0 0 auto;border:0;background:none;color:var(--navy);font-size:11px;font-family:inherit;cursor:pointer;padding:2px 0}
 /* 2026-10-08 泰広さん指示（案1）：ホームは山の写真を一番上から。紺の帯・「戻る」・「製造ツール」は出さない（ほかの画面は今まで通り） */
@@ -5749,7 +5498,11 @@ function dpItems(date){
   }
   // 蒸米は 麹の引込・酒母仕込・仕込み が終わるまで同時作業（2026-10-08 泰広さん指示）
   { const mu=out.find(x=>x.lane==='mushi'), u=USE.filter(Boolean);
-    if(mu&&u.length){ const e=Math.max(mu.e,...u.map(x=>x.e)); if(e>mu.e){ mu.e=e; mu.d.lines.splice(SP&&SP.note?3:2,0,`〜${dpHM(e)}ごろまで（${[...new Set(u.map(x=>({koji:'麹の引込',shubo:'酒母仕込',shk:'仕込み'})[x.lane]))].join('・')}が終わるまで）`); } } }
+    if(mu&&u.length){ const e=Math.max(mu.e,...u.map(x=>x.e)); if(e>mu.e){ mu.e=e; mu.d.lines.splice(SP&&SP.note?3:2,0,`〜${dpHM(e)}ごろまで（${[...new Set(u.map(x=>({koji:'麹の引込',shubo:'酒母仕込',shk:'仕込み'})[x.lane]))].join('・')}が終わるまで）`); }
+      // 2026-10-09 泰広さん指示：仕込みの終わりと蒸米の終わりは同じ時刻にそろえる
+      u.filter(x=>x.lane==='shk').forEach(x=>{ if(x.e<mu.e) x.e=mu.e; }); }
+    // 2026-10-09 泰広さん指示：蒸米中は洗米しない → 洗米は蒸米が終わってから（長さはそのまま）
+    if(mu) out.filter(x=>x.lane==='sen'&&x.s<mu.e).forEach(x=>{ const w=x.e-x.s; x.s=mu.e; x.e=mu.e+w; x.d.time=`${dpHM(x.s)}〜${dpHM(x.e)}（目安・蒸米が終わってから）`; }); }
   // カレンダーの「会議」（2026-10-08 泰広さん指示：全体会議を予定の枠にも）。時刻があればその時刻、なければ午後/午前の文字で
   { const c=(lsGet('dp.cal2',{})||{})[date], ev=(c&&c.events)||[];
     ev.filter(x=>/会議/.test(x.title||'')&&!/交流会|締切/.test(x.title||'')).forEach(x=>{
@@ -5758,6 +5511,16 @@ function dpItems(date){
       const se=!x.allDay&&x.start?[x.start,x.end||dpHM(dpMin(x.start)+60)]:m?[m[1],m[2]]:/午前/.test(tt)?DP_MTG_AM:/午後/.test(tt)?DP_MTG_PM:m1?[m1[1],dpHM(dpMin(m1[1])+120)]:null;
       if(!se) return;
       add('mtg',se[0],se[1],dpCalTitle(x.title).replace(/[（(][^）)]*[）)]/g,'').trim()||'会議','dp-on',{title:x.title,lines:[/午後/.test(tt)?'午後':/午前/.test(tt)?'午前':`${se[0]}〜${se[1]}`,...String(x.desc||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean).slice(0,6)]});
+    }); }
+  // カレンダーの「蔵見学」（2026-10-08 泰広さん指示：蔵見学は全担当の段に薄く時間帯を重ねる）。時刻は題名のカッコ（13:00〜16:00）か予定の時刻
+  { const c=(lsGet('dp.cal2',{})||{})[date], ev=(c&&c.events)||[];
+    ev.filter(x=>/蔵見学/.test(x.title||'')&&!/中止/.test(x.title||'')).forEach(x=>{
+      const tt=String(x.title).replace(/[０-９：]/g,ch=>ch==='：'?':':String.fromCharCode(ch.charCodeAt(0)-0xFEE0));
+      const m=tt.match(/(\d{1,2}:\d{2})\s*[〜~～\-－]\s*(\d{1,2}:\d{2})/), m1=tt.match(/(\d{1,2}:\d{2})/);
+      const se=!x.allDay&&x.start?[x.start,x.end||dpHM(dpMin(x.start)+DP_VIS_MIN)]:m?[m[1],m[2]]:m1?[m1[1],dpHM(dpMin(m1[1])+DP_VIS_MIN)]:null;
+      if(!se) return;   // 時刻が分からない蔵見学は帯を出さない（カレンダーの箇条書きには出る）
+      const g=tt.match(/同行[:：]\s*([^）)／\/]+)/);
+      add('visit',se[0],se[1],'蔵見学','dp-on',{title:x.title,lines:[`${se[0]}〜${se[1]}`,...(g?[`同行：${g[1].trim()}`]:[]),...String(x.desc||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean).slice(0,6)]});
     }); }
   return out;
 }
@@ -5816,6 +5579,7 @@ function dpSum(d){
     else if(x.lane==='kome') ad('米引取');
     else if(x.lane==='etc') ad('清掃');
     else if(x.lane==='mtg') ad('会議');
+    else if(x.lane==='visit') ad('蔵見学');
   });
   return w.join('・');
 }
@@ -5831,7 +5595,7 @@ function dpPlanHTML(){
     h+='</div>';
   }
   h+=dpBunHTML();   // 2026-10-06 泰広さん指示：「予定を押すと詳細」の文字は出さない
-  const RH=22, wk=items.filter(x=>x.lane!=='mtg'), mt=items.filter(x=>x.lane==='mtg');
+  const RH=22, wk=items.filter(x=>x.lane!=='mtg'&&x.lane!=='visit'), mt=items.filter(x=>x.lane==='mtg'||x.lane==='visit');   // 会議・蔵見学は段を作らず重ねる
   const AXH=mt.length?13:4;
   if(!wk.length){ h+=`<div class="dp-empty">${dpState()||(RC.koji&&RC.koji[date])?(DP_OFF===0?'今日':DP_OFF===1?'明日':'この日')+'の作業予定はありません':'予定を読み込んでいます…'}</div>`; DP_LAST=items; return h; }
   const lo=dpMin(DP_AX[0]), hi=dpMin(DP_AX[1]);   // 2026-10-07 泰広さん指示：時間軸は 8:00〜17:00 に固定
@@ -5844,6 +5608,9 @@ function dpPlanHTML(){
   items.forEach((x,idx)=>{
     if(x.lane==='mtg'){   // 2026-10-08 泰広さん指示：全体会議は全員 → 段を作らず、全部の担当の段に重ねる
       h+=`<button type="button" class="dp-mtg" data-dp="${idx}" style="top:0;left:${((x.s-lo)/span*100).toFixed(2)}%;width:${((x.e-x.s)/span*100).toFixed(2)}%"><span>${esc(x.label)}</span></button>`; return; }
+    if(x.lane==='visit'){   // 2026-10-08 泰広さん指示：蔵見学は全担当の段に薄く時間帯を重ねる
+      const cl=mt.some(y=>y.lane==='mtg'&&Math.abs(y.s-x.s)<60);   // 会議と始まりが近いときは「蔵見学」の文字を帯の右端に寄せる（重なり防止）
+      h+=`<button type="button" class="dp-vis" data-dp="${idx}" style="top:0;left:${((x.s-lo)/span*100).toFixed(2)}%;width:${((x.e-x.s)/span*100).toFixed(2)}%"><span${cl?' style="left:auto;right:3px"':''}>${esc(x.label)}</span></button>`; return; }
     const i=lanes.findIndex(l=>l[0]===x.lane); const w=Math.max((x.e-x.s)/span*100, x.small?5.5:12);
     h+=`<button type="button" class="dp-b ${x.cls} ${x.small?'s':''} ${DP_OFF===0&&x.e<nm&&x.cls!=='dp-on'?'done':''}" data-dp="${idx}" style="top:${AXH+RH*i+2}px;left:${Math.max(0,Math.min((x.s-lo)/span*100, 100-Math.max(w, x.label.length*3.7+2))).toFixed(2)}%;min-width:${w.toFixed(2)}%">${esc(x.label)}</button>`; });
   h+=`</div></div>`;
@@ -7390,37 +7157,6 @@ async function mxUploadPhoto(file){
 }
 /* 移行用（Claudeが使う）：manuals.json と写真を読み、下書きとして入れる。
    base は フォルダのURL（'_mig/'）か、選んだファイルの一覧（manuals.json と img の写真。GitHubには置かない） */
-async function manxImport(base, onlyIds){
-  base=base||'_mig/'; const out=[];
-  let fetchFile;
-  if(typeof base!=='string'){ const map={}; [...base].forEach(f=>{ map[f.name]=f; });
-    fetchFile=async p=>{ const f=map[p.split('/').pop()]; if(!f) throw new Error('写真なし '+p); return f; };
-    var L=JSON.parse(await map['manuals.json'].text()); }
-  else { fetchFile=p=>fetch(base+p).then(r=>{ if(!r.ok) throw new Error('写真なし '+p); return r.blob(); });
-    var L=await fetch(base+'manuals.json?x='+Date.now()).then(r=>r.json()); }
-  const who={id:'5501',name:'移行（Claude）'};
-  const have=new Set(((await mxApi({action:'list',who},30000)).items||[]).map(x=>x.id));
-  for(const M of L){
-    if(onlyIds && !onlyIds.includes(M.id)) continue;
-    if(have.has(M.id)){ out.push([M.id,'skip（入っています）']); continue; }
-    try{
-      const seq=[...(M.older||[]), M.doc];
-      for(const d of seq){ for(const c of d.cards){ for(const p of (c.photos||[])){ if(p.file && !p.id){
-        const blob=await fetchFile(p.file);
-        const data=await new Promise(ok=>{ const fr=new FileReader(); fr.onload=()=>ok(fr.result); fr.readAsDataURL(blob); });
-        p.id=(await mxApi({action:'upload',name:p.file.split('/').pop(),mime:blob.type||'image/jpeg',data,who},120000)).id; delete p.file; } } } }
-      let j=null;
-      for(let k=0;k<seq.length;k++){
-        const d=Object.assign({},seq[k]); const nt=d._note; delete d._note;
-        const body={action:'save', id:M.id, src:M.src||'', doc:d, mode:'draft', who, note: k<seq.length-1 ? (nt||'前の版') : 'Word・Excelから移行（'+(M.src||'')+'）'};
-        if(k===0){ body.newId=M.id; body.once=true; }
-        j=await mxApi(body,90000);
-      }
-      out.push([M.id,'ok',j.meta.draftVer]);
-    }catch(e){ out.push([M.id,'NG',String(e.message||e)]); }
-  }
-  return out;
-}
 
 </script>
 <!-- /manx -->
@@ -9094,6 +8830,9 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-09-1','🍚','ホーム','本日の予定の並びを直しました。仕込みは蒸米と同じ時刻に終わり、洗米は蒸米が終わってから並びます（蒸米中は洗米しない）。'],
+  ['2026-10-09-1','⚡','ホーム','開いたときに古いホーム画面が一瞬出て、あとから今の画面に変わる問題を直しました。電波が弱いときも、つながる限り最新の画面を出します。'],
+  ['2026-10-08-9','🏯','ホーム','本日の予定に、蔵見学の時間帯を全部の担当の段に薄い色で重ねて出すようにしました（カレンダーの【蔵見学】の予定の時刻から。押すと詳細）。'],
   ['2026-10-08-8','🏔','ホーム','ホームの山の写真を画面の一番上から出すようにしました（紺色の帯と「戻る」「製造ツール」の文字をなくし、IDのボタンだけ写真の上に）。ほかの画面は今まで通りです。'],
   ['2026-10-08-7','🍚','麹','配置図を上（日付の下）に移しました。1号室・2号室の横に部屋の温度・湿度、配置図の中の品温計（No）の札に今の温度を出します。見出しの「引込み」「盛」は外しました。'],
   ['2026-10-08-6','🍚','麹','麹の画面の上の日付ボタンを半分の幅にして、隣に青い丸のアイコンを置きました。「種」＝種麹の仕入・在庫、「i」＝麹の比較・考察。'],
