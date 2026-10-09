@@ -616,15 +616,13 @@ function home(){
     {id:'bBun',  e:'🧪', lb:'分析',               c:['#dcc45f','#c6ad46'], t:'ho'},
     {id:'bShubo',e:'🧫', lb:'酒母',               c:['#dac862','#c4b048'], t:'ho'},
     {id:'bShk',  e:'🍶', lb:'仕込み',             c:['#d9cc6a','#c2b44f'], t:'momi'},
+    {id:'bShizai', e:'🧰', lb:'資材', c:['#d3cf72','#bab656'], t:'momi', tag:(typeof sziHomeTag==='function'?sziHomeTag():'')},
     {id:'bWash', e:'🫧', lb:'タンク<br>洗浄管理', c:['#cbe075','#b1c95c'], t:'momi'},
     {id:'bCalc', e:'🧮', lb:'各種<br>計算ツール', c:['#c5da68','#abc351'], t:'momi'},
     {id:'bTodo', e:'📝', lb:'やること<br>リスト',   c:['#bfd45e','#a5bc48'], t:'momi', n:(typeof todoBadge==='function'?todoBadge():0)},
-    {id:'bLib',  e:'📈', lb:'最新<br>TREND',   c:['#b8cd54','#9eb440'], t:'momi'},
     {id:'bMan',  e:'📘', lb:'マニュアル',         c:['#a9c95f','#8fb247'], t:'ha', tag:(typeof manxAlert==='function'?manxAlert():'')},
     {id:'bCt',   e:'📇', lb:'連絡先',             c:['#a3cd73','#89b55a'], t:'ha'},
-    {href:'seishu-jiten.html', e:'📖', lb:'逆引き検索', c:['#9fd286','#85ba6b'], t:'ha'},
-    {id:'bQuiz', e:'✅', lb:`問題集<span class="sm">${mastery(all)}%</span>`, c:['#95c97a','#7bb15f'], t:'ha'},
-    {href:'voice.html', e:'🎙', lb:'Sake Tour<br>Guide', c:['#8abd6c','#70a453'], t:'ha'},
+    {id:'bInfo', e:'<span class="szi-ifold">i</span>', lb:'情報', c:['#9fd286','#7bb15f'], t:'ha'},
     {id:'bUpd', e:'🆕', lb:'アップデート<br>情報', c:['#7fb465','#669b4d'], t:'ha', n:(typeof updBadge==='function'?updBadge():0)}
   ];
   let h=dpHome(hexes);   // 2026-10-09 六角形のホーム（読み込み途中の仮表示）を廃止
@@ -635,9 +633,9 @@ function home(){
   if(document.getElementById('dpBox')){ document.body.classList.add('hm'); hmSize(); setTimeout(hmSize,600); }   // 2026-10-06 ホームは1画面に固定
   kirinzanBind();
   riceAlertTimer(()=>{ if(nav[nav.length-1]===home) go(home,false); });
-  $('#bQuiz').onclick=()=>go(quizHome);
+  { const b=$('#bShizai'); if(b) b.onclick=()=>go(()=>sziScreen()); }
   $('#bCal').onclick=()=>go(()=>calendarScreen());
-  $('#bLib').onclick=()=>go(()=>libScreen());
+  { const b=$('#bInfo'); if(b) b.onclick=()=>{ if(typeof sziInfo==='function') sziInfo(); }; }
   $('#bRice').onclick=()=>go(riceScreen);
   $('#bKoji').onclick=()=>go(()=>kojiScreen());
   $('#bShubo').onclick=()=>go(()=>shuboHome());
@@ -8837,6 +8835,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-09-5','🧰','ホーム','ホームに「🧰 資材」ができました。A重油（週1回の残量点検・表・印刷）、添加アルコール（上槽日の添加予定に在庫が間に合うか）、種麹、酵素剤などの在庫を1か所で見られます。使った分は予定日を過ぎると自動で減ります。最新TREND・逆引き検索・問題集・Sake Tour Guide は「i（情報）」にまとめました。逆引き検索の一番上に「製造ツールへ戻る」を付けました。'],
   ['2026-10-09-4','🍚','ホーム','10/9（金）は午後に全体会議のため、本日の予定から麹の切返しをはずし、洗米を午前10:30からにしました（特別対応の日の設定）。'],
   ['2026-10-09-3','🍚','ホーム','本日の予定で、通常の洗米を13:00からの並びにしました（昼休みのあと）。蒸米が13:00を過ぎる日は、蒸米が終わってから並びます。'],
   ['2026-10-09-2','🍙','ホーム','本日の予定に、12:00〜13:00 の昼休みを薄い帯で出すようにしました。蒸米の棒は「蒸米」だけの表示にしました（米の区分は押すと出ます）。'],
@@ -9268,5 +9267,318 @@ function rzBind(render){
 })();
 </script>
 <!-- /pcwide -->
+<!-- shizai -->
+<script>
+/* ================= 🧰 資材（ホームのアイコン）＋ ℹ 情報フォルダ　2026-10-09 泰広さん指示 =================
+   ・ホーム：最新TREND／逆引き検索／問題集／Sake Tour Guide を「i（情報）」のフォルダにまとめ（その場で開く・案 i-1）、仕込みの隣に「🧰 資材」
+   ・資材の画面（案A＋B）：上に A重油／添加アルコール／種麹 の3つの箱（押すとそのタブ）→ タブ［酵素剤・他｜A重油｜アルコール｜種麹］
+   ・使う量：醸造記録 R8BY の state.shizai（醪管理R8BY「資材予定」＝仕込計画×液種マスタの配合）。予定日を過ぎた分は自動で在庫から減る（zaiCalc）
+   ・棚卸・入荷：Apps Script「製造ツール 共有データ」の表「資材在庫」（仕込み›資材の在庫 と同じ表・同じ計算）
+   ・添加アルコール：資材名「アルコール(40%)」、在庫も 40%換算L（2026-10-09 泰広さん決定）。入荷は 度数×L を入れると 40%換算に直して記録
+   ・A重油：同じ表「資材在庫」に 資材名「A重油」、区分「点検」（その日の残量L）／「受入」（入ったL）。週1回の点検。表で管理し A4 で印刷
+   ・種麹：麹の「種麹の仕入・在庫」と同じ（tane_get＝麹管理R8BY 種麹集計）
+   控え：seishu-workbook_github\_src_shizai.js　差し込み：_資材とiフォルダを足す.py（<!-- shizai --> ブロック、</body> の直前） */
+const SZI_ALC='アルコール(40%)', SZI_OIL='A重油';
+const SZI={ tab: lsGet('szi.tab','list') };
+const sziF=(v,d=1)=>{ const n=Number(v); if(v===''||v===null||v===undefined||isNaN(n)) return '—'; return n.toLocaleString('ja-JP',{maximumFractionDigits:d}); };
+const sziDays=d=>d?rcDays(d,dtoday()):null;
+/* 不足になる日：予定日の順に引いていき、在庫を下回る最初の日 */
+function sziShort(r){
+  if(!r||!r.has) return null;
+  const today=dtoday(); let left=r.stock;
+  const fut=r.plan.filter(p=>p.date && p.date>=today).sort((a,b)=>a.date.localeCompare(b.date)||(+a.no)-(+b.no));
+  for(const p of fut){ left-=p.qty; if(left< -1e-9) return { date:p.date, lack:Math.round(-left*1000)/1000, no:p.no }; }
+  return null;
+}
+function sziRows(st){ return (st&&st.shizai&&typeof zaiCalc==='function')?zaiCalc(st):[]; }
+/* A重油：点検（残量）と受入から、使用量・1日あたり・今の見込み・あと何日 */
+function sziOil(){
+  const L=(ZAI.items||[]).filter(x=>x.name===SZI_OIL && x.date);
+  const by=(a,b)=>String(a.date).localeCompare(String(b.date))||String(a.at||'').localeCompare(String(b.at||''));
+  const chk=L.filter(x=>x.kind==='点検').sort(by), rec=L.filter(x=>x.kind==='受入').sort(by);
+  const rows=chk.map((c,i)=>{
+    const p=chk[i-1], q=Number(c.qty)||0;
+    const recv=p?rec.filter(x=>x.date>p.date && x.date<=c.date).reduce((a,x)=>a+(Number(x.qty)||0),0):0;
+    const days=p?rcDays(p.date,c.date):null;
+    const used=p?Math.round(((Number(p.qty)||0)+recv-q)*10)/10:null;
+    return { id:c.id, date:c.date, qty:q, by:c.updBy||c.by||'', recv, days, used, per:(p&&days>0&&used>=0)?Math.round(used/days*10)/10:null };
+  });
+  const last=rows[rows.length-1]||null;
+  const iv=rows.filter(r=>r.per!==null).slice(-4);
+  const dsum=iv.reduce((a,r)=>a+r.days,0), usum=iv.reduce((a,r)=>a+r.used,0);
+  const rate=dsum>0?usum/dsum:null;
+  let est=null, left=null;
+  if(last){ const ds=sziDays(last.date)||0, after=rec.filter(x=>x.date>last.date).reduce((a,x)=>a+(Number(x.qty)||0),0);
+    est=Math.max(0, last.qty+after-(rate?rate*ds:0)); if(rate>0) left=est/rate; }
+  return { rows:rows.slice().reverse(), rec, last, rate, est, left, since:last?sziDays(last.date):null, overdue:!last||sziDays(last.date)>=7 };
+}
+/* ホームの資材アイコンの赤い札（不足の数／重油の点検が7日以上あいた） */
+function sziHomeTag(){
+  try{
+    const st=RC.state||lsGet('rec.state',null); let n=0;
+    if(st&&st.shizai) n=sziRows(st).filter(r=>r.name!==SZI_OIL && r.has && sziShort(r)).length;
+    const t=(RC.tane&&RC.tane.list)||[]; n+=t.filter(x=>Number(x.diff)<0).length;
+    if(n) return '不足 '+n;
+    const o=sziOil(); if(o.last && o.overdue) return '重油点検';
+  }catch(e){}
+  return '';
+}
+(function(){ const s=document.createElement('style'); s.textContent=`
+.szi-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:12px 0 10px}
+.szi-kpi button{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:9px 4px 8px;text-align:center;font-family:inherit;color:var(--ink);cursor:pointer;line-height:1.3}
+.szi-kpi button.on{box-shadow:0 0 0 2px var(--navy) inset}
+.szi-kpi button.wn{border:2px solid #c9821b;background:#fff9ef}
+.szi-kpi button.ng{border:2px solid #b23b3b;background:#fff5f4}
+.szi-kpi .e{font-size:22px;display:block}
+.szi-kpi b{display:block;font-size:12px}
+.szi-kpi .v{display:block;font-size:17px;font-weight:800;margin-top:2px}
+.szi-kpi .ok .v,.szi-kpi .v.ok{color:#2f7d5d}
+.szi-kpi .ng .v{color:#b23b3b}
+.szi-kpi .s{display:block;font-size:10.5px;color:var(--sub)}
+.szi-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:0 0 10px}
+.szi-tabs button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 2px;font-size:12.5px;white-space:nowrap;font-family:inherit;color:var(--ink);cursor:pointer}
+.szi-tabs button.on{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:700}
+.szi-tabs button .d{display:inline-block;width:8px;height:8px;border-radius:50%;background:#d62b22;margin-left:4px;vertical-align:1px}
+.szi-t{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden;font-size:14px}
+.szi-t th{background:#f1ede2;color:#555;font-size:11.5px;padding:6px 6px;text-align:right;white-space:nowrap}
+.szi-t td{padding:9px 6px;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
+.szi-t th:first-child,.szi-t td:first-child{text-align:left;white-space:normal}
+.szi-t td small{display:block;color:var(--sub);font-size:11px;font-weight:400}
+.szi-t tr.ck{cursor:pointer}
+.szi-t tr.ng td:first-child{box-shadow:5px 0 0 #b23b3b inset;padding-left:10px}
+.szi-t td.ng{color:#b23b3b;font-weight:800}.szi-t td.ok{color:#2f7d5d;font-weight:700}.szi-t td.na{color:#b9b29f;font-size:12px}
+.szi-t tr.neg td{background:#fff5f4}
+.szi-t tr.today td{background:#fff6d6}
+.szi-t td.l{text-align:left;white-space:normal}
+.szi-t .del{border:1px solid #e3b4b4;background:#fff;color:#b23b3b;border-radius:8px;font-size:12px;padding:2px 8px;font-family:inherit}
+.szi-h{font-size:13px;font-weight:700;color:var(--navy);margin:14px 2px 6px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.szi-h small{font-weight:400;color:var(--sub);font-size:11px}
+.szi-form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.szi-form .r{display:flex;gap:8px;align-items:center;margin:0 0 8px;flex-wrap:wrap}
+.szi-form label{font-size:12px;color:var(--sub)}
+.szi-form input,.szi-form select{font-size:17px;padding:9px;border:1px solid var(--line);border-radius:10px;font-family:inherit;min-width:0;background:#fff}
+.szi-form input.big{flex:1;font-weight:700;background:#fffbe8}
+.szi-form .u{font-size:14px;color:var(--sub)}
+.szi-btns{display:flex;gap:8px}
+.szi-btn{flex:1;border:0;border-radius:12px;background:#6f8f2e;color:#fff;font-size:15px;font-weight:700;padding:11px;font-family:inherit;cursor:pointer}
+.szi-btn.sub{background:#fff;color:var(--navy);border:1px solid var(--line)}
+.szi-btn:disabled{background:#b9bfae;color:#fff}
+.szi-msg{font-size:13px;margin:8px 2px 0;min-height:1em}
+.szi-msg.ng{color:#b23b3b}.szi-msg.ok{color:#2f7d5d}
+.szi-alert{background:#fff5f4;border:1px solid #f0c4bf;border-left:5px solid #b23b3b;border-radius:10px;padding:9px 11px;font-size:13px;margin:0 0 10px}
+.szi-alert b{color:#b23b3b}
+.szi-good{background:#f1f7ee;border:1px solid #cfe3c6;border-left:5px solid #2f7d5d;border-radius:10px;padding:9px 11px;font-size:13px;margin:0 0 10px}
+.szi-scroll{overflow-x:auto}
+.szi-none{color:var(--sub);text-align:center;padding:18px 0;font-size:13px}
+/* ℹ 情報フォルダ */
+.szi-fmask{position:fixed;inset:0;z-index:80;background:rgba(20,24,30,.45);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;animation:sziFade .15s ease-out}
+.szi-fold{background:rgba(247,244,236,.97);border-radius:26px;padding:18px 18px 14px;width:min(80vw,320px);box-shadow:0 10px 30px rgba(0,0,0,.25);animation:sziPop .18s ease-out}
+.szi-fold .t{text-align:center;font-weight:700;font-size:15px;margin:0 0 14px;color:var(--navy)}
+.szi-fold .g{display:grid;grid-template-columns:repeat(2,1fr);gap:16px 8px}
+.szi-fold .x{display:block;margin:14px auto 0;border:0;background:none;color:var(--sub);font-size:12px;font-family:inherit}
+@keyframes sziFade{from{opacity:0}} @keyframes sziPop{from{transform:scale(.85);opacity:0}}
+@media (prefers-reduced-motion:reduce){.szi-fmask,.szi-fold{animation:none}}
+.szi-ifold{font:italic 700 30px Georgia,"Times New Roman",serif;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2);line-height:1}
+/* 印刷（A重油の点検表） */
+#sziPrint{display:none}
+@media print{
+  body.szi-printing > *:not(#sziPrint){display:none!important}
+  body.szi-printing #sziPrint{display:block!important;color:#000;font-size:11pt}
+  #sziPrint h2{text-align:center;font-size:15pt;margin:0 0 4mm}
+  #sziPrint .m{text-align:right;font-size:9pt;margin:0 0 3mm}
+  #sziPrint table{width:100%;border-collapse:collapse}
+  #sziPrint th,#sziPrint td{border:1px solid #555;padding:2.2mm 1.5mm;text-align:center}
+  #sziPrint th{background:#eee}
+  #sziPrint td.k{width:16mm}
+  @page{size:A4 portrait;margin:14mm}
+}
+`; document.head.appendChild(s); })();
+
+/* ---------- ℹ 情報フォルダ（その場で開く） ---------- */
+function sziInfo(){
+  const ic=(o)=>{ const inner=`<span class="ico" style="background:linear-gradient(160deg,${o.c[0]},${o.c[1]})">${o.e}</span><span class="lb">${o.lb}</span>`;
+    return o.href?`<a class="dp-ic" href="${o.href}" data-k="${o.k}">${inner}</a>`:`<button type="button" class="dp-ic" data-k="${o.k}">${inner}</button>`; };
+  let pct=''; try{ pct=mastery(QUESTIONS)+'%'; }catch(e){}
+  const L=[
+    {k:'lib',  e:'📈', lb:'最新TREND', c:['#b8cd54','#9eb440'], fn:()=>go(()=>libScreen())},
+    {k:'jiten',e:'📖', lb:'逆引き検索', c:['#9fd286','#85ba6b'], href:'seishu-jiten.html'},
+    {k:'quiz', e:'✅', lb:`問題集${pct?`<small>${pct}</small>`:''}`, c:['#95c97a','#7bb15f'], fn:()=>go(quizHome)},
+    {k:'voice',e:'🎙', lb:'Sake Tour Guide', c:['#8abd6c','#70a453'], href:'voice.html'}
+  ];
+  const m=document.createElement('div'); m.className='szi-fmask';
+  m.innerHTML=`<div class="szi-fold" role="dialog" aria-label="情報"><div class="t">ℹ 情報</div><div class="g">${L.map(ic).join('')}</div><button type="button" class="x">閉じる</button></div>`;
+  const close=()=>{ m.remove(); document.removeEventListener('keydown',esc_); };
+  const esc_=e=>{ if(e.key==='Escape') close(); };
+  m.onclick=e=>{ if(e.target===m || e.target.closest('.x')) close(); };
+  document.addEventListener('keydown',esc_);
+  m.querySelectorAll('.dp-ic').forEach(el=>el.addEventListener('click',()=>{
+    const o=L.find(x=>x.k===el.dataset.k); try{ if(typeof useAdd==='function') useAdd('f',o.k); }catch(e){}
+    if(o.fn){ close(); o.fn(); } /* href はそのままページを移る */
+  }));
+  document.body.appendChild(m);
+}
+
+/* ---------- 🧰 資材の画面 ---------- */
+async function sziScreen(tab){
+  if(tab){ SZI.tab=tab; lsSet('szi.tab',tab); }
+  head('資材','');
+  const me=nav[nav.length-1];
+  let st=RC.state||lsGet('rec.state',null);
+  const busy=()=>{ const ae=document.activeElement; return !!(ae && ae.closest && ae.closest('#app') && ae.matches('input,textarea,select') && ae.value); };
+  const draw=()=>{ if(nav[nav.length-1]!==me) return; app.innerHTML=sziHTML(st); sziBind(st,draw); };
+  SZI.redraw=draw;
+  if(st&&st.master) draw(); else rcLoading();
+  await Promise.all([
+    recState(false).then(s=>{ if(s&&s.master) st=s; }).catch(()=>{}),
+    zaiApi({action:'list'}).then(j=>{ zaiKeep(j); ZAI.err=''; }).catch(e=>{ ZAI.err=String(e.message||e); }),
+    recApi({action:'tane_get'},40000).then(r=>{ if(r&&r.ok) RC.tane=r; }).catch(()=>{})
+  ]);
+  if(nav[nav.length-1]!==me) return;
+  if(!st||!st.master){ rcFail(); return; }
+  if(!busy()) draw();
+}
+function sziHTML(st){
+  const rows=sziRows(st), oil=sziOil();
+  const alc=rows.find(r=>r.name===SZI_ALC)||{ name:SZI_ALC, unit:'L', plan:[], log:[], has:false, stock:0, need:0, short:null };
+  const others=rows.filter(r=>r.name!==SZI_ALC && r.name!==SZI_OIL);
+  const tane=(RC.tane&&RC.tane.list)||[], taneNg=tane.filter(x=>Number(x.diff)<0);
+  const aS=sziShort(alc), oNg=oil.left!==null&&oil.left<7, oWn=oil.overdue||(oil.left!==null&&oil.left<14);
+  const otherNg=others.filter(r=>r.has&&sziShort(r)).length;
+  /* 上の3つの箱 */
+  let h=ZAI.err?`<div class="tl-warn" style="margin-top:10px">${esc(ZAI.err)}</div>`:'';
+  h+=`<div class="szi-kpi">
+    <button type="button" data-szt="oil" class="${SZI.tab==='oil'?'on ':''}${oNg?'ng':oWn?'wn':''}"><span class="e">🛢</span><b>A重油</b>
+      ${oil.last?`<span class="v">${sziF(oil.est,0)}L</span><span class="s">点検 ${oil.since===0?'今日':oil.since+'日前'}${oil.left!==null?`<br>あと約${Math.floor(oil.left)}日`:''}</span>`
+               :`<span class="v" style="font-size:14px">未点検</span><span class="s">週1回 残量を入力</span>`}</button>
+    <button type="button" data-szt="alc" class="${SZI.tab==='alc'?'on ':''}${aS?'ng':''}"><span class="e">🍶</span><b>添加アルコール</b>
+      ${!alc.has?`<span class="v" style="font-size:14px">在庫未入力</span><span class="s">今後 ${sziF(alc.need,0)}L</span>`
+        :aS?`<span class="v">${rcMD(aS.date)}</span><span class="s">に不足<br>${sziF(aS.lack,0)}L（40%）</span>`
+        :`<span class="v ok">足りる</span><span class="s">在庫 ${sziF(alc.stock,0)}L</span>`}</button>
+    <button type="button" data-szt="tane" class="${SZI.tab==='tane'?'on ':''}${taneNg.length?'ng':''}"><span class="e">🧫</span><b>種麹</b>
+      ${!tane.length?`<span class="v" style="font-size:14px">—</span><span class="s">読み込み中</span>`
+        :taneNg.length?`<span class="v">不足 ${taneNg.length}</span><span class="s">${esc(taneNg.map(x=>x.name).join('・'))}</span>`
+        :`<span class="v ok">足りる</span><span class="s">${tane.length}種</span>`}</button>
+  </div>`;
+  const T=[['list','酵素剤・他',otherNg],['oil','A重油',oNg||oil.overdue&&oil.last],['alc','アルコール',!!aS],['tane','種麹',taneNg.length]];
+  h+=`<div class="szi-tabs">${T.map(t=>`<button type="button" data-szt="${t[0]}" class="${SZI.tab===t[0]?'on':''}">${t[1]}${t[2]?'<span class="d"></span>':''}</button>`).join('')}</div>`;
+  if(SZI.tab==='oil') h+=sziOilHTML(oil);
+  else if(SZI.tab==='alc') h+=sziAlcHTML(alc, st);
+  else if(SZI.tab==='tane') h+=sziTaneHTML(tane);
+  else h+=sziListHTML(others);
+  return h;
+}
+/* 酵素剤・その他（仕込みに使う資材の一覧） */
+function sziListHTML(others){
+  if(!others.length) return `<div class="szi-none">資材の予定がありません（醪管理R8BY「資材予定」）</div>`;
+  return `<table class="szi-t"><tr><th>資材</th><th>在庫</th><th>これから使う</th><th>不足する日</th></tr>
+    ${others.map(r=>{ const s=sziShort(r); return `<tr class="ck ${s?'ng':''}" data-zn="${esc(r.name)}"><td><b>${esc(r.name)}</b><small>${esc(r.unit)}${r.tana?`・棚卸 ${rcMD(r.tana.date)}`:''}</small></td>
+      <td>${r.has?sziF(r.stock,2):'<span class="na">未入力</span>'}</td><td>${sziF(r.need,2)}</td>
+      <td class="${!r.has?'na':s?'ng':'ok'}">${!r.has?'—':s?rcMD(s.date):'足りる'}</td></tr>`; }).join('')}</table>
+    <p class="tl-warn" style="background:none;border:0;color:var(--sub);font-size:12px;padding:6px 2px;margin:0">行を押すと 入荷・棚卸 を入れられます。使った分は予定日（留日・上槽日など）を過ぎると自動で減ります。</p>`;
+}
+/* 🛢 A重油 */
+function sziOilHTML(oil){
+  const months=[...new Set(oil.rows.map(r=>String(r.date).slice(0,7)))];
+  let h=`<div class="szi-form">
+    <div class="r"><label>点検日</label><input type="date" id="szOilDate" value="${dtoday()}"></div>
+    <div class="r"><input type="text" inputmode="decimal" class="big" id="szOilQty" placeholder="残量" aria-label="残量L"><span class="u">L</span></div>
+    <div class="szi-btns"><button type="button" class="szi-btn" id="szOilChk" disabled>点検を記録</button><button type="button" class="szi-btn sub" id="szOilRec" disabled>受入を記録</button></div>
+    <div class="szi-msg" id="szOilMsg"></div></div>`;
+  if(oil.rate) h+=`<p style="font-size:13px;margin:8px 2px 0">最近の使い方：<b>1日あたり 約${sziF(oil.rate,0)}L</b>${oil.left!==null?`／今の見込み ${sziF(oil.est,0)}L → <b style="color:${oil.left<7?'#b23b3b':oil.left<14?'#c9821b':'inherit'}">あと約${Math.floor(oil.left)}日</b>`:''}</p>`;
+  h+=`<div class="szi-h">点検の記録<small>週1回・前回との差</small></div>`;
+  const recRows=oil.rec.slice().reverse();
+  if(!oil.rows.length && !recRows.length) return h+`<div class="szi-none">まだ記録がありません</div>`;
+  h+=`<div class="szi-scroll"><table class="szi-t"><tr><th>点検日</th><th>残量L</th><th>使用L</th><th>1日あたり</th><th>点検者</th><th></th></tr>
+    ${oil.rows.map(r=>`<tr><td>${rcMD(r.date)}${r.recv?`<small>受入 ${sziF(r.recv,0)}L</small>`:''}</td><td><b>${sziF(r.qty,0)}</b></td><td>${r.used===null?'—':sziF(r.used,0)}</td><td>${r.per===null?'—':sziF(r.per,0)}</td><td>${esc(r.by)}</td><td><button type="button" class="del" data-zdel="${esc(r.id)}">消す</button></td></tr>`).join('')}</table></div>`;
+  if(recRows.length) h+=`<div class="szi-h">受入の記録</div><table class="szi-t"><tr><th>日付</th><th>受入L</th><th>入力</th><th></th></tr>
+    ${recRows.map(x=>`<tr><td>${rcMD(x.date)}</td><td>${sziF(x.qty,0)}</td><td>${esc(x.updBy||x.by||'')}</td><td><button type="button" class="del" data-zdel="${esc(x.id)}">消す</button></td></tr>`).join('')}</table>`;
+  h+=`<div class="szi-h">印刷<small>A4 縦</small></div><div class="szi-form"><div class="r"><select id="szOilMon" style="flex:1"><option value="">全部（今季）</option>${months.map(m=>`<option value="${m}">${+m.slice(0,4)}年${+m.slice(5,7)}月</option>`).join('')}</select>
+    <button type="button" class="szi-btn sub" id="szOilPrint" style="flex:0 0 auto;padding:10px 16px">🖨 印刷</button></div></div>`;
+  return h;
+}
+function sziOilPrint(mon){
+  const oil=sziOil(), rows=oil.rows.slice().reverse().filter(r=>!mon||String(r.date).slice(0,7)===mon);
+  const ttl=mon?`${+mon.slice(0,4)}年${+mon.slice(5,7)}月`:'令和8酒造年度';
+  let el=document.getElementById('sziPrint'); if(!el){ el=document.createElement('div'); el.id='sziPrint'; document.body.appendChild(el); }
+  el.innerHTML=`<h2>A重油 在庫点検表（${esc(ttl)}）</h2><div class="m">麒麟山酒造　生産本部製造　印刷 ${dtoday()}</div>
+    <table><tr><th>点検日</th><th>残量 (L)</th><th>前回からの使用 (L)</th><th>1日あたり (L)</th><th>受入 (L)</th><th>点検者</th><th>確認</th></tr>
+    ${rows.map(r=>`<tr><td>${esc(r.date)}</td><td>${sziF(r.qty,0)}</td><td>${r.used===null?'':sziF(r.used,0)}</td><td>${r.per===null?'':sziF(r.per,0)}</td><td>${r.recv?sziF(r.recv,0):''}</td><td>${esc(r.by)}</td><td class="k"></td></tr>`).join('')}
+    ${Array.from({length:Math.max(0,12-rows.length)}).map(()=>'<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td class="k"></td></tr>').join('')}</table>`;
+  document.body.classList.add('szi-printing');
+  const done=()=>{ document.body.classList.remove('szi-printing'); window.removeEventListener('afterprint',done); };
+  window.addEventListener('afterprint',done);
+  setTimeout(()=>{ window.print(); setTimeout(done,1500); },50);
+}
+/* 🍶 添加アルコール（40%換算L） */
+function sziAlcHTML(alc, st){
+  const today=dtoday(), s=sziShort(alc);
+  const mOf=no=>((st&&st.master)||[]).find(m=>String(m.no)===String(no))||{};
+  const fut=alc.plan.filter(p=>!p.date||p.date>=today).sort((a,b)=>String(a.date||'9').localeCompare(String(b.date||'9'))||(+a.no)-(+b.no));
+  let h='';
+  if(!alc.has) h+=`<div class="szi-alert"><b>在庫がまだ入っていません。</b>下で「棚卸（今ある量）」か「入荷」を入れると、添加予定に間に合うかを判定します。</div>`;
+  else if(s) h+=`<div class="szi-alert"><b>${rcMD(s.date)}（${esc(String(s.no))}号の添加）で足りなくなります。</b><br>在庫 ${sziF(alc.stock,0)}L に対し、これからの添加予定 ${sziF(alc.need,0)}L（40%換算）。不足 ${sziF(Math.max(0,alc.need-alc.stock),0)}L。発注は納入の約2か月前。</div>`;
+  else h+=`<div class="szi-good">在庫 ${sziF(alc.stock,0)}L で、これからの添加予定 ${sziF(alc.need,0)}L（40%換算）に<b>間に合います</b>（残り ${sziF(alc.stock-alc.need,0)}L）。</div>`;
+  const kind=SZI.alcKind||'入荷';
+  h+=`<div class="szi-form">
+    <div class="szi-btns" style="margin:0 0 8px">${['入荷','棚卸'].map(k=>`<button type="button" class="szi-btn ${kind===k?'':'sub'}" data-alck="${k}">${k==='棚卸'?'棚卸（今ある量）':'入荷'}</button>`).join('')}</div>
+    <div class="r"><label>日付</label><input type="date" id="szAlcDate" value="${today}"></div>
+    <div class="r"><input type="text" inputmode="decimal" class="big" id="szAlcL" placeholder="量"><span class="u">L</span>
+      <input type="text" inputmode="decimal" id="szAlcDeg" value="${kind==='入荷'?'95':'40'}" style="width:4.2em;text-align:right"><span class="u">度</span></div>
+    <div style="font-size:13px;margin:0 2px 8px">40%換算：<b id="szAlc40">—</b> L</div>
+    <button type="button" class="szi-btn" id="szAlcOk" disabled style="width:100%">${kind}を記録</button>
+    <div class="szi-msg" id="szAlcMsg"></div></div>`;
+  h+=`<div class="szi-h">これからの添加予定<small>上槽日（醪管理R8BY 資材予定・40%換算L）</small></div>`;
+  if(!fut.length) h+=`<div class="szi-none">これからの添加予定はありません</div>`;
+  else { let left=alc.has?alc.stock:null;
+    h+=`<div class="szi-scroll"><table class="szi-t"><tr><th>添加日</th><th style="text-align:left">順号・液種</th><th>添加L</th><th>残りL</th></tr>${fut.map(p=>{ if(left!==null) left-=p.qty; const m=mOf(p.no);
+      return `<tr class="${left!==null&&left<0?'neg':''} ${p.date===today?'today':''}"><td>${p.date?rcMD(p.date):'—'}</td><td class="l">${esc(String(p.no))}号 ${esc(m.liquid||'')}</td><td>${sziF(p.qty,0)}</td><td class="${left!==null&&left<0?'ng':''}">${left===null?'—':sziF(left,0)}</td></tr>`; }).join('')}</table></div>`; }
+  const log=alc.log.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.at||'').localeCompare(String(a.at||'')));
+  h+=`<div class="szi-h">入荷・棚卸の記録</div>`+(log.length?`<table class="szi-t"><tr><th>日付</th><th>区分</th><th>40%L</th><th></th></tr>${log.map(x=>`<tr><td>${rcMD(x.date)}<small>${esc(x.memo||'')}</small></td><td>${esc(x.kind)}<small>${esc(x.updBy||x.by||'')}</small></td><td>${sziF(x.qty,0)}</td><td><button type="button" class="del" data-zdel="${esc(x.id)}">消す</button></td></tr>`).join('')}</table>`:`<div class="szi-none">まだありません</div>`);
+  return h;
+}
+/* 🧫 種麹（麹の画面と同じデータ） */
+function sziTaneHTML(tane){
+  let h=`<button type="button" class="szi-btn" id="szTaneGo" style="width:100%;margin:0 0 10px">🧫 種麹の仕入を入れる ›</button>`;
+  if(!tane.length) return h+`<div class="szi-none">${RC.tane?'種麹の予定がありません':'読み込んでいます…（読めないときは 麹 › 種 から）'}</div>`;
+  return h+`<div class="szi-scroll"><table class="szi-t"><tr><th>種麹</th><th>現在庫 g</th><th>今後必要 g</th><th>差 g</th><th>不足になる日</th></tr>
+    ${tane.map(x=>{ const ng=Number(x.diff)<0; return `<tr class="${ng?'ng':''}"><td><b>${esc(x.name)}</b>${x.order?`<small style="color:#b23b3b">${esc(x.order)}</small>`:''}</td><td><b>${sziF(x.stock,0)}</b></td><td>${sziF(x.need,0)}</td><td class="${ng?'ng':'ok'}">${sziF(x.diff,0)}</td><td>${x.short?esc(/^\d{4}-/.test(String(x.short))?rcMD(x.short):x.short):'—'}</td></tr>`; }).join('')}</table></div>
+    <p style="font-size:12px;color:var(--sub);margin:6px 2px">麹の引込みで入れた種麹の量が自動で引かれます（麹管理R8BY「種麹集計」）。</p>`;
+}
+function sziBind(st, draw){
+  app.querySelectorAll('[data-szt]').forEach(b=>b.onclick=()=>{ SZI.tab=b.dataset.szt; lsSet('szi.tab',SZI.tab); draw(); });
+  app.querySelectorAll('[data-zn]').forEach(tr=>tr.onclick=()=>{ const r=sziRows(st).find(x=>x.name===tr.dataset.zn); if(r) zaiSheet(r, st, ()=>draw()); });
+  app.querySelectorAll('[data-zdel]').forEach(b=>b.onclick=async e=>{ e.stopPropagation();
+    if(b.dataset.s!=='1'){ b.dataset.s='1'; b.textContent='本当に消す'; return; }
+    b.disabled=true; try{ zaiKeep(await zaiApi({action:'delete', id:b.dataset.zdel})); draw(); }catch(err){ b.textContent='失敗'; } });
+  const save=async(item, msgEl, btns)=>{
+    btns.forEach(x=>x.disabled=true); msgEl.className='szi-msg'; msgEl.textContent='送っています…';
+    try{ zaiKeep(await zaiApi({action:'save', item})); ZAI.err=''; draw();
+      const m=document.getElementById(msgEl.id); if(m){ m.className='szi-msg ok'; m.textContent=`${item.name} ${item.kind} ${sziF(item.qty,1)}${item.unit}（${rcMD(item.date)}）を記録しました`; } }
+    catch(err){ msgEl.className='szi-msg ng'; msgEl.textContent=String(err.message||err); btns.forEach(x=>x.disabled=false); }
+  };
+  /* A重油 */
+  const oq=$('#szOilQty');
+  if(oq){ const bc=$('#szOilChk'), br=$('#szOilRec'), msg=$('#szOilMsg');
+    oq.oninput=()=>{ const v=pnum(oq.value); bc.disabled=br.disabled=!(v!==null && v>=0); };
+    oq.onkeydown=e=>{ if(e.key==='Enter' && !bc.disabled) bc.click(); };
+    const go_=kind=>{ const v=pnum(oq.value); if(v===null) return; save({ name:SZI_OIL, kind, qty:String(v), unit:'L', date:$('#szOilDate').value||dtoday(), memo:'' }, msg, [bc,br]); };
+    bc.onclick=()=>go_('点検'); br.onclick=()=>go_('受入');
+    $('#szOilPrint').onclick=()=>sziOilPrint($('#szOilMon').value); }
+  /* 添加アルコール */
+  const aL=$('#szAlcL');
+  if(aL){ const aD=$('#szAlcDeg'), ok=$('#szAlcOk'), o40=$('#szAlc40'), msg=$('#szAlcMsg');
+    const conv=()=>{ const l=pnum(aL.value), d=pnum(aD.value); const v=(l!==null&&d>0)?Math.round(l*d/40*10)/10:null; o40.textContent=v===null?'—':sziF(v,1); ok.disabled=!(v!==null&&v>=0); return v; };
+    aL.oninput=conv; aD.oninput=conv;
+    app.querySelectorAll('[data-alck]').forEach(b=>b.onclick=()=>{ SZI.alcKind=b.dataset.alck; draw(); });
+    ok.onclick=()=>{ const v=conv(); if(v===null) return; save({ name:SZI_ALC, kind:SZI.alcKind||'入荷', qty:String(v), unit:'L', date:$('#szAlcDate').value||dtoday(), memo:`${pnum(aL.value)}L・${pnum(aD.value)}度` }, msg, [ok]); }; }
+  const tg=$('#szTaneGo'); if(tg) tg.onclick=()=>go(taneScreen);
+}
+/* 仕込み › 資材の在庫 からもこの画面へ */
+zaiScreen=function(){ return sziScreen('list'); };
+/* ホームの赤い札を、データが届いたあとに付け直す */
+setTimeout(()=>{ try{ const b=document.getElementById('bShizai'); if(b && !b.querySelector('.tg')){ const t=sziHomeTag(); if(t) b.insertAdjacentHTML('beforeend',`<span class="tg">${t}</span>`); } }catch(e){} }, 4000);
+
+</script>
+<!-- /shizai -->
 </body>
 </html>
