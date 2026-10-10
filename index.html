@@ -4366,7 +4366,16 @@ function fastRerender(myTop){
   if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
   const f=nav[nav.length-1];
   if(!f || f!==myTop) return;
-  const y=window.scrollY; f(); window.scrollTo(0,y);
+  /* 2026-10-10 修正：酒母などで下にスクロール中に一番上へ戻る問題。
+     f() は async で、最初に「読み込み中」に差し替えてから中身を描くため、すぐ scrollTo すると
+     短い画面で位置が 0 に切り詰められていた。→ 描き直しの間は高さを固定し、描き終わってから位置を戻す */
+  const y=window.scrollY, t0=Date.now();
+  app.style.minHeight=app.offsetHeight+'px';
+  let p; try{ p=f(); }catch(e){}
+  Promise.resolve(p).catch(()=>{}).then(()=>{
+    if(nav[nav.length-1]===myTop && Date.now()-t0<1500 && Math.abs(window.scrollY-y)>2) window.scrollTo(0,y);
+    app.style.minHeight='';
+  });
 }
 
 /* ---------- 記録系（麹・分析・酒母・カルテ）：保存分をすぐ返し、裏で最新 ---------- */
@@ -5130,6 +5139,27 @@ async function shuboSheet(no){
   shBindTable(d=>go(()=>shuboInput(no,d)));
   $('#shSet').onclick=()=>go(()=>shuboInput(no, Math.min(13,Math.max(1,dT||1)), 'setup'));
 }
+/* 2026-10-10 泰広さん指示：酒母の仕込尺を入れたら、仕込量（L）を自動で入れる。
+   酒母タンク（仕込マスタの shuboT）の容量早見表（tanks.json・空積寸）で引く。R7BY の分析酒母シートの 仕込尺→仕込量 と全数一致を確認済み。
+   照合できていない容器（blocked／checked なし）・早見表に無い容器・範囲外は入れない（税務に関わるので概算禁止）。量を手で直すのは自由（尺を変えるとまた入る） */
+async function shAutoRyo(m){
+  const sk=$('#sh_shaku'), ry=$('#sh_ryo'); if(!sk||!ry) return;
+  const lab=ry.closest('.rc-f'); let note=lab&&lab.querySelector('.sh-auto');
+  if(lab&&!note){ note=document.createElement('small'); note.className='sh-auto'; note.style.cssText='display:block;font-size:11px;color:var(--sub);margin-top:2px'; lab.appendChild(note); }
+  const say=(t,ok)=>{ if(note){ note.textContent=t; note.style.color=ok?'#1d6b45':'#a0610b'; } };
+  const tno=m&&m.shuboT;
+  if(!tno){ say('酒母タンク未設定のため、量は自動で入りません'); return; }
+  try{ await loadTanks(); }catch(e){}
+  const t=tankByNo(tno);
+  if(!t){ say(`T${tno} は容量早見表に無いため、量は手で入れてください`); return; }
+  if(t.verify||t.blocked||!t.checked){ say(`T${tno} は早見表が照合できていない容器のため計算しません（造りexで確認）`); return; }
+  const calc=()=>{ const mm=pnum(sk.value); if(mm===null){ say(`尺を入れると T${tno} の早見表から量が入ります`,true); return; }
+    const v=volAt(t,mm);
+    if(v===null){ say(`尺 ${mm}mm は T${tno} の早見表の範囲外です`); return; }
+    ry.value=Math.round(v); FAST.dirty=true; say(`T${tno} 早見表：尺 ${mm}mm → ${Math.round(v)} L（自動）`,true); };
+  sk.addEventListener('input',calc);
+  if(pnum(sk.value)!==null && String(ry.value).trim()==='') calc(); else say(`尺を入れると T${tno} の早見表から量が入ります`,true);
+}
 /* 酒母の入力（今までの画面を差し替え：品温 午前・午後、仕込時の値） */
 shuboInput = async function(no, day, focus){
   const m=rcMaster(no)||{};
@@ -5157,6 +5187,7 @@ shuboInput = async function(no, day, focus){
   const dv=$('#rcDays'); const on=dv.querySelector('.on'); if(on) dv.scrollLeft=Math.max(0,on.offsetLeft-dv.clientWidth/2+30);
   dv.querySelectorAll('button').forEach(x=>x.onclick=()=>shuboInput(no,Number(x.dataset.d)));
   if(focus==='setup'){ const c=$('#shSetCard'); if(c) c.scrollIntoView({block:'start'}); }
+  shAutoRyo(m);   // 2026-10-10 仕込尺 → 仕込量（酒母タンクの容量早見表）
   const again=()=>{ RC.shubo[no]=null; setTimeout(()=>shuboInput(no,day),400); };
   $('#shSetSave').onclick=async()=>{
     const setup={}; SH_SETUP.forEach(([f])=>{ const v=$('#sh_'+f).value; if(String(v)!==String(u[f]??'')) setup[f]=v; });
@@ -8835,6 +8866,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-10-2','🧫','酒母','酒母の「仕込時の値」で仕込尺（mm）を入れると、酒母タンクの容量早見表から仕込量（L）が自動で入るようにしました。照合できていないタンク・早見表に無いタンクは自動で入れません。'],
+  ['2026-10-10-1','🧫','酒母','酒母などの画面を下へスクロールしているときに、裏で最新の値を取り直すと一番上へパッと戻ってしまう不具合を直しました。描き直しても見ている位置はそのままです。'],
   ['2026-10-09-5','🧰','ホーム','ホームに「🧰 資材」ができました。A重油（週1回の残量点検・表・印刷）、添加アルコール（上槽日の添加予定に在庫が間に合うか）、種麹、酵素剤などの在庫を1か所で見られます。使った分は予定日を過ぎると自動で減ります。最新TREND・逆引き検索・問題集・Sake Tour Guide は「i（情報）」にまとめました。逆引き検索の一番上に「製造ツールへ戻る」を付けました。'],
   ['2026-10-09-4','🍚','ホーム','10/9（金）は午後に全体会議のため、本日の予定から麹の切返しをはずし、洗米を午前10:30からにしました（特別対応の日の設定）。'],
   ['2026-10-09-3','🍚','ホーム','本日の予定で、通常の洗米を13:00からの並びにしました（昼休みのあと）。蒸米が13:00を過ぎる日は、蒸米が終わってから並びます。'],
