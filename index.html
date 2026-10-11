@@ -8899,7 +8899,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
-  ['2026-10-11-4','📊','解析','ホームに「解析」を足しました。仕込順に上から下へ、1本ずつ 吸水・麹・酒母・上槽・粕歩合・きき酒・濾過・火入 の要点と、醪のグラフ（昨年度の同じ液種の帯・似た仕込み・追水・見込み）と表を見られます。帯から外れた値は赤い点で知らせます。'],
+  ['2026-10-11-4','📊','解析','ホームに「解析」を足しました。仕込順に上から下へ、1本ずつ 吸水・麹・酒母・上槽・粕歩合・きき酒・濾過・火入 の要点と、醪のグラフ（昨年度の同じ液種の帯・似た仕込み・追水・見込み）と表を見られます。帯から外れた値は赤い点で知らせます。醪に入る前は酒母のグラフ（昨年度の同じ液種の酒母の帯）を出します。'],
   ['2026-10-11-3','🧴','濾過・火入','ホームに「濾過・火入」を足しました。濾過・火入の予定日と済んだ日を入れると、本日の予定と部署カレンダーに出ます。上槽から5日以内に濾過、濾過から7日以内に火入の予定が無いと、アイコンに赤い札が出ます。仕込みの画面は「📈 グラフ／📋 表」で切り替えられます。'],
   ['2026-10-11-2','🧪','分析','分析の入力欄は小数1桁まで表示（5 → 5.0）。酒母にｱﾐﾉ欄を追加し、酛卸の日は「酛卸」の印と未入力欄の赤い点線を表示。酛卸の日に未入力のまま保存すると確認が出ます。'],
   ['2026-10-11-1','🧪','分析','分析の画面の上にあった「本・酒母・醪・入力済」の数の表示を外し、すぐ入力の表が出るようにしました。'],
@@ -9907,7 +9907,7 @@ function ksChart(o){
   let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" class="ks-svg" preserveAspectRatio="none">`;
   const st=Math.max(1,Math.round((o.y1-o.y0)/5));
   for(let v=Math.ceil(o.y0);v<=o.y1;v+=st) s+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#ece7dc"/><text x="${L-3}" y="${Y(v)+3}" font-size="8" text-anchor="end" fill="#8a8a8a">${v}</text>`;
-  for(let i=0;i<N;i+=(N>24?3:2)) s+=`<text x="${X(i)}" y="${H-5}" font-size="8" text-anchor="middle" fill="#8a8a8a">${i===0?'留':i+1}</text>`;
+  for(let i=0;i<N;i+=(N>24?3:2)) s+=`<text x="${X(i)}" y="${H-5}" font-size="8" text-anchor="middle" fill="#8a8a8a">${i===0?(o.l0||'留'):i+1}</text>`;
   (o.vlines||[]).forEach(v=>{ if(v.i==null||v.i<0||v.i>=N) return; s+=`<line x1="${X(v.i)}" x2="${X(v.i)}" y1="${T}" y2="${H-B}" stroke="${v.c}" stroke-width="${v.w||1.5}" ${v.dash?'stroke-dasharray="3 2"':''}/>${v.t?`<text x="${X(v.i)+2}" y="${T+8}" font-size="8" fill="${v.c}">${v.t}</text>`:''}`; });
   (o.bands||[]).forEach(b=>{ const up=[],dn=[]; b.m.forEach((m,i)=>{ if(m!==null&&i<N){ up.push(X(i)+','+Y(cl(m+b.s[i]))); dn.unshift(X(i)+','+Y(cl(m-b.s[i]))); } });
     if(up.length>1) s+=`<path d="M${up.join('L')}L${dn.join('L')}Z" fill="${b.c}" opacity=".18"/><path d="M${b.m.map((m,i)=>m===null||i>=N?'':X(i)+','+Y(cl(m))).filter(Boolean).join('L')}" fill="none" stroke="${b.c}" stroke-width=".8" stroke-dasharray="3 3" opacity=".7"/>`; });
@@ -9921,7 +9921,9 @@ function ksChart(o){
 function ksCardHTML(m, b, k, opt){
   opt=opt||{};
   const today=dtoday(), t=((RC.state&&RC.state.today)||{})[m.no]||{};
-  const D=ksDays(b), P=ksPrev(m.liquid), nP=P.length;
+  const D=ksDays(b);
+  if(opt.full && !D.length) return ksShuboCard(m,k);   // 醪の記録がまだ（酒母の段階）→ 酒母のグラフ
+  const P=ksPrev(m.liquid), nP=P.length;
   const plan=m.period?Number(m.period):(m.joso&&m.tome?rcDays(m.tome,m.joso)+1:0);
   const S=ksSimilar(D,P), pr=ksPredict(S), H=ksOiHist(P), nx=ksOiNext(D,H,nP,b);
   const N=Math.max(D.length+1, plan||0, pr&&pr.n?Math.round(pr.n):0, 18);
@@ -9973,6 +9975,40 @@ function ksCardHTML(m, b, k, opt){
   </div>`;
 }
 function ksCardSkel(m){ return `<div class="ks-card" data-ks="${m.no}"><div class="ks-hd" data-ksopen="${m.no}"><span class="no">${m.no}</span><span class="lq">${esc(m.liquid||'')}</span><span class="ks-sub">${esc(m.sym||'')} T${esc(m.tank||'')}<br>添 ${rcMD(m.soe)}・留 ${rcMD(m.tome)}</span></div><div class="shk-none">読み込んでいます…</div></div>`; }
+/* 醪の前（酒母の段階）のカード：酒母の Be・酸度・品温 ＋ 昨年度の同じ液種の酒母の帯 */
+function ksShuboCard(m,k){
+  const today=dtoday(), s=k&&k.shubo, n=v=>ksNum(v);
+  const SD=(s&&s.days?s.days:[]).map(d=>({day:d.day,date:d.date,be:n(d.be),ta:n(d.ta),alc:n(d.alc),aa:n(d.aa),tAM:n(d.temp),tPM:n(d.tPM)}));
+  let L=0; SD.forEach((d,i)=>{ if(d.be!=null||d.ta!=null||d.tAM!=null||d.tPM!=null||d.alc!=null) L=i+1; }); const D=SD.slice(0,L);
+  const P=((ZN.data&&ZN.data.shubo)||[]).filter(x=>znSameLiq(x.lq,m.liquid)).map(x=>({x,d:x._days||(x._days=znDays('shubo',x))})), nP=P.length;
+  const oro=m.soe?dadd(m.soe,-1):'', N=Math.max(D.length+1, m.motodate&&oro?rcDays(m.motodate,oro)+1:0, 13);
+  const BE=ksBand(P,d=>d.sm,N), TA=ksBand(P,d=>d.ta,N), TP=ksBand(P,ksT,N);
+  const out=(B,i,v,th)=>B.m[i]!=null&&B.s[i]!=null&&Math.abs(v-B.m[i])>Math.max(2*B.s[i],th);
+  const dNow=m.motodate?rcDays(m.motodate,today)+1:null, tdy=dNow&&dNow<=N?dNow-1:null;
+  const vl=[]; if(tdy!=null) vl.push({i:tdy,c:'#e0b400',dash:1,t:'今日'}); if(oro&&m.motodate) vl.push({i:rcDays(m.motodate,oro),c:'#d9748f',dash:1,t:'酛卸'});
+  const mx=Math.max(18,...D.map(d=>d.be||0))+1;
+  const g1=ksChart({days:N,l0:'1',y0:0,y1:mx,vlines:vl,bands:nP>=3?[{m:BE.m,s:BE.s,c:'#2c5d9b'},{m:TA.m,s:TA.s,c:'#2f7d5d'}]:[],
+    lines:[{v:D.map(d=>d.be),c:'#1b2a41',dot:true,chk:(i,v)=>out(BE,i,v,0.8)},{v:D.map(d=>d.ta),c:'#2f7d5d',dot:true,chk:(i,v)=>out(TA,i,v,0.6)}]});
+  const ts=D.map(ksT).filter(v=>v!=null), t0=Math.floor(Math.min(10,...ts))-1, t1=Math.ceil(Math.max(24,...ts))+1;
+  const g2=ksChart({days:N,l0:'1',h:96,y0:t0,y1:t1,vlines:vl.slice(0,1),bands:nP>=3?[{m:TP.m,s:TP.s,c:'#b23b3b'}]:[],
+    lines:[{v:D.map(d=>(d.tPM>0&&d.tPM<40)?d.tPM:null),c:'#e08a3c',w:1.2,dash:1},{v:D.map(ksT),c:'#b23b3b',dot:true,chk:(i,v)=>out(TP,i,v,1.0)}]});
+  const flags=[]; D.forEach((d,i)=>{ [['品温AM','tAM'],['品温PM','tPM']].forEach(([l,f])=>{ const v=d[f]; if(v!=null&&(v<=0||v>=40)) flags.push(`${i+1}日目の${l}「${v}」は入力ミスでは？`); else if(v!=null&&out(TP,i,v,1.0)) flags.push(`${i+1}日目の${l} ${v}℃ が昨年度の帯（${TP.m[i].toFixed(1)}±${TP.s[i].toFixed(1)}）から外れています`); });
+    if(d.ta!=null&&out(TA,i,d.ta,0.6)) flags.push(`${i+1}日目の酸度 ${d.ta} が昨年度の帯（${TA.m[i].toFixed(1)}±${TA.s[i].toFixed(1)}）から外れています`);
+    if(d.be!=null&&out(BE,i,d.be,0.8)) flags.push(`${i+1}日目のBe ${d.be} が昨年度の帯（${BE.m[i].toFixed(1)}±${BE.s[i].toFixed(1)}）から外れています`); });
+  const tbl=D.length?`<div class="ks-tbl"><table><tr><th></th>${D.map((d,i)=>`<th class="${i===tdy?'td':''}">${i+1}</th>`).join('')}</tr>
+    ${[['Be','be',BE,0.8],['alc','alc'],['酸度','ta',TA,0.6],['ｱﾐﾉ','aa'],['品温AM','tAM',TP,1.0],['品温PM','tPM',TP,1.0]].map(([l,f,B,th])=>`<tr><th>${l}</th>${D.map((d,i)=>{ const v=d[f]; const c=(f==='tAM'||f==='tPM')&&v!=null&&(v<=0||v>=40)?'bad':(B&&v!=null&&out(B,i,v,th)?'out':''); return `<td class="${c} ${i===tdy?'td':''}">${v==null?'':rcN(v)}</td>`; }).join('')}</tr>`).join('')}</table></div>`:`<div class="shk-none">まだ酒母の記録はありません</div>`;
+  const st=dNow>=1?`<span class="ks-st">酒母 ${dNow}日目</span>`:`<span class="ks-st plan">予定</span>`;
+  return `<div class="ks-card" data-ks="${m.no}">
+    <div class="ks-hd" data-kssh="${m.no}"><span class="no">${m.no}</span><span class="lq">${esc(m.liquid||'')}</span>${st}
+      <span class="ks-sub">${esc(m.shuboSym||m.sym||'')} 酒母T${esc(m.shuboT||'')}${m.yeast?'・'+esc(m.yeast):''}<br>酛立 ${rcMD(m.motodate)}・酛卸 ${rcMD(oro)}・添 ${rcMD(m.soe)}</span><span class="go">›</span></div>
+    ${ksStrip(m,k)}
+    ${flags.length?`<div class="ks-flag">${flags.slice(0,4).map(f=>'⚠ '+esc(f)).join('<br>')}${flags.length>4?`<br><small>ほか${flags.length-4}件</small>`:''}</div>`:''}
+    <div class="ks-lg"><span><i style="background:#1b2a41"></i>Be</span><span><i style="background:#2f7d5d"></i>酸度</span>${nP>=3?`<span><i style="background:#2c5d9b;opacity:.3"></i>昨年 ${esc(m.liquid||'')} の酒母 平均±σ（${nP}本）</span>`:'<span>（昨年度に同じ液種の酒母が3本未満のため帯なし）</span>'}</div>
+    ${g1}${g2}${tbl}
+    <div class="tl-note" style="margin-top:4px">醪の記録が入ると、醪のグラフ・追水・見込みに切り替わります。</div>
+    ${ksDetail(m,k)}
+  </div>`;
+}
 /* 吸水〜火入の要点（解析のカードの上段） */
 function ksStrip(m,k){
   const av=a=>{ a=a.map(Number).filter(v=>v>0); return a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*10)/10:null; };
@@ -10024,6 +10060,7 @@ function ksList(box, list, kind){
 }
 function ksBind(box){
   box.querySelectorAll('[data-ksopen]').forEach(b=>b.onclick=()=>go(()=>moromiSheet(b.dataset.ksopen)));
+  box.querySelectorAll('[data-kssh]').forEach(b=>b.onclick=()=>go(()=>shuboSheet(b.dataset.kssh)));
   box.querySelectorAll('[data-karte]').forEach(b=>b.onclick=()=>go(()=>karteScreen(b.dataset.karte)));
 }
 /* ---- 📊 解析の画面 ---- */
@@ -10033,9 +10070,9 @@ async function kaisekiHome(){
   const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
   if(typeof rkLoad==='function') rkLoad(false);
   const today=dtoday(), T=st.today||{}, F=KS.filter;
-  const started=st.master.filter(m=>m.soe&&today>=m.soe);
+  const started=st.master.filter(m=>(m.motodate&&today>=m.motodate)||(m.soe&&today>=m.soe));   // 酒母を立てたものから
   const list=started.filter(m=>F==='all'||(F==='now'&&(T[m.no]||{}).state!=='上槽済')||(F==='done'&&(T[m.no]||{}).state==='上槽済')).sort((a,b)=>Number(a.no)-Number(b.no));
-  app.innerHTML=`<div class="rc-bar">${[['all','全部'],['now','醪中'],['done','上槽済']].map(([k,l])=>`<button class="rc-chip ${F===k?'on':''}" data-ksf="${k}">${l}</button>`).join('')}<span style="flex:1"></span><button class="rc-ghost" id="ksReload">更新</button></div>
+  app.innerHTML=`<div class="rc-bar">${[['all','全部'],['now','仕込中'],['done','上槽済']].map(([k,l])=>`<button class="rc-chip ${F===k?'on':''}" data-ksf="${k}">${l}</button>`).join('')}<span style="flex:1"></span><button class="rc-ghost" id="ksReload">更新</button></div>
     <p class="tl-note" style="margin:2px 2px 8px">仕込順（${list.length}本）。グラフの帯は昨年度の同じ液種の平均±σ、細い線は動きの似た昨年度の仕込み3本。赤い点は帯から外れた値。</p><div id="ksBox"></div>`;
   app.querySelectorAll('[data-ksf]').forEach(b=>b.onclick=()=>{ KS.filter=b.dataset.ksf; lsSet('ks.filter',KS.filter); kaisekiHome(); });
   $('#ksReload').onclick=async()=>{ await recState(true); list.forEach(m=>{ RC.karte[m.no]=null; }); kaisekiHome(); };
