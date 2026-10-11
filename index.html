@@ -7861,7 +7861,7 @@ function kgSetCells(kind, set, fi){   // 留（酒母は仕込時）を除いた
 /* rows=[{no,label,sub,cls,days:[{day,date,...}],n(列の数),today,jo(上槽予定の日),last:{…}|null,set:{…}}] */
 function kgHTML(fields, rows, opt){
   opt=opt||{};
-  const N=Math.max(1,...rows.map(r=>r.n||0));
+  const N=Math.max(1,...rows.map(r=>Math.max(r.n||0,r.nx||0)));   // 2026-10-11：nx＝上槽日を後ろへ選べるように足す列
   const hasLast=!!opt.last && rows.some(r=>r.last);
   const dl=opt.shubo?(d=>d):(d=>d===1?'留':d);
   const sk=opt.setKind&&opt.showSet?opt.setKind:'';
@@ -7950,8 +7950,8 @@ function kgMoromiRows(list, today, T){
     const S=(b&&b.setup)||{}, dts={soe:m.soe, odori:m.soe?dadd(m.soe,1):'', naka:m.naka, tome:m.tome};
     const set={}; ['soe','odori','naka','tome'].forEach(k=>set[k]={...(S[k]||{}), date:(S[k]||{}).date||dts[k]});
     return {no:m.no, label:m.no, start:m.tome, set,
-      sub:`<small>${esc(m.sym||'')} ${esc(m.liquid||'')}</small><small>T${esc(m.tank||'')}・${dT>=1?dT+'日目':'留まで'+(1-dT)+'日'}</small><small>上槽予定 ${rcMD(m.joso)}</small>${!b?'<small>読み込み中…</small>':''}${t.warn?`<small class="wn">${esc(t.warn)}</small>`:''}`,
-      days, n:jo||Math.max(days.length,dT), today:dT, jo}; });
+      sub:`<small>${esc(m.sym||'')} ${esc(m.liquid||'')}</small><small>T${esc(m.tank||'')}・${dT>=1?dT+'日目':'留まで'+(1-dT)+'日'}</small>${typeof jsSubHTML==='function'?jsSubHTML(m):`<small>上槽予定 ${rcMD(m.joso)}</small>`}${!b?'<small>読み込み中…</small>':''}${t.warn?`<small class="wn">${esc(t.warn)}</small>`:''}`,
+      days, n:jo||Math.max(days.length,dT), nx:(jo||0)+(typeof JS_EXTRA!=='undefined'?JS_EXTRA:0), today:dT, jo}; });
 }
 /* 酒母の表：順号の下に使用酵母を大きく（2026-10-07 泰広さん指示）。🧬酵母で変えた酵母名を優先 */
 function kgYeastNames(m){
@@ -8982,6 +8982,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-11-14','🍶','仕込み','仕込みの📋表で上槽日を選べるようにしました。「日付」の行のマスを押すと「この日を上槽日にしますか」。選んだ日は本日の予定・部署カレンダー・出勤表（上槽と翌日の粕）に入ります。初めは仕込み計画表の上槽予定日です。'],
   ['2026-10-11-13','⏰','ホーム','本日の予定の上槽の終わりを、仕込み総米で決めるようにしました（2t＝15:00まで、4t＝17:00まで、その間は総米に比例）。上槽を押すと、号ごとの総米と終わりの時刻が出ます。'],
   ['2026-10-11-12','⏰','ホーム','本日の予定の上槽を11:00からにしました。'],
   ['2026-10-11-11','⏰','ホーム','本日の予定を作業開始8:30にそろえました（時間軸8:30〜17:00、盛・分析は8:30から）。酛卸は13:00からに。夜の作業（麹の留仕事 23:00 など）は枠の右端ではなく、枠の下に「17時以降」として出します。'],
@@ -9924,6 +9925,85 @@ setTimeout(()=>{ try{ if(ST&&ST.token) rkLoad(false).then(()=>{ const b=document
 
 </script>
 <!-- /roka -->
+<!-- joso -->
+<script>
+/* ================= 🍶 上槽日を選ぶ（仕込み › 📋 表）2026-10-11 =================
+   泰広さん指示：仕込みの分析値の表で上槽日を選べるように（案B：表の「日付」の行のマスを押す →「この日を上槽日にしますか」）。
+   ・初めは仕込み計画表（造りex 仕込み計画表.xls ＝ 醪管理R8BY 仕込マスタの joso）の上槽予定日
+   ・選んだ日は Apps Script「製造ツール 共有データ」の表「濾過火入」に 工程＝上槽 で1順号1行（予定日＝選んだ上槽日、メモ＝「計画 yyyy-mm-dd」）
+       → 部署カレンダー「生産本部製造担当」に終日予定「上槽 1号 伝辛」（サーバーの rkCal_ が作る・直す）
+       → 本日の予定（上槽・前日のヤブタ準備・分析本数・濾過の期限）は 仕込マスタの joso を選んだ日に置き換えて計算（jsApply）
+       → 出勤表Excelの「上槽」欄と翌日の「粕」欄は、会社PCの同期スクリプト（製造ツール同期.ps1 の 1.6）が書き換える
+   ・計画日は m.josoPlan に残す。選んでいるかは m.josoSel
+   控え：seishu-workbook_github\_src_joso.js（index.html の joso の目印の間。roka の後ろ） */
+const JS_EXTRA=7;   // 表の右に、上槽予定日より後ろの日を何日ぶん出すか（後ろへずらすとき用）
+function jsPlan(m){ return m&&m.josoPlan!==undefined?m.josoPlan:(m&&m.joso)||''; }
+function jsApply(st){
+  try{ if(!st||!st.master) return st;
+    st.master.forEach(m=>{ if(m.josoPlan===undefined) m.josoPlan=m.joso||''; const o=rkRow('上槽',m.no); m.joso=(o&&o.plan)||m.josoPlan; m.josoSel=!!(o&&o.plan); });
+  }catch(e){}
+  return st;
+}
+/* 仕込マスタを使う所が、いつも選んだ上槽日で計算するように */
+(function(){
+  try{ const _rs=recState; recState=async function(...a){ return jsApply(await _rs.apply(this,a)); }; }catch(e){}
+  try{ const _ds=dpState; dpState=function(...a){ return jsApply(_ds.apply(this,a)); }; }catch(e){}
+  try{ const _rk=rkKeep; rkKeep=function(...a){ const r=_rk.apply(this,a); jsApply(RC.state); return r; }; }catch(e){}
+  try{ rkCalHide=function(x){ return /^(濾過|火入|上槽)\s*\d+号/.test(String(x&&x.title||'')); }; }catch(e){}   // 段に出しているので、カレンダーの箇条書きからは外す
+})();
+/* 表の順号の下の文字 */
+function jsSubHTML(m){
+  const p=jsPlan(m);
+  if(m.josoSel && m.joso!==p) return `<small class="js-ch">上槽 ${rcMD(m.joso)}<br>（計画 ${rcMD(p)}）</small>`;
+  return `<small>上槽 ${rcMD(m.joso)}${m.josoSel?'':'（計画）'}</small>`;
+}
+/* 「日付」の行のマスを押す → 上槽日にするか聞く（🍶仕込みの表だけ） */
+document.addEventListener('click', e=>{
+  const td=e.target.closest&&e.target.closest('.kg-home .kg-t tr.top td[data-i]'); if(!td) return;
+  if(!document.getElementById('kgHd')) return;   // 🍶仕込みの画面だけ（酒母の表は対象外）
+  const tr=td.closest('tr[data-kg]'); const m=tr&&rcMaster(tr.dataset.kg); if(!m||!m.tome) return;
+  const i=Number(td.dataset.i); if(!(i>=1)) return;
+  jsDialog(m, dadd(m.tome,i-1), i);
+});
+function jsDialog(m, date, day){
+  const p=jsPlan(m), cur=m.joso||p, md=d=>{ const x=dparse(d); return `${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`; };
+  const same=date===cur;
+  const w=document.createElement('div'); w.className='o2-mask';
+  w.innerHTML=`<div class="o2-sheet js-sh"><h3>${esc(String(m.no))}号　${esc(m.liquid||'')}　T${esc(String(m.tank||''))}</h3>
+    <p class="js-q">${same?`<b>${md(date)}（${day}日目）</b>は いまの上槽日です`:`<b>${md(date)}（${day}日目）</b>を上槽日にしますか？`}</p>
+    <p class="js-now">いま：${md(cur)}${m.josoSel&&cur!==p?'（変更）':'（計画）'}　／　計画：${md(p)}</p>
+    <div class="js-bt">${same?'':'<button type="button" class="js-ok">上槽日にする</button>'}${cur!==p?`<button type="button" class="js-back">計画に戻す（${md(p)}）</button>`:''}<button type="button" class="js-no">やめる</button></div>
+    <p class="js-msg"></p></div>`;
+  document.body.appendChild(w);
+  const close=()=>w.remove();
+  w.onclick=ev=>{ if(ev.target===w) close(); };
+  w.querySelector('.js-no').onclick=close;
+  const save=async d=>{
+    w.querySelectorAll('button').forEach(b=>b.disabled=true); w.querySelector('.js-msg').textContent='保存しています…';
+    try{ const o=rkRow('上槽',m.no);
+      const j=await rkApi({action:'save', item:{id:o?o.id:'', name:'上槽', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:d, memo:'計画 '+p}});
+      rkKeep(j); close();
+      rcToast(j.calErr?('保存しました（カレンダーに入れられませんでした：'+j.calErr+'）'):`${m.no}号の上槽日を ${md(d)} にしました`, !!j.calErr, j.calErr?8000:3000);
+      moromiHome();
+    }catch(err){ w.querySelector('.js-msg').textContent=String(err.message||err); w.querySelectorAll('button').forEach(b=>b.disabled=false); }
+  };
+  const ok=w.querySelector('.js-ok'); if(ok) ok.onclick=()=>save(date);
+  const bk=w.querySelector('.js-back'); if(bk) bk.onclick=()=>save(p);
+}
+/* ホームを開いたら、選んだ上槽日を読んで本日の予定を描き直す */
+setTimeout(()=>{ try{ if(ST&&ST.token) rkLoad(false).then(()=>{ jsApply(RC.state); if(document.getElementById('dpBox')&&typeof dpRedraw==='function') dpRedraw(); }); }catch(e){} }, 3500);
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-t tr.top td[data-i]{cursor:pointer}
+.kg-t tr.top td.jo{position:relative;font-weight:700}
+.kg-t tr.top td.jo::after{content:'上槽';display:block;font-size:8.5px;line-height:1.1;color:#fff;background:#8a6cc8;border-radius:3px;padding:0 2px;margin-top:1px}
+.js-ch{color:#6a4fb0!important;font-weight:700}
+.js-sh{padding:16px 16px calc(16px + env(safe-area-inset-bottom))}.js-sh h3{margin:0 0 8px;font-size:16px;color:var(--navy)}
+.js-q{font-size:15px;margin:0 0 6px}.js-now{font-size:12px;color:var(--sub);margin:0 0 12px}
+.js-bt{display:flex;flex-wrap:wrap;gap:8px}.js-bt button{flex:1;min-width:120px;padding:11px 8px;border-radius:10px;border:1px solid var(--line);background:#fff;font-weight:700;font-size:14px;color:var(--navy)}
+.js-bt .js-ok{background:#8a6cc8;border-color:#8a6cc8;color:#fff}.js-msg{font-size:12px;color:var(--ng);margin:8px 0 0;min-height:1em}`; document.head.appendChild(s); })();
+
+</script>
+<!-- /joso -->
 <!-- kaiseki -->
 <script>
 /* ================= 📊 解析（2026-10-11 泰広さん指示） =================
