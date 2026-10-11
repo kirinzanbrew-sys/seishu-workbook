@@ -5366,6 +5366,10 @@ const DP_SPECIAL={
    ここに無い作業（蒸米・月末清掃）は作業名だけ（2026-10-11：粕3＝ヤブタと同じ・米引取5 を追加）。人数を変えるときはここだけ直す。酒運搬は表示する予定のデータがまだ無い */
 const DP_NIN={ 盛:3, 仲仕事:2, 留仕事:2, 引込:2, 種切:2, 切返し:2, 出麹:3, 酒母仕込:1, 酛卸:1, 仕込み:2, 洗米:2, 上槽:1, ヤブタ準備:3, 粕:3, 米引取:5, 濾過:1, 火入:1, 酒運搬:1, 分析:1 };
 const dpNin=k=>DP_NIN[k]||'';
+/* 上槽の終わり（2026-10-11 泰広さん指示）：仕込み総米（仕込マスタ soumai＝仕込み配合表）で決める。2t＝15:00、4t＝17:00、それ以外は総米に比例（例 3t＝16:00、1t＝14:00）。始まりは DP_T.joso[0]（11:00）
+   上槽は始めの30分と終わりの30分だけつきっきり。間は定期的に監視するだけなので、その人はほかの作業の応援に回れる */
+const DP_JOSO_END=[[2000,'15:00'],[4000,'17:00']];
+function dpJosoEnd(kg){ kg=Number(kg)||0; if(!kg) return null; const [[k1,t1],[k2,t2]]=DP_JOSO_END, a=dpMin(t1), b=dpMin(t2); return Math.min(dpMin(DP_AX[1]), Math.round(a+(kg-k1)/(k2-k1)*(b-a))); }
 const DP_BUN_T='08:30', DP_BUN_PER=10.5;   // 2026-10-11：分析（1人）は8:30から、1本あたり約10.5分（20本で3時間半）
 const DP_SUN_SENMAI=['10:30','12:00'];   // 2026-10-11 泰広さん指示：日曜の洗米は10:30から（特別対応の日の senmai が優先）
 const DP_MTG_PM=['13:00','17:00'], DP_MTG_AM=['08:00','12:00'];   // カレンダーの「会議」で時刻がないとき（午後／午前）
@@ -5522,7 +5526,9 @@ function dpItems(date){
         lines:[...soe.map(m=>`添　${nm(m)}　T${m.tank||''}`),...naka.map(m=>`仲　${nm(m)}　T${m.tank||''}`),...tome.map(m=>`留　${nm(m)}　T${m.tank||''}`)],open:()=>moromiHome(),openL:'仕込みの画面を開く'}));
     }
     const jo=M.filter(m=>m.joso===date);
-    if(jo.length) add('joso',DP_T.joso[0],DP_T.joso[1],'上槽'+dpNin('上槽'),'dp-j',{title:`上槽（${jo.map(m=>m.no).join('・')}号）`,nin:DP_NIN['上槽'],time:DP_T.joso.join('〜')+'（目安）',lines:jo.map(m=>`${nm(m)}　T${m.tank||''}`),open:()=>moromiHome(),openL:'仕込みの画面を開く'});
+    if(jo.length){ const je=Math.max(...jo.map(m=>dpJosoEnd(m.soumai)||dpMin(DP_T.joso[1]))), jt=`${DP_T.joso[0]}〜${dpHM(je)}`;   // 2026-10-11：終わりは総米で（2t 15:00・4t 17:00・比例）
+      add('joso',DP_T.joso[0],dpHM(je),'上槽'+dpNin('上槽'),'dp-j',{title:`上槽（${jo.map(m=>m.no).join('・')}号）`,nin:DP_NIN['上槽'],time:jt+'（目安）',
+        lines:[`${jt}（総米で決まる：2t＝15:00まで・4t＝17:00まで）`,'つきっきりは始めの30分と終わりの30分だけ。間は定期的に監視（ほかの作業の応援に回れる）',...jo.map(m=>`${nm(m)}　T${m.tank||''}${m.soumai?'　総米 '+Number(m.soumai).toLocaleString('ja-JP')+'kg → 〜'+dpHM(dpJosoEnd(m.soumai)):''}`)],open:()=>moromiHome(),openL:'仕込みの画面を開く'}); }
   }
   // ヤブタ準備＝上槽予定日の前日（2026-09-30 泰広さん指示）
   if(st){
@@ -8976,6 +8982,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-11-13','⏰','ホーム','本日の予定の上槽の終わりを、仕込み総米で決めるようにしました（2t＝15:00まで、4t＝17:00まで、その間は総米に比例）。上槽を押すと、つきっきりは始めと終わりの30分だけ、と出ます。'],
   ['2026-10-11-12','⏰','ホーム','本日の予定の上槽を11:00からにしました。'],
   ['2026-10-11-11','⏰','ホーム','本日の予定を作業開始8:30にそろえました（時間軸8:30〜17:00、盛・分析は8:30から）。酛卸は13:00からに。夜の作業（麹の留仕事 23:00 など）は枠の右端ではなく、枠の下に「17時以降」として出します。'],
   ['2026-10-11-10','👥','ホーム','本日の予定の必要な人数に、粕3・米引取5を足しました。'],
