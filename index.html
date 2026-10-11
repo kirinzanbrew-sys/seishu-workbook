@@ -5347,15 +5347,15 @@ async function moromiSetup(no, st){
    控え：seishu-workbook_github\_src_day.js
    ======================================================================== */
 const DP_T = {
-  shuboShikomi:['10:00','11:00'], motooroshi:['15:00','16:00'],
-  shikomi:['09:00','10:30'], senmai:['13:00','14:30'],   /* 2026-10-09：通常の洗米は13:00から（旧 10:30） */ joso:['08:00','12:00'], kasu:['13:00','15:00'], yabuta:['15:00','16:00'], seisou:['15:30','17:00'], kome:['15:30','15:45'],
+  shuboShikomi:['10:00','11:00'], motooroshi:['13:00','14:00'],   /* 2026-10-11：酛卸は13:00から（旧 15:00） */
+  shikomi:['09:00','10:30'], senmai:['13:00','14:30'],   /* 2026-10-09：通常の洗米は13:00から（旧 10:30） */ joso:['08:30','12:00'],   /* 2026-10-11：作業開始は8:30 */ kasu:['13:00','15:00'], yabuta:['15:00','16:00'], seisou:['15:30','17:00'], kome:['15:30','15:45'],
   koji:{ 盛:['08:30',50], 仲仕事:[null,15], 留仕事:[null,15], 引込:['09:40',50], 種切:[null,15], 切返し:[null,15], 出麹:['13:00',50] }
 };
 /* 蒸米の仕上がり（2026-10-07 泰広さん指示）：9:40 が基準。酒母仕込・仕込み（添・仲・留）はここから前後させる
-   蒸米の仕上がりが変わったら DP_MUSHI だけ直す（酒母仕込・仕込みが一緒に動く）。時間軸は DP_AX（8:00〜17:00） */
+   蒸米の仕上がりが変わったら DP_MUSHI だけ直す（酒母仕込・仕込みが一緒に動く）。時間軸は DP_AX（8:30〜17:00。2026-10-11 作業開始8:30にそろえた） */
 const DP_MUSHI=['08:30','09:40'];                  // 蒸米 スタート・仕上がり
 const DP_AFTER={ shubo:[0,60], shikomi:[20,140] };  // 仕上がりから何分後に始め、何分かかるか（酒母仕込＝すぐ／仕込み＝放冷して20分後〜12:00）
-const DP_AX=['08:00','17:00'];
+const DP_AX=['08:30','17:00'];   // 2026-10-11 泰広さん指示：作業開始は8:30にそろえる（旧 8:00〜）
 /* 特別対応の日（2026-10-08 泰広さん指示）。いつもと違う段取りの日だけ足す（済んだ日は消してよい）
    mushi：蒸米を飛ばし始める時刻（＝仕上がり）／order：その後の順番（前の作業が終わったら次）／note：蒸米の詳細に出す一言
    skip：その日だけ出さない麹の工程（例 ['切返し']。2026-10-09 追加）／senmai：その日だけの洗米の時刻（例 ['10:30','12:00']） */
@@ -5368,7 +5368,7 @@ const DP_NIN={ 盛:3, 仲仕事:2, 留仕事:2, 引込:2, 種切:2, 切返し:2,
 const dpNin=k=>DP_NIN[k]||'';
 const DP_BUN_T='08:30', DP_BUN_PER=10.5;   // 2026-10-11：分析（1人）は8:30から、1本あたり約10.5分（20本で3時間半）
 const DP_SUN_SENMAI=['10:30','12:00'];   // 2026-10-11 泰広さん指示：日曜の洗米は10:30から（特別対応の日の senmai が優先）
-const DP_MTG_PM=['13:00','17:00'], DP_MTG_AM=['08:00','12:00'];   // カレンダーの「会議」で時刻がないとき（午後／午前）
+const DP_MTG_PM=['13:00','17:00'], DP_MTG_AM=['08:30','12:00'];   // カレンダーの「会議」で時刻がないとき（午後／午前）
 const DP_LUNCH=['12:00','13:00'];   // 2026-10-09 泰広さん指示：昼休み（全部の担当の段に薄い帯で重ねる）
 const DP_VIS_MIN=90;   // 2026-10-08：蔵見学で終わりの時刻が無いとき、始まりから何分を帯にするか
 const DP_LANES = [['mushi','蒸米'],['koji','麹'],['shubo','酒母'],['shk','仕込み'],['sen','洗米'],['joso','上槽・粕'],['kome','米'],['etc','清掃'],['bun','分析']];   // 会議は段を作らず各担当の段に重ねる（2026-10-08）
@@ -5394,6 +5394,7 @@ const DP_CSS = `
 .dp-now{position:absolute;top:14px;bottom:0;border-left:2px solid #d62b22;z-index:2;pointer-events:none}
 .dp-now:before{content:attr(data-t);position:absolute;top:-13px;left:-12px;white-space:nowrap;background:#d62b22;color:#fff;font-size:9px;border-radius:4px;padding:0 3px}
 .dp-empty{color:var(--sub);font-size:13px;text-align:center;padding:16px 0}
+.dp-nt{font-size:11px;color:var(--sub);margin:3px 2px 0}.dp-nt button{background:none;border:0;padding:0;font:inherit;color:var(--navy);font-weight:700;text-decoration:underline dotted;cursor:pointer}
 .dp-k{background:#fbf3d2;border-color:#d8b43c}.dp-s{background:#fde8e4;border-color:#d0806e}.dp-m{background:#e7f0fb;border-color:#5a8fd0}
 .dp-w{background:#eaf6e0;border-color:#6aa84f}.dp-j{background:#ece6f7;border-color:#8a6cc8}.dp-u{background:#f1ede6;border-color:#9a8a70}
 .dp-o{background:#e3f4ea;border-color:#2f7d5d}.dp-r{background:#fff1dc;border-color:#d48a2a}.dp-on{background:#fdecec;border-color:#d62b22;color:#b31b14}
@@ -5484,7 +5485,7 @@ function dpItems(date){
     const pl=r=>String(r['盛 場所']||r['引込 場所']||'').replace(/麹棚/g,'棚').replace(/天幕/g,'');
     const line=r=>`${r['麹ID']}　${r['液種']||''} ${r['品種']||''}${r['精米歩合']?r['精米歩合']+'%':''}　${r['麹米kg']||''}kg${pl(r)?'　'+pl(r):''}`;
     const hk0=dpMin((tg['引込']||{}).time||DP_T.koji['引込'][0]), sft=(SP&&SP.mushi)?dpMin(SP.mushi)-hk0:0;
-    const kst=(k,list)=>{ if(!list.length) return; if(SP&&SP.skip&&SP.skip.indexOf(k)>=0) return;   /* 2026-10-09：特別対応の日は skip の工程を出さない */ const T=DP_T.koji[k]; let t=(tg[k==='盛'?'盛後':k]||{}).time||T[0]; if(!t) return;
+    const kst=(k,list)=>{ if(!list.length) return; if(SP&&SP.skip&&SP.skip.indexOf(k)>=0) return;   /* 2026-10-09：特別対応の日は skip の工程を出さない */ const T=DP_T.koji[k]; let t=k==='盛'?T[0]:((tg[k]||{}).time||T[0]);   /* 2026-10-11：盛は作業開始8:30から（旧：盛後の品温の時刻＝盛が終わった時刻を使っていた） */ if(!t) return;
       if(sft&&/^(引込|種切|切返し)$/.test(k)) t=dpHM(dpMin(t)+sft);
       const o=add('koji',t,T[1],(T[1]<20?k.slice(0,1):k)+dpNin(k),'dp-k',{title:`麹　${k}（${list.length}本）`,nin:DP_NIN[k],time:t,lines:list.map(line),open:()=>kojiScreen(date),openL:'麹の画面を開く'},T[1]<20); if(o&&k==='引込') USE.push(o); };
     const mori=rows.filter(r=>r['盛日']===date), hik=rows.filter(r=>r['引込日']===date), dek=rows.filter(r=>r['出麹日']===date);
@@ -5657,11 +5658,13 @@ function dpPlanHTML(){
     h+='</div>';
   }
   h+=dpBunHTML();   // 2026-10-06 泰広さん指示：「予定を押すと詳細」の文字は出さない
-  const RH=22, wk=items.filter(x=>x.lane!=='mtg'&&x.lane!=='visit'), mt=items.filter(x=>x.lane==='mtg'||x.lane==='visit');   // 会議・蔵見学は段を作らず重ねる
+  /* 2026-10-11 泰広さん指示：17時以降の作業（麹の留仕事 23:00 など）は枠の右端に寄せず、枠の下に「17時以降」として文字で出す */
+  { const h17=dpMin(DP_AX[1]); items.forEach(x=>{ x.night=x.lane!=='mtg'&&x.lane!=='visit'&&x.s>=h17; }); }
+  const RH=22, wk=items.filter(x=>!x.night&&x.lane!=='mtg'&&x.lane!=='visit'), mt=items.filter(x=>x.lane==='mtg'||x.lane==='visit');   // 会議・蔵見学は段を作らず重ねる
   const AXH=13;   // 2026-10-09：昼休みの帯の文字を出すため常に13px（旧：会議・蔵見学のある日だけ13px）
   if(!wk.length){ h+=`<div class="dp-empty">${dpState()||(RC.koji&&RC.koji[date])?(DP_OFF===0?'今日':DP_OFF===1?'明日':'この日')+'の作業予定はありません':'予定を読み込んでいます…'}</div>`; DP_LAST=items; return h; }
   const lo=dpMin(DP_AX[0]), hi=dpMin(DP_AX[1]);   // 2026-10-07 泰広さん指示：時間軸は 8:00〜17:00 に固定
-  items.forEach(x=>{ x.s=Math.min(Math.max(x.s,lo),hi-10); x.e=Math.min(Math.max(x.e,x.s+10),hi); });
+  items.forEach(x=>{ if(x.night) return; x.s=Math.min(Math.max(x.s,lo),hi-10); x.e=Math.min(Math.max(x.e,x.s+10),hi); });
   const span=hi-lo;
   /* 2026-10-11 泰広さん指示：行はなるべく増やさない。その時間に空いている行があれば、別の作業もその行に入れる。
      ただし同じ作業（麹・酒母・仕込み…）の棒は必ず同じ1行にまとめる（あちこちの行に行ったり来たりしない）。DP_LANES の順に上から詰める */
@@ -5678,6 +5681,7 @@ function dpPlanHTML(){
     if(b>a) h+=`<div class="dp-lun" style="top:0;left:${((a-lo)/span*100).toFixed(2)}%;width:${((b-a)/span*100).toFixed(2)}%"><span>昼休み</span></div>`; }
   const now=new Date(), nm=now.getHours()*60+now.getMinutes();
   items.forEach((x,idx)=>{
+    if(x.night) return;
     if(x.lane==='mtg'){   // 2026-10-08 泰広さん指示：全体会議は全員 → 段を作らず、全部の担当の段に重ねる
       h+=`<button type="button" class="dp-mtg" data-dp="${idx}" style="top:0;left:${((x.s-lo)/span*100).toFixed(2)}%;width:${((x.e-x.s)/span*100).toFixed(2)}%"><span>${esc(x.label)}</span></button>`; return; }
     if(x.lane==='visit'){   // 2026-10-08 泰広さん指示：蔵見学は全担当の段に薄く時間帯を重ねる
@@ -5686,6 +5690,8 @@ function dpPlanHTML(){
     const i=rowOf(x.lane); const w=Math.max((x.e-x.s)/span*100, x.small?5.5:12);
     h+=`<button type="button" class="dp-b ${x.cls} ${x.small?'s':''} ${DP_OFF===0&&x.e<nm&&x.cls!=='dp-on'?'done':''}" data-dp="${idx}" style="top:${AXH+RH*i+2}px;left:${Math.max(0,Math.min((x.s-lo)/span*100, 100-Math.max(w, x.label.length*3.7+2))).toFixed(2)}%;min-width:${w.toFixed(2)}%">${esc(x.label)}</button>`; });
   h+=`</div></div>`;
+  { const ng=items.map((x,i)=>[x,i]).filter(([x])=>x.night);
+    if(ng.length) h+=`<div class="dp-nt">17時以降：${ng.map(([x,i])=>`<button type="button" data-dp="${i}">${esc(String(x.d&&x.d.title||x.label).replace(/^麹　/,'').replace(/（.*$/,''))} ${dpHM(x.s)}${x.d&&x.d.nin?` ${x.d.nin}人`:''}</button>`).join('　')}</div>`; }
   DP_LAST=items;
   return h;
 }
@@ -8970,6 +8976,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-11-11','⏰','ホーム','本日の予定を作業開始8:30にそろえました（時間軸8:30〜17:00、盛・上槽・分析は8:30から）。酛卸は13:00からに。夜の作業（麹の留仕事 23:00 など）は枠の右端ではなく、枠の下に「17時以降」として出します。'],
   ['2026-10-11-10','👥','ホーム','本日の予定の必要な人数に、粕3・米引取5を足しました。'],
   ['2026-10-11-9','👥','ホーム','本日の予定の棒に、件数ではなくその作業に必要な人数を出すようにしました（例：盛3・洗米2・酛卸1）。分析（1人）も8:30からの棒で出ます。空いている行には別の作業を入れて、行を増やさないようにしました。'],
   ['2026-10-11-8','🍶','仕込み','仕込みの画面の上の「資材の在庫」「昨年度の同じ時期の仕込み」を、小さなアイコン「🧰 資材」「📅 昨年」にしました（酒母と同じ形）。'],
