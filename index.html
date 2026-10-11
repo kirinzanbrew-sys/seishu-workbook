@@ -8533,6 +8533,45 @@ function stiBind(){
 
 </script>
 <!-- /shubotop -->
+<!-- shktop -->
+<script>
+/* ================= 🍶 仕込み：上のボタンを小さなアイコンに（2026-10-11） =================
+   泰広さん指示：仕込みの中の「資材の在庫」は「資材」アイコンに、「昨年度の同じ時期の仕込み」は「昨年」アイコンに変更。
+   ・🍶仕込みの一覧（moromiHome）の一番上に、酒母と同じ形の小さな角丸アイコンを横に並べる：🧰資材／📅昨年
+   ・もとの大きなボタン（#shkZai・.zn-btn[data-zn="moromi"]）は隠しておき、アイコンから同じ動きを呼ぶ
+   ・資材のアイコンには、ホームの資材アイコンと同じ赤い札（不足 ◯／重油点検）を出す
+   ・1本の画面（moromiSheet）の「昨年度の同じ時期」のボタンはそのまま
+   ・形（CSS .st-icons／.st-ic）は shubotop のものを使う。このブロックは shubotop の後ろに置く
+   控え：seishu-workbook_github\_src_shktop.js（index.html の shktop の目印の間） */
+function shkTopHTML(){
+  let tg=''; try{ if(typeof sziHomeTag==='function') tg=sziHomeTag(); }catch(e){}
+  return `<div class="st-icons shk-icons">
+    <button class="st-ic${tg?' wn':''}" data-shi="zai" type="button"><span class="e">🧰</span>${tg?`<b class="shi-tg">${esc(tg)}</b>`:''}<small>資材</small></button>
+    <button class="st-ic" data-shi="zn" type="button"><span class="e">📅</span><small>昨年</small></button>
+  </div>`;
+}
+(function(){
+  const orig=window.moromiHome; if(typeof orig!=='function') return;
+  window.moromiHome=async function(...a){
+    const top=nav[nav.length-1]; const r=await orig.apply(this,a);
+    try{ if(nav[nav.length-1]!==top || app.querySelector('.shk-icons')) return r;
+      const d=document.createElement('div'); d.innerHTML=shkTopHTML(); const row=d.firstElementChild;
+      const first=$('#shkZai')||app.querySelector('.zn-btn[data-zn="moromi"]')||app.querySelector('.shk-today');
+      first?first.before(row):app.prepend(row);
+      row.querySelectorAll('[data-shi]').forEach(b=>b.onclick=()=>{
+        if(b.dataset.shi==='zai'){ const z=$('#shkZai'); if(z) z.click(); else if(typeof zaiScreen==='function') go(zaiScreen); return; }
+        const z=app.querySelector('.zn-btn[data-zn="moromi"]'); if(z) z.click(); else if(typeof znScreen==='function') go(()=>znScreen('moromi',{no:''}));
+      });
+    }catch(e){ console.log('shktop',e); }
+    return r;
+  };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+#app:has(.shk-icons) #shkZai,#app:has(.shk-icons) .zn-btn[data-zn="moromi"]{display:none}
+.shk-icons .shi-tg{color:var(--ng,#c0392b);font-size:10px}`; document.head.appendChild(s); })();
+
+</script>
+<!-- /shktop -->
 <!-- yeastplan -->
 <script>
 /* ================= 🧬 酵母：植菌のタイミング（🧫酒母の上段アイコン）2026-10-07 =================
@@ -8911,6 +8950,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-11-8','🍶','仕込み','仕込みの画面の上の「資材の在庫」「昨年度の同じ時期の仕込み」を、小さなアイコン「🧰 資材」「📅 昨年」にしました（酒母と同じ形）。'],
   ['2026-10-11-7','🍚','ホーム','日曜日の本日の予定は、洗米を10:30からの並びにしました（蒸米中は洗米しない決まりはそのまま）。'],
   ['2026-10-11-6','🫧','タンク洗浄管理','開いたときの表示を「現在まで」にしました。期限（酛下日）が今日までの使用予定タンクを、洗浄・仕上げ・確認が完了していても全部表示します。下に「これから（14日以内）」のタンクも出します。'],
   ['2026-10-11-4','📊','解析','ホームに「解析」を足しました。仕込順に上から下へ、1本ずつ 吸水・麹・酒母・上槽・粕歩合・きき酒・濾過・火入 の要点と、醪のグラフ（昨年度の同じ液種の帯・似た仕込み・追水・見込み）と表を見られます。帯から外れた値は赤い点で知らせます。醪に入る前は酒母のグラフ（昨年度の同じ液種の酒母の帯）を出します。'],
