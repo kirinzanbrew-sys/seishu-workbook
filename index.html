@@ -6064,20 +6064,35 @@ const BN_CSS=`
 .bn-bar .rc-btn:disabled{opacity:.45}
 .bn-note{font-size:11px;color:var(--sub);line-height:1.6;margin:8px 2px}
 .dp-bn{cursor:pointer}
+.bn-t .dy .oro{display:block;margin:3px 1px 0;font-size:10px;font-weight:800;color:#fff;background:#c0392b;border-radius:5px;padding:1px 0;letter-spacing:-.05em}
+.bn-in.need{border-color:#c0392b;border-style:dashed;background:#fff5f4}
+.bn-ask{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.bn-ask .box{background:#fff;border-radius:14px;max-width:360px;width:100%;padding:18px 16px 14px;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.bn-ask p{margin:0 0 8px;font-size:17px;font-weight:800;color:var(--navy);line-height:1.5}
+.bn-ask small{display:block;font-size:12px;color:var(--ng);line-height:1.6;margin-bottom:6px}
+.bn-ask .bt{display:flex;gap:8px;margin-top:12px}
+.bn-ask .bt button{flex:1;font-family:inherit;font-size:16px;font-weight:700;padding:12px 4px;border-radius:10px;cursor:pointer;border:1.5px solid var(--navy);background:#fff;color:var(--navy)}
+.bn-ask .bt button.yes{background:var(--navy);color:#fff}
 @media(max-width:380px){.bn-in{font-size:15px}.bn-t .id{font-size:14px;padding-left:5px}.bn-pv{font-size:9px}}
 `;
 (function(){ const s=document.createElement('style'); s.textContent=BN_CSS; document.head.appendChild(s); })();
 
 const BN_F={
-  sb:[['be','Be'],['ta','酸度'],['alc','alc']],
+  sb:[['be','Be'],['ta','酸度'],['alc','alc'],['aa','ｱﾐﾉ']],
   mr:[['be','Be/度'],['alc','alc'],['ta','酸度'],['aa','ｱﾐﾉ']]
 };
 /* ありえない値（赤）。範囲はゆるめ。打ち間違い（桁・小数点）を拾うため */
-const BN_RANGE={ sb:{be:[0,25],ta:[0,20],alc:[0,20]}, mr:{be:[-30,40],alc:[0,23],ta:[0,6],aa:[0,6]} };
+const BN_RANGE={ sb:{be:[0,25],ta:[0,20],alc:[0,20],aa:[0,10]}, mr:{be:[-30,40],alc:[0,23],ta:[0,6],aa:[0,6]} };
 const BN={date:null, open:{}};
 const bnKey=(k,no)=>k+'_'+no;
 const bnStore=k=>k==='sb'?RC.shubo:RC.bun;
 function bnDraft(date){ return lsGet('bn.draft.'+date,{})||{}; }
+/* 2026-10-11：酛卸の日（酒母は全項目を分析する日）・小数1桁・はい／いいえの確認窓 */
+function bnOro(x){ if(!x||x.k!=='sb') return ''; const s=RC.shubo[x.m.no]; return (s&&(s.motooroshi||s.motooroshiPlan))||(x.m.soe?dadd(x.m.soe,-1):''); }
+const bnF1=v=>{ const t=String(v??'').trim(); return (t!==''&&shN(t)!==null)?shF(t,1):t; };
+function bnAsk(msg,sub,btns){ return new Promise(res=>{ const d=document.createElement('div'); d.className='bn-ask';
+  d.innerHTML=`<div class="box" role="dialog"><p>${esc(msg)}</p>${sub?`<small>${sub}</small>`:''}<div class="bt">${btns.map((b,i)=>`<button type="button" data-i="${i}" class="${b[1]||''}">${esc(b[0])}</button>`).join('')}</div></div>`;
+  document.body.appendChild(d); d.querySelectorAll('button').forEach(b=>b.onclick=()=>{ d.remove(); res(+b.dataset.i); }); }); }
 function bnDraftSet(date,d){ if(Object.keys(d).length) lsSet('bn.draft.'+date,d); else { try{ localStorage.removeItem('bn.draft.'+date); }catch(e){} } }
 
 /* その日に分析する仕込（ホームの dpBunseki と同じ決まり） */
@@ -6114,18 +6129,17 @@ async function bunHome(date){
   const draft=bnDraft(date), isToday=date===dtoday();
   const row=x=>{ const key=bnKey(x.k,x.m.no), F=BN_F[x.k];
     const id=x.k==='sb'?`${x.m.no}<small>酒母${esc(x.m.shuboSym||'')}${x.m.shuboT?' T'+esc(x.m.shuboT):''}</small>`:`${x.m.no}<small>${esc(x.m.sym||'')} T${esc(x.m.tank||'')}</small>`;
-    return `<tr class="bn-r" data-key="${key}"><td class="id">${id}</td><td class="dy">${x.k==='mr'&&x.d===1?'留':x.d+'日'}</td>
-      ${F.map(([f])=>{ const dv=draft[key]&&draft[key][f]; return `<td><input class="bn-in ${dv!==undefined?'dirty':''}" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-key="${key}" data-f="${f}" value="${dv!==undefined?esc(dv):''}" disabled><span class="bn-pv" data-pv="${key}_${f}">…</span></td>`; }).join('')}
+    return `<tr class="bn-r" data-key="${key}"><td class="id">${id}</td><td class="dy">${x.k==='mr'&&x.d===1?'留':x.d+'日'}${x.k==='sb'?`<span class="oro" data-oro="${key}" style="${bnOro(x)===date?'':'display:none'}">酛卸</span>`:''}</td>
+      ${F.map(([f])=>{ const dv=draft[key]&&draft[key][f]; return `<td><input class="bn-in ${dv!==undefined?'dirty':''}" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-key="${key}" data-f="${f}" value="${dv!==undefined?esc(bnF1(dv)):''}" disabled><span class="bn-pv" data-pv="${key}_${f}">…</span></td>`; }).join('')}
       <td><button type="button" class="bn-hb" data-h="${key}">経過</button></td></tr>
       <tr class="bn-m"><td class="bn-msg" colspan="${F.length+3}" data-msg="${key}"></td></tr>
       <tr class="bn-hist" data-hist="${key}" style="display:none"><td colspan="${F.length+3}"></td></tr>`; };
   const table=(k,list)=>`<table class="bn-t"><colgroup><col class="c1"><col class="c2">${BN_F[k].map(()=>'<col>').join('')}<col class="c9"></colgroup><tr><th style="text-align:left;padding-left:8px">順号</th><th>日目</th>${BN_F[k].map(([,l])=>`<th>${l}</th>`).join('')}<th></th></tr>${list.map(row).join('')}</table>`;
   const d=dparse(date);
   let h=`<div class="bn-top"><button type="button" id="bnPrev">‹ 前日</button><div class="dt">${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）<small>${isToday?'今日の分析':date<dtoday()?'過去の日':'先の日（予定）'}</small></div><button type="button" id="bnNext">翌日 ›</button></div>
-    <div class="bn-sum"><div><b>${T.length}</b>本</div><div><b>${sb.length}</b>酒母</div><div><b>${mr.length}</b>醪</div><div class="ok" id="bnDoneBox"><b id="bnDone">…</b>入力済</div></div>
     <div class="rc-status" id="rcStatus"></div>`;
   if(!T.length) h+=`<p class="muted" style="text-align:center;padding:24px 0">この日に分析する仕込はありません</p>`;
-  if(sb.length) h+=`<div class="bn-h">🧫 酒母<small>Be・酸度・alc</small></div>${table('sb',sb)}`;
+  if(sb.length) h+=`<div class="bn-h">🧫 酒母<small>Be・酸度・alc・ｱﾐﾉ（酛卸の日は全項目）</small></div>${table('sb',sb)}`;
   if(mr.length) h+=`<div class="bn-h">🍶 醪<small>Be は3.0未満になったら日本酒度で（R7BYと同じ）</small></div>${table('mr',mr)}`;
   if(T.length) h+=`<p class="bn-note">数字の下の小さな字＝前回の値（何日目か）。入れると黄色の枠＝まだ保存していない値（この端末に下書きとして残ります）。前回から大きく外れると枠が光り、行の下に理由が出ます。「経過」でその仕込の全体の流れ（グラフと全日の表）が開きます。品温は 酒母・仕込み の画面で。</p>
     <div class="bn-bar"><button class="rc-ghost" id="bnReload" type="button">更新</button><button class="rc-btn" id="bnSave" type="button" disabled>まとめて保存</button></div>`;
@@ -6140,10 +6154,11 @@ async function bunHome(date){
   const fill=x=>{ if(!live()) return; const key=bnKey(x.k,x.m.no), s=bnStore(x.k)[x.m.no]; if(!s) return;
     const days=s.days||[], D=days[x.d-1]||{};
     BN_F[x.k].forEach(([f])=>{ const inp=app.querySelector(`.bn-in[data-key="${key}"][data-f="${f}"]`); if(!inp) return;
-      if(!inp.classList.contains('dirty')) inp.value=shN(D[f])!==null?String(D[f]):'';
+      if(!inp.classList.contains('dirty')) inp.value=shF(D[f],1);
       const p=bnPrev(days,x.d,f), pv=app.querySelector(`[data-pv="${key}_${f}"]`);
       if(pv) pv.textContent=p?`前${shF(p.v)}(${x.k==='mr'&&p.day===1?'留':p.day+'日'})`:'前 —';
       inp.disabled=false; });
+    if(x.k==='sb'){ const o=app.querySelector(`[data-oro="${key}"]`); if(o) o.style.display=bnOro(x)===date?'':'none'; }
     if(x.k==='sb'){ const miss=shSetupMissing(s); const msg=app.querySelector(`[data-msg="${key}"]`);
       if(miss.length){ BN_F.sb.forEach(([f])=>{ const i=app.querySelector(`.bn-in[data-key="${key}"][data-f="${f}"]`); if(i) i.disabled=true; });
         if(msg) msg.innerHTML=`<span class="e">仕込時の値（${esc(miss.join('・'))}）が未入力のため保存できません。</span><button type="button" class="bn-setup" data-setup="${x.m.no}">→ 仕込時の値を入れる</button>`;
@@ -6155,9 +6170,9 @@ async function bunHome(date){
     const e=$('#bnDone'); if(e) e.textContent=k<T.length?`${n}/${T.length}…`:`${n}/${T.length}`;
     const box=$('#bnDoneBox'); if(box) box.className=n>=T.length?'ok':'ng'; };
   const validateRow=key=>{ const x=T.find(y=>bnKey(y.k,y.m.no)===key); if(!x) return; const s=bnStore(x.k)[x.m.no]; const days=(s&&s.days)||[];
-    const msgs=[];
+    const msgs=[], oro=x.k==='sb'&&bnOro(x)===date;
     BN_F[x.k].forEach(([f,l])=>{ const inp=app.querySelector(`.bn-in[data-key="${key}"][data-f="${f}"]`); if(!inp) return;
-      inp.classList.remove('warn','bad'); const raw=String(inp.value).trim(); if(raw==='') return;
+      inp.classList.remove('warn','bad','need'); const raw=String(inp.value).trim(); if(raw===''){ if(oro&&!inp.disabled) inp.classList.add('need'); return; }
       const v=Number(raw); if(isNaN(v)){ inp.classList.add('bad'); msgs.push(['bad',l+'：数字ではありません']); return; }
       const c=bnCheck(x.k,f,v,bnPrev(days,x.d,f)); if(c){ inp.classList.add(c[0]); msgs.push([c[0],l+'：'+c[1]]); } });
     const msg=app.querySelector(`[data-msg="${key}"]`); if(!msg||msg.querySelector('[data-setup]')) return;
@@ -6175,6 +6190,8 @@ async function bunHome(date){
       const all=[...app.querySelectorAll('.bn-in:not(:disabled)')]; const i=all.indexOf(inp);
       if(i>=0&&i<all.length-1){ all[i+1].focus(); all[i+1].select&&all[i+1].select(); } else inp.blur(); });
     inp.addEventListener('focus',()=>{ try{ inp.select(); }catch(e){} });
+    inp.addEventListener('blur',()=>{ const f1=bnF1(inp.value); if(f1===inp.value) return; inp.value=f1;
+      if(inp.classList.contains('dirty')){ const dr=bnDraft(date); (dr[inp.dataset.key]=dr[inp.dataset.key]||{})[inp.dataset.f]=f1; bnDraftSet(date,dr); } });
   });
   syncBtn();
 
@@ -6200,13 +6217,25 @@ async function bunHome(date){
   $('#bnSave').onclick=async()=>{
     const jobs=[];
     T.forEach(x=>{ const key=bnKey(x.k,x.m.no), s=bnStore(x.k)[x.m.no]; const D=((s&&s.days)||[])[x.d-1]||{}; const values={};
-      app.querySelectorAll(`.bn-in.dirty[data-key="${key}"]`).forEach(inp=>{ if(inp.disabled) return; const v=String(inp.value).trim(); if(v!==String(D[inp.dataset.f]??'')) values[inp.dataset.f]=v; });
+      app.querySelectorAll(`.bn-in.dirty[data-key="${key}"]`).forEach(inp=>{ if(inp.disabled) return; const v=String(inp.value).trim(), o=D[inp.dataset.f], nv=shN(v), no=shN(o);
+        const same=(v!==''&&nv!==null&&no!==null)?nv===no:v===String(o??''); if(!same) values[inp.dataset.f]=(v!==''&&nv!==null)?String(nv):v; });
       const dirty=app.querySelectorAll(`.bn-in.dirty[data-key="${key}"]`).length;
       if(Object.keys(values).length) jobs.push({x,key,values});
       else if(dirty && s){ app.querySelectorAll(`.bn-in.dirty[data-key="${key}"]`).forEach(i=>{ if(!i.disabled) i.classList.remove('dirty'); }); const dr=bnDraft(date); delete dr[key]; bnDraftSet(date,dr); } });
     if(!jobs.length){ syncBtn(); rcStatus('変わったところがありません'); return; }
     const bad=app.querySelectorAll('.bn-in.dirty.bad').length;
     if(bad && !confirm(`ありえない値が ${bad} か所あります。このまま保存しますか？`)) return;
+    /* 2026-10-11 泰広さん指示：酛卸の日は全項目を分析する。未入力があれば はい／いいえ で確認 → はい なら「次は全て分析する事！」 */
+    const oroMiss=[]; let oroFirst=null;
+    T.forEach(x=>{ if(x.k!=='sb'||bnOro(x)!==date) return; const s=RC.shubo[x.m.no]; if(!s) return; const key=bnKey('sb',x.m.no); const D=(s.days||[])[x.d-1]||{};
+      const miss=BN_F.sb.filter(([f])=>{ const i=app.querySelector(`.bn-in[data-key="${key}"][data-f="${f}"]`); if(!i||i.disabled) return false;
+        const e=String(i.value).trim()===''&&shN(D[f])===null; if(e&&!oroFirst) oroFirst=i; return e; }).map(([,l])=>l);
+      if(miss.length) oroMiss.push(`順号${x.m.no}：${miss.join('・')}`); });
+    if(oroMiss.length){
+      const a=await bnAsk('酛卸時は全て分析する事となっていますが、よろしいですか？', '未入力　'+oroMiss.map(esc).join('<br>'), [['いいえ',''],['はい','yes']]);
+      if(a!==1){ if(oroFirst){ oroFirst.scrollIntoView({block:'center'}); oroFirst.focus(); } return; }
+      await bnAsk('次は全て分析する事！','',[['はい','yes']]);
+    }
     /* 2026-10-06 泰広さん指示：待たずに裏で送り、前の画面に戻る（推奨追水・警告は画面の下の知らせに出る） */
     jobs.forEach(({x,key,values})=>{
       const st=x.k==='mr'?RC.bun[x.m.no]:RC.shubo[x.m.no], D=st&&st.days&&st.days[x.d-1]; if(D) Object.assign(D,values);
@@ -8866,6 +8895,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-11-2','🧪','分析','分析の入力欄は小数1桁まで表示（5 → 5.0）。酒母にｱﾐﾉ欄を追加し、酛卸の日は「酛卸」の印と未入力欄の赤い点線を表示。酛卸の日に未入力のまま保存すると確認が出ます。'],
+  ['2026-10-11-1','🧪','分析','分析の画面の上にあった「本・酒母・醪・入力済」の数の表示を外し、すぐ入力の表が出るようにしました。'],
   ['2026-10-10-2','🧫','酒母','酒母の「仕込時の値」で仕込尺（mm）を入れると、酒母タンクの容量早見表から仕込量（L）が自動で入るようにしました。照合できていないタンク・早見表に無いタンクは自動で入れません。'],
   ['2026-10-10-1','🧫','酒母','酒母などの画面を下へスクロールしているときに、裏で最新の値を取り直すと一番上へパッと戻ってしまう不具合を直しました。描き直しても見ている位置はそのままです。'],
   ['2026-10-09-5','🧰','ホーム','ホームに「🧰 資材」ができました。A重油（週1回の残量点検・表・印刷）、添加アルコール（上槽日の添加予定に在庫が間に合うか）、種麹、酵素剤などの在庫を1か所で見られます。使った分は予定日を過ぎると自動で減ります。最新TREND・逆引き検索・問題集・Sake Tour Guide は「i（情報）」にまとめました。逆引き検索の一番上に「製造ツールへ戻る」を付けました。'],
