@@ -6082,7 +6082,7 @@ const BN_CSS=`
 (function(){ const s=document.createElement('style'); s.textContent=BN_CSS; document.head.appendChild(s); })();
 
 const BN_F={
-  sb:[['be','Be'],['ta','酸度'],['alc','alc'],['aa','ｱﾐﾉ']],
+  sb:[['be','Be'],['alc','alc'],['ta','酸度'],['aa','ｱﾐﾉ']],
   mr:[['be','Be/度'],['alc','alc'],['ta','酸度'],['aa','ｱﾐﾉ']]
 };
 /* ありえない値（赤）。範囲はゆるめ。打ち間違い（桁・小数点）を拾うため */
@@ -6143,7 +6143,7 @@ async function bunHome(date){
   let h=`<div class="bn-top"><button type="button" id="bnPrev">‹ 前日</button><div class="dt">${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）<small>${isToday?'今日の分析':date<dtoday()?'過去の日':'先の日（予定）'}</small></div><button type="button" id="bnNext">翌日 ›</button></div>
     <div class="rc-status" id="rcStatus"></div>`;
   if(!T.length) h+=`<p class="muted" style="text-align:center;padding:24px 0">この日に分析する仕込はありません</p>`;
-  if(sb.length) h+=`<div class="bn-h">🧫 酒母<small>Be・酸度・alc・ｱﾐﾉ（酛卸の日は全項目）</small></div>${table('sb',sb)}`;
+  if(sb.length) h+=`<div class="bn-h">🧫 酒母<small>Be・alc・酸度・ｱﾐﾉ（酛卸の日は全項目）</small></div>${table('sb',sb)}`;
   if(mr.length) h+=`<div class="bn-h">🍶 醪<small>Be は3.0未満になったら日本酒度で（R7BYと同じ）</small></div>${table('mr',mr)}`;
   if(T.length) h+=`<p class="bn-note">数字の下の小さな字＝前回の値（何日目か）。入れると黄色の枠＝まだ保存していない値（この端末に下書きとして残ります）。前回から大きく外れると枠が光り、行の下に理由が出ます。「経過」でその仕込の全体の流れ（グラフと全日の表）が開きます。品温は 酒母・仕込み の画面で。</p>
     <div class="bn-bar"><button class="rc-ghost" id="bnReload" type="button">更新</button><button class="rc-btn" id="bnSave" type="button" disabled>まとめて保存</button></div>`;
@@ -8901,6 +8901,7 @@ async function kiDialog(no, kind){
 const UPDATES=[
   ['2026-10-11-4','📊','解析','ホームに「解析」を足しました。仕込順に上から下へ、1本ずつ 吸水・麹・酒母・上槽・粕歩合・きき酒・濾過・火入 の要点と、醪のグラフ（昨年度の同じ液種の帯・似た仕込み・追水・見込み）と表を見られます。帯から外れた値は赤い点で知らせます。醪に入る前は酒母のグラフ（昨年度の同じ液種の酒母の帯）を出します。'],
   ['2026-10-11-3','🧴','濾過・火入','ホームに「濾過・火入」を足しました。濾過・火入の予定日と済んだ日を入れると、本日の予定と部署カレンダーに出ます。上槽から5日以内に濾過、濾過から7日以内に火入の予定が無いと、アイコンに赤い札が出ます。仕込みの画面は「📈 グラフ／📋 表」で切り替えられます。'],
+  ['2026-10-11-5','🧪','分析','酒母の入力欄の並びを Be → alc → 酸度 → ｱﾐﾉ に（醪と同じ順）。'],
   ['2026-10-11-2','🧪','分析','分析の入力欄は小数1桁まで表示（5 → 5.0）。酒母にｱﾐﾉ欄を追加し、酛卸の日は「酛卸」の印と未入力欄の赤い点線を表示。酛卸の日に未入力のまま保存すると確認が出ます。'],
   ['2026-10-11-1','🧪','分析','分析の画面の上にあった「本・酒母・醪・入力済」の数の表示を外し、すぐ入力の表が出るようにしました。'],
   ['2026-10-10-2','🧫','酒母','酒母の「仕込時の値」で仕込尺（mm）を入れると、酒母タンクの容量早見表から仕込量（L）が自動で入るようにしました。照合できていないタンク・早見表に無いタンクは自動で入れません。'],
