@@ -616,6 +616,8 @@ function home(){
     {id:'bBun',  e:'🧪', lb:'分析',               c:['#dcc45f','#c6ad46'], t:'ho'},
     {id:'bShubo',e:'🧫', lb:'酒母',               c:['#dac862','#c4b048'], t:'ho'},
     {id:'bShk',  e:'🍶', lb:'仕込み',             c:['#d9cc6a','#c2b44f'], t:'momi'},
+    {id:'bRoka', e:'🧴', lb:'濾過・火入',         c:['#d7cd6c','#bfb550'], t:'momi', tag:(typeof rkHomeTag==='function'?rkHomeTag():'')},
+    {id:'bKaiseki', e:'📊', lb:'解析',            c:['#d5ce6f','#bdb553'], t:'momi'},
     {id:'bShizai', e:'🧰', lb:'資材', c:['#d3cf72','#bab656'], t:'momi', tag:(typeof sziHomeTag==='function'?sziHomeTag():'')},
     {id:'bWash', e:'🫧', lb:'タンク<br>洗浄管理', c:['#cbe075','#b1c95c'], t:'momi'},
     {id:'bCalc', e:'🧮', lb:'各種<br>計算ツール', c:['#c5da68','#abc351'], t:'momi'},
@@ -641,6 +643,8 @@ function home(){
   $('#bShubo').onclick=()=>go(()=>shuboHome());
   $('#bBun').onclick=()=>go(()=>bunHome(dtoday()));
   $('#bShk').onclick=()=>go(()=>moromiHome());
+  { const b=$('#bRoka'); if(b) b.onclick=()=>go(()=>rokaScreen()); }
+  { const b=$('#bKaiseki'); if(b) b.onclick=()=>go(()=>kaisekiHome()); }
   $('#bWash').onclick=()=>go(washScreen);
   $('#bCalc').onclick=()=>go(calcHome);
   $('#bTodo').onclick=()=>go(todoScreen);
@@ -5703,7 +5707,7 @@ document.addEventListener('click', e=>{
 });
 const DP_CAL_MAX=3; let DP_CALALL=false;
 function dpCalHTML(){
-  const date=dpDate(), c=(lsGet('dp.cal2',{})||{})[date], ev=(c&&c.events)||null;
+  const date=dpDate(), c=(lsGet('dp.cal2',{})||{})[date], ev=(c&&c.events)?c.events.filter(x=>!(typeof rkCalHide==='function'&&rkCalHide(x))):null;   /* 2026-10-11 濾過・火入は段に出すので箇条書きから外す */
   const kd=dpShukkinDay(date);
   let li='', more='';   // 2026-10-08 泰広さん指示：3件まで。ほか◯件 › で全部
   /* 2026-10-06 泰広さん指示：シンプルに（場所・電話番号・酵母の種類は出さない。「終日」も出さない）。押すと詳細 */
@@ -8895,6 +8899,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-11-4','📊','解析','ホームに「解析」を足しました。仕込順に上から下へ、1本ずつ 吸水・麹・酒母・上槽・粕歩合・きき酒・濾過・火入 の要点と、醪のグラフ（昨年度の同じ液種の帯・似た仕込み・追水・見込み）と表を見られます。帯から外れた値は赤い点で知らせます。'],
+  ['2026-10-11-3','🧴','濾過・火入','ホームに「濾過・火入」を足しました。濾過・火入の予定日と済んだ日を入れると、本日の予定と部署カレンダーに出ます。上槽から5日以内に濾過、濾過から7日以内に火入の予定が無いと、アイコンに赤い札が出ます。仕込みの画面は「📈 グラフ／📋 表」で切り替えられます。'],
   ['2026-10-11-2','🧪','分析','分析の入力欄は小数1桁まで表示（5 → 5.0）。酒母にｱﾐﾉ欄を追加し、酛卸の日は「酛卸」の印と未入力欄の赤い点線を表示。酛卸の日に未入力のまま保存すると確認が出ます。'],
   ['2026-10-11-1','🧪','分析','分析の画面の上にあった「本・酒母・醪・入力済」の数の表示を外し、すぐ入力の表が出るようにしました。'],
   ['2026-10-10-2','🧫','酒母','酒母の「仕込時の値」で仕込尺（mm）を入れると、酒母タンクの容量早見表から仕込量（L）が自動で入るようにしました。照合できていないタンク・早見表に無いタンクは自動で入れません。'],
@@ -9644,5 +9650,443 @@ setTimeout(()=>{ try{ const b=document.getElementById('bShizai'); if(b && !b.que
 
 </script>
 <!-- /shizai -->
+<!-- roka -->
+<script>
+/* ================= 🧴 濾過・火入（2026-10-11 泰広さん指示） =================
+   ・ホームに「濾過・火入」アイコン。中で 濾過予定日・火入予定日と、済んだ日（実施日）を入れる
+   ・予定は全体の予定にも出す：ホーム「本日の予定」の段（濾過・火入）＋ 部署カレンダー「生産本部製造担当」（終日予定。サーバーが作る）
+   ・注意：上槽日から5日以内に濾過の予定が無い／濾過日から7日以内に火入の予定が無い → ホームのアイコンに赤い札
+       対象＝上槽日（または濾過日）が「きょう＋5日（火入は＋7日）」までに来るもの。済が入れば消える
+   ・データ：Apps Script「製造ツール 共有データ」の表「濾過火入」（1工程×1順号で1行。同じ順号をもう一度保存すると上書き）
+   控え：seishu-workbook_github\_src_roka.js（差し込み _解析と濾過火入を足す.py） */
+const RK = { items: lsGet('rk.items', []), at: 0, err: '' };
+const RK_DAYS = { 濾過: 5, 火入: 7 };           // 上槽→濾過 5日以内／濾過→火入 7日以内
+const RK_T = { 濾過: ['13:00','15:00'], 火入: ['09:00','12:00'] };   // 本日の予定の段の目安の時刻（並び順にだけ使う）
+async function rkApi(body){
+  if(typeof SHARED_URL==='undefined' || !SHARED_URL) throw new Error('記録先の設定がまだです');
+  body.table='濾過火入'; body.who={ id:String(ST.id||''), name:String(ST.name||'') };
+  const r=await fetch(SHARED_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow'});
+  const j=await r.json();
+  if(!j||!j.ok) throw new Error((j&&/その表はありません/.test(j.error||''))?'サーバー側の更新（Apps Script「製造ツール 共有データ」の新バージョン）がまだです':((j&&j.error)||'受け取れませんでした'));
+  return j;
+}
+function rkKeep(j){ RK.items=(j.items||[]); RK.at=Date.now(); lsSet('rk.items', RK.items); RK.err=''; }
+async function rkLoad(force){
+  if(!force && RK.at && Date.now()-RK.at<60000) return RK.items;
+  try{ rkKeep(await rkApi({action:'list'})); }catch(e){ RK.err=String(e.message||e); }
+  return RK.items;
+}
+const rkRow=(name,no)=>RK.items.find(x=>x.name===name && String(x.no)===String(no))||null;
+/* 上槽日：上槽を入れていれば（仕込カルテ）その日、無ければ予定上槽日 */
+function rkJoso(m){ const k=RC.karte&&RC.karte[m.no]; const a=k&&k.joso&&k.joso['上槽日']; return (a&&/^\d{4}-\d\d-\d\d/.test(String(a)))?String(a).slice(0,10):(m.joso||''); }
+/* 1本ずつの状態 */
+function rkOf(m, today){
+  today=today||dtoday();
+  const J=rkJoso(m), ro=rkRow('濾過',m.no), hi=rkRow('火入',m.no);
+  const roD=ro&&ro.date||'', roP=ro&&ro.plan||'', hiD=hi&&hi.date||'', hiP=hi&&hi.plan||'';
+  const R=roD||roP;   // 火入の基準＝濾過の日（済が無ければ予定）
+  const o={ m, J, ro, hi, roD, roP, hiD, hiP, R, warn:[] };
+  if(J && !roD && J<=dadd(today,RK_DAYS.濾過)){
+    if(!roP) o.warn.push({k:'濾過', t:`濾過の予定なし（上槽 ${rcMD(J)}）`, lim:dadd(J,RK_DAYS.濾過)});
+    else if(roP>dadd(J,RK_DAYS.濾過)) o.warn.push({k:'濾過', t:`濾過予定 ${rcMD(roP)} が上槽から${RK_DAYS.濾過}日を超える`, lim:dadd(J,RK_DAYS.濾過)});
+  }
+  if(R && !hiD && R<=dadd(today,RK_DAYS.火入)){
+    if(!hiP) o.warn.push({k:'火入', t:`火入の予定なし（濾過 ${rcMD(R)}）`, lim:dadd(R,RK_DAYS.火入)});
+    else if(hiP>dadd(R,RK_DAYS.火入)) o.warn.push({k:'火入', t:`火入予定 ${rcMD(hiP)} が濾過から${RK_DAYS.火入}日を超える`, lim:dadd(R,RK_DAYS.火入)});
+  }
+  return o;
+}
+function rkAll(){ const st=dpState(); if(!st) return []; const today=dtoday(); return (st.master||[]).filter(m=>m.joso||rkRow('濾過',m.no)||rkRow('火入',m.no)).map(m=>rkOf(m,today)); }
+function rkWarnN(){ try{ return rkAll().reduce((a,o)=>a+o.warn.length,0); }catch(e){ return 0; } }
+function rkHomeTag(){ const n=rkWarnN(); return n?`予定なし${n}`:''; }
+
+/* ---- 画面 ---- */
+let RK_TAB=lsGet('rk.tab','濾過');
+async function rokaScreen(){
+  head('濾過・火入','予定日と済んだ日');
+  if(!RK.items.length || !dpState()) rcLoading('読み込んでいます…');
+  await Promise.all([recState(false), rkLoad(false)]);
+  rkDraw();
+  rkLoad(true).then(()=>{ if(nav[nav.length-1] && document.getElementById('rkBox')) rkDraw(); });
+}
+function rkDraw(){
+  const st=dpState(); if(!st){ rcFail(); return; }
+  const today=dtoday(), K=RK_TAB, all=rkAll();
+  const isR=K==='濾過';
+  const warn=all.filter(o=>o.warn.some(w=>w.k===K)).sort((a,b)=>String(isR?a.J:a.R).localeCompare(String(isR?b.J:b.R)));
+  const plan=all.filter(o=>isR?(o.roP&&!o.roD):(o.hiP&&!o.hiD)).filter(o=>!warn.includes(o)).sort((a,b)=>String(isR?a.roP:a.hiP).localeCompare(String(isR?b.roP:b.hiP)));
+  const done=all.filter(o=>isR?o.roD:o.hiD).sort((a,b)=>String(isR?b.roD:b.hiD).localeCompare(String(isR?a.roD:a.hiD))).slice(0,30);
+  const soon=all.filter(o=>!warn.includes(o)&&!plan.includes(o)&&!done.includes(o)&&(isR?(o.J&&o.J<=dadd(today,14)):(o.R))).sort((a,b)=>String(isR?a.J:a.R).localeCompare(String(isR?b.J:b.R)));
+  const row=(o,cls)=>{ const m=o.m, x=isR?o.ro:o.hi, base=isR?o.J:o.R, P=isR?o.roP:o.hiP, D=isR?o.roD:o.hiD;
+    const lim=dadd(base||today,RK_DAYS[K]);
+    const w=o.warn.filter(v=>v.k===K).map(v=>`<div class="rk-w">⚠ ${esc(v.t)}（${rcMD(v.lim)}までに）</div>`).join('');
+    return `<button class="rk-row ${cls}" data-no="${m.no}">
+      <span class="id">${m.no}<small>${esc(m.sym||'')} T${esc(m.tank||'')}</small></span>
+      <span class="mid"><b>${esc(m.liquid||'')}</b><br><span class="d">${isR?`上槽 ${rcMD(o.J)}`:`濾過 ${rcMD(o.R)}${o.roD?'':'（予定）'}`}・期限 ${rcMD(lim)}</span>${w}${x&&x.tank?`<br><span class="d">タンク ${esc(x.tank)}${x.qty?'・'+esc(x.qty)+'L':''}${x.memo?'・'+esc(x.memo):''}</span>`:''}</span>
+      <span class="r">${D?`<b class="ok">済 ${rcMD(D)}</b>`:P?`<b>予定 ${rcMD(P)}</b>`:`<b class="ng">未定</b>`}<span>${D?'':'押して入力 ›'}</span></span></button>`; };
+  let h=`<div class="rk-tabs">${['濾過','火入'].map(k=>`<button data-rk="${k}" class="${K===k?'on':''}">${k==='濾過'?'🧴':'🔥'} ${k}${all.some(o=>o.warn.some(w=>w.k===k))?`<i>${all.reduce((a,o)=>a+o.warn.filter(w=>w.k===k).length,0)}</i>`:''}</button>`).join('')}</div>
+    <div id="rkBox">${RK.err?`<div class="tl-warn">${esc(RK.err)}</div>`:''}
+    <p class="tl-note" style="margin:2px 2px 8px">${isR?`上槽日から <b>${RK_DAYS.濾過}日以内</b> に濾過の予定を入れます。`:`濾過日から <b>${RK_DAYS.火入}日以内</b> に火入の予定を入れます。`}予定は本日の予定と部署カレンダーにも出ます。</p>
+    <button class="rc-btn" id="rkNew" style="width:100%;margin-bottom:10px">＋ ${K}の予定・記録を入れる</button>`;
+  h+=`<div class="shk-sec">要注意<small>${warn.length}本</small></div>`+(warn.length?warn.map(o=>row(o,'warn')).join(''):`<div class="shk-none">ありません</div>`);
+  h+=`<div class="shk-sec">予定<small>${plan.length}本</small></div>`+(plan.length?plan.map(o=>row(o,'plan')).join(''):`<div class="shk-none">ありません</div>`);
+  if(soon.length) h+=`<div class="shk-sec">${isR?'もうすぐ上槽（2週間以内）':'濾過の後・火入まだ'}<small>${soon.length}本</small></div>`+soon.map(o=>row(o,'')).join('');
+  h+=`<div class="shk-sec">済（新しい順）<small>${done.length}本</small></div>`+(done.length?done.map(o=>row(o,'done')).join(''):`<div class="shk-none">ありません</div>`);
+  h+=`<div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="rkReload">更新</button></div></div>`;
+  app.innerHTML=h;
+  app.querySelectorAll('[data-rk]').forEach(b=>b.onclick=()=>{ RK_TAB=b.dataset.rk; lsSet('rk.tab',RK_TAB); rkDraw(); });
+  app.querySelectorAll('.rk-row[data-no]').forEach(b=>b.onclick=()=>rkDialog(K,[b.dataset.no]));
+  $('#rkNew').onclick=()=>rkDialog(K,[]);
+  $('#rkReload').onclick=async()=>{ await Promise.all([recState(true), rkLoad(true)]); rkDraw(); };
+}
+/* 入力の窓：順号は複数選べる（同じタンクにまとめて濾過するとき） */
+function rkDialog(K, nos){
+  const st=dpState(); if(!st) return;
+  const today=dtoday(), isR=K==='濾過';
+  const cand=rkAll().filter(o=>isR?(o.J&&o.J<=dadd(today,21)&&o.J>=dadd(today,-60)):(o.R&&o.R>=dadd(today,-60))).sort((a,b)=>Number(a.m.no)-Number(b.m.no));
+  nos.forEach(n=>{ if(!cand.some(o=>String(o.m.no)===String(n))){ const m=(st.master||[]).find(x=>String(x.no)===String(n)); if(m) cand.push(rkOf(m,today)); } });
+  const first=nos.length?rkRow(K,nos[0]):null;
+  const mlab=isR?'炭 kg':'温度 ℃';
+  const memo0=first?String(first.memo||''):'', mm=memo0.match(/^(?:炭|温度)\s*([\d.]+)\S*\s*/), num0=mm?mm[1]:'', rest0=mm?memo0.slice(mm[0].length):memo0;
+  const d=document.createElement('div'); d.className='rk-dlg';
+  d.innerHTML=`<div class="rk-in"><div class="rk-hd">${isR?'🧴':'🔥'} ${K}の予定・記録<button class="x" data-x>×</button></div>
+    <div class="rk-lb">仕込順号（${isR?'上槽の前後':'濾過のあと'}。複数選べます）</div>
+    <div class="rk-nos">${cand.map(o=>`<button type="button" data-n="${o.m.no}" class="${nos.map(String).includes(String(o.m.no))?'on':''}">${o.m.no}<small>${esc(o.m.liquid||'')}<br>${isR?'上槽 '+rcMD(o.J):'濾過 '+rcMD(o.R)}</small></button>`).join('')||'<span class="tl-note">対象の仕込がありません</span>'}</div>
+    <label class="rk-f">予定日<input type="date" id="rkPlan" value="${first&&first.plan||''}"></label>
+    <label class="rk-f">済んだ日<input type="date" id="rkDate" value="${first&&first.date||''}"><button type="button" class="rc-ghost" id="rkToday">きょう</button></label>
+    <label class="rk-f">タンク<input id="rkTank" inputmode="numeric" value="${esc(first&&first.tank||'')}" placeholder="例 183"></label>
+    <label class="rk-f">数量 L<input id="rkQty" inputmode="decimal" value="${esc(first&&first.qty||'')}"></label>
+    <label class="rk-f">${mlab}<input id="rkNum" inputmode="decimal" value="${esc(num0)}"></label>
+    <label class="rk-f">メモ<input id="rkMemo" value="${esc(rest0)}"></label>
+    <div class="rk-lim" id="rkLim"></div>
+    <div class="rc-actions"><button class="rc-btn" id="rkSave">保存</button>${first?`<button class="rc-ghost" id="rkDel" style="color:var(--ng)">消す</button>`:''}</div></div>`;
+  document.body.appendChild(d);
+  const close=()=>d.remove();
+  d.addEventListener('click',e=>{ if(e.target===d||e.target.dataset.x!==undefined) close(); });
+  const sel=()=>[...d.querySelectorAll('.rk-nos button.on')].map(b=>b.dataset.n);
+  const lim=()=>{ const s=sel(); const os=s.map(n=>cand.find(o=>String(o.m.no)===String(n))).filter(Boolean);
+    const L=os.map(o=>dadd((isR?o.J:o.R)||today,RK_DAYS[K])).sort()[0]; const p=$('#rkPlan').value;
+    $('#rkLim').innerHTML=L?`${isR?'上槽':'濾過'}から${RK_DAYS[K]}日：<b>${rcMD(L)}</b> までに${p&&p>L?' <span style="color:var(--ng)">← 予定が期限を過ぎています</span>':''}`:''; };
+  d.querySelectorAll('.rk-nos button').forEach(b=>b.onclick=()=>{ b.classList.toggle('on'); lim(); });
+  $('#rkPlan').onchange=lim; lim();
+  $('#rkToday').onclick=()=>{ $('#rkDate').value=today; };
+  $('#rkSave').onclick=async()=>{
+    const s=sel(); if(!s.length){ rcToast('仕込順号を選んでください',true); return; }
+    const plan=$('#rkPlan').value, date=$('#rkDate').value; if(!plan&&!date){ rcToast('予定日か済んだ日を入れてください',true); return; }
+    const num=$('#rkNum').value.trim(), memo=[num?(isR?`炭${num}kg`:`温度${num}℃`):'', $('#rkMemo').value.trim()].filter(Boolean).join(' ');
+    const btn=$('#rkSave'); btn.disabled=true; btn.textContent='保存中…';
+    try{
+      for(const n of s){ const m=(st.master||[]).find(x=>String(x.no)===String(n))||{}; const old=rkRow(K,n);
+        const item={ id:old?old.id:'', name:K, kind:s.length>1?`まとめ ${s.join('・')}`:'', no:String(n), liquid:m.liquid||'', plan, date, tank:$('#rkTank').value.trim(), qty:$('#rkQty').value.trim(), memo };
+        const j=await rkApi({action:'save', item}); rkKeep(j); if(j.calErr) rcToast('カレンダーに入れられませんでした：'+j.calErr,true,8000); }
+      close(); rcToast(`${K}を保存しました`); rkDraw();
+    }catch(e){ btn.disabled=false; btn.textContent='保存'; rcToast(String(e.message||e),true,8000); }
+  };
+  const del=$('#rkDel'); if(del) del.onclick=async()=>{ if(!confirm(`${K}の記録（${nos.join('・')}号）を消しますか？`)) return;
+    try{ for(const n of nos){ const o=rkRow(K,n); if(o){ rkKeep(await rkApi({action:'delete', id:o.id})); } } close(); rcToast('消しました'); rkDraw(); }catch(e){ rcToast(String(e.message||e),true,8000); } };
+}
+
+/* ---- 本日の予定（ホーム）に 濾過・火入 の段を足す ---- */
+(function(){
+  try{
+    if(typeof DP_LANES!=='undefined' && !DP_LANES.some(x=>x[0]==='roka')){ const i=DP_LANES.findIndex(x=>x[0]==='joso'); DP_LANES.splice(i>=0?i+1:DP_LANES.length,0,['roka','濾過・火入']); }
+    if(typeof dpItems!=='function') return;
+    const _dp=dpItems;
+    dpItems=function(date){
+      const out=_dp(date);
+      try{
+        const st=dpState(); const M=(st&&st.master)||[];
+        ['濾過','火入'].forEach(K=>{
+          const rows=RK.items.filter(x=>x.name===K && ((x.date||x.plan)===date));
+          if(!rows.length) return;
+          const a=dpMin(RK_T[K][0]), b=dpMin(RK_T[K][1]);
+          const nm=x=>{ const m=M.find(y=>String(y.no)===String(x.no))||{}; return `No.${x.no} ${m.sym||''}　${m.liquid||x.liquid||''}${x.tank?'　→ T'+x.tank:''}${x.qty?'　'+x.qty+'L':''}${x.memo?'　'+x.memo:''}${x.date?'（済）':''}`; };
+          out.push({lane:'roka', s:a, e:b, label:`${K}${rows.map(x=>x.no).join('・')}`, cls:K==='濾過'?'dp-j':'dp-s',
+            d:{title:K, time:RK_T[K].join('〜')+'（目安）', lines:rows.map(nm), open:()=>{ RK_TAB=K; rokaScreen(); }, openL:'濾過・火入の画面を開く'}});
+        });
+      }catch(e){}
+      return out;
+    };
+  }catch(e){}
+})();
+/* カレンダーの箇条書きからは、段に出している濾過・火入の予定を外す（二重に出さない） */
+function rkCalHide(x){ return /^(濾過|火入)\s*\d+号/.test(String(x&&x.title||'')); }
+/* ホームを開いたら裏で読み、札を付け直す */
+setTimeout(()=>{ try{ if(ST&&ST.token) rkLoad(false).then(()=>{ const b=document.getElementById('bRoka'); if(!b) return; const t=rkHomeTag(); let g=b.querySelector('.tg'); if(t){ if(!g){ b.insertAdjacentHTML('beforeend',`<span class="tg">${t}</span>`); } else g.textContent=t; } else if(g) g.remove(); }); }catch(e){} }, 3000);
+(function(){ const s=document.createElement('style'); s.textContent=`
+.rk-tabs{display:flex;gap:6px;margin:4px 0 10px}.rk-tabs button{flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:15px;font-weight:700;color:var(--navy);position:relative}
+.rk-tabs button.on{background:var(--navy);color:#fff}.rk-tabs i{font-style:normal;position:absolute;top:-6px;right:-4px;background:var(--ng);color:#fff;border-radius:999px;font-size:11px;padding:1px 6px}
+.rk-row{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:0 0 6px;font:inherit;color:inherit}
+.rk-row .id{font-size:22px;font-weight:800;color:var(--navy);min-width:46px;line-height:1.1}.rk-row .id small{display:block;font-size:10px;color:var(--sub);font-weight:400}
+.rk-row .mid{flex:1;font-size:13px}.rk-row .d{font-size:11px;color:var(--sub)}.rk-row .r{text-align:right;font-size:12px}.rk-row .r span{display:block;font-size:10px;color:var(--sub)}
+.rk-row .ok{color:var(--ok)}.rk-row .ng{color:var(--ng)}.rk-row.warn{border-color:#e7a3a3;background:#fff6f6}.rk-row.done{opacity:.8}
+.rk-w{color:var(--ng);font-size:12px;font-weight:700;margin-top:2px}
+.rk-dlg{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:900;display:flex;align-items:flex-end;justify-content:center}
+.rk-in{background:var(--paper,#f7f4ec);width:100%;max-width:520px;max-height:92dvh;overflow:auto;border-radius:16px 16px 0 0;padding:12px 14px calc(14px + env(safe-area-inset-bottom))}
+.rk-hd{font-weight:800;font-size:17px;color:var(--navy);display:flex;align-items:center}.rk-hd .x{margin-left:auto;border:0;background:none;font-size:26px;color:var(--sub)}
+.rk-lb{font-size:12px;color:var(--sub);margin:8px 0 4px}.rk-nos{display:flex;flex-wrap:wrap;gap:6px}
+.rk-nos button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:6px 8px;font-size:16px;font-weight:800;color:var(--navy);min-width:64px}
+.rk-nos button small{display:block;font-size:10px;font-weight:400;color:var(--sub)}.rk-nos button.on{background:var(--navy);color:#fff}.rk-nos button.on small{color:#dfe6f0}
+.rk-f{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:14px}.rk-f input{flex:1;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:16px;min-width:0}
+.rk-lim{font-size:12px;color:var(--sub);margin:4px 0}`; document.head.appendChild(s); })();
+
+</script>
+<!-- /roka -->
+<!-- kaiseki -->
+<script>
+/* ================= 📊 解析（2026-10-11 泰広さん指示） =================
+   ・仕込順に上から下へスクロールして、各仕込を比べられるようにする（1本＝1枚のカード）
+   ・カード：吸水・麹・酒母・醪・上槽（粕歩合）・きき酒・濾過・火入 の要点 ＋ 醪のグラフ（表・予測・追水のタイミング入り）
+       グラフ：Be換算（今年）／昨年度の同じ液種の 平均±σ の帯（ゴールデンバッチ）／似た仕込み3本の細い線／追水（今年＝青い棒・昨年度＝灰色の目盛り）／次の追水の目安
+       予測：似た仕込み3本（昨年度・同じ液種、3日目〜いまの Be・品温が近い順）から 醪日数・上槽前の日本酒度/alc・粕歩合
+   ・🍶仕込み の画面にも「📈 グラフ／📋 表」の切り替えで同じカード（醪の部分）を出す
+   ・データ：醸造記録 R8BY の karte（解析）・bunseki_get（仕込み）、昨年度は zennen_get（ZN）。サーバーの変更なし
+   控え：seishu-workbook_github\_src_kaiseki.js（差し込み _解析と濾過火入を足す.py） */
+const KS = { filter: lsGet('ks.filter','all'), obs:null };
+const ksNum=v=>(v===''||v===null||v===undefined||isNaN(Number(v)))?null:Number(v);
+/* 今年の醪：bunseki_get の days → 昨年度（znDays）と同じ形 */
+function ksDays(b){
+  if(!b||!b.days) return [];
+  let meter=false; const out=[];
+  b.days.forEach(d=>{
+    const sm=d.day===1?null:ksNum(d.be);   // 1日目（留）の Be の行は 尺
+    const x={ day:d.day, date:d.date, sm, alc:d.day===1?null:ksNum(d.alc), ta:ksNum(d.ta), aa:ksNum(d.aa), oimizu:ksNum(d.oimizu), tAM:ksNum(d.tAM), tPM:ksNum(d.tPM) };
+    if(sm!==null){ if(sm<0) meter=true; x.kind=meter?'度':'Be'; x.beq=meter?Math.round(-sm*10)/100:sm; }
+    const c=b.calc&&b.calc[d.day]; if(c){ x.bmd=ksNum(c.bmd); x.rec=ksNum(c.rec); x.warn=c.warn||''; x.miss=c.miss||''; x.tStd=ksNum(c.tStd); }
+    out.push(x);
+  });
+  let last=0; out.forEach((x,i)=>{ if(x.sm!==null||x.alc!==null||x.tAM!==null||x.tPM!==null||x.oimizu!==null) last=i+1; });
+  return out.slice(0,last);
+}
+const ksT=x=>{ const ok=v=>v!==null&&v!==undefined&&v>0&&v<40; return ok(x.tAM)?x.tAM:(ok(x.tPM)?x.tPM:null); };
+/* 昨年度の同じ液種 */
+function ksPrev(liq){
+  const D=ZN.data; if(!D||!D.moromi) return [];
+  return D.moromi.filter(x=>znSameLiq(x.lq,liq)).map(x=>({x, d:x._days||(x._days=znDays('moromi',x))}));
+}
+function ksBand(P,f,N){
+  const m=[],s=[];
+  for(let i=0;i<N;i++){ const v=P.map(p=>p.d[i]?f(p.d[i]):null).filter(v=>v!==null&&v!==undefined&&!isNaN(v));
+    if(v.length<3){ m.push(null); s.push(null); continue; }
+    const mu=v.reduce((a,b)=>a+b,0)/v.length; m.push(mu); s.push(Math.sqrt(v.reduce((a,b)=>a+(b-mu)**2,0)/v.length)); }
+  return {m,s};
+}
+function ksSimilar(D,P){
+  const L=D.length; if(L<4) return [];
+  return P.map(p=>{ let s=0,n=0; for(let i=2;i<L;i++){ const a=D[i], b=p.d[i]; if(!b) continue;
+      if(a.beq!=null&&b.beq!=null){ s+=(a.beq-b.beq)**2; n++; }
+      const t1=ksT(a), t2=ksT(b); if(t1!=null&&t2!=null){ s+=((t1-t2)/2)**2; n++; } }
+    return {p, d:n>=3?Math.sqrt(s/n):99}; }).filter(o=>o.d<99).sort((a,b)=>a.d-b.d).slice(0,3);
+}
+function ksPredict(S){
+  if(!S.length) return null;
+  const av=a=>{ a=a.filter(v=>v!==null&&v!==undefined&&!isNaN(v)); return a.length?a.reduce((x,y)=>x+y,0)/a.length:null; };
+  const rng=a=>{ a=a.filter(v=>v!==null&&v!==undefined&&!isNaN(v)); return a.length?[Math.min(...a),Math.max(...a)]:null; };
+  const lastSm=p=>{ for(let i=p.d.length-1;i>=0;i--) if(p.d[i].sm!==null&&p.d[i].sm!==undefined) return p.d[i]; return null; };
+  const n=S.map(o=>{ const j=o.p.x.jo; if(j&&j.date&&o.p.x.st&&o.p.x.st.tome){ const n=rcDays(o.p.x.st.tome[0], j.date)+1; if(n>=5&&n<=60) return n; } return o.p.d.length; });
+  const smv=S.map(o=>{ const j=o.p.x.jo; if(j&&j.pre&&j.pre.smv!==null&&j.pre.smv!==undefined) return j.pre.smv; const l=lastSm(o.p); return l&&l.kind==='度'?l.sm:null; });
+  const alc=S.map(o=>{ const j=o.p.x.jo; if(j&&j.pre&&j.pre.alc!=null) return j.pre.alc; for(let i=o.p.d.length-1;i>=0;i--) if(o.p.d[i].alc!=null) return o.p.d[i].alc; return null; });
+  const kasu=S.map(o=>o.p.x.jo&&o.p.x.jo.kasuP);
+  return { n:av(n), nR:rng(n), smv:av(smv), smvR:rng(smv), alc:av(alc), kasu:av(kasu) };
+}
+/* 追水：昨年度の同じ液種で、何日目に何L入れたか */
+function ksOiHist(P){
+  const H={}; P.forEach(p=>p.d.forEach(d=>{ if(d.oimizu>0){ (H[d.day]=H[d.day]||[]).push(d.oimizu); } })); return H;
+}
+function ksOiNext(D,H,nP,b){
+  const L=D.length; const days=Object.keys(H).map(Number).filter(d=>d>L && H[d].length>=Math.max(2,nP*0.3)).sort((a,b)=>a-b);
+  if(!days.length) return null;
+  const d=days[0], v=H[d]; const c={}; v.forEach(x=>c[x]=(c[x]||0)+1); const mode=Object.entries(c).sort((a,b)=>b[1]-a[1])[0][0];
+  return { day:d, n:v.length, nP, L:Number(mode), min:Math.min(...v), max:Math.max(...v) };
+}
+/* ---- グラフ（SVG） ---- */
+function ksChart(o){
+  const W=340, H=o.h||150, L=26, R=6, T=8, B=18, N=o.days;
+  const X=i=>L+(W-L-R)*(N<=1?0:i/(N-1)), Y=v=>T+(H-T-B)*(1-(v-o.y0)/(o.y1-o.y0));
+  const cl=v=>Math.max(o.y0,Math.min(o.y1,v));
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" class="ks-svg" preserveAspectRatio="none">`;
+  const st=Math.max(1,Math.round((o.y1-o.y0)/5));
+  for(let v=Math.ceil(o.y0);v<=o.y1;v+=st) s+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#ece7dc"/><text x="${L-3}" y="${Y(v)+3}" font-size="8" text-anchor="end" fill="#8a8a8a">${v}</text>`;
+  for(let i=0;i<N;i+=(N>24?3:2)) s+=`<text x="${X(i)}" y="${H-5}" font-size="8" text-anchor="middle" fill="#8a8a8a">${i===0?'留':i+1}</text>`;
+  (o.vlines||[]).forEach(v=>{ if(v.i==null||v.i<0||v.i>=N) return; s+=`<line x1="${X(v.i)}" x2="${X(v.i)}" y1="${T}" y2="${H-B}" stroke="${v.c}" stroke-width="${v.w||1.5}" ${v.dash?'stroke-dasharray="3 2"':''}/>${v.t?`<text x="${X(v.i)+2}" y="${T+8}" font-size="8" fill="${v.c}">${v.t}</text>`:''}`; });
+  (o.bands||[]).forEach(b=>{ const up=[],dn=[]; b.m.forEach((m,i)=>{ if(m!==null&&i<N){ up.push(X(i)+','+Y(cl(m+b.s[i]))); dn.unshift(X(i)+','+Y(cl(m-b.s[i]))); } });
+    if(up.length>1) s+=`<path d="M${up.join('L')}L${dn.join('L')}Z" fill="${b.c}" opacity=".18"/><path d="M${b.m.map((m,i)=>m===null||i>=N?'':X(i)+','+Y(cl(m))).filter(Boolean).join('L')}" fill="none" stroke="${b.c}" stroke-width=".8" stroke-dasharray="3 3" opacity=".7"/>`; });
+  (o.bars||[]).forEach(b=>{ if(b.i>=N) return; const h=Math.max(4,Math.min(26,b.v/6)); s+=`<rect x="${X(b.i)-3}" y="${H-B-h}" width="6" height="${h}" rx="1.5" fill="${b.c}" opacity="${b.o||1}"/>${b.t?`<text x="${X(b.i)}" y="${H-B-h-2}" font-size="7.5" text-anchor="middle" fill="${b.c}">${b.t}</text>`:''}`; });
+  (o.lines||[]).forEach(l=>{ let d='',pen=false; l.v.forEach((v,i)=>{ if(v===null||v===undefined||i>=N){ pen=false; return; } d+=(pen?'L':'M')+X(i)+','+Y(cl(v)); pen=true; });
+    s+=`<path d="${d}" fill="none" stroke="${l.c}" stroke-width="${l.w||2}" ${l.dash?'stroke-dasharray="3 2"':''} opacity="${l.o||1}"/>`;
+    if(l.dot) l.v.forEach((v,i)=>{ if(v===null||v===undefined||i>=N) return; const bad=l.chk&&l.chk(i,v); s+=`<circle cx="${X(i)}" cy="${Y(cl(v))}" r="${bad?4:2.2}" fill="${bad?'#b23b3b':l.c}"/>`; }); });
+  return s+'</svg>';
+}
+/* ---- 1本のカード ---- */
+function ksCardHTML(m, b, k, opt){
+  opt=opt||{};
+  const today=dtoday(), t=((RC.state&&RC.state.today)||{})[m.no]||{};
+  const D=ksDays(b), P=ksPrev(m.liquid), nP=P.length;
+  const plan=m.period?Number(m.period):(m.joso&&m.tome?rcDays(m.tome,m.joso)+1:0);
+  const S=ksSimilar(D,P), pr=ksPredict(S), H=ksOiHist(P), nx=ksOiNext(D,H,nP,b);
+  const N=Math.max(D.length+1, plan||0, pr&&pr.n?Math.round(pr.n):0, 18);
+  const BE=ksBand(P,d=>d.beq,N), TP=ksBand(P,ksT,N);
+  const out=(B,i,v)=>B.m[i]!=null&&B.s[i]!=null&&Math.abs(v-B.m[i])>Math.max(2*B.s[i],B===TP?1.0:0.5);   // 帯の外＝平均から 2σ（品温は最低1.0℃、Be換算は0.5）より離れた値
+  const isDone=t.state==='上槽済', dNow=isDone?null:rcMoromiDay(m,today);
+  const tdy=dNow&&dNow>=1&&dNow<=N?dNow-1:null;
+  const jIdx=m.joso&&m.tome?rcDays(m.tome,m.joso):null;
+  // グラフ
+  const beqs=D.map(x=>x.beq??null), mx=Math.max(8, ...beqs.filter(v=>v!=null).map(v=>Math.ceil(v)+1));
+  const bars=[]; D.forEach((x,i)=>{ if(x.oimizu>0) bars.push({i, v:x.oimizu, c:'#2c5d9b', t:x.oimizu}); });
+  Object.keys(H).forEach(d=>{ const i=Number(d)-1; if(!D[i]||!(D[i].oimizu>0)) bars.push({i, v:Math.min(...H[d])||30, c:'#9aa3ad', o:Math.min(.7,.15+H[d].length/Math.max(nP,1))}); });
+  const vl=[]; if(tdy!=null) vl.push({i:tdy,c:'#e0b400',dash:1,t:'今日'}); if(jIdx!=null) vl.push({i:jIdx,c:'#d9748f',dash:1,t:'上槽予定'});
+  if(nx) vl.push({i:nx.day-1,c:'#2c5d9b',dash:1,w:1,t:'追水?'});
+  if(pr&&pr.n&&Math.round(pr.n)-1!==jIdx) vl.push({i:Math.round(pr.n)-1,c:'#7b5ea7',dash:1,w:1,t:'見込'});
+  const simC=['#8c6bb1','#3b9c9c','#c47b2b'];
+  const g1=ksChart({days:N, y0:-2, y1:mx, bands:nP>=3?[{m:BE.m,s:BE.s,c:'#2c5d9b'}]:[], vlines:vl, bars,
+    lines:[...S.map((o,j)=>({v:o.p.d.map(x=>x.beq??null),c:simC[j],w:1.1,o:.75})), {v:beqs,c:'#1b2a41',dot:true,chk:(i,v)=>out(BE,i,v)}]});
+  const ts=D.map(ksT).filter(v=>v!=null), t0=Math.floor(Math.min(8,...ts))-1, t1=Math.ceil(Math.max(16,...ts))+1;
+  const g2=ksChart({days:N, h:96, y0:t0, y1:t1, bands:nP>=3?[{m:TP.m,s:TP.s,c:'#b23b3b'}]:[], vlines:vl.filter(v=>v.t==='今日'),
+    lines:[{v:D.map(x=>(x.tPM>0&&x.tPM<40)?x.tPM:null),c:'#e08a3c',w:1.2,dash:1},{v:D.map(ksT),c:'#b23b3b',dot:true,chk:(i,v)=>out(TP,i,v)}]});
+  // 表
+  const cols=D.map((x,i)=>i);
+  const cell=(x,i,key,f)=>{ const v=x[key]; let c=''; if(key==='tAM'||key==='tPM'){ if(v!=null&&(v<=0||v>=40)) c='bad'; else if(v!=null&&out(TP,i,v)) c='out'; }
+    if(key==='sm'&&x.beq!=null&&out(BE,i,x.beq)) c='out'; if(key==='oimizu'&&v>0) c='oi'; return `<td class="${c} ${i===tdy?'td':''}">${v===null||v===undefined?'':(f?f(v):rcN(v))}</td>`; };
+  const tbl=D.length?`<div class="ks-tbl"><table><tr><th></th>${cols.map(i=>`<th class="${i===tdy?'td':''}">${i===0?'留':i+1}</th>`).join('')}</tr>
+    ${[['Be/度','sm'],['alc','alc'],['酸','ta'],['ｱﾐﾉ','aa'],['追水','oimizu'],['品温AM','tAM'],['品温PM','tPM'],['BMD','bmd']].map(([l,key])=>`<tr><th>${l}</th>${D.map((x,i)=>cell(x,i,key)).join('')}</tr>`).join('')}</table></div>`:`<div class="shk-none">まだ醪の記録はありません</div>`;
+  // 気になる値
+  const flags=[]; D.forEach((x,i)=>{ [['品温AM','tAM'],['品温PM','tPM']].forEach(([l,key])=>{ const v=x[key]; if(v!=null&&(v<=0||v>=40)) flags.push(`${i===0?'留':(i+1)+'日目'}の${l}「${v}」は入力ミスでは？`); else if(v!=null&&out(TP,i,v)) flags.push(`${i===0?'留':(i+1)+'日目'}の${l} ${v}℃ が昨年度の帯（${TP.m[i].toFixed(1)}±${TP.s[i].toFixed(1)}）から外れています`); });
+    if(x.beq!=null&&out(BE,i,x.beq)) flags.push(`${i+1}日目の${x.kind==='度'?'日本酒度':'Be'} ${x.sm} が昨年度の帯から外れています`); });
+  const lw=D.length?D[D.length-1]:null; if(lw&&lw.warn) flags.unshift('醪DB：'+lw.warn); if(lw&&lw.miss) flags.unshift('入力ミス?：'+lw.miss);
+  // 追水
+  const oiSum=D.reduce((a,x)=>a+(x.oimizu>0?x.oimizu:0),0), oiPlan=ksNum(b&&b.head&&b.head.oimizuPlan)??ksNum(m.oimizu), rec=lw&&lw.rec;
+  const oiTxt=isDone?'':`<div class="ks-oi"><b>💧 追水</b> 今年 ${oiSum}L${oiPlan?` ／ 計画 ${oiPlan}L（残り ${Math.max(0,oiPlan-oiSum)}L）`:''}${rec?`　<span class="rec">醪DBの推奨 ${rcN(rec)}L</span>`:''}
+    ${nx?`<br>次の目安：<b>${nx.day}日目</b>（${dNow?`あと${nx.day-dNow}日`:''}）に <b>${nx.L}L</b>　<small>昨年度の${esc(m.liquid||'')} ${nx.n}/${nx.nP}本が${nx.day}日目に追水（${nx.min}〜${nx.max}L）</small>`:(nP?'<br><small>昨年度の同じ液種では、この先に多い追水の日はありません</small>':'')}</div>`;
+  const prTxt=pr?`<div class="ks-pr"><div>醪日数<b>${Math.round(pr.n)}日</b><small>${pr.nR?pr.nR[0]+'〜'+pr.nR[1]:''}</small></div><div>上槽前 度<b>${pr.smv!=null?(pr.smv>0?'+':'')+pr.smv.toFixed(1):'—'}</b><small>${pr.smvR?pr.smvR[0]+'〜'+pr.smvR[1]:''}</small></div><div>alc<b>${pr.alc!=null?pr.alc.toFixed(1):'—'}</b></div><div>粕歩合<b>${pr.kasu!=null?pr.kasu.toFixed(1)+'%':'—'}</b></div></div>`
+    :(D.length<4?`<div class="tl-note">見込み・似た仕込みは4日目から出ます</div>`:nP?'':`<div class="tl-note">昨年度に同じ液種（${esc(m.liquid||'')}）がないため、帯と見込みは出ません</div>`);
+  const simTxt=S.length?`<div class="ks-sim">${S.map((o,j)=>`<span><i style="background:${simC[j]}"></i>昨年 ${o.p.x.no}号（留${rcMD(o.p.x.st&&o.p.x.st.tome&&o.p.x.st.tome[0])}）</span>`).join('')}</div>`:'';
+  const st=isDone?`<span class="ks-st done">上槽済</span>`:dNow>=1?`<span class="ks-st">醪 ${dNow}日目</span>`:(m.soe&&today>=m.soe?`<span class="ks-st">仕込中</span>`:`<span class="ks-st plan">予定</span>`);
+  return `<div class="ks-card" data-ks="${m.no}">
+    <div class="ks-hd" data-ksopen="${m.no}"><span class="no">${m.no}</span><span class="lq">${esc(m.liquid||'')}</span>${st}
+      <span class="ks-sub">${esc(m.sym||'')} T${esc(m.tank||'')}${m.yeast?'・'+esc(m.yeast):''}<br>添 ${rcMD(m.soe)}・留 ${rcMD(m.tome)}・上槽${isDone?'':'予定'} ${rcMD(m.joso)}</span><span class="go">›</span></div>
+    ${opt.full?ksStrip(m,k):''}
+    ${flags.length?`<div class="ks-flag">${flags.slice(0,4).map(f=>'⚠ '+esc(f)).join('<br>')}${flags.length>4?`<br><small>ほか${flags.length-4}件</small>`:''}</div>`:''}
+    <div class="ks-lg"><span><i style="background:#1b2a41"></i>今年 Be換算</span>${nP>=3?`<span><i style="background:#2c5d9b;opacity:.3"></i>昨年 ${esc(m.liquid||'')} 平均±σ（${nP}本）</span>`:''}<span><i style="background:#2c5d9b"></i>追水</span><span><i style="background:#9aa3ad"></i>昨年の追水</span></div>
+    ${g1}${simTxt}${g2}
+    ${oiTxt}${prTxt}${tbl}
+    ${opt.full?ksDetail(m,k):''}
+  </div>`;
+}
+function ksCardSkel(m){ return `<div class="ks-card" data-ks="${m.no}"><div class="ks-hd" data-ksopen="${m.no}"><span class="no">${m.no}</span><span class="lq">${esc(m.liquid||'')}</span><span class="ks-sub">${esc(m.sym||'')} T${esc(m.tank||'')}<br>添 ${rcMD(m.soe)}・留 ${rcMD(m.tome)}</span></div><div class="shk-none">読み込んでいます…</div></div>`; }
+/* 吸水〜火入の要点（解析のカードの上段） */
+function ksStrip(m,k){
+  const av=a=>{ a=a.map(Number).filter(v=>v>0); return a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*10)/10:null; };
+  const w=(k&&k.wash)||[], kj=(k&&k.koji)||[], s=k&&k.shubo, j=(k&&k.joso)||{}, hy=(k&&k.hyoka)||[];
+  const wK=av(w.filter(x=>/麹/.test(x.rice)).map(x=>x.kyusui)), wM=av(w.filter(x=>!/麹/.test(x.rice)).map(x=>x.kyusui));
+  const kT=av(kj.map(x=>x['出麹 品温'])), kW=av(kj.map(x=>x['出麹 水分%']));
+  const sd=s&&s.days?s.days.filter(x=>x.be!==''||x.ta!==''):[]; const sl=sd[sd.length-1];
+  const kasu=(j['粕重量kg']&&m.soumai)?Math.round(j['粕重量kg']/m.soumai*1000)/10:null;
+  const hs=av(hy.map(x=>x['総合']));
+  const ro=typeof rkOf==='function'?rkOf(m):null;
+  const c=(ic,l,v,cls)=>`<div class="${cls||''}"><span>${ic} ${l}</span><b>${v}</b></div>`;
+  return `<div class="ks-strip">
+    ${c('💧','吸水',wK||wM?`麹${wK??'—'}／掛${wM??'—'}%`:'—')}
+    ${c('🍚','麹',kj.length?`出麹${kT??'—'}℃・${kW??'—'}%`:'—')}
+    ${c('🧫','酒母',sl?`${sl.day}日目 酸${rcN(sl.ta)}`:'—')}
+    ${c('🏭','上槽',j['上槽日']?`${rcMD(String(j['上槽日']).slice(0,10))} 度${rcN(j['上槽 日本酒度'])}`:'—')}
+    ${c('⚖','粕歩合',kasu!=null?kasu+'%':'—')}
+    ${c('👃','きき酒',hs!=null?`総合${hs}（${hy.length}）`:'—')}
+    ${c('🧴','濾過',ro&&ro.roD?rcMD(ro.roD):ro&&ro.roP?'予定'+rcMD(ro.roP):'—', ro&&ro.warn.some(w=>w.k==='濾過')?'ng':'')}
+    ${c('🔥','火入',ro&&ro.hiD?rcMD(ro.hiD):ro&&ro.hiP?'予定'+rcMD(ro.hiP):'—', ro&&ro.warn.some(w=>w.k==='火入')?'ng':'')}
+  </div>`;
+}
+/* 吸水・麹・酒母の中身（たたんでおく） */
+function ksDetail(m,k){
+  if(!k) return '';
+  const w=k.wash||[], kj=k.koji||[], s=k.shubo;
+  const sd=s&&s.days?s.days.filter(x=>x.temp!==''||x.be!==''||x.ta!==''||x.alc!==''):[];
+  return `<details class="ks-det"><summary>💧 吸水・🍚 麹・🧫 酒母 の中身</summary>
+    ${w.length?`<div class="ks-tbl"><table><tr><th>段</th><th>米</th><th>品種</th><th>洗米</th><th>浸漬</th><th>水温</th><th>吸水%</th></tr>${w.map(x=>`<tr><td>${esc(x.stage||'')}</td><td>${esc(x.rice||'')}</td><td>${esc(x.kind||'')}${x.ratio?x.ratio+'%':''}</td><td>${rcMD(x.date)}</td><td>${rcN(x.shinseki)}</td><td>${rcN(x.suion)}</td><td>${rcN(x.kyusui)}</td></tr>`).join('')}</table></div>`:'<div class="shk-none">吸水の記録なし</div>'}
+    ${kj.length?`<div class="ks-tbl"><table><tr><th>麹</th><th>種麹</th><th>引込</th><th>盛後</th><th>仲</th><th>留</th><th>出麹</th><th>水分</th><th>麹歩合</th></tr>${kj.map(x=>`<tr><td>${esc(x['麹ID']||'')}</td><td>${esc(x['種麹']||'')}</td><td>${rcN(x['引込 品温'])}</td><td>${rcN(x['盛後 品温'])}</td><td>${rcN(x['仲仕事 品温'])}</td><td>${rcN(x['留仕事 品温'])}</td><td>${rcN(x['出麹 品温'])}</td><td>${rcN(x['出麹 水分%'])}</td><td>${rcN(x['麹歩合'])}</td></tr>`).join('')}</table></div>`:'<div class="shk-none">麹の記録なし</div>'}
+    ${sd.length?`<div class="ks-tbl"><table><tr><th></th>${sd.map(x=>`<th>${x.day}</th>`).join('')}</tr>${[['品温','temp'],['Be','be'],['酸度','ta'],['alc','alc']].map(([l,f])=>`<tr><th>${l}</th>${sd.map(x=>`<td>${rcN(x[f])}</td>`).join('')}</tr>`).join('')}</table></div>`:'<div class="shk-none">酒母の記録なし</div>'}
+    <button class="rc-ghost" data-karte="${m.no}" style="margin-top:6px">仕込カルテ（上槽・きき酒の入力）›</button></details>`;
+}
+/* ---- カードの並び（解析・仕込み 共通）：見えた所から読み込む ---- */
+function ksList(box, list, kind){
+  box.innerHTML=list.length?list.map(ksCardSkel).join(''):`<div class="shk-none">ありません</div>`;
+  const top=nav[nav.length-1];
+  const store=kind==='full'?RC.karte:RC.bun, act=kind==='full'?'karte':'bunseki_get';
+  const draw=no=>{ if(nav[nav.length-1]!==top) return; const el=box.querySelector(`.ks-card[data-ks="${no}"]`); const m=list.find(x=>String(x.no)===String(no)); const r=store[no]; if(!el||!m||!r) return;
+    const t=document.createElement('div'); t.innerHTML=ksCardHTML(r.master||m, kind==='full'?r.moromi:r, kind==='full'?r:null, {full:kind==='full'}); el.replaceWith(t.firstElementChild); ksBind(box); };
+  list.forEach(m=>{ if(store[m.no]) draw(m.no); });
+  const q=[]; let busy=0;
+  const pump=()=>{ while(busy<3&&q.length){ const no=q.shift(); busy++; recApi({action:act,no},50000).then(r=>{ if(r&&r.ok){ store[no]=r; draw(no); } }).catch(()=>{}).finally(()=>{ busy--; pump(); }); } };
+  if(KS.obs) KS.obs.disconnect();
+  KS.obs=('IntersectionObserver' in window)?new IntersectionObserver(es=>es.forEach(e=>{ if(!e.isIntersecting) return; const no=e.target.dataset.ks; KS.obs.unobserve(e.target); if(!store[no]){ q.push(no); pump(); } }),{rootMargin:'600px 0px'}):null;
+  box.querySelectorAll('.ks-card').forEach(el=>{ if(KS.obs) KS.obs.observe(el); else if(!store[el.dataset.ks]){ q.push(el.dataset.ks); } }); pump();
+  ksBind(box);
+  if(!ZN.data) znLoad(false).then(()=>{ if(nav[nav.length-1]===top) list.forEach(m=>{ if(store[m.no]) draw(m.no); }); });
+}
+function ksBind(box){
+  box.querySelectorAll('[data-ksopen]').forEach(b=>b.onclick=()=>go(()=>moromiSheet(b.dataset.ksopen)));
+  box.querySelectorAll('[data-karte]').forEach(b=>b.onclick=()=>go(()=>karteScreen(b.dataset.karte)));
+}
+/* ---- 📊 解析の画面 ---- */
+async function kaisekiHome(){
+  head('解析','仕込順に 吸水〜火入');
+  rcLoading('仕込の一覧を読み込んでいます…');
+  const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
+  if(typeof rkLoad==='function') rkLoad(false);
+  const today=dtoday(), T=st.today||{}, F=KS.filter;
+  const started=st.master.filter(m=>m.soe&&today>=m.soe);
+  const list=started.filter(m=>F==='all'||(F==='now'&&(T[m.no]||{}).state!=='上槽済')||(F==='done'&&(T[m.no]||{}).state==='上槽済')).sort((a,b)=>Number(a.no)-Number(b.no));
+  app.innerHTML=`<div class="rc-bar">${[['all','全部'],['now','醪中'],['done','上槽済']].map(([k,l])=>`<button class="rc-chip ${F===k?'on':''}" data-ksf="${k}">${l}</button>`).join('')}<span style="flex:1"></span><button class="rc-ghost" id="ksReload">更新</button></div>
+    <p class="tl-note" style="margin:2px 2px 8px">仕込順（${list.length}本）。グラフの帯は昨年度の同じ液種の平均±σ、細い線は動きの似た昨年度の仕込み3本。赤い点は帯から外れた値。</p><div id="ksBox"></div>`;
+  app.querySelectorAll('[data-ksf]').forEach(b=>b.onclick=()=>{ KS.filter=b.dataset.ksf; lsSet('ks.filter',KS.filter); kaisekiHome(); });
+  $('#ksReload').onclick=async()=>{ await recState(true); list.forEach(m=>{ RC.karte[m.no]=null; }); kaisekiHome(); };
+  ksList($('#ksBox'), list, 'full');
+}
+/* ---- 🍶仕込み：📈 グラフ／📋 表 の切り替え ---- */
+(function(){
+  const orig=window.moromiHome; if(typeof orig!=='function') return;
+  window.moromiHome=async function(...a){
+    const top=nav[nav.length-1]; const r=await orig.apply(this,a);
+    try{ if(nav[nav.length-1]!==top||app.querySelector('.ks-sw')) return r;
+      const hd=$('#kgHd'), kg=app.querySelector('.kg-home'); if(!hd||!kg) return r;
+      const v=lsGet('shk.view','graph');
+      const sw=document.createElement('div'); sw.className='ks-sw';
+      sw.innerHTML=`<button data-v="graph" class="${v==='graph'?'on':''}">📈 グラフ</button><button data-v="table" class="${v!=='graph'?'on':''}">📋 表</button>`;
+      hd.before(sw);
+      const box=document.createElement('div'); box.className='ks-list'; kg.after(box);
+      const st=RC.state, today=dtoday(), T=(st&&st.today)||{};
+      const list=((st&&st.master)||[]).filter(m=>(T[m.no]||{}).state!=='上槽済' && m.tome && m.soe && today>=m.soe).sort((x,y)=>Number(x.no)-Number(y.no));
+      const show=w=>{ sw.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===w)); kg.style.display=w==='graph'?'none':''; box.style.display=w==='graph'?'':'none';
+        if(w==='graph'&&!box.childElementCount) ksList(box, list, 'bun'); };
+      sw.querySelectorAll('button').forEach(b=>b.onclick=()=>{ lsSet('shk.view',b.dataset.v); show(b.dataset.v); });
+      show(v);
+    }catch(e){ console.log('ks-sw',e); }
+    return r; };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.ks-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 8px 10px;margin:0 0 12px}
+.ks-hd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;cursor:pointer}
+.ks-hd .no{font-size:28px;font-weight:800;color:var(--navy);line-height:1}.ks-hd .lq{font-size:17px;font-weight:800}
+.ks-hd .ks-sub{font-size:11px;color:var(--sub);flex:1;min-width:150px;line-height:1.35}.ks-hd .go{color:var(--sub);font-size:20px}
+.ks-st{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#e3edf8;color:#2c5d9b}.ks-st.done{background:#e6efe9;color:var(--ok)}.ks-st.plan{background:#eee;color:#666}
+.ks-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:8px 0 4px}
+.ks-strip div{background:#f8f6f0;border:1px solid var(--line);border-radius:8px;padding:3px 4px;text-align:center;min-width:0}
+.ks-strip span{display:block;font-size:10px;color:var(--sub);white-space:nowrap}.ks-strip b{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ks-strip .ng{border-color:#e7a3a3;background:#fff3f3}.ks-strip .ng b{color:var(--ng)}
+.ks-flag{background:#fff7ee;border:1px solid #f0c9a0;border-radius:8px;padding:5px 7px;font-size:12px;margin:6px 0;line-height:1.5}
+.ks-lg{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:10px;color:var(--sub);margin:6px 0 0}.ks-lg i,.ks-sim i{display:inline-block;width:12px;height:6px;border-radius:2px;margin-right:3px;vertical-align:middle}
+.ks-sim{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10px;color:var(--sub);margin:-2px 0 2px}
+.ks-svg{display:block;height:auto}
+.ks-oi{background:#eef4fb;border:1px solid #c9d7ee;border-radius:8px;padding:6px 8px;font-size:12px;line-height:1.6;margin:6px 0}.ks-oi small{color:var(--sub)}.ks-oi .rec{color:#2c5d9b;font-weight:700}
+.ks-pr{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:6px 0}.ks-pr div{background:#f4f0fa;border:1px solid #ddd2ee;border-radius:8px;text-align:center;font-size:10px;color:var(--sub);padding:3px}
+.ks-pr b{display:block;font-size:15px;color:#4b3a6e}.ks-pr small{display:block;font-size:9px}
+.ks-tbl{overflow-x:auto;margin-top:6px}.ks-tbl table{border-collapse:collapse;font-size:11px}
+.ks-tbl th,.ks-tbl td{border:1px solid var(--line);padding:2px 4px;text-align:center;white-space:nowrap;min-width:26px}
+.ks-tbl th{background:#f1ece0;font-weight:600}.ks-tbl tr th:first-child{position:sticky;left:0;z-index:1}
+.ks-tbl td.td,.ks-tbl th.td{background:#fff3c4}.ks-tbl td.oi{background:#dbeafe;font-weight:700}.ks-tbl td.out{background:#fde8e8;color:var(--ng);font-weight:700}.ks-tbl td.bad{outline:2px solid var(--ng);color:var(--ng);font-weight:700}
+.ks-det{margin-top:8px}.ks-det summary{font-size:13px;font-weight:700;color:var(--navy);cursor:pointer;padding:4px 0}
+.ks-sw{display:flex;gap:6px;margin:8px 0 4px}.ks-sw button{flex:1;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff;font-weight:700;color:var(--navy)}.ks-sw button.on{background:var(--navy);color:#fff}`; document.head.appendChild(s); })();
+
+</script>
+<!-- /kaiseki -->
 </body>
 </html>
