@@ -9928,7 +9928,7 @@ function ksCardHTML(m, b, k, opt){
   const S=ksSimilar(D,P), pr=ksPredict(S), H=ksOiHist(P), nx=ksOiNext(D,H,nP,b);
   const N=Math.max(D.length+1, plan||0, pr&&pr.n?Math.round(pr.n):0, 18);
   const BE=ksBand(P,d=>d.beq,N), TP=ksBand(P,ksT,N);
-  const out=(B,i,v)=>B.m[i]!=null&&B.s[i]!=null&&Math.abs(v-B.m[i])>Math.max(2*B.s[i],B===TP?1.0:0.5);   // 帯の外＝平均から 2σ（品温は最低1.0℃、Be換算は0.5）より離れた値
+  const out=(B,i,v)=>B.m[i]!=null&&B.s[i]!=null&&Math.abs(v-B.m[i])>Math.max(2*B.s[i],B===TP?1.5:0.5);   // 帯の外＝平均から 2σ（品温は最低1.0℃、Be換算は0.5）より離れた値
   const isDone=t.state==='上槽済', dNow=isDone?null:rcMoromiDay(m,today);
   const tdy=dNow&&dNow>=1&&dNow<=N?dNow-1:null;
   const jIdx=m.joso&&m.tome?rcDays(m.tome,m.joso):null;
@@ -9967,7 +9967,7 @@ function ksCardHTML(m, b, k, opt){
     <div class="ks-hd" data-ksopen="${m.no}"><span class="no">${m.no}</span><span class="lq">${esc(m.liquid||'')}</span>${st}
       <span class="ks-sub">${esc(m.sym||'')} T${esc(m.tank||'')}${m.yeast?'・'+esc(m.yeast):''}<br>添 ${rcMD(m.soe)}・留 ${rcMD(m.tome)}・上槽${isDone?'':'予定'} ${rcMD(m.joso)}</span><span class="go">›</span></div>
     ${opt.full?ksStrip(m,k):''}
-    ${flags.length?`<div class="ks-flag">${flags.slice(0,4).map(f=>'⚠ '+esc(f)).join('<br>')}${flags.length>4?`<br><small>ほか${flags.length-4}件</small>`:''}</div>`:''}
+    ${flags.length?`<div class="ks-flag">${flags.slice(0,3).map(f=>'⚠ '+esc(f)).join('<br>')}${flags.length>3?`<br><small>ほか${flags.length-3}件（表の赤いマス）</small>`:''}</div>`:''}
     <div class="ks-lg"><span><i style="background:#1b2a41"></i>今年 Be換算</span>${nP>=3?`<span><i style="background:#2c5d9b;opacity:.3"></i>昨年 ${esc(m.liquid||'')} 平均±σ（${nP}本）</span>`:''}<span><i style="background:#2c5d9b"></i>追水</span><span><i style="background:#9aa3ad"></i>昨年の追水</span></div>
     ${g1}${simTxt}${g2}
     ${oiTxt}${prTxt}${tbl}
@@ -9988,21 +9988,21 @@ function ksShuboCard(m,k){
   const vl=[]; if(tdy!=null) vl.push({i:tdy,c:'#e0b400',dash:1,t:'今日'}); if(oro&&m.motodate) vl.push({i:rcDays(m.motodate,oro),c:'#d9748f',dash:1,t:'酛卸'});
   const mx=Math.max(18,...D.map(d=>d.be||0))+1;
   const g1=ksChart({days:N,l0:'1',y0:0,y1:mx,vlines:vl,bands:nP>=3?[{m:BE.m,s:BE.s,c:'#2c5d9b'},{m:TA.m,s:TA.s,c:'#2f7d5d'}]:[],
-    lines:[{v:D.map(d=>d.be),c:'#1b2a41',dot:true,chk:(i,v)=>out(BE,i,v,0.8)},{v:D.map(d=>d.ta),c:'#2f7d5d',dot:true,chk:(i,v)=>out(TA,i,v,0.6)}]});
+    lines:[{v:D.map(d=>d.be),c:'#1b2a41',dot:true,chk:(i,v)=>out(BE,i,v,1.5)},{v:D.map(d=>d.ta),c:'#2f7d5d',dot:true,chk:(i,v)=>out(TA,i,v,1.0)}]});
   const ts=D.map(ksT).filter(v=>v!=null), t0=Math.floor(Math.min(10,...ts))-1, t1=Math.ceil(Math.max(24,...ts))+1;
   const g2=ksChart({days:N,l0:'1',h:96,y0:t0,y1:t1,vlines:vl.slice(0,1),bands:nP>=3?[{m:TP.m,s:TP.s,c:'#b23b3b'}]:[],
-    lines:[{v:D.map(d=>(d.tPM>0&&d.tPM<40)?d.tPM:null),c:'#e08a3c',w:1.2,dash:1},{v:D.map(ksT),c:'#b23b3b',dot:true,chk:(i,v)=>out(TP,i,v,1.0)}]});
-  const flags=[]; D.forEach((d,i)=>{ [['品温AM','tAM'],['品温PM','tPM']].forEach(([l,f])=>{ const v=d[f]; if(v!=null&&(v<=0||v>=40)) flags.push(`${i+1}日目の${l}「${v}」は入力ミスでは？`); else if(v!=null&&out(TP,i,v,1.0)) flags.push(`${i+1}日目の${l} ${v}℃ が昨年度の帯（${TP.m[i].toFixed(1)}±${TP.s[i].toFixed(1)}）から外れています`); });
-    if(d.ta!=null&&out(TA,i,d.ta,0.6)) flags.push(`${i+1}日目の酸度 ${d.ta} が昨年度の帯（${TA.m[i].toFixed(1)}±${TA.s[i].toFixed(1)}）から外れています`);
-    if(d.be!=null&&out(BE,i,d.be,0.8)) flags.push(`${i+1}日目のBe ${d.be} が昨年度の帯（${BE.m[i].toFixed(1)}±${BE.s[i].toFixed(1)}）から外れています`); });
+    lines:[{v:D.map(d=>(d.tPM>0&&d.tPM<40)?d.tPM:null),c:'#e08a3c',w:1.2,dash:1},{v:D.map(ksT),c:'#b23b3b',dot:true,chk:(i,v)=>out(TP,i,v,3.0)}]});
+  const flags=[]; D.forEach((d,i)=>{ [['品温AM','tAM'],['品温PM','tPM']].forEach(([l,f])=>{ const v=d[f]; if(v!=null&&(v<=0||v>=40)) flags.push(`${i+1}日目の${l}「${v}」は入力ミスでは？`); else if(v!=null&&out(TP,i,v,3.0)) flags.push(`${i+1}日目の${l} ${v}℃ が昨年度の帯（${TP.m[i].toFixed(1)}±${TP.s[i].toFixed(1)}）から外れています`); });
+    if(d.ta!=null&&out(TA,i,d.ta,1.0)) flags.push(`${i+1}日目の酸度 ${d.ta} が昨年度の帯（${TA.m[i].toFixed(1)}±${TA.s[i].toFixed(1)}）から外れています`);
+    if(d.be!=null&&out(BE,i,d.be,1.5)) flags.push(`${i+1}日目のBe ${d.be} が昨年度の帯（${BE.m[i].toFixed(1)}±${BE.s[i].toFixed(1)}）から外れています`); });
   const tbl=D.length?`<div class="ks-tbl"><table><tr><th></th>${D.map((d,i)=>`<th class="${i===tdy?'td':''}">${i+1}</th>`).join('')}</tr>
-    ${[['Be','be',BE,0.8],['alc','alc'],['酸度','ta',TA,0.6],['ｱﾐﾉ','aa'],['品温AM','tAM',TP,1.0],['品温PM','tPM',TP,1.0]].map(([l,f,B,th])=>`<tr><th>${l}</th>${D.map((d,i)=>{ const v=d[f]; const c=(f==='tAM'||f==='tPM')&&v!=null&&(v<=0||v>=40)?'bad':(B&&v!=null&&out(B,i,v,th)?'out':''); return `<td class="${c} ${i===tdy?'td':''}">${v==null?'':rcN(v)}</td>`; }).join('')}</tr>`).join('')}</table></div>`:`<div class="shk-none">まだ酒母の記録はありません</div>`;
+    ${[['Be','be',BE,1.5],['alc','alc'],['酸度','ta',TA,1.0],['ｱﾐﾉ','aa'],['品温AM','tAM',TP,3.0],['品温PM','tPM',TP,3.0]].map(([l,f,B,th])=>`<tr><th>${l}</th>${D.map((d,i)=>{ const v=d[f]; const c=(f==='tAM'||f==='tPM')&&v!=null&&(v<=0||v>=40)?'bad':(B&&v!=null&&out(B,i,v,th)?'out':''); return `<td class="${c} ${i===tdy?'td':''}">${v==null?'':rcN(v)}</td>`; }).join('')}</tr>`).join('')}</table></div>`:`<div class="shk-none">まだ酒母の記録はありません</div>`;
   const st=dNow>=1?`<span class="ks-st">酒母 ${dNow}日目</span>`:`<span class="ks-st plan">予定</span>`;
   return `<div class="ks-card" data-ks="${m.no}">
     <div class="ks-hd" data-kssh="${m.no}"><span class="no">${m.no}</span><span class="lq">${esc(m.liquid||'')}</span>${st}
       <span class="ks-sub">${esc(m.shuboSym||m.sym||'')} 酒母T${esc(m.shuboT||'')}${m.yeast?'・'+esc(m.yeast):''}<br>酛立 ${rcMD(m.motodate)}・酛卸 ${rcMD(oro)}・添 ${rcMD(m.soe)}</span><span class="go">›</span></div>
     ${ksStrip(m,k)}
-    ${flags.length?`<div class="ks-flag">${flags.slice(0,4).map(f=>'⚠ '+esc(f)).join('<br>')}${flags.length>4?`<br><small>ほか${flags.length-4}件</small>`:''}</div>`:''}
+    ${flags.length?`<div class="ks-flag">${flags.slice(0,3).map(f=>'⚠ '+esc(f)).join('<br>')}${flags.length>3?`<br><small>ほか${flags.length-3}件（表の赤いマス）</small>`:''}</div>`:''}
     <div class="ks-lg"><span><i style="background:#1b2a41"></i>Be</span><span><i style="background:#2f7d5d"></i>酸度</span>${nP>=3?`<span><i style="background:#2c5d9b;opacity:.3"></i>昨年 ${esc(m.liquid||'')} の酒母 平均±σ（${nP}本）</span>`:'<span>（昨年度に同じ液種の酒母が3本未満のため帯なし）</span>'}</div>
     ${g1}${g2}${tbl}
     <div class="tl-note" style="margin-top:4px">醪の記録が入ると、醪のグラフ・追水・見込みに切り替わります。</div>
@@ -10054,7 +10054,7 @@ function ksList(box, list, kind){
   const pump=()=>{ while(busy<3&&q.length){ const no=q.shift(); busy++; recApi({action:act,no},50000).then(r=>{ if(r&&r.ok){ store[no]=r; draw(no); } }).catch(()=>{}).finally(()=>{ busy--; pump(); }); } };
   if(KS.obs) KS.obs.disconnect();
   KS.obs=('IntersectionObserver' in window)?new IntersectionObserver(es=>es.forEach(e=>{ if(!e.isIntersecting) return; const no=e.target.dataset.ks; KS.obs.unobserve(e.target); if(!store[no]){ q.push(no); pump(); } }),{rootMargin:'600px 0px'}):null;
-  box.querySelectorAll('.ks-card').forEach(el=>{ if(KS.obs) KS.obs.observe(el); else if(!store[el.dataset.ks]){ q.push(el.dataset.ks); } }); pump();
+  box.querySelectorAll('.ks-card').forEach((el,i)=>{ if(KS.obs&&i>=3) KS.obs.observe(el); else if(!store[el.dataset.ks]){ q.push(el.dataset.ks); } }); pump();   // 上の3本はすぐ読む
   ksBind(box);
   if(!ZN.data) znLoad(false).then(()=>{ if(nav[nav.length-1]===top) list.forEach(m=>{ if(store[m.no]) draw(m.no); }); });
 }
