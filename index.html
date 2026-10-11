@@ -5343,6 +5343,7 @@ async function moromiSetup(no, st){
    ・ろ過・火入はデータの置き場が決まったら足す
    ・分析本数（2026-10-01 泰広さん指示）：その日の本数を小さく出す。16:30以降、明日の本数が18本を超えるときは赤い帯を点滅（酒母＝酛立を1日目として3日目〜酛卸（添の前日）※2026-10-06 修正、醪＝留を1日目として3日目〜上槽予定日）
    ・👤 自分のやること（2026-10-06）：予定の枠の下に、やることリストの「自分」を本人にだけ（dpMeHTML は _src_todo.js）
+   ・必要な人数（2026-10-11 泰広さん指示）：棒には件数ではなく必要な人数（DP_NIN）。分析（1人）も8:30から棒で。行は空いていれば別の作業と同じ行に詰める（同じ作業は1行）
    控え：seishu-workbook_github\_src_day.js
    ======================================================================== */
 const DP_T = {
@@ -5361,11 +5362,16 @@ const DP_AX=['08:00','17:00'];
 const DP_SPECIAL={
   '2026-10-09':{ mushi:'08:00', order:['koji','shubo','shk'], skip:['切返し'], senmai:['10:30','12:00'], note:'特別対応：8:00 から蒸米を飛ばす（麹 → 酒母の順）。午後は全体会議のため麹の切返しはなし・洗米は午前10:30から' }
 };
+/* 必要な人数（2026-10-11 泰広さん指示）：本日の予定の棒には件数ではなく、その作業に必要な人数を出す。その時間帯に何人要るかを見て出勤表づくりの参考にする。
+   ここに無い作業（蒸米・粕・米引取・月末清掃）は作業名だけ。人数を変えるときはここだけ直す。酒運搬は表示する予定のデータがまだ無い */
+const DP_NIN={ 盛:3, 仲仕事:2, 留仕事:2, 引込:2, 種切:2, 切返し:2, 出麹:3, 酒母仕込:1, 酛卸:1, 仕込み:2, 洗米:2, 上槽:1, ヤブタ準備:3, 濾過:1, 火入:1, 酒運搬:1, 分析:1 };
+const dpNin=k=>DP_NIN[k]||'';
+const DP_BUN_T='08:30', DP_BUN_PER=10.5;   // 2026-10-11：分析（1人）は8:30から、1本あたり約10.5分（20本で3時間半）
 const DP_SUN_SENMAI=['10:30','12:00'];   // 2026-10-11 泰広さん指示：日曜の洗米は10:30から（特別対応の日の senmai が優先）
 const DP_MTG_PM=['13:00','17:00'], DP_MTG_AM=['08:00','12:00'];   // カレンダーの「会議」で時刻がないとき（午後／午前）
 const DP_LUNCH=['12:00','13:00'];   // 2026-10-09 泰広さん指示：昼休み（全部の担当の段に薄い帯で重ねる）
 const DP_VIS_MIN=90;   // 2026-10-08：蔵見学で終わりの時刻が無いとき、始まりから何分を帯にするか
-const DP_LANES = [['mushi','蒸米'],['koji','麹'],['shubo','酒母'],['shk','仕込み'],['sen','洗米'],['joso','上槽・粕'],['kome','米'],['etc','清掃']];   // 会議は段を作らず各担当の段に重ねる（2026-10-08）
+const DP_LANES = [['mushi','蒸米'],['koji','麹'],['shubo','酒母'],['shk','仕込み'],['sen','洗米'],['joso','上槽・粕'],['kome','米'],['etc','清掃'],['bun','分析']];   // 会議は段を作らず各担当の段に重ねる（2026-10-08）
 const DP_CSS = `
 .dp{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:10px 0 0;padding:8px 8px 6px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .dp-h{display:flex;align-items:baseline;gap:6px;font-weight:800;color:var(--navy);font-size:15px;margin:0 2px 6px}
@@ -5423,6 +5429,8 @@ body.hm .dp-ics{margin:clamp(6px,1.6dvh,16px) 0 0;gap:clamp(4px,1.3dvh,12px) 6px
 .dp-al small{display:block;font-weight:400;font-size:11px;color:#b31b14}
 .dp-bn{font-size:11px;color:var(--sub);margin:-2px 2px 4px}
 .dp-bn b{color:var(--navy)}.dp-bn b.ov{color:#b31b14}
+.dp-g .ln.m2{font-size:8.5px;line-height:1.05;letter-spacing:-.04em}.dp-g .ln.m3{font-size:7px;line-height:1;letter-spacing:-.05em}
+.dp-nin{margin:-4px 0 8px;font-size:13px;color:var(--navy)}.dp-nin b{font-size:16px}
 @media (prefers-reduced-motion:reduce){.dp-ic .tg,.dp-al{animation:none}}
 .dp-sh h3{margin:0 0 8px;font-size:16px;color:var(--navy)}
 .dp-sh .tm{font-size:12px;color:var(--sub);margin:-4px 0 8px}
@@ -5478,7 +5486,7 @@ function dpItems(date){
     const hk0=dpMin((tg['引込']||{}).time||DP_T.koji['引込'][0]), sft=(SP&&SP.mushi)?dpMin(SP.mushi)-hk0:0;
     const kst=(k,list)=>{ if(!list.length) return; if(SP&&SP.skip&&SP.skip.indexOf(k)>=0) return;   /* 2026-10-09：特別対応の日は skip の工程を出さない */ const T=DP_T.koji[k]; let t=(tg[k==='盛'?'盛後':k]||{}).time||T[0]; if(!t) return;
       if(sft&&/^(引込|種切|切返し)$/.test(k)) t=dpHM(dpMin(t)+sft);
-      const o=add('koji',t,T[1],(T[1]<20?k.slice(0,1):`${k}${list.length}`),'dp-k',{title:`麹　${k}（${list.length}本）`,time:t,lines:list.map(line),open:()=>kojiScreen(date),openL:'麹の画面を開く'},T[1]<20); if(o&&k==='引込') USE.push(o); };
+      const o=add('koji',t,T[1],(T[1]<20?k.slice(0,1):k)+dpNin(k),'dp-k',{title:`麹　${k}（${list.length}本）`,nin:DP_NIN[k],time:t,lines:list.map(line),open:()=>kojiScreen(date),openL:'麹の画面を開く'},T[1]<20); if(o&&k==='引込') USE.push(o); };
     const mori=rows.filter(r=>r['盛日']===date), hik=rows.filter(r=>r['引込日']===date), dek=rows.filter(r=>r['出麹日']===date);
     kst('盛',mori); kst('仲仕事',mori); kst('留仕事',mori); kst('引込',hik); kst('種切',hik); kst('切返し',hik); kst('出麹',dek);
   }
@@ -5502,23 +5510,23 @@ function dpItems(date){
     const M=st.master||[];
     const nm=m=>`No.${m.no} ${m.sym||''}　${m.liquid||''}`;
     const sh=M.filter(m=>m.motodate===date);
-    if(sh.length) USE.push(add('shubo',at('shubo')[0],at('shubo')[1],`仕込${sh.map(m=>m.no).join('・')}`,'dp-s',{title:'酒母仕込',time:`${at('shubo')[0]}〜（蒸米 ${MS[1]} ${SP?'から飛ばす':'仕上がり'}に合わせる）`,lines:sh.map(m=>`${nm(m)}${m.shuboT?'　T'+m.shuboT:''}${m.yeast?'　酵母 '+m.yeast:''}`),open:()=>shuboHome(),openL:'酒母の画面を開く'}));
+    if(sh.length) USE.push(add('shubo',at('shubo')[0],at('shubo')[1],'仕込'+dpNin('酒母仕込'),'dp-s',{title:`酒母仕込（${sh.map(m=>m.no).join('・')}号）`,nin:DP_NIN['酒母仕込'],time:`${at('shubo')[0]}〜（蒸米 ${MS[1]} ${SP?'から飛ばす':'仕上がり'}に合わせる）`,lines:sh.map(m=>`${nm(m)}${m.shuboT?'　T'+m.shuboT:''}${m.yeast?'　酵母 '+m.yeast:''}`),open:()=>shuboHome(),openL:'酒母の画面を開く'}));
     const mo=M.filter(m=>m.soe&&dadd(m.soe,-1)===date);
-    if(mo.length) add('shubo',DP_T.motooroshi[0],DP_T.motooroshi[1],`酛卸${mo.map(m=>m.no).join('・')}`,'dp-s',{title:'酛卸',time:DP_T.motooroshi.join('〜')+'（目安・添の前日）',lines:mo.map(m=>`${nm(m)}${m.shuboT?'　T'+m.shuboT:''} → T${m.tank||''}`),open:()=>shuboHome(),openL:'酒母の画面を開く'});
+    if(mo.length) add('shubo',DP_T.motooroshi[0],DP_T.motooroshi[1],'酛卸'+dpNin('酛卸'),'dp-s',{title:`酛卸（${mo.map(m=>m.no).join('・')}号）`,nin:DP_NIN['酛卸'],time:DP_T.motooroshi.join('〜')+'（目安・添の前日）',lines:mo.map(m=>`${nm(m)}${m.shuboT?'　T'+m.shuboT:''} → T${m.tank||''}`),open:()=>shuboHome(),openL:'酒母の画面を開く'});
     const soe=M.filter(m=>m.soe===date), naka=M.filter(m=>m.soe&&dadd(m.soe,2)===date), tome=M.filter(m=>m.tome===date);
     if(soe.length||naka.length||tome.length){
-      const lb=[soe.length?'添'+soe.map(m=>m.no).join('・'):'',naka.length?'仲'+naka.map(m=>m.no).join('・'):'',tome.length?'留'+tome.map(m=>m.no).join('・'):''].filter(Boolean).join(' ');
+      const kinds=[soe.length?'添':'',naka.length?'仲':'',tome.length?'留':''].filter(Boolean), lb=kinds.join('・')+dpNin('仕込み');   // 2026-10-11：号ではなく必要な人数
       const ak=seq('shk')?[seq('shk')[0],DP_AFTER.shikomi[1]]:aft('shikomi');
-      USE.push(add('shk',ak[0],ak[1],lb,'dp-m',{title:'仕込み',time:`${ak[0]}〜（蒸米 ${MS[1]} ${SP?'から飛ばす':'仕上がり'}に合わせる）`,
+      USE.push(add('shk',ak[0],ak[1],lb,'dp-m',{title:'仕込み',nin:DP_NIN['仕込み'],kinds,time:`${ak[0]}〜（蒸米 ${MS[1]} ${SP?'から飛ばす':'仕上がり'}に合わせる）`,
         lines:[...soe.map(m=>`添　${nm(m)}　T${m.tank||''}`),...naka.map(m=>`仲　${nm(m)}　T${m.tank||''}`),...tome.map(m=>`留　${nm(m)}　T${m.tank||''}`)],open:()=>moromiHome(),openL:'仕込みの画面を開く'}));
     }
     const jo=M.filter(m=>m.joso===date);
-    if(jo.length) add('joso',DP_T.joso[0],DP_T.joso[1],`上槽${jo.map(m=>m.no).join('・')}`,'dp-j',{title:'上槽',time:DP_T.joso.join('〜')+'（目安）',lines:jo.map(m=>`${nm(m)}　T${m.tank||''}`),open:()=>moromiHome(),openL:'仕込みの画面を開く'});
+    if(jo.length) add('joso',DP_T.joso[0],DP_T.joso[1],'上槽'+dpNin('上槽'),'dp-j',{title:`上槽（${jo.map(m=>m.no).join('・')}号）`,nin:DP_NIN['上槽'],time:DP_T.joso.join('〜')+'（目安）',lines:jo.map(m=>`${nm(m)}　T${m.tank||''}`),open:()=>moromiHome(),openL:'仕込みの画面を開く'});
   }
   // ヤブタ準備＝上槽予定日の前日（2026-09-30 泰広さん指示）
   if(st){
     const yb=(st.master||[]).filter(m=>m.joso&&dadd(m.joso,-1)===date);
-    if(yb.length) add('joso',DP_T.yabuta[0],DP_T.yabuta[1],'ヤブタ準備','dp-u',{title:'ヤブタ準備',lines:yb.map(m=>`明日 上槽　No.${m.no} ${m.sym||''}　${m.liquid||''}　T${m.tank||''}`),open:()=>moromiHome(),openL:'仕込みの画面を開く'});
+    if(yb.length) add('joso',DP_T.yabuta[0],DP_T.yabuta[1],'ヤブタ準備'+dpNin('ヤブタ準備'),'dp-u',{title:'ヤブタ準備',nin:DP_NIN['ヤブタ準備'],lines:yb.map(m=>`明日 上槽　No.${m.no} ${m.sym||''}　${m.liquid||''}　T${m.tank||''}`),open:()=>moromiHome(),openL:'仕込みの画面を開く'});
   }
   // 月末清掃＝その月の最後の出勤日の15:30以降（会社休日は飛ばす）
   const hol=new Set(((MFG&&MFG.shukkin&&MFG.shukkin.holidays)||[]));
@@ -5528,22 +5536,26 @@ function dpItems(date){
   // 出勤表（上槽・粕）と洗米予定表
   const kd=dpShukkinDay(date);
   if(kd){
-    if(kd.j && !out.some(x=>x.lane==='joso'&&x.label.indexOf('上槽')===0)) add('joso',DP_T.joso[0],DP_T.joso[1],`上槽 ${kd.j}`,'dp-j',{title:'上槽',time:DP_T.joso.join('〜')+'（目安）',lines:[`出勤表：${kd.j}`],open:()=>moromiHome(),openL:'仕込みの画面を開く'});
-    if(kd.k) add('joso',DP_T.kasu[0],DP_T.kasu[1],`粕 ${kd.k}`,'dp-u',{title:'粕',time:DP_T.kasu.join('〜')+'（目安）',lines:[`出勤表：${kd.k}`]});
+    if(kd.j && !out.some(x=>x.lane==='joso'&&x.label.indexOf('上槽')===0)) add('joso',DP_T.joso[0],DP_T.joso[1],'上槽'+dpNin('上槽'),'dp-j',{title:'上槽',nin:DP_NIN['上槽'],time:DP_T.joso.join('〜')+'（目安）',lines:[`出勤表：${kd.j}`],open:()=>moromiHome(),openL:'仕込みの画面を開く'});
+    if(kd.k) add('joso',DP_T.kasu[0],DP_T.kasu[1],'粕'+dpNin('粕'),'dp-u',{title:'粕',nin:DP_NIN['粕'],time:DP_T.kasu.join('〜')+'（目安）',lines:[`出勤表：${kd.k}`]});
   }
   const S=MFG&&MFG.senmai, sd=S&&S.days&&S.days[date];
   if(sd&&sd.e&&sd.e.length){
     const cols=S.cols||[]; const ents=sd.e.map(e=>({kb:(cols[e[0]]||[])[0]||'',g:(cols[e[0]]||[])[1]||'',rice:e[1],ratio:e[2],prod:e[4],no:e[5],kg:Number(e[6]||0)}));
     const kg=ents.reduce((a,x)=>a+x.kg,0);
     const SN=(SP&&SP.senmai)||(new Date(date+'T00:00:00').getDay()===0?DP_SUN_SENMAI:DP_T.senmai);   // 2026-10-09：特別対応の日は DP_SPECIAL の senmai／2026-10-11：日曜は10:30から
-    add('sen',SN[0],SN[1],`洗米${ents.length}件`,'dp-w',{title:`洗米（${ents.length}件・${Math.round(kg).toLocaleString('ja-JP')}kg）`,time:SN.join('〜')+'（目安）',
+    add('sen',SN[0],SN[1],'洗米'+dpNin('洗米'),'dp-w',{nin:DP_NIN['洗米'],title:`洗米（${ents.length}件・${Math.round(kg).toLocaleString('ja-JP')}kg）`,time:SN.join('〜')+'（目安）',
       lines:ents.map(x=>`${x.g}${x.kb}　${x.rice} ${x.ratio}%　${x.prod||''} No.${x.no}　${kgfmt(x.kg)}kg`),open:()=>senmaiScreen(date),openL:'洗米チェックを開く'});
   }
+  // 分析（2026-10-11 泰広さん指示）：1人。8:30から、本数×約10.5分
+  { const b=dpBunseki(date); if(b&&b.n){ const nm2=m=>`No.${m.no} ${m.sym||''}　${m.liquid||''}${m.tank?'　T'+m.tank:''}`, len=Math.round(b.n*DP_BUN_PER);
+    add('bun',DP_BUN_T,len,'分析'+dpNin('分析'),'dp-o',{title:`分析（${b.n}本：酒母${b.sb.length}・醪${b.mr.length}）`,nin:DP_NIN['分析'],time:`${DP_BUN_T}〜${dpHM(dpMin(DP_BUN_T)+len)}（目安・1本約${DP_BUN_PER}分）`,
+      lines:[...b.sb.map(m=>`酒母　${nm2(m)}`),...b.mr.map(m=>`醪　${nm2(m)}`)],open:()=>bunsekiScreen(),openL:'分析の画面を開く'}); } }
   // 米の引き取り（2026-10-06 泰広さん指示）：引取予定表（MFG.hikitori）から自動。15:30〜 米移動（5人ほど・約15分）
   const H=MFG&&MFG.hikitori, hk=H&&H.days&&H.days[date];
   if(hk&&Object.keys(hk).length){
     const bag=(H&&H.bag)||BAG_KG, vs=Object.keys(hk), nb=vs.reduce((a,v)=>a+(Number(hk[v])||0),0);
-    add('kome',DP_T.kome[0],DP_T.kome[1],`米引取 ${nb}袋`,'dp-r',{title:`米の引き取り（${nb}袋・${kgfmt(nb*bag)}kg）`,time:'15:30〜 米移動（5人ほど・約15分）',
+    add('kome',DP_T.kome[0],DP_T.kome[1],'米引取'+dpNin('米引取'),'dp-r',{nin:DP_NIN['米引取'],title:`米の引き取り（${nb}袋・${kgfmt(nb*bag)}kg）`,time:'15:30〜 米移動（5人ほど・約15分）',
       lines:vs.map(v=>`${v}　${hk[v]}袋（${kgfmt((Number(hk[v])||0)*bag)}kg）`),open:()=>zaikoScreen(date),openL:'在庫管理を開く'});
   }
   // 蒸米は 麹の引込・酒母仕込・仕込み が終わるまで同時作業（2026-10-08 泰広さん指示）
@@ -5623,7 +5635,7 @@ function dpSum(d){
   it.forEach(x=>{
     if(x.lane==='mushi') ad('蒸米');
     else if(x.lane==='shubo') ad(x.label.indexOf('酛卸')===0?'酛卸':'酛');
-    else if(x.lane==='shk') x.label.split(' ').forEach(t=>ad(t.replace(/[\d・]/g,'')));
+    else if(x.lane==='shk') ((x.d&&x.d.kinds)||[]).forEach(ad);
     else if(x.lane==='sen') ad('洗米');
     else if(x.lane==='joso') ad(x.label.indexOf('上槽')===0?'上槽':x.label.indexOf('粕')===0?'粕':'');
     else if(x.lane==='kome') ad('米引取');
@@ -5651,9 +5663,17 @@ function dpPlanHTML(){
   const lo=dpMin(DP_AX[0]), hi=dpMin(DP_AX[1]);   // 2026-10-07 泰広さん指示：時間軸は 8:00〜17:00 に固定
   items.forEach(x=>{ x.s=Math.min(Math.max(x.s,lo),hi-10); x.e=Math.min(Math.max(x.e,x.s+10),hi); });
   const span=hi-lo;
-  const lanes=DP_LANES.filter(([k])=>wk.some(x=>x.lane===k));
-  h+=`<div class="dp-g"><div><div class="ax" style="height:${AXH}px"></div>${lanes.map(([k,l])=>`<div class="ln">${l}</div>`).join('')}</div><div class="dp-a" style="height:${AXH+RH*lanes.length}px">`;
-  lanes.forEach(([k],i)=>{ h+=`<div class="row" style="top:${AXH+RH*i}px;height:${RH}px"></div>`; });
+  /* 2026-10-11 泰広さん指示：行はなるべく増やさない。その時間に空いている行があれば、別の作業もその行に入れる。
+     ただし同じ作業（麹・酒母・仕込み…）の棒は必ず同じ1行にまとめる（あちこちの行に行ったり来たりしない）。DP_LANES の順に上から詰める */
+  const vx=x=>{ const w=Math.max((x.e-x.s)/span*100, x.small?5.5:12, x.label.length*3.7+2); const l=Math.max(0,Math.min((x.s-lo)/span*100,100-w)); return [l,l+w]; };
+  const lanes=[];
+  DP_LANES.forEach(([k,l])=>{ const bs=wk.filter(x=>x.lane===k); if(!bs.length) return; const iv=bs.map(vx);
+    let r=lanes.find(R=>iv.every(([a,b])=>R.iv.every(([c,e])=>b+1<=c||e+1<=a)));
+    if(!r){ r={keys:[],names:[],iv:[]}; lanes.push(r); }
+    r.keys.push(k); r.names.push(l); r.iv.push(...iv); });
+  const rowOf=k=>lanes.findIndex(R=>R.keys.indexOf(k)>=0);
+  h+=`<div class="dp-g"><div><div class="ax" style="height:${AXH}px"></div>${lanes.map(R=>`<div class="ln${R.names.length>1?' m'+Math.min(R.names.length,3):''}"><span>${R.names.join('<br>')}</span></div>`).join('')}</div><div class="dp-a" style="height:${AXH+RH*lanes.length}px">`;
+  lanes.forEach((R,i)=>{ h+=`<div class="row" style="top:${AXH+RH*i}px;height:${RH}px"></div>`; });
   { const a=Math.max(dpMin(DP_LUNCH[0]),lo), b=Math.min(dpMin(DP_LUNCH[1]),hi);   // 2026-10-09 泰広さん指示：昼休み 12:00〜13:00 を薄い帯で（押しても何も出ない）
     if(b>a) h+=`<div class="dp-lun" style="top:0;left:${((a-lo)/span*100).toFixed(2)}%;width:${((b-a)/span*100).toFixed(2)}%"><span>昼休み</span></div>`; }
   const now=new Date(), nm=now.getHours()*60+now.getMinutes();
@@ -5663,7 +5683,7 @@ function dpPlanHTML(){
     if(x.lane==='visit'){   // 2026-10-08 泰広さん指示：蔵見学は全担当の段に薄く時間帯を重ねる
       const cl=mt.some(y=>y.lane==='mtg'&&Math.abs(y.s-x.s)<60);   // 会議と始まりが近いときは「蔵見学」の文字を帯の右端に寄せる（重なり防止）
       h+=`<button type="button" class="dp-vis" data-dp="${idx}" style="top:0;left:${((x.s-lo)/span*100).toFixed(2)}%;width:${((x.e-x.s)/span*100).toFixed(2)}%"><span${cl?' style="left:auto;right:3px"':''}>${esc(x.label)}</span></button>`; return; }
-    const i=lanes.findIndex(l=>l[0]===x.lane); const w=Math.max((x.e-x.s)/span*100, x.small?5.5:12);
+    const i=rowOf(x.lane); const w=Math.max((x.e-x.s)/span*100, x.small?5.5:12);
     h+=`<button type="button" class="dp-b ${x.cls} ${x.small?'s':''} ${DP_OFF===0&&x.e<nm&&x.cls!=='dp-on'?'done':''}" data-dp="${idx}" style="top:${AXH+RH*i+2}px;left:${Math.max(0,Math.min((x.s-lo)/span*100, 100-Math.max(w, x.label.length*3.7+2))).toFixed(2)}%;min-width:${w.toFixed(2)}%">${esc(x.label)}</button>`; });
   h+=`</div></div>`;
   DP_LAST=items;
@@ -5746,7 +5766,7 @@ function dpHome(hexes){
 /* ---- 詳細（下から出る） ---- */
 function dpSheet(x){
   const m=document.createElement('div'); m.className='o2-mask';
-  m.innerHTML=`<div class="o2-sheet dp-sh" style="padding:16px 16px calc(16px + env(safe-area-inset-bottom))"><h3>${esc(x.d.title)}</h3>
+  m.innerHTML=`<div class="o2-sheet dp-sh" style="padding:16px 16px calc(16px + env(safe-area-inset-bottom))"><h3>${esc(x.d.title)}</h3>${x.d.nin?`<p class="dp-nin">必要な人数 <b>${x.d.nin}人</b></p>`:''}
     <ul>${(x.d.lines||[]).map(l=>`<li>${esc(l)}</li>`).join('')}</ul>${x.d.open?`<button class="go" type="button">${esc(x.d.openL||'画面を開く')} ›</button>`:''}</div>`;
   document.body.appendChild(m);
   m.onclick=e=>{ if(e.target===m) m.remove(); };
@@ -8950,6 +8970,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-11-9','👥','ホーム','本日の予定の棒に、件数ではなくその作業に必要な人数を出すようにしました（例：盛3・洗米2・酛卸1）。分析（1人）も8:30からの棒で出ます。空いている行には別の作業を入れて、行を増やさないようにしました。'],
   ['2026-10-11-8','🍶','仕込み','仕込みの画面の上の「資材の在庫」「昨年度の同じ時期の仕込み」を、小さなアイコン「🧰 資材」「📅 昨年」にしました（酒母と同じ形）。'],
   ['2026-10-11-7','🍚','ホーム','日曜日の本日の予定は、洗米を10:30からの並びにしました（蒸米中は洗米しない決まりはそのまま）。'],
   ['2026-10-11-6','🫧','タンク洗浄管理','開いたときの表示を「現在まで」にしました。期限（酛下日）が今日までの使用予定タンクを、洗浄・仕上げ・確認が完了していても全部表示します。下に「これから（14日以内）」のタンクも出します。'],
@@ -9856,8 +9877,8 @@ function rkDialog(K, nos){
           if(!rows.length) return;
           const a=dpMin(RK_T[K][0]), b=dpMin(RK_T[K][1]);
           const nm=x=>{ const m=M.find(y=>String(y.no)===String(x.no))||{}; return `No.${x.no} ${m.sym||''}　${m.liquid||x.liquid||''}${x.tank?'　→ T'+x.tank:''}${x.qty?'　'+x.qty+'L':''}${x.memo?'　'+x.memo:''}${x.date?'（済）':''}`; };
-          out.push({lane:'roka', s:a, e:b, label:`${K}${rows.map(x=>x.no).join('・')}`, cls:K==='濾過'?'dp-j':'dp-s',
-            d:{title:K, time:RK_T[K].join('〜')+'（目安）', lines:rows.map(nm), open:()=>{ RK_TAB=K; rokaScreen(); }, openL:'濾過・火入の画面を開く'}});
+          out.push({lane:'roka', s:a, e:b, label:K+(typeof dpNin==='function'?dpNin(K):''), cls:K==='濾過'?'dp-j':'dp-s',   /* 2026-10-11：号ではなく必要な人数 */
+            d:{title:`${K}（${rows.map(x=>x.no).join('・')}号）`, nin:(typeof DP_NIN!=='undefined'?DP_NIN[K]:0), time:RK_T[K].join('〜')+'（目安）', lines:rows.map(nm), open:()=>{ RK_TAB=K; rokaScreen(); }, openL:'濾過・火入の画面を開く'}});
         });
       }catch(e){}
       return out;
