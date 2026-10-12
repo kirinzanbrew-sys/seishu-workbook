@@ -9115,6 +9115,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-13-1','🧰','資材 › A重油','A重油の発注の計算を直しました。点検が少ないうちに「蒸米1tあたり」が大きくなりすぎ、早すぎるアラートが出ていました。今は直近の点検区間の1日平均で先を読み、点検がたまれば蒸米の量で計算します。「計算のもと」で区間ごとの日数・蒸米・使用量が見られます。'],
   ['2026-10-12-9','🍶','仕込み・本日の予定','踊り返しを本日の予定に出すようにしました（伝辛・超辛・純米辛口 以外は、添の翌日 13:00〜 1人）。人が少なく酛卸と踊り返しを1人で行う日は、オレンジの注意の帯が出ます。添の仕込み時の「添のタンク」は、伝辛・超辛・純米辛口は醪タンク、それ以外は T284・T285・酒母タンク から選べます。'],
   ['2026-10-12-8','🧰','資材 › A重油','点検と受入を1つの表「点検・受入の記録」にまとめました（日付の新しい順、受入は緑の行で＋L）。日付が「NaN/7」と出ていたのも直しました。'],
   ['2026-10-12-7','🍶','仕込み・配合表','仕込み時（添・仲・留）の尺を入れると、量（L）が自動で入るようにしました（酒母と同じく容量早見表から）。仲・留は醪タンク、添は「添のタンク」に容器の番号を入れたときに入ります。配合表：スマホで見やすく（「酒母中」を消し、予定は数字だけ。仕込みの表はアルコールの文字を小さくし、40%を削除）。'],
@@ -9952,19 +9953,28 @@ function szoSteam(){
   return m;
 }
 function szoKg(m,a,b){ let s=0; for(const d in m) if(d>=a && d<b) s+=m[d]; return s; }   /* a の日から b の前日まで（点検は朝・蒸す前と見る） */
+/* 2026-10-13 直し：区間が少ないと「その間に使った重油を全部、少しの蒸米のせい」にしてしまい（9/15〜10/7 の1区間で、
+   季節前の22日分の使用を 10月初めの少ない蒸米で割った）、蒸米1tあたりが大きくなりすぎて、蒸米の多い先の日に大量に減る計算になっていた。
+   → ①2区間以上で「蒸米1tあたり a ＋ 1日 b」を解く（a・b が0以上、a が SZO_OIL_AMAX 以下のときだけ）
+     ②だめなら、蒸米の無い区間で1日分 b、蒸米のある区間の残りを蒸米で割る（同じく上限つき）
+     ③それもだめなら、蒸米で分けずに「1日平均」で先を読む（区間が増えれば自動で①②に変わる） */
+const SZO_OIL_AMAX=150;   /* 蒸米1tあたりの上限（L）。これを超える答えは区間が足りずに出た見かけの値として使わない */
 function szoOilModel(rowsDesc){
   const R=(rowsDesc||[]).slice().reverse(), m=szoSteam(), iv=[];
-  for(let i=1;i<R.length;i++){ const p=R[i-1], c=R[i]; if(c.used===null||c.used<0||!(c.days>0)) continue; iv.push({ days:c.days, t:szoKg(m,p.date,c.date)/1000, u:c.used }); }
+  for(let i=1;i<R.length;i++){ const p=R[i-1], c=R[i]; if(c.used===null||c.used<0||!(c.days>0)) continue; iv.push({ from:p.date, to:c.date, days:c.days, t:szoKg(m,p.date,c.date)/1000, u:c.used }); }
   const L=iv.slice(-8); if(!L.length) return null;
+  const D=L.reduce((s,x)=>s+x.days,0), U=L.reduce((s,x)=>s+x.u,0);
   let a=null, b=null, how='';
-  if(L.length>=3){ let tt=0,td=0,dd=0,tu=0,du=0; L.forEach(x=>{ tt+=x.t*x.t; td+=x.t*x.days; dd+=x.days*x.days; tu+=x.t*x.u; du+=x.days*x.u; });
-    const det=tt*dd-td*td; if(tt>0 && det>1e-6*tt*dd){ const A=(tu*dd-du*td)/det, B=(tt*du-td*tu)/det; if(A>=0&&B>=0){ a=A; b=B; how='fit'; } } }
+  if(L.length>=2){ let tt=0,td=0,dd=0,tu=0,du=0; L.forEach(x=>{ tt+=x.t*x.t; td+=x.t*x.days; dd+=x.days*x.days; tu+=x.t*x.u; du+=x.days*x.u; });
+    const det=tt*dd-td*td; if(tt>0 && det>1e-6*tt*dd){ const A=(tu*dd-du*td)/det, B=(tt*du-td*tu)/det; if(A>=0&&B>=0&&A<=SZO_OIL_AMAX){ a=A; b=B; how='fit'; } } }
   if(a===null){ const z=L.filter(x=>x.t===0), k=L.filter(x=>x.t>0);
-    b=z.length?z.reduce((s,x)=>s+x.u,0)/z.reduce((s,x)=>s+x.days,0):0;
-    if(k.length){ const T=k.reduce((s,x)=>s+x.t,0); a=Math.max(0,k.reduce((s,x)=>s+x.u-b*x.days,0)/T); }
-    else a=0;
-    how=L.length<3?'few':'ratio'; }
-  return { a, b, n:L.length, how, steam:m };
+    if(z.length && k.length){ const B=z.reduce((s,x)=>s+x.u,0)/z.reduce((s,x)=>s+x.days,0), T=k.reduce((s,x)=>s+x.t,0), A=Math.max(0,k.reduce((s,x)=>s+x.u-B*x.days,0)/T);
+      if(A<=SZO_OIL_AMAX){ a=A; b=B; how='ratio'; } } }
+  /* ③ 2026-10-13：全体の平均だと季節前（9月）の少ない使い方に引っぱられるので、いちばん新しい区間（3日未満ならその前も足す）の1日平均にする */
+  let recent=null;
+  if(a===null){ let dd=0, uu=0, k=L.length; while(k>0 && dd<3){ k--; dd+=L[k].days; uu+=L[k].u; }
+    a=0; b=dd>0?uu/dd:(D>0?U/D:0); how='day'; recent={ from:L[k].from, to:L[L.length-1].to, days:dd }; }
+  return { a, b, n:L.length, how, steam:m, iv:L, recent };
 }
 /* 今の残量の見込みと、この先の残量（発注済の入荷も足す）。3,000Lを切る日・発注目安 */
 function szoOilFc(oil){
@@ -10013,8 +10023,12 @@ function szoOilHTML(oil){
   if(!oil.last || !f) h+=`<p class="szo-p">点検（残量）が2回以上たまると、減り方から発注の時期を計算します。</p>`;
   else {
     const M=f.M;
-    h+=`<p class="szo-p">今の見込み <b>約${sziF(f.est,0)}L</b>${f.cross?`　→ <b class="${al?'r':''}">${rcMD(f.cross)}</b> に ${sziF(SZO_OIL_MIN,0)}L を切る見込み<br>発注目安 <b class="${al?'r':''}">${rcMD(f.order)}</b>（入荷まで${SZO_OIL_LEAD}日として）`:`　→ この先の予定では ${sziF(SZO_OIL_MIN,0)}L を切りません`}</p>
-      <p class="szo-s">減り方：蒸米1tあたり 約${sziF(M.a,0)}L ＋ 1日 約${sziF(M.b,0)}L（点検${M.n}区間${M.how==='fit'?'から計算':M.how==='few'?'・区間が少ないので目安':'・比で計算'}）${f.steamAhead?'。この先は洗米予定表の蒸米kgで計算':'。洗米予定表にこの先の蒸米が無いので、1日の分だけで計算'}</p>`;
+    h+=`<p class="szo-p">今の見込み <b>約${sziF(f.est,0)}L</b>${f.cross?`　→ <b class="${al?'r':''}">${rcMD(f.cross)}</b> に ${sziF(SZO_OIL_MIN,0)}L を切る見込み<br>発注目安 <b class="${al?'r':''}">${f.order<=today?'今すぐ':rcMD(f.order)}</b>（入荷まで${SZO_OIL_LEAD}日として）`:`　→ この先の予定では ${sziF(SZO_OIL_MIN,0)}L を切りません`}</p>
+      <p class="szo-s">減り方：${M.how==='day'?`1日 約${sziF(M.b,0)}L（直近 ${rcMD(M.recent.from)}〜${rcMD(M.recent.to)} の${M.recent.days}日の平均。蒸米の量で分けて計算するには、点検がもう少し必要です）`
+        :`蒸米1tあたり 約${sziF(M.a,0)}L ＋ 1日 約${sziF(M.b,0)}L（点検${M.n}区間${M.how==='fit'?'から計算':'：蒸米の無い区間で1日分、残りを蒸米で'}）${f.steamAhead?'。この先は洗米予定表の蒸米kgで計算':'。洗米予定表にこの先の蒸米が無いので、1日の分だけで計算'}`}</p>
+      <details class="szo-why"><summary>計算のもと</summary><table class="szi-t"><tr><th>点検の区間</th><th>日数</th><th>蒸米t</th><th>使用L</th></tr>
+        ${M.iv.slice().reverse().map(x=>`<tr><td>${rcMD(x.from)}〜${rcMD(x.to)}</td><td>${x.days}</td><td>${sziF(x.t,1)}</td><td>${sziF(x.u,0)}</td></tr>`).join('')}</table>
+        <p class="szo-s">今の見込み＝最後の点検 ${rcMD(oil.last.date)} ${sziF(oil.last.qty,0)}L ＋ その後の受入 − その後の使用の見込み</p></details>`;
   }
   const ed=SZO.oilEdit, eo=ed&&ed!=='new'?SZO.items.find(x=>x.id===ed):null;
   if(ed){ const pl=eo?eo.plan:(f&&f.cross&&f.cross>today?f.cross:dadd(today,SZO_OIL_LEAD));
@@ -10100,6 +10114,7 @@ function szoBind(st, draw){
 .szo-tt td small{display:block}
 .szo-tt .ok{color:#2f7d5d;font-weight:700}.szo-tt .na{color:#b9b29f}
 .szi-t tr.szo-rcv td{background:#eef5ea}.szi-t tr.szo-rcv td:nth-child(2),.szi-t tr.szo-rcv b{color:#2f7d5d}
+.szo-why{margin:6px 2px 0;font-size:12px}.szo-why summary{color:var(--navy);cursor:pointer}.szo-why table{font-size:12.5px;margin-top:4px}
 .szo-tt select{font-size:15px;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff;font-family:inherit}
 `; document.head.appendChild(s); })();
 /* ログインのあと裏で 発注と在庫 を読み、ホームの帯・資材アイコンの札を付け直す */
