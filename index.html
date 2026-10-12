@@ -9115,6 +9115,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-13-4','🧰','資材','添加アルコール：入荷予定を便ごとのボタンにし、押すとその便から次の便までの添加予定の表と発注ができます（📋で全部の表も）。発注済の便の入荷も在庫に足して判定するので、発注済なら「足りなくなります」は出ません。A重油：「点検」「発注」「地下タンク点検」をボタンにし、押すとその欄が開きます。'],
   ['2026-10-13-3','🛢','資材 › A重油','点検の入力は「📝 点検」ボタンを押すと開くようにしました。発注の欄は文字を減らし、くわしい計算は「計算のもと」の中にまとめました。点検のアラートが出ているときは、A重油の一番上に法令（消防法：在庫の点検は週1回以上・地下タンクの定期点検）が出ます。'],
   ['2026-10-13-2','🛢','資材 › A重油','法令の点検を知らせるようにしました。地下タンクの定期点検（3年に1回。前回 2026/6/12）は期限の年の3月1日から、在庫の点検（週1回以上）は前回から7日たつと、ホームの予定の枠と資材アイコン・A重油の箱に出ます。A重油の箱の点検は「◯日前」でなく日付で表示します。'],
   ['2026-10-13-1','🧰','資材 › A重油','A重油の発注の計算を直しました。点検が少ないうちに「蒸米1tあたり」が大きくなりすぎ、早すぎるアラートが出ていました。今は直近の点検区間の1日平均で先を読み、点検がたまれば蒸米の量で計算します。「計算のもと」で区間ごとの日数・蒸米・使用量が見られます。'],
@@ -9595,6 +9596,9 @@ const sziDays=d=>d?rcDays(d,dtoday()):null;
 /* 不足になる日：予定日の順に引いていき、在庫を下回る最初の日 */
 function sziShort(r){
   if(!r||!r.has) return null;
+  if(r.name===SZI_ALC && typeof szoAlcLedger==='function'){   /* 2026-10-13：発注済の入荷も足して判定。まだ発注していない次の便の入荷日より後の不足は、その便で入れる分なので知らせない（その便の発注アラートで知らせる） */
+    const U=(szoAlcSlots().find(x=>!x.ordered&&x.plan>=dtoday())||{}).plan||'9999';
+    const L=szoAlcLedger(r).find(x=>x.use&&x.left< -1e-9&&x.date<U); return L?{ date:L.date, lack:Math.round(-L.left*1000)/1000, no:L.no }:null; }
   const today=dtoday(); let left=r.stock;
   const fut=r.plan.filter(p=>p.date && p.date>=today).sort((a,b)=>a.date.localeCompare(b.date)||(+a.no)-(+b.no));
   for(const p of fut){ left-=p.qty; if(left< -1e-9) return { date:p.date, lack:Math.round(-left*1000)/1000, no:p.no }; }
@@ -9800,10 +9804,14 @@ function sziListHTML(others){
 function sziOilHTML(oil){
   const months=[...new Set(oil.rows.map(r=>String(r.date).slice(0,7)))];
   /* 2026-10-13 泰広さん指示：点検の入力は「点検」ボタンを押すと開く／点検のアラートが出ているときは法令を表示 */
-  let h=szoLawHTML()+szoTankHTML()+szoOilHTML(oil);
-  const chkAl=szoOilChkAlert();
-  if(!SZO.chkOpen) h+=`<button type="button" class="szi-btn ${chkAl?'':'sub'}" id="szoChkGo" style="width:100%;margin:0 0 4px;font-size:17px;padding:13px">📝 点検（残量・受入を入力）</button>`;
-  else h+=`<div class="szi-form">
+  /* 2026-10-13 泰広さん指示：点検・発注・地下タンク点検はボタンに。押すとその欄が開く（SZO.oilSec） */
+  const chkAl=szoOilChkAlert(), tk=szoTankInfo(), of=szoOilFc(oil), oal=szoOilAlert(), opd=szoOilPending().filter(p=>p.plan>=dtoday())[0], sec=SZO.oilSec||'';
+  let h=szoLawHTML()+`<div class="szo-secs">
+    <button type="button" data-szosec="chk" class="${chkAl?'ng':''} ${sec==='chk'?'on':''}"><span class="e">📝</span><b>点検</b><small>${oil.last?'前回 '+rcMD(oil.last.date):'未入力'}</small></button>
+    <button type="button" data-szosec="order" class="${oal?'ng':opd?'ok':''} ${sec==='order'?'on':''}"><span class="e">📦</span><b>発注</b><small>${opd?rcMD(opd.plan)+' 入荷予定':of&&of.cross?'目安 '+(of.order<=dtoday()?'今すぐ':rcMD(of.order)):'—'}</small></button>
+    <button type="button" data-szosec="tank" class="${tk.alert?'ng':''} ${sec==='tank'?'on':''}"><span class="e">🛢</span><b>地下タンク点検</b><small>次回 ${+tk.due.slice(0,4)}年${+tk.due.slice(5,7)}月</small></button></div>`;
+  if(sec==='tank') h+=szoTankHTML(); else if(sec==='order') h+=szoOilHTML(oil);
+  if(sec==='chk') h+=`<div class="szi-form">
     <div class="r"><label>点検日</label><input type="date" id="szOilDate" value="${dtoday()}"></div>
     <div class="r"><input type="text" inputmode="decimal" class="big" id="szOilQty" placeholder="残量" aria-label="残量L"><span class="u">L</span></div>
     <div class="szi-btns"><button type="button" class="szi-btn" id="szOilChk" disabled>点検を記録</button><button type="button" class="szi-btn sub" id="szOilRec" disabled>受入を記録</button></div>
@@ -9844,8 +9852,9 @@ function sziAlcHTML(alc, st){
   const fut=alc.plan.filter(p=>!p.date||p.date>=today).sort((a,b)=>String(a.date||'9').localeCompare(String(b.date||'9'))||(+a.no)-(+b.no));
   let h='';
   if(!alc.has) h+=`<div class="szi-alert"><b>在庫がまだ入っていません。</b>下で「棚卸（今ある量）」か「入荷」を入れると、添加予定に間に合うかを判定します。</div>`;
-  else if(s) h+=`<div class="szi-alert"><b>${rcMD(s.date)}（${esc(String(s.no))}号の添加）で足りなくなります。</b><br>在庫 ${sziF(alc.stock,0)}L に対し、これからの添加予定 ${sziF(alc.need,0)}L（40%換算）。不足 ${sziF(Math.max(0,alc.need-alc.stock),0)}L。発注は入荷の約1か月前。</div>`;
-  else h+=`<div class="szi-good">在庫 ${sziF(alc.stock,0)}L で、これからの添加予定 ${sziF(alc.need,0)}L（40%換算）に<b>間に合います</b>（残り ${sziF(alc.stock-alc.need,0)}L）。</div>`;
+  else { const arr=szoAlcArrivals(), A=arr.reduce((a,x)=>a+x.q40,0), arrT=arr.length?`＋発注済の入荷 ${sziF(A,0)}L（${arr.map(x=>rcMD(x.date)).join('・')}）`:'';
+    if(s) h+=`<div class="szi-alert"><b>${rcMD(s.date)}（${esc(String(s.no))}号の添加）で足りなくなります。</b><br>在庫 ${sziF(alc.stock,0)}L${arrT} に対し、これからの添加予定 ${sziF(alc.need,0)}L（40%換算）。不足 ${sziF(s.lack,0)}L。次の便の発注を。</div>`;
+    else h+=`<div class="szi-good">在庫 ${sziF(alc.stock,0)}L${arrT}で、これからの添加予定 ${sziF(alc.need,0)}L（40%換算）に<b>間に合います</b>。</div>`; }
   h+=szoAlcHTML(alc);   /* 2026-10-12 入荷の便と発注 */
   const kind=SZI.alcKind||'入荷';
   h+=`<div class="szi-form">
@@ -9856,11 +9865,6 @@ function sziAlcHTML(alc, st){
     <div style="font-size:13px;margin:0 2px 8px">40%換算：<b id="szAlc40">—</b> L</div>
     <button type="button" class="szi-btn" id="szAlcOk" disabled style="width:100%">${kind}を記録</button>
     <div class="szi-msg" id="szAlcMsg"></div></div>`;
-  h+=`<div class="szi-h">これからの添加予定<small>上槽日（醪管理R8BY 資材予定・40%換算L）</small></div>`;
-  if(!fut.length) h+=`<div class="szi-none">これからの添加予定はありません</div>`;
-  else { let left=alc.has?alc.stock:null;
-    h+=`<div class="szi-scroll"><table class="szi-t"><tr><th>添加日</th><th style="text-align:left">順号・液種</th><th>添加L</th><th>残りL</th></tr>${fut.map(p=>{ if(left!==null) left-=p.qty; const m=mOf(p.no);
-      return `<tr class="${left!==null&&left<0?'neg':''} ${p.date===today?'today':''}"><td>${p.date?rcMD(p.date):'—'}</td><td class="l">${esc(String(p.no))}号 ${esc(m.liquid||'')}</td><td>${sziF(p.qty,0)}</td><td class="${left!==null&&left<0?'ng':''}">${left===null?'—':sziF(left,0)}</td></tr>`; }).join('')}</table></div>`; }
   const log=alc.log.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.at||'').localeCompare(String(a.at||'')));
   h+=`<div class="szi-h">入荷・棚卸の記録</div>`+(log.length?`<table class="szi-t"><tr><th>日付</th><th>区分</th><th>40%L</th><th></th></tr>${log.map(x=>`<tr><td>${rcMD(x.date)}<small>${esc(x.memo||'')}</small></td><td>${esc(x.kind)}<small>${esc(x.updBy||x.by||'')}</small></td><td>${sziF(x.qty,0)}</td><td><button type="button" class="del" data-zdel="${esc(x.id)}">消す</button></td></tr>`).join('')}</table>`:`<div class="szi-none">まだありません</div>`);
   return h;
@@ -9951,6 +9955,16 @@ function szoAlcSlots(){
   /* 次の便までに使う添加量（40%換算） */
   out.forEach((s,i)=>{ s.next=out[i+1]?out[i+1].plan:null; });
   return out;
+}
+/* 2026-10-13 泰広さん指示：発注済の便の入荷も在庫に足して「足りなくなる」を判定する。40%換算＝L×度数÷40 */
+function szoAlcArrivals(){ const t=dtoday(); return szoAlcSlots().filter(s=>s.ordered&&!s.done&&s.plan>=t).map(s=>{ const q=Number(s.r&&s.r.qty)||0, g=Number(s.r&&s.r.deg)||95; return { date:s.plan, key:s.key, vendor:s.vendor, q, g, q40:Math.round(q*g/40*10)/10 }; }); }
+function szoAlcLedger(alc){
+  const t=dtoday(), ev=[];
+  szoAlcArrivals().forEach(a=>{ if(a.q40>0) ev.push({ date:a.date, arr:a, add:a.q40 }); });
+  (alc.plan||[]).filter(p=>p.date&&p.date>=t).forEach(p=>ev.push({ date:p.date, use:true, no:p.no, qty:p.qty }));
+  ev.sort((a,b)=>a.date.localeCompare(b.date)||((a.use?1:0)-(b.use?1:0))||((+a.no||0)-(+b.no||0)));
+  let left=alc.has?alc.stock:0; ev.forEach(e=>{ left+=e.use?-e.qty:e.add; e.left=Math.round(left*10)/10; });
+  return ev;
 }
 function szoAlcAlerts(){ const t=dtoday(); return szoAlcSlots().filter(s=>!s.ordered && t>=s.alertFrom && t<=s.plan); }
 
@@ -10094,18 +10108,24 @@ function szoOilHTML(oil){
 }
 /* ---- 画面：添加アルコールの便と発注 ---- */
 function szoAlcHTML(alc){
-  const today=dtoday(), sl=szoAlcSlots().filter(s=>s.plan>=dadd(today,-14)).slice(0,5);
+  /* 2026-10-13 泰広さん指示：入荷の便はボタンに。押すとその便の操作と、その便〜次の便までの添加予定の表 */
+  const today=dtoday(), sl=szoAlcSlots().filter(s=>s.plan>=dadd(today,-14)).slice(0,5), st=RC.state||lsGet('rec.state',null);
+  const mOf=no=>((st&&st.master)||[]).find(m=>String(m.no)===String(no))||{};
+  const led=szoAlcLedger(alc);
   const per=(a,b)=>alc.plan.filter(p=>p.date && p.date>=a && (!b||p.date<b)).reduce((s,p)=>s+p.qty,0);
-  let h=`<div class="szo-box ${sl.some(s=>!s.ordered&&today>=s.alertFrom&&today<=s.plan)?'ng':''}"><div class="szo-t">📦 入荷の便と発注<small>入荷の1か月前に発注</small></div>`;
+  const table=rows=>rows.length?`<div class="szi-scroll"><table class="szi-t"><tr><th>日付</th><th style="text-align:left">順号・液種</th><th>L</th><th>残りL</th></tr>${rows.map(e=>e.use
+      ?`<tr class="${e.left<0?'neg':''} ${e.date===today?'today':''}"><td>${rcMD(e.date)}</td><td class="l">${esc(String(e.no))}号 ${esc(mOf(e.no).liquid||'')}</td><td>${sziF(e.qty,0)}</td><td class="${e.left<0?'ng':''}">${alc.has?sziF(e.left,0):'—'}</td></tr>`
+      :`<tr class="szo-rcv"><td>${rcMD(e.date)}</td><td class="l">入荷（${esc(e.arr.vendor)}）</td><td><b>＋${sziF(e.add,0)}</b></td><td>${alc.has?sziF(e.left,0):'—'}</td></tr>`).join('')}</table></div>`:`<div class="szi-none">この間の添加予定はありません</div>`;
+  let h=`<div class="szo-box ${sl.some(s=>!s.ordered&&today>=s.alertFrom&&today<=s.plan)?'ng':''}"><div class="szo-t">📦 入荷予定<small>押すと添加予定の表・発注</small></div>`;
   if(SZO.err) h+=`<div class="szi-msg ng">${esc(SZO.err)}</div>`;
-  h+=`<table class="szi-t szo-tt"><tr><th>入荷</th><th style="text-align:left">発注先</th><th>次の便までの添加</th><th>発注</th></tr>`;
-  sl.forEach(s=>{ const need=per(s.plan,s.next), al=!s.ordered&&today>=s.alertFrom&&today<=s.plan, past=s.plan<today;
-    const st=s.done?'<span class="ok">入荷済</span>':s.ordered?`<span class="ok">発注済</span><small>${s.r&&s.r.date?rcMD(s.r.date):''}${s.r&&s.r.qty?' '+szoQ(s.r.qty):''}</small>`
-      :al?`<span class="r">発注する</span><small>${rcMD(s.alertFrom)}〜</small>`:past?'<span class="na">—</span>':`<span class="na">未</span><small>${rcMD(s.alertFrom)}から</small>`;
-    h+=`<tr class="ck ${al?'ng':''} ${SZO.alcEdit===s.key?'today':''}" data-szos="${esc(s.key)}"><td>${rcMD(s.plan)}${s.tent?'<small>日付は仮</small>':''}</td><td class="l">${esc(s.vendor)}</td>
-      <td>${need?sziF(need,0)+'L':'—'}<small>${need?'95度で約'+sziF(need*40/95,0)+'L':''}</small></td><td>${st}</td></tr>`;
-    if(SZO.alcEdit===s.key){ const r=s.r||{};
-      h+=`<tr><td colspan="4" class="l" style="background:#fbf8ee"><div class="szi-form" style="border:0;padding:4px 0">
+  h+=`<div class="szo-slots">${sl.map(s=>{ const al=!s.ordered&&today>=s.alertFrom&&today<=s.plan, past=s.plan<today;
+    const st_=s.done?'入荷済':s.ordered?`発注済${s.r&&s.r.qty?' '+szoQ(s.r.qty):''}`:al?'発注する':past?'—':`未（${rcMD(s.alertFrom)}から）`;
+    return `<button type="button" data-szos="${esc(s.key)}" class="${al?'ng':s.ordered?'ok':''} ${SZO.alcEdit===s.key?'on':''}"><b>${rcMD(s.plan)}</b>${s.tent?'<i>仮</i>':''}<span>${esc(s.vendor)}</span><small>${st_}</small></button>`; }).join('')}</div>`;
+  const s=sl.find(x=>x.key===SZO.alcEdit);
+  if(s){ const r=s.r||{}, need=per(s.plan,s.next);
+    h+=`<div class="szo-sd"><div class="szi-h" style="margin-top:4px">${rcMD(s.plan)} の便（${esc(s.vendor)}）<small>${s.next?rcMD(s.next)+' の便まで':'このあと'}の添加 ${sziF(need,0)}L（95度で約${sziF(need*40/95,0)}L）</small></div>
+      ${table(led.filter(e=>e.date>=s.plan&&(!s.next||e.date<s.next)))}
+      <div class="szi-form" style="margin-top:8px">
         <div class="r"><label>入荷日</label><input type="date" id="szoAd" value="${esc(s.plan)}"><select id="szoAv">${[...new Set([...SZO_ALC_VENDORS,s.vendor])].map(v=>`<option ${v===s.vendor?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
         <div class="r"><input type="text" inputmode="decimal" class="big" id="szoAq" value="${esc(r.qty||'')}" placeholder="数量"><span class="u">L</span>
           <input type="text" inputmode="decimal" id="szoAg" value="${esc(r.deg||'95')}" style="width:4.2em;text-align:right"><span class="u">度</span></div>
@@ -10113,10 +10133,10 @@ function szoAlcHTML(alc){
           ${s.ordered?`<button type="button" class="szi-btn sub" data-szoa="ord">直す</button><button type="button" class="szi-btn sub" data-szoa="cx">発注を取り消す</button>`
             :`<button type="button" class="szi-btn" data-szoa="ord">発注した</button><button type="button" class="szi-btn sub" data-szoa="date">日付・発注先だけ直す</button>`}
           <button type="button" class="szi-btn sub" data-szoa="no">閉じる</button></div>
-        <div class="szi-msg" id="szoAmsg">${s.pre?'この便は 8/31 にFAXで発注済み（保管庫の記録）。直すと製造ツールの記録になります。':''}</div></div></td></tr>`; }
-  });
-  h+=`</table><p class="szo-s">行を押すと 発注した・入荷日の変更 ができます。発注すると入荷日に部署カレンダーへ「原料用アルコール 入荷予定」が入ります。「次の便までの添加」は資材予定（40%換算）。</p></div>`;
-  return h;
+        <div class="szi-msg" id="szoAmsg">${s.pre?'この便は 8/31 にFAXで発注済み（保管庫の記録）。':''}</div></div></div>`; }
+  h+=`<button type="button" class="szi-btn sub" id="szoAllGo" style="width:100%;margin-top:8px">📋 ${SZO.alcAll?'全部の添加予定を閉じる':'全部の添加予定を見る'}</button>`;
+  if(SZO.alcAll) h+=`<div style="margin-top:8px">${table(led)}</div>`;
+  return h+`</div>`;
 }
 function szoBind(st, draw){
   const msg=(id,t,ok)=>{ const m=document.getElementById(id); if(m){ m.className='szi-msg '+(ok?'ok':'ng'); m.textContent=t; } };
@@ -10135,13 +10155,14 @@ function szoBind(st, draw){
       zaiKeep(await zaiApi({action:'save', item:{ name:SZI_OIL, kind:'受入', qty:String(p.qty), unit:'L', date:dtoday(), memo:`発注分（${rcMD(p.plan)}入荷予定・${p.vendor||''}）` }}));
       await szoSave(Object.assign({}, p, { kind:'入荷済', plan:dtoday() })); draw(); }
     catch(err){ b.textContent='失敗：'+String(err.message||err).slice(0,30); } });
-  const cg=$('#szoChkGo'); if(cg) cg.onclick=()=>{ SZO.chkOpen=1; draw(); const q=$('#szOilQty'); if(q) q.focus(); };
-  const cn=$('#szoChkNo'); if(cn) cn.onclick=()=>{ SZO.chkOpen=0; draw(); };
+  app.querySelectorAll('[data-szosec]').forEach(b=>b.onclick=()=>{ SZO.oilSec=SZO.oilSec===b.dataset.szosec?'':b.dataset.szosec; draw(); if(SZO.oilSec==='chk'){ const q=$('#szOilQty'); if(q) q.focus(); } });
+  const cn=$('#szoChkNo'); if(cn) cn.onclick=()=>{ SZO.oilSec=''; draw(); };
   /* 地下タンクの定期点検 */
   const tg=$('#szoTgo'); if(tg) tg.onclick=()=>{ SZO.tankEdit=1; draw(); };
   const tn=$('#szoTno'); if(tn) tn.onclick=()=>{ SZO.tankEdit=0; draw(); };
   const tk=$('#szoTok'); if(tk) tk.onclick=()=>{ const d=$('#szoTd').value; if(!d){ msg('szoTmsg','点検日を入れてください'); return; }
     run('szoTmsg',[tk],async()=>{ zaiKeep(await zaiApi({action:'save', item:{ name:SZI_OIL, kind:SZO_TANK, qty:'0', unit:'', date:d, memo:$('#szoTm').value.trim() }})); SZO.tankEdit=0; }); };
+  const ag=$('#szoAllGo'); if(ag) ag.onclick=()=>{ SZO.alcAll=!SZO.alcAll; draw(); };
   /* 添加アルコール */
   app.querySelectorAll('[data-szos]').forEach(tr=>tr.onclick=()=>{ SZO.alcEdit=SZO.alcEdit===tr.dataset.szos?null:tr.dataset.szos; draw(); });
   app.querySelectorAll('[data-szoa]').forEach(b=>b.onclick=()=>{
@@ -10174,6 +10195,18 @@ function szoBind(st, draw){
 .szi-t tr.szo-rcv td{background:#eef5ea}.szi-t tr.szo-rcv td:nth-child(2),.szi-t tr.szo-rcv b{color:#2f7d5d}
 .szo-why{margin:6px 2px 0;font-size:12px}.szo-why summary{color:var(--navy);cursor:pointer}.szo-why table{font-size:12.5px;margin-top:4px}
 .szo-law{background:#fff8ec;border:1px solid #ecd3a6;border-left:5px solid #c9821b;border-radius:12px;padding:10px 12px;margin:0 0 12px;font-size:13px;line-height:1.6}.szo-law p{margin:4px 0}.szo-law .src{font-size:11px;color:var(--sub)}
+.szo-secs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 10px}
+.szo-secs button{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:9px 4px;font-family:inherit;color:var(--ink);cursor:pointer;line-height:1.3;text-align:center}
+.szo-secs .e{display:block;font-size:20px}.szo-secs b{display:block;font-size:13px}.szo-secs small{display:block;font-size:11px;color:var(--sub)}
+.szo-secs button.ng{border:2px solid #b23b3b;background:#fff5f4}.szo-secs button.ng small{color:#b23b3b;font-weight:700}
+.szo-secs button.ok small{color:#2f7d5d;font-weight:700}.szo-secs button.on{box-shadow:0 0 0 2px var(--navy) inset}
+.szo-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+.szo-slots button{border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 4px;font-family:inherit;color:var(--ink);cursor:pointer;line-height:1.35;text-align:center}
+.szo-slots button b{display:block;font-size:17px}.szo-slots button span{display:block;font-size:12px}.szo-slots button small{display:block;font-size:11px;color:var(--sub)}
+.szo-slots button i{font-style:normal;font-size:10px;color:#fff;background:#b9b29f;border-radius:6px;padding:0 4px;margin-left:3px}
+.szo-slots button.ok small{color:#2f7d5d;font-weight:700}.szo-slots button.ng{border:2px solid #b23b3b;background:#fff5f4}.szo-slots button.ng small{color:#b23b3b;font-weight:700}
+.szo-slots button.on{box-shadow:0 0 0 2px var(--navy) inset}
+.szo-sd{margin-top:6px}
 .szo-tt select{font-size:15px;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff;font-family:inherit}
 `; document.head.appendChild(s); })();
 /* ログインのあと裏で 発注と在庫 を読み、ホームの帯・資材アイコンの札を付け直す */
