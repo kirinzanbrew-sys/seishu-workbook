@@ -9115,6 +9115,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-12-8','🧰','資材 › A重油','点検と受入を1つの表「点検・受入の記録」にまとめました（日付の新しい順、受入は緑の行で＋L）。日付が「NaN/7」と出ていたのも直しました。'],
   ['2026-10-12-6','🧾','配合表','🧫酒母・🍶仕込みの上のアイコンに「🧾 配合表」を足しました。記号ごとの仕込み配合（酒母・初添・仲添・留添・追水・四段の 総米・掛米・麹米・汲水・酵素剤・アルコール）が見られます。右上に「◯月◯日改定」。配合が変わると、前回から変わった数字が黄色になります（押すと前の値）。'],
   ['2026-10-12-5','🍶','仕込み','仕込みの「📋 表」で、マスにそのまま入力できるようにしました（Be/度・alc・酸・ｱﾐﾉ・追水・品温AM・PM。留の日は品温AMだけ）。入れたマスは黄色の枠、下の「保存」でまとめて裏で保存します。左の順号を押すと今までどおり1本の画面です。'],
   ['2026-10-12-4','🧰','資材','A重油と添加アルコールの「発注」を足しました。添加アルコールは入荷（例年 10/27ごろ・12/24ごろ・1月・3月）の1か月前から、A重油は点検の残量と洗米予定表の蒸米の量から減り方を計算して3,000Lを切る前に、ホームの予定の枠に赤い帯と資材アイコンの札が出ます。資材 › A重油／アルコール で「発注した」を押すと消え、入荷予定日が部署カレンダー（ホームの予定）に入ります。入荷したら「入荷を記録」で在庫にも入ります。'],
@@ -9798,13 +9799,16 @@ function sziOilHTML(oil){
     <div class="szi-btns"><button type="button" class="szi-btn" id="szOilChk" disabled>点検を記録</button><button type="button" class="szi-btn sub" id="szOilRec" disabled>受入を記録</button></div>
     <div class="szi-msg" id="szOilMsg"></div></div>`;
   if(oil.rate) h+=`<p style="font-size:13px;margin:8px 2px 0">最近の使い方：<b>1日あたり 約${sziF(oil.rate,0)}L</b>${oil.left!==null?`／今の見込み ${sziF(oil.est,0)}L → <b style="color:${oil.left<7?'#b23b3b':oil.left<14?'#c9821b':'inherit'}">あと約${Math.floor(oil.left)}日</b>`:''}</p>`;
-  h+=`<div class="szi-h">点検の記録<small>週1回・前回との差</small></div>`;
-  const recRows=oil.rec.slice().reverse();
-  if(!oil.rows.length && !recRows.length) return h+`<div class="szi-none">まだ記録がありません</div>`;
-  h+=`<div class="szi-scroll"><table class="szi-t"><tr><th>点検日</th><th>残量L</th><th>使用L</th><th>1日あたり</th><th>点検者</th><th></th></tr>
-    ${oil.rows.map(r=>`<tr><td>${rcMD(r.date)}${r.recv?`<small>受入 ${sziF(r.recv,0)}L</small>`:''}</td><td><b>${sziF(r.qty,0)}</b></td><td>${r.used===null?'—':sziF(r.used,0)}</td><td>${r.per===null?'—':sziF(r.per,0)}</td><td>${esc(r.by)}</td><td><button type="button" class="del" data-zdel="${esc(r.id)}">消す</button></td></tr>`).join('')}</table></div>`;
-  if(recRows.length) h+=`<div class="szi-h">受入の記録</div><table class="szi-t"><tr><th>日付</th><th>受入L</th><th>入力</th><th></th></tr>
-    ${recRows.map(x=>`<tr><td>${rcMD(x.date)}</td><td>${sziF(x.qty,0)}</td><td>${esc(x.updBy||x.by||'')}</td><td><button type="button" class="del" data-zdel="${esc(x.id)}">消す</button></td></tr>`).join('')}</table>`;
+  /* 2026-10-12 泰広さん指示：点検と受入を同じ表に（日付の新しい順。同じ日は 点検 を上に） */
+  h+=`<div class="szi-h">点検・受入の記録<small>点検は週1回・使用は前回の点検との差</small></div>`;
+  const ckRows=oil.rows.map(r=>({ t:'点検', id:r.id, date:r.date, at:'', r }));
+  const all=[...ckRows, ...oil.rec.map(x=>({ t:'受入', id:x.id, date:x.date, at:x.at||'', x }))]
+    .sort((p,q)=>String(q.date).localeCompare(String(p.date)) || (p.t===q.t?0:p.t==='点検'?-1:1));
+  if(!all.length) return h+`<div class="szi-none">まだ記録がありません</div>`;
+  h+=`<div class="szi-scroll"><table class="szi-t"><tr><th>日付</th><th>区分</th><th>残量・受入L</th><th>使用L</th><th>1日あたり</th><th>入力</th><th></th></tr>
+    ${all.map(e=>e.t==='点検'
+      ?`<tr><td>${rcMD(e.date)}</td><td>点検</td><td><b>${sziF(e.r.qty,0)}</b></td><td>${e.r.used===null?'—':sziF(e.r.used,0)}</td><td>${e.r.per===null?'—':sziF(e.r.per,0)}</td><td>${esc(e.r.by)}</td><td><button type="button" class="del" data-zdel="${esc(e.id)}">消す</button></td></tr>`
+      :`<tr class="szo-rcv"><td>${rcMD(e.date)}</td><td>受入</td><td><b>＋${sziF(e.x.qty,0)}</b></td><td></td><td></td><td>${esc(e.x.updBy||e.x.by||'')}</td><td><button type="button" class="del" data-zdel="${esc(e.id)}">消す</button></td></tr>`).join('')}</table></div>`;
   h+=`<div class="szi-h">印刷<small>A4 縦</small></div><div class="szi-form"><div class="r"><select id="szOilMon" style="flex:1"><option value="">全部（今季）</option>${months.map(m=>`<option value="${m}">${+m.slice(0,4)}年${+m.slice(5,7)}月</option>`).join('')}</select>
     <button type="button" class="szi-btn sub" id="szOilPrint" style="flex:0 0 auto;padding:10px 16px">🖨 印刷</button></div></div>`;
   return h;
@@ -10093,6 +10097,7 @@ function szoBind(st, draw){
 .szo-pend{background:#eef5ea;border:1px solid #cfe3c6;border-radius:10px;padding:8px 10px;margin:0 0 8px;font-size:13.5px}
 .szo-tt td small{display:block}
 .szo-tt .ok{color:#2f7d5d;font-weight:700}.szo-tt .na{color:#b9b29f}
+.szi-t tr.szo-rcv td{background:#eef5ea}.szi-t tr.szo-rcv td:nth-child(2),.szi-t tr.szo-rcv b{color:#2f7d5d}
 .szo-tt select{font-size:15px;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff;font-family:inherit}
 `; document.head.appendChild(s); })();
 /* ログインのあと裏で 発注と在庫 を読み、ホームの帯・資材アイコンの札を付け直す */
