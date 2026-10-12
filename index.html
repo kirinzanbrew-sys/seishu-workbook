@@ -9115,7 +9115,9 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-12-9','🍶','仕込み・本日の予定','踊り返しを本日の予定に出すようにしました（伝辛・超辛・純米辛口 以外は、添の翌日 13:00〜 1人）。人が少なく酛卸と踊り返しを1人で行う日は、オレンジの注意の帯が出ます。添の仕込み時の「添のタンク」は、伝辛・超辛・純米辛口は醪タンク、それ以外は T284・T285・酒母タンク から選べます。'],
   ['2026-10-12-8','🧰','資材 › A重油','点検と受入を1つの表「点検・受入の記録」にまとめました（日付の新しい順、受入は緑の行で＋L）。日付が「NaN/7」と出ていたのも直しました。'],
+  ['2026-10-12-7','🍶','仕込み・配合表','仕込み時（添・仲・留）の尺を入れると、量（L）が自動で入るようにしました（酒母と同じく容量早見表から）。仲・留は醪タンク、添は「添のタンク」に容器の番号を入れたときに入ります。配合表：スマホで見やすく（「酒母中」を消し、予定は数字だけ。仕込みの表はアルコールの文字を小さくし、40%を削除）。'],
   ['2026-10-12-6','🧾','配合表','🧫酒母・🍶仕込みの上のアイコンに「🧾 配合表」を足しました。記号ごとの仕込み配合（酒母・初添・仲添・留添・追水・四段の 総米・掛米・麹米・汲水・酵素剤・アルコール）が見られます。右上に「◯月◯日改定」。配合が変わると、前回から変わった数字が黄色になります（押すと前の値）。'],
   ['2026-10-12-5','🍶','仕込み','仕込みの「📋 表」で、マスにそのまま入力できるようにしました（Be/度・alc・酸・ｱﾐﾉ・追水・品温AM・PM。留の日は品温AMだけ）。入れたマスは黄色の枠、下の「保存」でまとめて裏で保存します。左の順号を押すと今までどおり1本の画面です。'],
   ['2026-10-12-4','🧰','資材','A重油と添加アルコールの「発注」を足しました。添加アルコールは入荷（例年 10/27ごろ・12/24ごろ・1月・3月）の1か月前から、A重油は点検の残量と洗米予定表の蒸米の量から減り方を計算して3,000Lを切る前に、ホームの予定の枠に赤い帯と資材アイコンの札が出ます。資材 › A重油／アルコール で「発注した」を押すと消え、入荷予定日が部署カレンダー（ホームの予定）に入ります。入荷したら「入荷を記録」で在庫にも入ります。'],
@@ -10846,8 +10848,136 @@ function mkeSave(box){
 (function(){ const s=document.createElement('style'); s.textContent=`
 .kg-t.ed.mk .n b{display:inline;font-size:13px;line-height:inherit;font-weight:700}
 .kg-t.ed.mk .f{font-size:11px;letter-spacing:0}`; document.head.appendChild(s); })();
+/* ================= 🍶 仕込み：仕込み時の尺を入れたら量（L）を自動で（2026-10-12） =================
+   泰広さん指示：仕込みの尺を入れたら量も自動で出るように。酒母と同じ仕組み（shAutoRyo：容量早見表 tanks.json・空積寸、1L単位で四捨五入）。
+   ・仲・留：醪タンク（仕込マスタの tank）の早見表で引く。R7BY 分析醪の 仲・留 の 尺→量 は全部一致（167件。T252 は照合できていない容器なので除く）
+   ・添（2026-10-12 泰広さん指示）：伝辛・超辛・純米辛口 は添もそのまま大きいタンク（醪タンク）で仕込む → 醪タンクで自動。
+     それ以外は 284・285 または酒母のタンクで添を仕込む（翌日に踊り返しで醪タンクへ）→「添のタンク」を T284／T285／酒母タンク から選ぶ（手でも入れられる）。
+     選んだ番号は端末に覚える（mr.soeT）
+   ・照合できていない容器・早見表に無い容器・範囲外は入れない（税務に関わるので概算しない）。量を手で直すのは自由（尺を変えるとまた入る）
+   ・踊は尺・量が無いので対象外。moromiSetup を外側から包む */
+function mrAutoRyo(m, no, st){
+  const sk=$('#mr_shaku'), ry=$('#mr_ryo'); if(!sk||!ry) return;
+  const lab=ry.closest('.rc-f'); let note=lab&&lab.querySelector('.sh-auto');
+  if(lab&&!note){ note=document.createElement('small'); note.className='sh-auto'; note.style.cssText='display:block;font-size:11px;color:var(--sub);margin-top:2px'; lab.appendChild(note); }
+  const say=(t,ok)=>{ if(note){ note.textContent=t; note.style.color=ok?'#1d6b45':'#a0610b'; } };
+  let tin=null;
+  if(st==='soe'){
+    const S=lsGet('mr.soeT',{})||{};
+    const big=typeof odoriNeed==='function'?!odoriNeed(m):['伝辛','超辛','純米辛口'].includes(String(m.liquid||'').replace(/[\s　]/g,''));
+    const def=S[no]!==undefined&&S[no]!==''?S[no]:(big&&m.tank?String(m.tank):'');
+    const cand=big?[[m.tank,'醪タンク']]:[['284',''],['285',''],[m.shuboT,'酒母タンク']];
+    const w=document.createElement('div'); w.className='mr-soet';
+    w.innerHTML=`<label>添のタンク T<input id="mr_soeT" type="text" inputmode="numeric" autocomplete="off" value="${esc(def)}" placeholder="番号"></label>${cand.filter(([t])=>t).map(([t,l])=>`<button type="button" class="rc-ghost" data-soet="${esc(String(t))}">T${esc(String(t))}${l?`（${l}）`:''}</button>`).join('')}<small>${big?`${esc(m.liquid||'')}は添もそのまま醪タンクで仕込みます`:'284・285 または酒母のタンクで添を仕込み、翌日に踊り返しで醪タンクへ移します。添の容器を選ぶと、尺から量が入ります'}</small>`;
+    (lab||ry).after(w); tin=w.querySelector('#mr_soeT'); tin.dataset.igSkip='1';
+    w.querySelectorAll('[data-soet]').forEach(bt=>bt.onclick=()=>{ tin.value=bt.dataset.soet; tin.dispatchEvent(new Event('input')); });
+  }
+  const tno=()=>st==='soe'?String(tin.value||'').trim():String(m.tank||'').trim();
+  const calc=async(force)=>{
+    const T=tno();
+    if(!T){ say(st==='soe'?'添のタンクを入れると、尺から量が入ります':'醪タンク未設定のため、量は自動で入りません'); return; }
+    try{ await loadTanks(); }catch(e){}
+    const t=tankByNo(T);
+    if(!t){ say(`T${T} は容量早見表に無いため、量は手で入れてください`); return; }
+    if(t.verify||t.blocked||!t.checked){ say(`T${T} は早見表が照合できていない容器のため計算しません（造りexで確認）`); return; }
+    const mm=pnum(sk.value); if(mm===null){ say(`尺を入れると T${T} の早見表から量が入ります`,true); return; }
+    if(!force && String(ry.value).trim()!=='') { say(`尺を入れると T${T} の早見表から量が入ります`,true); return; }
+    const v=volAt(t,mm);
+    if(v===null){ say(`尺 ${mm}mm は T${T} の早見表の範囲外です`); return; }
+    ry.value=Math.round(v); try{ FAST.dirty=true; }catch(e){} say(`T${T} 早見表：尺 ${mm}mm → ${Math.round(v)} L（自動）`,true);
+  };
+  sk.addEventListener('input',()=>calc(true));
+  if(tin) tin.addEventListener('input',()=>{ const S=lsGet('mr.soeT',{})||{}; S[no]=tin.value.trim(); lsSet('mr.soeT',S); calc(true); });
+  calc(false);   // 開いたとき：尺があって量が空なら入れる
+}
+(function(){
+  const o=window.moromiSetup; if(typeof o!=='function') return;
+  window.moromiSetup=async function(no, st){
+    const r=await o.apply(this, arguments);
+    try{ if(st!=='odori') mrAutoRyo(rcMaster(no)||{}, no, st); }catch(e){ console.log('mrAutoRyo',e); }
+    return r; };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.mr-soet{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;background:#f6f9fd;border:1px dashed #9fb3cf;border-radius:10px;padding:6px 8px;font-size:13px;color:var(--navy)}
+.mr-soet input{width:72px;font-size:16px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;margin-left:2px}
+.mr-soet .rc-ghost{padding:4px 8px;font-size:12px}
+.mr-soet small{flex-basis:100%;font-size:11px;color:var(--sub)}`; document.head.appendChild(s); })();
 </script>
 <!-- /shkedit -->
+<!-- odori -->
+<script>
+/* ================= 🍶 踊り返し（本日の予定）2026-10-12 =================
+   泰広さん指示：添の量が多い 伝辛・超辛・純米辛口 は、そのまま大きいタンク（醪タンク）で添を仕込む。
+   それ以外は 284・285 または酒母のタンクで添を仕込み、次の日に「踊り返し」で 251〜259・275・276 あたり（醪タンク）に移し、その翌日に仲仕込。
+   ・本日の予定：伝辛・超辛・純米辛口 以外は、添の翌日に「踊り返し1」（1人・13:00〜14:00。仕込みの段）。日付の一覧には「踊返」
+   ・人が少ない日は 酛卸（13:00〜）と踊り返しを1人で行うことがある → その日は注意の帯（オレンジ）と、棒の詳細に注意を出す
+     判定：その日の午後に蔵にいる人（出勤表：空欄・泊・当・３F・午前休。研修・文字の予定・午後休は除く）から、
+           13:00〜14:00 に重なるほかの作業の人数（上槽は間は見回りだけなので数えない）を引き、2人未満なら注意
+   ・出勤表が届いていない日は注意を出さない（判定できないため）
+   ・dpItems／dpBunHTML を外側から包む。控え：seishu-workbook_github\_src_odori.js */
+const ODORI_BIG=['伝辛','超辛','純米辛口'];   // 添も醪タンクで仕込む液種（踊り返しなし）
+const odoriNorm=s=>String(s||'').replace(/[\s　]/g,'');
+const odoriNeed=m=>!!m && !ODORI_BIG.includes(odoriNorm(m.liquid));
+DP_T.odori=DP_T.odori||['13:00','14:00'];
+DP_NIN['踊り返し']=DP_NIN['踊り返し']||1;
+/* その日の午後に蔵にいる人数（出勤表） */
+function odoriPmStaff(date){
+  const K=MFG&&MFG.shukkin, M=K&&K.months&&K.months[date.slice(0,7)], day=M&&(M.days||[]).find(x=>x.d===date);
+  if(!M||!M.staff||!day) return null;
+  let n=0;
+  M.staff.forEach((s,k)=>{ const nm=nrm(s); if(!nm||/研修/.test(nm)) return; const v=String((day.c&&day.c[k])||'').trim();
+    if(v===''||/^(泊|当|３F|3F)$/.test(v)||/a0\.5|ａ0\.5/i.test(v)) n++; });
+  return n;
+}
+/* 酛卸と踊り返しを1人で行う日か（null＝判定できない） */
+function odoriAlone(date, items){
+  const it=items||dpItems(date);
+  const od=it.find(x=>x.odori), mo=it.find(x=>x.lane==='shubo'&&String(x.label).indexOf('酛卸')===0);
+  if(!od||!mo) return null;
+  const pm=odoriPmStaff(date); if(pm===null) return null;
+  const a=dpMin(DP_T.odori[0]), b=dpMin(DP_T.odori[1]);
+  const load=it.filter(x=>x!==od&&x!==mo&&x.s<b&&x.e>a&&!['mtg','visit','mushi'].includes(x.lane)&&String(x.label).indexOf('上槽')!==0)
+    .reduce((t,x)=>t+(Number(x.d&&x.d.nin)||0),0);
+  const free=pm-load;
+  return {alone:free<2, pm, load, free};
+}
+(function(){
+  const o=window.dpItems; if(typeof o!=='function') return;
+  window.dpItems=function(date){
+    const out=o.apply(this, arguments);
+    try{
+      const st=dpState(); if(!st) return out;
+      const M=st.master||[], T=st.today||{};
+      const L=M.filter(m=>m.soe && dadd(m.soe,1)===date && odoriNeed(m) && (T[m.no]||{}).state!=='上槽済');
+      if(!L.length) return out;
+      const nm=m=>`No.${m.no} ${m.sym||''}　${m.liquid||''}`;
+      const a=dpMin(DP_T.odori[0]), b=dpMin(DP_T.odori[1]);
+      const o2={lane:'shk', s:a, e:b, label:'踊り返し'+dpNin('踊り返し'), cls:'dp-m', odori:true,
+        d:{title:`踊り返し（${L.map(m=>m.no).join('・')}号）`, nin:DP_NIN['踊り返し'], kinds:['踊返'], time:DP_T.odori.join('〜')+'（目安・添の翌日）',
+           lines:[...L.map(m=>`踊返　${nm(m)}　→ T${m.tank||''}`), '添のタンク（284・285・酒母タンク）から醪タンクへ移す。翌日が仲仕込'],
+           open:()=>moromiHome(), openL:'仕込みの画面を開く'}};
+      out.push(o2);
+      const A=odoriAlone(date, out);
+      if(A&&A.alone){ o2.label='⚠'+o2.label; o2.d.lines.unshift(`⚠ 注意：酛卸と踊り返しを1人で行う日です（13:00〜 約2時間）。午後の人 ${A.pm}人・13時台のほかの作業 ${A.load}人`);
+        const mo=out.find(x=>x.lane==='shubo'&&String(x.label).indexOf('酛卸')===0); if(mo&&mo.d&&mo.d.lines) mo.d.lines.unshift('⚠ 注意：踊り返しと合わせて1人で行う日です（13:00〜 約2時間）'); }
+    }catch(e){ console.log('odori',e); }
+    return out; };
+})();
+/* 予定の枠の上に注意の帯（その日を表示しているとき） */
+(function(){
+  const o=window.dpBunHTML; if(typeof o!=='function') return;
+  window.dpBunHTML=function(){
+    let h=o.apply(this, arguments);
+    try{ const date=dpDate(), A=odoriAlone(date);
+      if(A&&A.alone){ const d=dparse(date);
+        h=`<div class="dp-al od-al">⚠ ${d.getMonth()+1}/${d.getDate()} は酛卸と踊り返しを1人で行う日です<small>13:00〜 約2時間。午後の人 ${A.pm}人・13時台のほかの作業 ${A.load}人</small></div>`+h; } }catch(e){}
+    return h; };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.dp-al.od-al{background:#fff4e2;border-color:#e08a1e;color:#9a5300;animation:none;cursor:default}
+.dp-al.od-al small{display:block;font-weight:600;font-size:11px;color:#8a5a2a}`; document.head.appendChild(s); })();
+</script>
+<!-- /odori -->
 <!-- haigo -->
 <script>
 /* ================= 🧾 配合表（🧫酒母・🍶仕込みの上段アイコン）2026-10-12 =================
@@ -10945,11 +11075,11 @@ async function hgScreen(kind){
   h+=`<div class="hg-bar"><label><input type="checkbox" id="hgAll" ${HG.all?'checked':''}> 今季の仕込みが無い記号も出す</label>${prev?'<span class="hg-lg"><i></i>前回から変わった数字（押すと前の値）</span>':''}</div>`;
   const chg=(sym,row,col,v)=>{ if(!prev) return ''; const p=P[sym]; if(!p) return ' chg'; const o=(p.v[row]||{})[col]; return (o===undefined?'':String(o))===(v===undefined?'':String(v))?'':' chg'; };
   const pv=(sym,row,col)=>{ const p=P[sym]; const o=p&&(p.v[row]||{})[col]; return o===undefined?'空欄':String(o); };
-  const mark=s=>{ const a=A[s]; if(!a) return ''; return `${a.shubo?`<em class="hg-m s">酒母中</em>`:''}${a.now?`<em class="hg-m n">仕込中 ${a.now}</em>`:''}${a.plan?`<em class="hg-m p">予定 ${a.plan}</em>`:''}`; };
+  const mark=s=>{ const a=A[s]; if(!a) return ''; return `${a.now?`<em class="hg-m n">仕込中 ${a.now}</em>`:''}${a.plan?`<em class="hg-m p" title="予定">${a.plan}</em>`:''}`; };   // 2026-10-12 泰広さん指示：「酒母中」は出さない・予定は数字だけ
   if(HG.kind==='shubo'){
-    h+=`<div class="kg-tw hg-tw"><table class="hg-t"><thead><tr><th class="s">記号</th><th class="l">液種</th><th>総米<small>kg</small></th><th>掛米<small>kg</small></th><th>麹米<small>kg</small></th><th>汲水<small>L</small></th><th>使用酒母</th></tr></thead><tbody>`;
+    h+=`<div class="kg-tw hg-tw"><table class="hg-t sb"><thead><tr><th class="s">記号</th><th class="l">液種</th><th>総米<small>kg</small></th><th>掛米<small>kg</small></th><th>麹米<small>kg</small></th><th>汲水<small>L</small></th><th>使用酒母</th></tr></thead><tbody>`;
     blocks.forEach(b=>{ const td=(row)=>{ const v=(b.v[row]||{})['酒母']; const c=chg(b.sym,row,'酒母',v); return `<td class="${c}"${c?` title="前 ${esc(pv(b.sym,row,'酒母'))}"`:''}>${hgNum(v)}</td>`; };
-      h+=`<tr class="${A[b.sym]?'act':''}"><td class="s">${esc(b.sym)}</td><td class="l">${esc(b.liq)}${mark(b.sym)}</td>${td('総米')}${td('蒸米')}${td('麹米')}${td('水')}<td>${esc(b.shubo||'')}${b.shubo?'号':''}</td></tr>`; });
+      h+=`<tr class="${A[b.sym]?'act':''}"><td class="s">${esc(b.sym)}</td><td class="l lq">${esc(b.liq)}${mark(b.sym)}</td>${td('総米')}${td('蒸米')}${td('麹米')}${td('水')}<td>${esc(b.shubo||'')}${b.shubo?'号':''}</td></tr>`; });
     h+=`</tbody></table></div>`;
   } else {
     h+=`<div class="hg-jump">${blocks.map(b=>`<button data-j="${esc(b.sym)}" class="${A[b.sym]&&A[b.sym].now?'n':A[b.sym]?'p':''}">${esc(b.sym)}<small>${esc(b.liq)}</small></button>`).join('')}</div>`;
@@ -10959,7 +11089,7 @@ async function hgScreen(kind){
       h+=`<div class="hg-card${A[b.sym]?' act':''}" id="hg_${esc(b.sym)}"><div class="hg-h"><b class="sym">${esc(b.sym)}</b><b class="lq">${esc(b.liq)}</b>${mark(b.sym)}<span class="hg-s">${b.n!==''?`${hgNum(b.n)}本`:''}${b.shubo?`・酒母 ${esc(b.shubo)}号`:''}${b.moromiL?`・もろみ見込 ${hgNum(b.moromiL)}L`:''}</span></div>
         <div class="kg-tw hg-tw"><table class="hg-t"><thead><tr><th class="l"></th>${cols.map(c=>`<th class="${c==='計'?'sum':''}">${HG_COLNAME[c]||c}</th>`).join('')}</tr></thead><tbody>`;
       HG_ROWS.forEach(([k,lab,u])=>{ const o=b.v[k]||{}; if(!Object.keys(o).length) return;
-        h+=`<tr class="${k==='水'?'kumi':''}"><td class="l">${lab}<small>${k==='アル'&&b.alcDo?`${hgNum(b.alcDo)}%`:''} ${u}</small></td>${cols.map(c=>{ const v=o[c], cl=chg(b.sym,k,c,v); return `<td class="${c==='計'?'sum':''}${cl}"${cl?` title="前 ${esc(pv(b.sym,k,c))}"`:''}>${hgNum(v)}</td>`; }).join('')}</tr>`; });
+        h+=`<tr class="${k==='水'?'kumi':''}"><td class="l${k==='アル'?' al':''}">${lab}<small>${u}</small></td>${cols.map(c=>{ const v=o[c], cl=chg(b.sym,k,c,v); return `<td class="${c==='計'?'sum':''}${cl}"${cl?` title="前 ${esc(pv(b.sym,k,c))}"`:''}>${hgNum(v)}</td>`; }).join('')}</tr>`; });
       h+=`</tbody></table></div></div>`; });
   }
   if(!blocks.length) h+=`<p class="muted" style="text-align:center;padding:16px 0">今季の仕込みがある記号はありません（上のチェックで全部出せます）</p>`;
@@ -10998,6 +11128,9 @@ async function hgScreen(kind){
 .hg-t tr.kumi td{color:#103e74;font-weight:800;background:#e7f0fb}
 .hg-t tr.act td{background:#f3f8ff}
 .hg-t td.chg{background:#fff1a8!important;outline:1px solid #e0c040;outline-offset:-1px;cursor:pointer}
+.hg-t .l.al{font-size:9.5px;letter-spacing:-.3px}
+.hg-t td.lq{white-space:normal;min-width:5.5em;max-width:7.5em;line-height:1.25}.hg-t td.lq .hg-m{display:inline-block;margin:2px 0 0 0}
+.hg-t.sb th,.hg-t.sb td{padding:5px 4px}
 .hg-hist{font-size:11px;color:var(--sub);margin:4px 2px}.hg-hist small{font-size:10px}`; document.head.appendChild(s); })();
 </script>
 <!-- /haigo -->
