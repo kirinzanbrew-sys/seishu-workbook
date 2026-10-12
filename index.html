@@ -9115,6 +9115,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-13-3','🛢','資材 › A重油','点検の入力は「📝 点検」ボタンを押すと開くようにしました。発注の欄は文字を減らし、くわしい計算は「計算のもと」の中にまとめました。点検のアラートが出ているときは、A重油の一番上に法令（消防法：在庫の点検は週1回以上・地下タンクの定期点検）が出ます。'],
   ['2026-10-13-2','🛢','資材 › A重油','法令の点検を知らせるようにしました。地下タンクの定期点検（3年に1回。前回 2026/6/12）は期限の年の3月1日から、在庫の点検（週1回以上）は前回から7日たつと、ホームの予定の枠と資材アイコン・A重油の箱に出ます。A重油の箱の点検は「◯日前」でなく日付で表示します。'],
   ['2026-10-13-1','🧰','資材 › A重油','A重油の発注の計算を直しました。点検が少ないうちに「蒸米1tあたり」が大きくなりすぎ、早すぎるアラートが出ていました。今は直近の点検区間の1日平均で先を読み、点検がたまれば蒸米の量で計算します。「計算のもと」で区間ごとの日数・蒸米・使用量が見られます。'],
   ['2026-10-12-9','🍶','仕込み・本日の予定','踊り返しを本日の予定に出すようにしました（伝辛・超辛・純米辛口 以外は、添の翌日 13:00〜 1人）。人が少なく酛卸と踊り返しを1人で行う日は、オレンジの注意の帯が出ます。添の仕込み時の「添のタンク」は、伝辛・超辛・純米辛口は醪タンク、それ以外は T284・T285・酒母タンク から選べます。'],
@@ -9798,11 +9799,16 @@ function sziListHTML(others){
 /* 🛢 A重油 */
 function sziOilHTML(oil){
   const months=[...new Set(oil.rows.map(r=>String(r.date).slice(0,7)))];
-  let h=szoTankHTML()+szoOilHTML(oil)+`<div class="szi-form">
+  /* 2026-10-13 泰広さん指示：点検の入力は「点検」ボタンを押すと開く／点検のアラートが出ているときは法令を表示 */
+  let h=szoLawHTML()+szoTankHTML()+szoOilHTML(oil);
+  const chkAl=szoOilChkAlert();
+  if(!SZO.chkOpen) h+=`<button type="button" class="szi-btn ${chkAl?'':'sub'}" id="szoChkGo" style="width:100%;margin:0 0 4px;font-size:17px;padding:13px">📝 点検（残量・受入を入力）</button>`;
+  else h+=`<div class="szi-form">
     <div class="r"><label>点検日</label><input type="date" id="szOilDate" value="${dtoday()}"></div>
     <div class="r"><input type="text" inputmode="decimal" class="big" id="szOilQty" placeholder="残量" aria-label="残量L"><span class="u">L</span></div>
     <div class="szi-btns"><button type="button" class="szi-btn" id="szOilChk" disabled>点検を記録</button><button type="button" class="szi-btn sub" id="szOilRec" disabled>受入を記録</button></div>
-    <div class="szi-msg" id="szOilMsg"></div></div>`;
+    <div class="szi-msg" id="szOilMsg"></div>
+    <button type="button" class="szi-btn sub" id="szoChkNo" style="width:100%;margin-top:8px">閉じる</button></div>`;
   if(oil.rate) h+=`<p style="font-size:13px;margin:8px 2px 0">最近の使い方：<b>1日あたり 約${sziF(oil.rate,0)}L</b>${oil.left!==null?`／今の見込み ${sziF(oil.est,0)}L → <b style="color:${oil.left<7?'#b23b3b':oil.left<14?'#c9821b':'inherit'}">あと約${Math.floor(oil.left)}日</b>`:''}</p>`;
   /* 2026-10-12 泰広さん指示：点検と受入を同じ表に（日付の新しい順。同じ日は 点検 を上に） */
   h+=`<div class="szi-h">点検・受入の記録<small>点検は週1回・使用は前回の点検との差</small></div>`;
@@ -10036,6 +10042,14 @@ document.addEventListener('click', e=>{ const b=e.target.closest && e.target.clo
 async function szoSave(item){ szoKeep(await szoApi({action:'save', item})); SZO.err=''; }
 
 /* ---- 画面：A重油の発注の箱 ---- */
+function szoLawHTML(){
+  const c=szoOilChkAlert(), k=szoTankInfo();
+  if(!c && !k.alert) return '';
+  let h=`<div class="szo-law"><div class="szo-t">📖 法令（消防法）</div>`;
+  if(c) h+=`<p><b>在庫の点検は1週間に1回以上</b>：地下タンクに貯蔵する危険物（A重油）は、漏れを早く見つけるために在庫を管理し、<b>1週間に1回以上</b>貯蔵量を確かめて記録します（受入・消費した日はその都度記録。精度は貯蔵量の1/100以上）。これは下の「3年に1回の点検」でよいための条件の一つです。</p>`;
+  if(k.alert) h+=`<p><b>地下タンクの定期点検（漏れの点検）</b>：危険物の規制に関する規則 第62条の5の2。原則<b>1年に1回</b>、漏れを1週間に1回以上確かめているなどの条件を満たすと<b>3年に1回</b>。点検の記録は保存します。</p>`;
+  return h+`<p class="src">危険物の規制に関する規則 第62条の5の2・各消防本部の手引き（三原市・鶴岡市ほか）</p></div>`;
+}
 function szoTankHTML(){
   const k=szoTankInfo(), ed=SZO.tankEdit;
   let h=`<div class="szo-box ${k.alert?'ng':''}"><div class="szo-t">🛢 地下タンクの定期点検<small>消防法・3年に1回（漏れの点検）</small></div>
@@ -10049,20 +10063,23 @@ function szoTankHTML(){
   return h+`</div>`;
 }
 function szoOilHTML(oil){
+  /* 2026-10-13 泰広さん指示：文字が多すぎるので短く。減り方の説明は「計算のもと」の中へ */
   const f=szoOilFc(oil), al=szoOilAlert(), pend=szoOilPending(), today=dtoday();
-  let h=`<div class="szo-box ${al?'ng':''}"><div class="szo-t">📦 発注<small>${sziF(SZO_OIL_MIN,0)}Lを切るころに ${sziF(SZO_OIL_LOT,0)}L 入るように</small></div>`;
+  let h=`<div class="szo-box ${al?'ng':''}"><div class="szo-t">📦 発注<small>${sziF(SZO_OIL_MIN,0)}Lを切る前に ${sziF(SZO_OIL_LOT,0)}L</small></div>`;
   if(SZO.err) h+=`<div class="szi-msg ng">${esc(SZO.err)}</div>`;
-  if(pend.length) h+=pend.map(p=>`<div class="szo-pend"><b>📅 ${rcMD(p.plan)} 入荷予定 ${szoQ(p.qty)}</b>（${esc(p.vendor||'')}・発注 ${p.date?rcMD(p.date):'—'}）
+  if(pend.length) h+=pend.map(p=>`<div class="szo-pend"><b>📅 ${rcMD(p.plan)} 入荷予定 ${szoQ(p.qty)}</b>
       <div class="szi-btns" style="margin-top:6px"><button type="button" class="szi-btn" data-szoin="${esc(p.id)}">入荷を記録</button><button type="button" class="szi-btn sub" data-szoed="${esc(p.id)}">日付を直す</button><button type="button" class="szi-btn sub" data-szocx="${esc(p.id)}">取り消す</button></div></div>`).join('');
-  if(!oil.last || !f) h+=`<p class="szo-p">点検（残量）が2回以上たまると、減り方から発注の時期を計算します。</p>`;
+  if(!oil.last || !f) h+=`<p class="szo-s">点検が2回以上たまると発注の時期を出します</p>`;
   else {
     const M=f.M;
-    h+=`<p class="szo-p">今の見込み <b>約${sziF(f.est,0)}L</b>${f.cross?`　→ <b class="${al?'r':''}">${rcMD(f.cross)}</b> に ${sziF(SZO_OIL_MIN,0)}L を切る見込み<br>発注目安 <b class="${al?'r':''}">${f.order<=today?'今すぐ':rcMD(f.order)}</b>（入荷まで${SZO_OIL_LEAD}日として）`:`　→ この先の予定では ${sziF(SZO_OIL_MIN,0)}L を切りません`}</p>
-      <p class="szo-s">減り方：${M.how==='day'?`1日 約${sziF(M.b,0)}L（直近 ${rcMD(M.recent.from)}〜${rcMD(M.recent.to)} の${M.recent.days}日の平均。蒸米の量で分けて計算するには、点検がもう少し必要です）`
-        :`蒸米1tあたり 約${sziF(M.a,0)}L ＋ 1日 約${sziF(M.b,0)}L（点検${M.n}区間${M.how==='fit'?'から計算':'：蒸米の無い区間で1日分、残りを蒸米で'}）${f.steamAhead?'。この先は洗米予定表の蒸米kgで計算':'。洗米予定表にこの先の蒸米が無いので、1日の分だけで計算'}`}</p>
-      <details class="szo-why"><summary>計算のもと</summary><table class="szi-t"><tr><th>点検の区間</th><th>日数</th><th>蒸米t</th><th>使用L</th></tr>
+    h+=`<p class="szo-p">${f.cross?`発注目安 <b class="${al?'r':''}">${f.order<=today?'今すぐ':rcMD(f.order)}</b>　<small style="color:var(--sub)">${rcMD(f.cross)}に${sziF(SZO_OIL_MIN,0)}L切る見込み</small>`:`しばらく発注は不要`}</p>
+      <details class="szo-why"><summary>計算のもと</summary>
+        <p class="szo-s">今の見込み 約${sziF(f.est,0)}L（最後の点検 ${rcMD(oil.last.date)} ${sziF(oil.last.qty,0)}L ＋ その後の受入 − 使用の見込み）。入荷まで${SZO_OIL_LEAD}日として発注目安を出しています。</p>
+        <p class="szo-s">減り方：${M.how==='day'?`1日 約${sziF(M.b,0)}L（直近 ${rcMD(M.recent.from)}〜${rcMD(M.recent.to)} の${M.recent.days}日の平均。点検がたまると蒸米の量で計算します）`
+          :`蒸米1tあたり 約${sziF(M.a,0)}L ＋ 1日 約${sziF(M.b,0)}L（点検${M.n}区間）${f.steamAhead?'。この先は洗米予定表の蒸米kgで計算':''}`}</p>
+        <table class="szi-t"><tr><th>点検の区間</th><th>日数</th><th>蒸米t</th><th>使用L</th></tr>
         ${M.iv.slice().reverse().map(x=>`<tr><td>${rcMD(x.from)}〜${rcMD(x.to)}</td><td>${x.days}</td><td>${sziF(x.t,1)}</td><td>${sziF(x.u,0)}</td></tr>`).join('')}</table>
-        <p class="szo-s">今の見込み＝最後の点検 ${rcMD(oil.last.date)} ${sziF(oil.last.qty,0)}L ＋ その後の受入 − その後の使用の見込み</p></details>`;
+        <p class="szo-s">「発注した」で入荷予定日が部署カレンダー（ホームの予定）に入ります。</p></details>`;
   }
   const ed=SZO.oilEdit, eo=ed&&ed!=='new'?SZO.items.find(x=>x.id===ed):null;
   if(ed){ const pl=eo?eo.plan:(f&&f.cross&&f.cross>today?f.cross:dadd(today,SZO_OIL_LEAD));
@@ -10070,10 +10087,10 @@ function szoOilHTML(oil){
       <div class="r"><label>入荷予定日</label><input type="date" id="szoOd" value="${esc(pl)}"></div>
       <div class="r"><input type="text" inputmode="decimal" class="big" id="szoOq" value="${esc(eo?eo.qty:SZO_OIL_LOT)}"><span class="u">L</span>
         <input type="text" id="szoOv" value="${esc(eo?eo.vendor:SZO_OIL_VENDOR)}" style="width:7em" aria-label="発注先"></div>
-      <div class="szi-btns"><button type="button" class="szi-btn" id="szoOok">${eo?'直す':'発注した（入荷予定を登録）'}</button><button type="button" class="szi-btn sub" id="szoOno">やめる</button></div>
+      <div class="szi-btns"><button type="button" class="szi-btn" id="szoOok">${eo?'直す':'登録'}</button><button type="button" class="szi-btn sub" id="szoOno">やめる</button></div>
       <div class="szi-msg" id="szoOmsg"></div></div>`; }
-  else h+=`<button type="button" class="szi-btn" id="szoOgo" style="width:100%;margin-top:8px">📦 発注した（入荷予定を登録）</button>`;
-  return h+`<p class="szo-s">登録すると、入荷予定日に部署カレンダーへ「A重油 入荷予定」が入り、ホームの予定に出ます。</p></div>`;
+  else h+=`<button type="button" class="szi-btn ${al?'':'sub'}" id="szoOgo" style="width:100%;margin-top:6px">📦 発注した</button>`;
+  return h+`</div>`;
 }
 /* ---- 画面：添加アルコールの便と発注 ---- */
 function szoAlcHTML(alc){
@@ -10118,6 +10135,8 @@ function szoBind(st, draw){
       zaiKeep(await zaiApi({action:'save', item:{ name:SZI_OIL, kind:'受入', qty:String(p.qty), unit:'L', date:dtoday(), memo:`発注分（${rcMD(p.plan)}入荷予定・${p.vendor||''}）` }}));
       await szoSave(Object.assign({}, p, { kind:'入荷済', plan:dtoday() })); draw(); }
     catch(err){ b.textContent='失敗：'+String(err.message||err).slice(0,30); } });
+  const cg=$('#szoChkGo'); if(cg) cg.onclick=()=>{ SZO.chkOpen=1; draw(); const q=$('#szOilQty'); if(q) q.focus(); };
+  const cn=$('#szoChkNo'); if(cn) cn.onclick=()=>{ SZO.chkOpen=0; draw(); };
   /* 地下タンクの定期点検 */
   const tg=$('#szoTgo'); if(tg) tg.onclick=()=>{ SZO.tankEdit=1; draw(); };
   const tn=$('#szoTno'); if(tn) tn.onclick=()=>{ SZO.tankEdit=0; draw(); };
@@ -10154,6 +10173,7 @@ function szoBind(st, draw){
 .szo-tt .ok{color:#2f7d5d;font-weight:700}.szo-tt .na{color:#b9b29f}
 .szi-t tr.szo-rcv td{background:#eef5ea}.szi-t tr.szo-rcv td:nth-child(2),.szi-t tr.szo-rcv b{color:#2f7d5d}
 .szo-why{margin:6px 2px 0;font-size:12px}.szo-why summary{color:var(--navy);cursor:pointer}.szo-why table{font-size:12.5px;margin-top:4px}
+.szo-law{background:#fff8ec;border:1px solid #ecd3a6;border-left:5px solid #c9821b;border-radius:12px;padding:10px 12px;margin:0 0 12px;font-size:13px;line-height:1.6}.szo-law p{margin:4px 0}.szo-law .src{font-size:11px;color:var(--sub)}
 .szo-tt select{font-size:15px;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff;font-family:inherit}
 `; document.head.appendChild(s); })();
 /* ログインのあと裏で 発注と在庫 を読み、ホームの帯・資材アイコンの札を付け直す */
