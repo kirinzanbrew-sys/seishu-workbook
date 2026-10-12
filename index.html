@@ -1621,7 +1621,7 @@ function libRefresh(){
   })();
   return LIB_LOADING;
 }
-const libItems = ()=> (LIB && LIB.items) || [];
+const libItems = ()=> ((LIB && LIB.items) || []).filter(e=>e&&e.kind!=='配合表');   // 2026-10-12 配合表（🧾）の版はライブラリの一覧に出さない
 function libCf(c){ return c==='複数出典'?'c2':c==='単一出典'?'c1':'c0'; }
 function libArr(v){ return Array.isArray(v)?v:(v?[v]:[]); }
 
@@ -9115,6 +9115,9 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-12-6','🧾','配合表','🧫酒母・🍶仕込みの上のアイコンに「🧾 配合表」を足しました。記号ごとの仕込み配合（酒母・初添・仲添・留添・追水・四段の 総米・掛米・麹米・汲水・酵素剤・アルコール）が見られます。右上に「◯月◯日改定」。配合が変わると、前回から変わった数字が黄色になります（押すと前の値）。'],
+  ['2026-10-12-5','🍶','仕込み','仕込みの「📋 表」で、マスにそのまま入力できるようにしました（Be/度・alc・酸・ｱﾐﾉ・追水・品温AM・PM。留の日は品温AMだけ）。入れたマスは黄色の枠、下の「保存」でまとめて裏で保存します。左の順号を押すと今までどおり1本の画面です。'],
+  ['2026-10-12-4','🧰','資材','A重油と添加アルコールの「発注」を足しました。添加アルコールは入荷（例年 10/27ごろ・12/24ごろ・1月・3月）の1か月前から、A重油は点検の残量と洗米予定表の蒸米の量から減り方を計算して3,000Lを切る前に、ホームの予定の枠に赤い帯と資材アイコンの札が出ます。資材 › A重油／アルコール で「発注した」を押すと消え、入荷予定日が部署カレンダー（ホームの予定）に入ります。入荷したら「入荷を記録」で在庫にも入ります。'],
   ['2026-10-12-3','O₂','酸素濃度測定','酒母の酸素濃度測定でも、測定日時を入れる・記録表の「修正」で直す ができるようにしました。酒母（育成中の酒母がある日）・仕込み（添・仲・留の日）も、麹と同じく測っていないとホームのアイコンに赤い帯「O₂未測定」（9時から）、画面の上の青丸O₂が赤く点滅します。'],
   ['2026-10-12-2','🍚','麹','配置図の麹（1号室・2号室）を押すと、その麹の詳細（日程・種麹・吸水・場所・品温計・温度グラフ・各工程の時刻と品温）が下から出ます。「記録を開く」でその工程の入力画面へ。'],
   ['2026-10-12-1','O₂','酸素濃度測定','🍶仕込みの上のアイコンに「O₂ 酸素濃度測定」を足しました（記録は酸素濃度測定記録の「仕込み」シートへ）。麹・仕込みの酸素濃度測定で、測定日時を入れられるようにしました（「測定日時」を押して日付・時刻を選ぶ。「今にする」で戻せます）。記録表の「修正」で、前の日の分も日時・担当者・酸素濃度を直せます。'],
@@ -9577,6 +9580,7 @@ function rzBind(render){
    ・添加アルコール：資材名「アルコール(40%)」、在庫も 40%換算L（2026-10-09 泰広さん決定）。入荷は 度数×L を入れると 40%換算に直して記録
    ・A重油：同じ表「資材在庫」に 資材名「A重油」、区分「点検」（その日の残量L）／「受入」（入ったL）。週1回の点検。表で管理し A4 で印刷
    ・種麹：麹の「種麹の仕入・在庫」と同じ（tane_get＝麹管理R8BY 種麹集計）
+   ・2026-10-12 発注（A重油・添加アルコール）：下の「📦 資材の発注」。表「資材発注」・入荷予定日に部署カレンダーへ
    控え：seishu-workbook_github\_src_shizai.js　差し込み：_資材とiフォルダを足す.py（<!-- shizai --> ブロック、</body> の直前） */
 const SZI_ALC='アルコール(40%)', SZI_OIL='A重油';
 const SZI={ tab: lsGet('szi.tab','list') };
@@ -9610,11 +9614,15 @@ function sziOil(){
   let est=null, left=null;
   if(last){ const ds=sziDays(last.date)||0, after=rec.filter(x=>x.date>last.date).reduce((a,x)=>a+(Number(x.qty)||0),0);
     est=Math.max(0, last.qty+after-(rate?rate*ds:0)); if(rate>0) left=est/rate; }
-  return { rows:rows.slice().reverse(), rec, last, rate, est, left, since:last?sziDays(last.date):null, overdue:!last||sziDays(last.date)>=7 };
+  const o={ rows:rows.slice().reverse(), rec, last, rate, est, left, since:last?sziDays(last.date):null, overdue:!last||sziDays(last.date)>=7 };
+  /* 2026-10-12：蒸米の予定から減り方を出せるときは、今の見込み・あと何日 をそちらで（📦 資材の発注 szoOilFc） */
+  try{ if(typeof szoOilFc==='function'){ const f=szoOilFc(o); if(f){ o.est=f.est; o.left=f.left; } } }catch(e){}
+  return o;
 }
 /* ホームの資材アイコンの赤い札（不足の数／重油の点検が7日以上あいた） */
 function sziHomeTag(){
   try{
+    const og=typeof szoTag==='function'?szoTag():''; if(og) return og;   /* 2026-10-12：発注のアラートを先に */
     const st=RC.state||lsGet('rec.state',null); let n=0;
     if(st&&st.shizai) n=sziRows(st).filter(r=>r.name!==SZI_OIL && r.has && sziShort(r)).length;
     const t=(RC.tane&&RC.tane.list)||[]; n+=t.filter(x=>Number(x.diff)<0).length;
@@ -9731,7 +9739,8 @@ async function sziScreen(tab){
   await Promise.all([
     recState(false).then(s=>{ if(s&&s.master) st=s; }).catch(()=>{}),
     zaiApi({action:'list'}).then(j=>{ zaiKeep(j); ZAI.err=''; }).catch(e=>{ ZAI.err=String(e.message||e); }),
-    recApi({action:'tane_get'},40000).then(r=>{ if(r&&r.ok) RC.tane=r; }).catch(()=>{})
+    recApi({action:'tane_get'},40000).then(r=>{ if(r&&r.ok) RC.tane=r; }).catch(()=>{}),
+    szoLoad()   /* 2026-10-12 発注（表「資材発注」） */
   ]);
   if(nav[nav.length-1]!==me) return;
   if(!st||!st.master){ rcFail(); return; }
@@ -9744,22 +9753,26 @@ function sziHTML(st){
   const tane=(RC.tane&&RC.tane.list)||[], taneNg=tane.filter(x=>Number(x.diff)<0);
   const aS=sziShort(alc), oNg=oil.left!==null&&oil.left<7, oWn=oil.overdue||(oil.left!==null&&oil.left<14);
   const otherNg=others.filter(r=>r.has&&sziShort(r)).length;
+  /* 2026-10-12 発注：アラート中は赤枠、発注済なら入荷予定日 */
+  const oAl=szoOilAlert(), oPd=szoOilPending().filter(p=>p.plan>=dtoday())[0], aAl=szoAlcAlerts()[0], aNx=szoAlcSlots().find(x=>x.ordered&&!x.done&&x.plan>=dtoday());
+  const oOrd=oAl?`<span class="s" style="color:#b23b3b;font-weight:700">発注 ${rcMD(oAl.order)}まで</span>`:oPd?`<span class="s">📅 ${rcMD(oPd.plan)} 入荷予定</span>`:'';
+  const aOrd=aAl?`<span class="s" style="color:#b23b3b;font-weight:700">発注（${rcMD(aAl.plan)}便）</span>`:aNx?`<span class="s">📅 ${rcMD(aNx.plan)} 入荷予定</span>`:'';
   /* 上の3つの箱 */
   let h=ZAI.err?`<div class="tl-warn" style="margin-top:10px">${esc(ZAI.err)}</div>`:'';
   h+=`<div class="szi-kpi">
-    <button type="button" data-szt="oil" class="${SZI.tab==='oil'?'on ':''}${oNg?'ng':oWn?'wn':''}"><span class="e">🛢</span><b>A重油</b>
+    <button type="button" data-szt="oil" class="${SZI.tab==='oil'?'on ':''}${oNg||oAl?'ng':oWn?'wn':''}"><span class="e">🛢</span><b>A重油</b>
       ${oil.last?`<span class="v">${sziF(oil.est,0)}L</span><span class="s">点検 ${oil.since===0?'今日':oil.since+'日前'}${oil.left!==null?`<br>あと約${Math.floor(oil.left)}日`:''}</span>`
-               :`<span class="v" style="font-size:14px">未点検</span><span class="s">週1回 残量を入力</span>`}</button>
-    <button type="button" data-szt="alc" class="${SZI.tab==='alc'?'on ':''}${aS?'ng':''}"><span class="e">🍶</span><b>添加アルコール</b>
+               :`<span class="v" style="font-size:14px">未点検</span><span class="s">週1回 残量を入力</span>`}${oOrd}</button>
+    <button type="button" data-szt="alc" class="${SZI.tab==='alc'?'on ':''}${aS||aAl?'ng':''}"><span class="e">🍶</span><b>添加アルコール</b>
       ${!alc.has?`<span class="v" style="font-size:14px">在庫未入力</span><span class="s">今後 ${sziF(alc.need,0)}L</span>`
         :aS?`<span class="v">${rcMD(aS.date)}</span><span class="s">に不足<br>${sziF(aS.lack,0)}L（40%）</span>`
-        :`<span class="v ok">足りる</span><span class="s">在庫 ${sziF(alc.stock,0)}L</span>`}</button>
+        :`<span class="v ok">足りる</span><span class="s">在庫 ${sziF(alc.stock,0)}L</span>`}${aOrd}</button>
     <button type="button" data-szt="tane" class="${SZI.tab==='tane'?'on ':''}${taneNg.length?'ng':''}"><span class="e">🧫</span><b>種麹</b>
       ${!tane.length?`<span class="v" style="font-size:14px">—</span><span class="s">読み込み中</span>`
         :taneNg.length?`<span class="v">不足 ${taneNg.length}</span><span class="s">${esc(taneNg.map(x=>x.name).join('・'))}</span>`
         :`<span class="v ok">足りる</span><span class="s">${tane.length}種</span>`}</button>
   </div>`;
-  const T=[['list','酵素剤・他',otherNg],['oil','A重油',oNg||oil.overdue&&oil.last],['alc','アルコール',!!aS],['tane','種麹',taneNg.length]];
+  const T=[['list','酵素剤・他',otherNg],['oil','A重油',oNg||oil.overdue&&oil.last||!!oAl],['alc','アルコール',!!aS||!!aAl],['tane','種麹',taneNg.length]];
   h+=`<div class="szi-tabs">${T.map(t=>`<button type="button" data-szt="${t[0]}" class="${SZI.tab===t[0]?'on':''}">${t[1]}${t[2]?'<span class="d"></span>':''}</button>`).join('')}</div>`;
   if(SZI.tab==='oil') h+=sziOilHTML(oil);
   else if(SZI.tab==='alc') h+=sziAlcHTML(alc, st);
@@ -9779,7 +9792,7 @@ function sziListHTML(others){
 /* 🛢 A重油 */
 function sziOilHTML(oil){
   const months=[...new Set(oil.rows.map(r=>String(r.date).slice(0,7)))];
-  let h=`<div class="szi-form">
+  let h=szoOilHTML(oil)+`<div class="szi-form">
     <div class="r"><label>点検日</label><input type="date" id="szOilDate" value="${dtoday()}"></div>
     <div class="r"><input type="text" inputmode="decimal" class="big" id="szOilQty" placeholder="残量" aria-label="残量L"><span class="u">L</span></div>
     <div class="szi-btns"><button type="button" class="szi-btn" id="szOilChk" disabled>点検を記録</button><button type="button" class="szi-btn sub" id="szOilRec" disabled>受入を記録</button></div>
@@ -9816,8 +9829,9 @@ function sziAlcHTML(alc, st){
   const fut=alc.plan.filter(p=>!p.date||p.date>=today).sort((a,b)=>String(a.date||'9').localeCompare(String(b.date||'9'))||(+a.no)-(+b.no));
   let h='';
   if(!alc.has) h+=`<div class="szi-alert"><b>在庫がまだ入っていません。</b>下で「棚卸（今ある量）」か「入荷」を入れると、添加予定に間に合うかを判定します。</div>`;
-  else if(s) h+=`<div class="szi-alert"><b>${rcMD(s.date)}（${esc(String(s.no))}号の添加）で足りなくなります。</b><br>在庫 ${sziF(alc.stock,0)}L に対し、これからの添加予定 ${sziF(alc.need,0)}L（40%換算）。不足 ${sziF(Math.max(0,alc.need-alc.stock),0)}L。発注は納入の約2か月前。</div>`;
+  else if(s) h+=`<div class="szi-alert"><b>${rcMD(s.date)}（${esc(String(s.no))}号の添加）で足りなくなります。</b><br>在庫 ${sziF(alc.stock,0)}L に対し、これからの添加予定 ${sziF(alc.need,0)}L（40%換算）。不足 ${sziF(Math.max(0,alc.need-alc.stock),0)}L。発注は入荷の約1か月前。</div>`;
   else h+=`<div class="szi-good">在庫 ${sziF(alc.stock,0)}L で、これからの添加予定 ${sziF(alc.need,0)}L（40%換算）に<b>間に合います</b>（残り ${sziF(alc.stock-alc.need,0)}L）。</div>`;
+  h+=szoAlcHTML(alc);   /* 2026-10-12 入荷の便と発注 */
   const kind=SZI.alcKind||'入荷';
   h+=`<div class="szi-form">
     <div class="szi-btns" style="margin:0 0 8px">${['入荷','棚卸'].map(k=>`<button type="button" class="szi-btn ${kind===k?'':'sub'}" data-alck="${k}">${k==='棚卸'?'棚卸（今ある量）':'入荷'}</button>`).join('')}</div>
@@ -9853,15 +9867,18 @@ function sziBind(st, draw){
   const save=async(item, msgEl, btns)=>{
     btns.forEach(x=>x.disabled=true); msgEl.className='szi-msg'; msgEl.textContent='送っています…';
     try{ zaiKeep(await zaiApi({action:'save', item})); ZAI.err=''; draw();
-      const m=document.getElementById(msgEl.id); if(m){ m.className='szi-msg ok'; m.textContent=`${item.name} ${item.kind} ${sziF(item.qty,1)}${item.unit}（${rcMD(item.date)}）を記録しました`; } }
-    catch(err){ msgEl.className='szi-msg ng'; msgEl.textContent=String(err.message||err); btns.forEach(x=>x.disabled=false); }
+      const m=document.getElementById(msgEl.id); if(m){ m.className='szi-msg ok'; m.textContent=`${item.name} ${item.kind} ${sziF(item.qty,1)}${item.unit}（${rcMD(item.date)}）を記録しました`; } return true; }
+    catch(err){ msgEl.className='szi-msg ng'; msgEl.textContent=String(err.message||err); btns.forEach(x=>x.disabled=false); return false; }
   };
   /* A重油 */
   const oq=$('#szOilQty');
   if(oq){ const bc=$('#szOilChk'), br=$('#szOilRec'), msg=$('#szOilMsg');
     oq.oninput=()=>{ const v=pnum(oq.value); bc.disabled=br.disabled=!(v!==null && v>=0); };
     oq.onkeydown=e=>{ if(e.key==='Enter' && !bc.disabled) bc.click(); };
-    const go_=kind=>{ const v=pnum(oq.value); if(v===null) return; save({ name:SZI_OIL, kind, qty:String(v), unit:'L', date:$('#szOilDate').value||dtoday(), memo:'' }, msg, [bc,br]); };
+    const go_=kind=>{ const v=pnum(oq.value); if(v===null) return; const dt=$('#szOilDate').value||dtoday();
+      /* 2026-10-12：受入を入れたとき、前後7日に入荷予定の発注があれば「入荷済」にする */
+      const p=kind==='受入'?szoOilPending().find(x=>x.plan>=dadd(dt,-7)&&x.plan<=dadd(dt,7)):null;
+      save({ name:SZI_OIL, kind, qty:String(v), unit:'L', date:dt, memo:p?`発注分（${rcMD(p.plan)}入荷予定・${p.vendor||''}）`:'' }, msg, [bc,br]).then(ok=>{ if(ok&&p) szoSave(Object.assign({},p,{kind:'入荷済',plan:dt})).then(draw).catch(()=>{}); }); };
     bc.onclick=()=>go_('点検'); br.onclick=()=>go_('受入');
     $('#szOilPrint').onclick=()=>sziOilPrint($('#szOilMon').value); }
   /* 添加アルコール */
@@ -9872,11 +9889,219 @@ function sziBind(st, draw){
     app.querySelectorAll('[data-alck]').forEach(b=>b.onclick=()=>{ SZI.alcKind=b.dataset.alck; draw(); });
     ok.onclick=()=>{ const v=conv(); if(v===null) return; save({ name:SZI_ALC, kind:SZI.alcKind||'入荷', qty:String(v), unit:'L', date:$('#szAlcDate').value||dtoday(), memo:`${pnum(aL.value)}L・${pnum(aD.value)}度` }, msg, [ok]); }; }
   const tg=$('#szTaneGo'); if(tg) tg.onclick=()=>go(taneScreen);
+  szoBind(st, draw);   /* 2026-10-12 発注 */
 }
 /* 仕込み › 資材の在庫 からもこの画面へ */
 zaiScreen=function(){ return sziScreen('list'); };
 /* ホームの赤い札を、データが届いたあとに付け直す */
 setTimeout(()=>{ try{ const b=document.getElementById('bShizai'); if(b && !b.querySelector('.tg')){ const t=sziHomeTag(); if(t) b.insertAdjacentHTML('beforeend',`<span class="tg">${t}</span>`); } }catch(e){} }, 4000);
+
+/* ================= 📦 資材の発注（A重油・添加アルコール）2026-10-12 泰広さん指示 =================
+   ・添加アルコール：入荷は例年 10/27ごろ（メルシャン）・12/24ごろ（明利酒類）・1月・3月（メルシャン）。入荷の1か月前から「発注」のアラート
+     （ホームの本日の予定の枠に赤い帯・資材アイコンの札）。発注済にすると消える。便の日付・発注先はアルコールのタブで直せる
+   ・A重油：3,000Lを切るころに6,000L入るように発注。週1回の点検（残量）と洗米予定表の蒸米kg（洗米の翌日に蒸す）から
+     「使用L ＝ 蒸米1tあたり a L × 蒸米t ＋ 1日 b L × 日数」を点検の区間ごとに当てはめ、この先の蒸米予定で残量を先読みして
+     3,000Lを切る日 −3日 を発注目安にする（目安の2日前からアラート）
+   ・発注したら「発注した」→ 表「資材発注」に1行（Apps Script「製造ツール 共有データ」）→ 入荷予定日に部署カレンダー「生産本部製造担当」へ
+     終日予定「A重油 入荷予定 6,000L（川崎商会）」（本日の予定・明日の予定に出る）。入荷したら「入荷を記録」で在庫にも入る */
+const SZO={ items: lsGet('szo.items',[]), err:'', at:0 };
+const SZO_A='アルコール';
+const SZO_OIL_MIN=3000, SZO_OIL_LOT=6000, SZO_OIL_LEAD=3, SZO_OIL_PRE=2, SZO_OIL_VENDOR='川崎商会';
+/* 添加アルコールの入荷の便（月-日・発注先）。日付は例年の目安：アプリで直すと「資材発注」に残り、そちらが優先 */
+const SZO_ALC_SLOTS=[ {md:'10-27',v:'メルシャン'}, {md:'12-24',v:'明利酒類'}, {md:'01-15',v:'メルシャン',tent:1}, {md:'03-15',v:'メルシャン',tent:1} ];
+const SZO_ALC_VENDORS=['メルシャン','明利酒類'];
+/* すでに発注済みの便（保管庫 資材発注/原料用アルコール_発注と受入.md の履歴） */
+const SZO_PRE={ '2026-10-27':{ kind:'発注済', date:'2026-08-31', qty:'16000', unit:'L', deg:'95', vendor:'メルシャン', memo:'ローリー1台・8:00納入（FAX発注済）', pre:1 } };
+async function szoApi(body){
+  if(typeof SHARED_URL==='undefined' || !SHARED_URL) throw new Error('記録先の設定がまだです');
+  body.table='資材発注'; body.who={ id:String(ST.id||''), name:String(ST.name||'') };
+  const r=await fetch(SHARED_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow'});
+  const j=await r.json();
+  if(!j||!j.ok) throw new Error((j&&/その表はありません/.test(j.error||''))?'サーバー側の更新（Apps Script「製造ツール 共有データ」の新バージョン）がまだです':((j&&j.error)||'受け取れませんでした'));
+  return j;
+}
+function szoKeep(j){ SZO.items=(j.items||[]); SZO.at=Date.now(); lsSet('szo.items', SZO.items); }
+async function szoLoad(){ try{ szoKeep(await szoApi({action:'list'})); SZO.err=''; }catch(e){ SZO.err=String(e.message||e); } }
+function szoMon(s,n){ const d=dparse(s), day=d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n); d.setDate(Math.min(day,new Date(d.getFullYear(),d.getMonth()+1,0).getDate())); return dstr(d); }
+const szoQ=(v,u)=>{ const n=Number(v); return v===''||v==null||isNaN(n)?'':n.toLocaleString('ja-JP')+(u||'L'); };
+
+/* ---- 添加アルコールの便 ---- */
+function szoAlcSlots(){
+  const t=dtoday(), y=+t.slice(0,4), m=+t.slice(5,7), by=m>=7?y:y-1, out=[];
+  [by,by+1].forEach(b=>SZO_ALC_SLOTS.forEach(s=>{ const yy=+s.md.slice(0,2)>=7?b:b+1, key=`${yy}-${s.md}`;
+    const rec=SZO.items.find(x=>x.name===SZO_A && x.slot===key)||null, pre=!rec&&SZO_PRE[key]?Object.assign({slot:key},SZO_PRE[key]):null, r=rec||pre;
+    const plan=(r&&r.plan)||key, kind=r?r.kind:'';
+    out.push({ key, plan, vendor:(r&&r.vendor)||s.v, tent:!!s.tent&&!(r&&r.plan), rec, pre, r, kind, ordered:kind==='発注済'||kind==='入荷済', done:kind==='入荷済', alertFrom:szoMon(plan,-1) }); }));
+  out.sort((a,b)=>a.plan.localeCompare(b.plan));
+  /* 次の便までに使う添加量（40%換算） */
+  out.forEach((s,i)=>{ s.next=out[i+1]?out[i+1].plan:null; });
+  return out;
+}
+function szoAlcAlerts(){ const t=dtoday(); return szoAlcSlots().filter(s=>!s.ordered && t>=s.alertFrom && t<=s.plan); }
+
+/* ---- A重油：蒸米kg（洗米の翌日に蒸す）と使用量のモデル ---- */
+function szoSteam(){
+  const S=MFG&&MFG.senmai, m={}; if(!S||!S.days) return m;
+  Object.keys(S.days).forEach(d=>{ const e=(S.days[d]||{}).e||[]; const kg=e.reduce((a,x)=>a+(Number(x[6])||0),0); if(kg>0){ const s=dadd(d,1); m[s]=(m[s]||0)+kg; } });
+  return m;
+}
+function szoKg(m,a,b){ let s=0; for(const d in m) if(d>=a && d<b) s+=m[d]; return s; }   /* a の日から b の前日まで（点検は朝・蒸す前と見る） */
+function szoOilModel(rowsDesc){
+  const R=(rowsDesc||[]).slice().reverse(), m=szoSteam(), iv=[];
+  for(let i=1;i<R.length;i++){ const p=R[i-1], c=R[i]; if(c.used===null||c.used<0||!(c.days>0)) continue; iv.push({ days:c.days, t:szoKg(m,p.date,c.date)/1000, u:c.used }); }
+  const L=iv.slice(-8); if(!L.length) return null;
+  let a=null, b=null, how='';
+  if(L.length>=3){ let tt=0,td=0,dd=0,tu=0,du=0; L.forEach(x=>{ tt+=x.t*x.t; td+=x.t*x.days; dd+=x.days*x.days; tu+=x.t*x.u; du+=x.days*x.u; });
+    const det=tt*dd-td*td; if(tt>0 && det>1e-6*tt*dd){ const A=(tu*dd-du*td)/det, B=(tt*du-td*tu)/det; if(A>=0&&B>=0){ a=A; b=B; how='fit'; } } }
+  if(a===null){ const z=L.filter(x=>x.t===0), k=L.filter(x=>x.t>0);
+    b=z.length?z.reduce((s,x)=>s+x.u,0)/z.reduce((s,x)=>s+x.days,0):0;
+    if(k.length){ const T=k.reduce((s,x)=>s+x.t,0); a=Math.max(0,k.reduce((s,x)=>s+x.u-b*x.days,0)/T); }
+    else a=0;
+    how=L.length<3?'few':'ratio'; }
+  return { a, b, n:L.length, how, steam:m };
+}
+/* 今の残量の見込みと、この先の残量（発注済の入荷も足す）。3,000Lを切る日・発注目安 */
+function szoOilFc(oil){
+  const o=oil||sziOil(); if(!o.last) return null;
+  const M=szoOilModel(o.rows); if(!M) return null;
+  const today=dtoday(), use=d=>M.a*(M.steam[d]||0)/1000+M.b;
+  let est=o.last.qty;
+  for(let d=o.last.date; d<today; d=dadd(d,1)) est-=use(d);
+  est+=o.rec.filter(x=>x.date>o.last.date && x.date<=today).reduce((a,x)=>a+(Number(x.qty)||0),0);
+  est=Math.max(0,est);
+  const pend=szoOilPending(), add={}; pend.forEach(p=>{ if(p.plan>=today) add[p.plan]=(add[p.plan]||0)+(Number(p.qty)||0); });
+  let s=est, cross=null, empty=null;
+  for(let i=0;i<240;i++){ const d=dadd(today,i); s+=add[d]||0; s-=use(d); if(!cross&&s<SZO_OIL_MIN) cross=d; if(!empty&&s<=0){ empty=d; break; } }
+  const order=cross?dadd(cross,-SZO_OIL_LEAD):null;
+  const steamAhead=Object.keys(M.steam).some(d=>d>=today);
+  return { M, est, cross, empty, order, left:empty?rcDays(today,empty):null, steamAhead, pend };
+}
+function szoOilPending(){ return SZO.items.filter(x=>x.name===SZI_OIL && x.kind==='発注済').sort((a,b)=>String(a.plan).localeCompare(String(b.plan))); }
+function szoOilAlert(){
+  try{ if(szoOilPending().some(p=>p.plan>=dadd(dtoday(),-3))) return null;
+    const f=szoOilFc(); if(!f||!f.order) return null;
+    return dtoday()>=dadd(f.order,-SZO_OIL_PRE)?f:null; }catch(e){ return null; }
+}
+/* ホームの本日の予定の枠に出す帯 */
+function szoBandHTML(){
+  let h='';
+  try{
+    szoAlcAlerts().forEach(s=>{ h+=`<button type="button" class="dp-al" data-szoal="alc">⚠ 添加アルコール 発注（${rcMD(s.plan)} ${esc(s.vendor)} 入荷分）<small>入荷の1か月前（${rcMD(s.alertFrom)}〜）です。発注したら 資材 › アルコール で「発注した」を押してください</small></button>`; });
+    const f=szoOilAlert();
+    if(f) h+=`<button type="button" class="dp-al" data-szoal="oil">⚠ A重油 発注（${dtoday()>=f.cross?'3,000Lを切っています':rcMD(f.cross)+'に3,000Lを切る見込み'}）<small>今 約${sziF(f.est,0)}L。発注目安 ${rcMD(f.order)}・${sziF(SZO_OIL_LOT,0)}L。発注したら 資材 › A重油 で「発注した」を押してください</small></button>`;
+  }catch(e){}
+  return h;
+}
+function szoTag(){ const a=szoAlcAlerts().length, o=szoOilAlert()?1:0; return a&&o?'発注 '+(a+o):a?'アルコール発注':o?'重油発注':''; }
+if(typeof dpBunHTML==='function'){ const _dpb=dpBunHTML; dpBunHTML=function(){ return szoBandHTML()+_dpb(); }; }
+document.addEventListener('click', e=>{ const b=e.target.closest && e.target.closest('[data-szoal]'); if(!b) return; const t=b.dataset.szoal; go(()=>sziScreen(t)); });
+async function szoSave(item){ szoKeep(await szoApi({action:'save', item})); SZO.err=''; }
+
+/* ---- 画面：A重油の発注の箱 ---- */
+function szoOilHTML(oil){
+  const f=szoOilFc(oil), al=szoOilAlert(), pend=szoOilPending(), today=dtoday();
+  let h=`<div class="szo-box ${al?'ng':''}"><div class="szo-t">📦 発注<small>${sziF(SZO_OIL_MIN,0)}Lを切るころに ${sziF(SZO_OIL_LOT,0)}L 入るように</small></div>`;
+  if(SZO.err) h+=`<div class="szi-msg ng">${esc(SZO.err)}</div>`;
+  if(pend.length) h+=pend.map(p=>`<div class="szo-pend"><b>📅 ${rcMD(p.plan)} 入荷予定 ${szoQ(p.qty)}</b>（${esc(p.vendor||'')}・発注 ${p.date?rcMD(p.date):'—'}）
+      <div class="szi-btns" style="margin-top:6px"><button type="button" class="szi-btn" data-szoin="${esc(p.id)}">入荷を記録</button><button type="button" class="szi-btn sub" data-szoed="${esc(p.id)}">日付を直す</button><button type="button" class="szi-btn sub" data-szocx="${esc(p.id)}">取り消す</button></div></div>`).join('');
+  if(!oil.last || !f) h+=`<p class="szo-p">点検（残量）が2回以上たまると、減り方から発注の時期を計算します。</p>`;
+  else {
+    const M=f.M;
+    h+=`<p class="szo-p">今の見込み <b>約${sziF(f.est,0)}L</b>${f.cross?`　→ <b class="${al?'r':''}">${rcMD(f.cross)}</b> に ${sziF(SZO_OIL_MIN,0)}L を切る見込み<br>発注目安 <b class="${al?'r':''}">${rcMD(f.order)}</b>（入荷まで${SZO_OIL_LEAD}日として）`:`　→ この先の予定では ${sziF(SZO_OIL_MIN,0)}L を切りません`}</p>
+      <p class="szo-s">減り方：蒸米1tあたり 約${sziF(M.a,0)}L ＋ 1日 約${sziF(M.b,0)}L（点検${M.n}区間${M.how==='fit'?'から計算':M.how==='few'?'・区間が少ないので目安':'・比で計算'}）${f.steamAhead?'。この先は洗米予定表の蒸米kgで計算':'。洗米予定表にこの先の蒸米が無いので、1日の分だけで計算'}</p>`;
+  }
+  const ed=SZO.oilEdit, eo=ed&&ed!=='new'?SZO.items.find(x=>x.id===ed):null;
+  if(ed){ const pl=eo?eo.plan:(f&&f.cross&&f.cross>today?f.cross:dadd(today,SZO_OIL_LEAD));
+    h+=`<div class="szi-form" style="margin-top:8px">
+      <div class="r"><label>入荷予定日</label><input type="date" id="szoOd" value="${esc(pl)}"></div>
+      <div class="r"><input type="text" inputmode="decimal" class="big" id="szoOq" value="${esc(eo?eo.qty:SZO_OIL_LOT)}"><span class="u">L</span>
+        <input type="text" id="szoOv" value="${esc(eo?eo.vendor:SZO_OIL_VENDOR)}" style="width:7em" aria-label="発注先"></div>
+      <div class="szi-btns"><button type="button" class="szi-btn" id="szoOok">${eo?'直す':'発注した（入荷予定を登録）'}</button><button type="button" class="szi-btn sub" id="szoOno">やめる</button></div>
+      <div class="szi-msg" id="szoOmsg"></div></div>`; }
+  else h+=`<button type="button" class="szi-btn" id="szoOgo" style="width:100%;margin-top:8px">📦 発注した（入荷予定を登録）</button>`;
+  return h+`<p class="szo-s">登録すると、入荷予定日に部署カレンダーへ「A重油 入荷予定」が入り、ホームの予定に出ます。</p></div>`;
+}
+/* ---- 画面：添加アルコールの便と発注 ---- */
+function szoAlcHTML(alc){
+  const today=dtoday(), sl=szoAlcSlots().filter(s=>s.plan>=dadd(today,-14)).slice(0,5);
+  const per=(a,b)=>alc.plan.filter(p=>p.date && p.date>=a && (!b||p.date<b)).reduce((s,p)=>s+p.qty,0);
+  let h=`<div class="szo-box ${sl.some(s=>!s.ordered&&today>=s.alertFrom&&today<=s.plan)?'ng':''}"><div class="szo-t">📦 入荷の便と発注<small>入荷の1か月前に発注</small></div>`;
+  if(SZO.err) h+=`<div class="szi-msg ng">${esc(SZO.err)}</div>`;
+  h+=`<table class="szi-t szo-tt"><tr><th>入荷</th><th style="text-align:left">発注先</th><th>次の便までの添加</th><th>発注</th></tr>`;
+  sl.forEach(s=>{ const need=per(s.plan,s.next), al=!s.ordered&&today>=s.alertFrom&&today<=s.plan, past=s.plan<today;
+    const st=s.done?'<span class="ok">入荷済</span>':s.ordered?`<span class="ok">発注済</span><small>${s.r&&s.r.date?rcMD(s.r.date):''}${s.r&&s.r.qty?' '+szoQ(s.r.qty):''}</small>`
+      :al?`<span class="r">発注する</span><small>${rcMD(s.alertFrom)}〜</small>`:past?'<span class="na">—</span>':`<span class="na">未</span><small>${rcMD(s.alertFrom)}から</small>`;
+    h+=`<tr class="ck ${al?'ng':''} ${SZO.alcEdit===s.key?'today':''}" data-szos="${esc(s.key)}"><td>${rcMD(s.plan)}${s.tent?'<small>日付は仮</small>':''}</td><td class="l">${esc(s.vendor)}</td>
+      <td>${need?sziF(need,0)+'L':'—'}<small>${need?'95度で約'+sziF(need*40/95,0)+'L':''}</small></td><td>${st}</td></tr>`;
+    if(SZO.alcEdit===s.key){ const r=s.r||{};
+      h+=`<tr><td colspan="4" class="l" style="background:#fbf8ee"><div class="szi-form" style="border:0;padding:4px 0">
+        <div class="r"><label>入荷日</label><input type="date" id="szoAd" value="${esc(s.plan)}"><select id="szoAv">${[...new Set([...SZO_ALC_VENDORS,s.vendor])].map(v=>`<option ${v===s.vendor?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
+        <div class="r"><input type="text" inputmode="decimal" class="big" id="szoAq" value="${esc(r.qty||'')}" placeholder="数量"><span class="u">L</span>
+          <input type="text" inputmode="decimal" id="szoAg" value="${esc(r.deg||'95')}" style="width:4.2em;text-align:right"><span class="u">度</span></div>
+        <div class="szi-btns" style="flex-wrap:wrap">${s.ordered&&!s.done?`<button type="button" class="szi-btn" data-szoa="in">入荷を記録</button>`:''}
+          ${s.ordered?`<button type="button" class="szi-btn sub" data-szoa="ord">直す</button><button type="button" class="szi-btn sub" data-szoa="cx">発注を取り消す</button>`
+            :`<button type="button" class="szi-btn" data-szoa="ord">発注した</button><button type="button" class="szi-btn sub" data-szoa="date">日付・発注先だけ直す</button>`}
+          <button type="button" class="szi-btn sub" data-szoa="no">閉じる</button></div>
+        <div class="szi-msg" id="szoAmsg">${s.pre?'この便は 8/31 にFAXで発注済み（保管庫の記録）。直すと製造ツールの記録になります。':''}</div></div></td></tr>`; }
+  });
+  h+=`</table><p class="szo-s">行を押すと 発注した・入荷日の変更 ができます。発注すると入荷日に部署カレンダーへ「原料用アルコール 入荷予定」が入ります。「次の便までの添加」は資材予定（40%換算）。</p></div>`;
+  return h;
+}
+function szoBind(st, draw){
+  const msg=(id,t,ok)=>{ const m=document.getElementById(id); if(m){ m.className='szi-msg '+(ok?'ok':'ng'); m.textContent=t; } };
+  const run=async(id,btns,fn)=>{ btns.forEach(b=>b&&(b.disabled=true)); msg(id,'送っています…',true); try{ await fn(); draw(); }catch(err){ msg(id,String(err.message||err)); btns.forEach(b=>b&&(b.disabled=false)); } };
+  /* A重油 */
+  const og=$('#szoOgo'); if(og) og.onclick=()=>{ SZO.oilEdit='new'; draw(); };
+  const on=$('#szoOno'); if(on) on.onclick=()=>{ SZO.oilEdit=null; draw(); };
+  const ok=$('#szoOok'); if(ok) ok.onclick=()=>{ const q=pnum($('#szoOq').value), d=$('#szoOd').value; if(!d||!(q>0)){ msg('szoOmsg','入荷予定日と数量を入れてください'); return; }
+    const eo=SZO.oilEdit!=='new'?SZO.items.find(x=>x.id===SZO.oilEdit):null;
+    run('szoOmsg',[ok],async()=>{ await szoSave(Object.assign({}, eo||{}, { name:SZI_OIL, kind:'発注済', plan:d, date:(eo&&eo.date)||dtoday(), qty:String(q), unit:'L', vendor:$('#szoOv').value.trim(), memo:(eo&&eo.memo)||'' })); SZO.oilEdit=null; }); };
+  app.querySelectorAll('[data-szoed]').forEach(b=>b.onclick=()=>{ SZO.oilEdit=b.dataset.szoed; draw(); });
+  app.querySelectorAll('[data-szocx]').forEach(b=>b.onclick=()=>{ if(b.dataset.s!=='1'){ b.dataset.s='1'; b.textContent='本当に取り消す'; return; }
+    b.disabled=true; szoApi({action:'delete', id:b.dataset.szocx}).then(j=>{ szoKeep(j); draw(); }).catch(err=>{ b.textContent='失敗'; }); });
+  app.querySelectorAll('[data-szoin]').forEach(b=>b.onclick=async()=>{ const p=SZO.items.find(x=>x.id===b.dataset.szoin); if(!p) return; b.disabled=true; b.textContent='送っています…';
+    try{
+      zaiKeep(await zaiApi({action:'save', item:{ name:SZI_OIL, kind:'受入', qty:String(p.qty), unit:'L', date:dtoday(), memo:`発注分（${rcMD(p.plan)}入荷予定・${p.vendor||''}）` }}));
+      await szoSave(Object.assign({}, p, { kind:'入荷済', plan:dtoday() })); draw(); }
+    catch(err){ b.textContent='失敗：'+String(err.message||err).slice(0,30); } });
+  /* 添加アルコール */
+  app.querySelectorAll('[data-szos]').forEach(tr=>tr.onclick=()=>{ SZO.alcEdit=SZO.alcEdit===tr.dataset.szos?null:tr.dataset.szos; draw(); });
+  app.querySelectorAll('[data-szoa]').forEach(b=>b.onclick=()=>{
+    const s=szoAlcSlots().find(x=>x.key===SZO.alcEdit); if(!s) return; const a=b.dataset.szoa, r=s.rec;
+    if(a==='no'){ SZO.alcEdit=null; draw(); return; }
+    const d=$('#szoAd').value||s.plan, v=$('#szoAv').value, q=pnum($('#szoAq').value), g=pnum($('#szoAg').value)||95;
+    const base={ name:SZO_A, slot:s.key, plan:d, vendor:v, unit:'L', deg:String(g) };
+    const btns=[...app.querySelectorAll('[data-szoa]')];
+    if(a==='date') return run('szoAmsg',btns,async()=>{ await szoSave(Object.assign({}, r||{}, base, { kind:(r&&r.kind)||'予定' })); });
+    if(a==='ord') return run('szoAmsg',btns,async()=>{ await szoSave(Object.assign({}, r||{}, base, { kind:'発注済', date:(r&&r.date)||(s.pre&&s.pre.date)||dtoday(), qty:q===null?'':String(q), memo:(r&&r.memo)||(s.pre&&s.pre.memo)||'' })); SZO.alcEdit=null; });
+    if(a==='cx'){ if(b.dataset.s!=='1'){ b.dataset.s='1'; b.textContent='本当に取り消す'; return; }
+      return run('szoAmsg',btns,async()=>{ await szoSave(Object.assign({}, r||{}, base, { kind:'予定', date:'', qty:'' })); }); }
+    if(a==='in'){ if(!(q>0)){ msg('szoAmsg','入荷した数量（L）を入れてください'); return; }
+      return run('szoAmsg',btns,async()=>{ const v40=Math.round(q*g/40*10)/10;
+        zaiKeep(await zaiApi({action:'save', item:{ name:SZI_ALC, kind:'入荷', qty:String(v40), unit:'L', date:dtoday(), memo:`${q}L・${g}度（${v}）` }}));
+        await szoSave(Object.assign({}, r||{}, base, { kind:'入荷済', date:(r&&r.date)||(s.pre&&s.pre.date)||'', qty:String(q), plan:dtoday(), memo:(r&&r.memo)||(s.pre&&s.pre.memo)||'' })); SZO.alcEdit=null; }); }
+  });
+}
+(function(){ const s=document.createElement('style'); s.textContent=`
+.szo-box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 12px;margin:0 0 12px}
+.szo-box.ng{border:2px solid #b23b3b;background:#fff8f7}
+.szo-t{font-weight:800;color:var(--navy);font-size:14px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:0 0 6px}
+.szo-t small{font-weight:400;color:var(--sub);font-size:11px}
+.szo-p{font-size:13.5px;margin:4px 2px;line-height:1.6}
+.szo-p b.r,.szo-tt .r{color:#b23b3b;font-weight:800}
+.szo-s{font-size:11.5px;color:var(--sub);margin:6px 2px 0;line-height:1.5}
+.szo-pend{background:#eef5ea;border:1px solid #cfe3c6;border-radius:10px;padding:8px 10px;margin:0 0 8px;font-size:13.5px}
+.szo-tt td small{display:block}
+.szo-tt .ok{color:#2f7d5d;font-weight:700}.szo-tt .na{color:#b9b29f}
+.szo-tt select{font-size:15px;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff;font-family:inherit}
+`; document.head.appendChild(s); })();
+/* ログインのあと裏で 発注と在庫 を読み、ホームの帯・資材アイコンの札を付け直す */
+setTimeout(()=>{ try{ if(!(ST&&ST.token)) return;
+  Promise.all([szoLoad(), zaiApi({action:'list'}).then(zaiKeep).catch(()=>{})]).then(()=>{
+    if(document.getElementById('dpBox') && typeof dpRedraw==='function') dpRedraw();
+    const b=document.getElementById('bShizai'); if(!b) return; const t=sziHomeTag(); let g=b.querySelector('.tg');
+    if(t){ if(!g) b.insertAdjacentHTML('beforeend',`<span class="tg">${t}</span>`); else g.textContent=t; } else if(g) g.remove(); });
+}catch(e){} }, 3500);
 
 </script>
 <!-- /shizai -->
@@ -10523,5 +10748,253 @@ document.addEventListener('click',e=>{
 },true);
 </script>
 <!-- /kmapinfo -->
+<!-- shkedit -->
+<script>
+/* ================= 🍶 仕込み：表（経過の表）にそのまま入力（2026-10-12） =================
+   泰広さん指示：仕込みの表を表示したときに、そのまま入力できるようにして。
+   ・🍶仕込み の「📋 表」（仕込中・醪中の経過の表）で、留〜きょうの列の Be/度・alc・酸・ｱﾐﾉ・追水・品温AM・品温PM のマスが入力欄になる
+     （留の日は 品温AM だけ。今までの入力画面 moromiInput と同じ決まり。BMD は計算なので入力しない）
+   ・しくみは 🧫酒母の表（2026-10-05）と同じ：入れたマス＝黄色の枠（未保存）→ 下の「保存」でまとめて裏で送る（bunseki_save を 醪×日 ごと）
+     Enter で同じ日の下のマスへ。数字でない＝赤枠（保存させない）、ありえない値＝橙枠（保存のとき確認）
+   ・推奨追水・警告は今までどおり、送れたあと画面の下に赤い知らせで出る（recAfterSave）
+   ・担当者外の確認（🛡）と分析者（共用端末）も 仕込みの表に効かせる
+   ・酒母の表（zennen の KGE）の関数をそのまま使い、未保存の値は酒母とは別に持つ（同じ順号どうしで混ざらないように）
+   ・zennen 側は変更なし。kgBox・kgMoromiRows・kgeSave を外側から包む
+   控え：seishu-workbook_github\_src_shkedit.js（index.html の shkedit の目印の間） */
+const MKE={ dirty:{}, draw:null, sDraw:null, sDirty:null, mode:'' };
+const MKE_KEYS={be:1,alc:1,ta:1,aa:1,oimizu:1,tAM:1,tPM:1};
+const kgFieldsMoromiNow=[['日付',d=>d.date?rcMD(d.date):'','dt'],['Be/度',d=>kgN(d.sm,1),'','be'],['alc',d=>kgN(d.alc,1),'','alc'],['酸',d=>kgN(d.ta,1),'','ta'],['ｱﾐﾉ',d=>kgN(d.aa,1),'','aa'],['追水',d=>kgN(d.oimizu,0),'','oimizu'],['品温AM',d=>kgN(d.tAM,1),'','tAM'],['品温PM',d=>kgN(d.tPM,1),'','tPM'],['BMD',d=>kgN(d.bmd,1)]];
+try{ Object.assign(KGE_RANGE,{tAM:[0,40,'品温AM'],oimizu:[0,3000,'追水']}); }catch(e){}
+/* 醪の行：日々の生の値（_r）と、入力できる日（留〜きょう）を足す */
+(function(){
+  const o=window.kgMoromiRows; if(typeof o!=='function') return;
+  window.kgMoromiRows=function(list, today, T){
+    const rows=o.apply(this, arguments);
+    rows.forEach(r=>{ const b=RC.bun[r.no];
+      (r.days||[]).forEach(d=>{ const D=b&&b.days&&b.days[d.day-1]; if(D) d._r=D; });
+      r.edit=!!(b&&b.days); r.edMax=Math.min(r.today||0, (b&&b.days)?b.days.length:0); r.noAna=1; });
+    MKE.args=[list, today, T];
+    return rows; };
+})();
+/* 表を描くとき：仕込みの経過の表（.kg-home かつ 🍶仕込み）なら入力できる形で描く */
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box, fields, rows, opt, open){
+    const isM = fields===kgFieldsMoromi && box && box.classList && box.classList.contains('kg-home') && !!document.getElementById('kgHd');
+    if(isM){
+      if(MKE.mode!=='m'){ MKE.sDirty=KGE.dirty; KGE.dirty=MKE.dirty; if(KGE.draw!==MKE.draw) MKE.sDraw=KGE.draw; MKE.mode='m'; }
+      box.dataset.mk='1';
+      MKE.draw=()=>{ if(!document.body.contains(box)||!MKE.args) return; window.kgBox(box, kgFieldsMoromi, kgMoromiRows(...MKE.args), opt, open); };
+      KGE.draw=MKE.draw;
+      const r=o.call(this, box, kgFieldsMoromiNow, rows, {...opt, edit:true, note:'マスに直接入力 → 下の「保存」。左の順号を押すと1本の画面'}, open);
+      mkeAfter(box);
+      return r;
+    }
+    if(opt&&opt.edit&&MKE.mode==='m'){ MKE.dirty=KGE.dirty; KGE.dirty=MKE.sDirty||{}; if(KGE.draw===MKE.draw&&MKE.sDraw) KGE.draw=MKE.sDraw; MKE.mode='s'; }
+    return o.apply(this, arguments);
+  };
+})();
+/* 留の日は品温AMだけ（追水・品温PM の入力欄を外す）。見た目は今までの仕込みの表のまま（酒母の表の大きな順号にしない） */
+function mkeAfter(box){
+  const t=box.querySelector('.kg-t'); if(t) t.classList.add('mk');
+  box.querySelectorAll('.kg-i[data-day="1"]').forEach(el=>{ if(el.dataset.k==='tAM') return;
+    const td=el.closest('td'), v=kgN(el.defaultValue, el.dataset.k==='oimizu'?0:1); el.remove();
+    if(td){ td.classList.remove('in'); if(v) td.insertAdjacentHTML('beforeend', `<span>${esc(v)}</span>`); } });
+  if(typeof kgeBar==='function') kgeBar(box);
+}
+/* 保存（仕込みの表）：醪×日 ごとに bunseki_save を裏で送る */
+(function(){
+  const o=window.kgeSave; if(typeof o!=='function') return;
+  window.kgeSave=function(box){ if(box&&box.dataset&&box.dataset.mk) return mkeSave(box); return o.apply(this, arguments); };
+})();
+function mkeSave(box){
+  const ins=[...box.querySelectorAll('.kg-i')].filter(el=>!el.disabled&&kgeChanged(el)&&MKE_KEYS[el.dataset.k]);
+  if(!ins.length){ kgeSay(box,'変わったところがありません'); return; }
+  const lab=el=>el.getAttribute('aria-label')||'';
+  const bad=ins.filter(el=>kgeCheck(el)==='bad');
+  if(bad.length){ kgeSay(box,'数字になっていないマス：'+bad.map(lab).slice(0,4).join('、'),true); bad[0].focus(); return; }
+  const warn=ins.filter(el=>kgeCheck(el)==='warn');
+  if(warn.length && !window.confirm(`ありえない値かもしれません。\n${warn.map(el=>`・${lab(el)}：${el.value}`).slice(0,10).join('\n')}\n\nこのまま保存しますか？`)) return;
+  const G={};
+  ins.forEach(el=>{ const no=el.dataset.no, day=Number(el.dataset.day), k=el.dataset.k;
+    const v=el.value.trim(), val=v===''?'':String(pnum(v));
+    const g=(G[no+'|'+day]=G[no+'|'+day]||{no,day,values:{},els:[]}); g.values[k]=val; g.els.push(el); });
+  const list=Object.values(G);
+  const nm=g=>`仕込み 順号${g.no} ${g.day===1?'留':g.day+'日目'}`;
+  list.forEach(g=>{ const b=RC.bun[g.no], D=b&&b.days&&b.days[g.day-1]; if(D) Object.assign(D,g.values);
+    g.els.forEach(el=>{ delete KGE.dirty[kgeKey(el)]; });
+    recSaveBg({action:'bunseki_save',no:g.no,day:g.day,values:g.values}, nm(g), true); });
+  rcToast(`${list.length}か所 を裏で保存しています。ほかの作業に移ってOKです`);
+  kgeSay(box,`保存を受け付けました（${list.map(nm).join('、')}）。裏で送っています`);
+  if(MKE.draw) MKE.draw();
+}
+/* 担当者外の確認（🛡）と分析者（共用端末）を 仕込みの表にも（guard と同じやり方） */
+(function(){
+  const o=window.moromiHome; if(typeof o!=='function') return;
+  window.moromiHome=function(...a){
+    try{ IG.kind='moromi'; IG.top=nav[nav.length-1]; if(!RC.state) try{ recState(false); }catch(e){} IA_ON=true; }catch(e){}
+    const top=nav[nav.length-1]; const r=o.apply(this,a);
+    const after=()=>{ try{ if(nav[nav.length-1]===top){ igBanner(); IA_ON=true; iaBar(); } }catch(e){} };
+    if(r&&typeof r.then==='function') r.then(after); else after();
+    return r; };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-t.ed.mk .n b{display:inline;font-size:13px;line-height:inherit;font-weight:700}
+.kg-t.ed.mk .f{font-size:11px;letter-spacing:0}`; document.head.appendChild(s); })();
+</script>
+<!-- /shkedit -->
+<!-- haigo -->
+<script>
+/* ================= 🧾 配合表（🧫酒母・🍶仕込みの上段アイコン）2026-10-12 =================
+   泰広さん指示：酒母と仕込みの上部に「配合表」アイコンを追加。仕込み配合が参照できるように。
+   配合表を変えるときがあるので、何月何日改定と小さな字でいいので確認できるように。
+   ・もと：会社PCの Desktop\AI参照データ\造りex\仕込み配合 にある、更新日時がいちばん新しいファイル（造りex「醪仕込製造方法」の書き出し）
+     → 会社PCの 製造ツール同期.ps1 がファイルの変化を見つけてサーバーへ送る（酵母・麹ライブラリ mfg_lib_put に kind「配合表」で1版1件）
+     → アプリは mfg_lib（ログインした人だけ）で受け取る。GitHub（公開）には配合を置かない
+   ・改定日＝そのファイルの更新日（自動）。中身が前の版と同じなら改定に数えない。前の版から変わった数字は黄色（押すと前の値）
+   ・記号ごとに 酒母・初添・仲添・留添・追水・四段 × 総米・掛米（蒸米）・麹米・汲水・酵素剤・アルコール。仕込中・予定の記号に印
+   ・ライブラリ（酵母・麹情報）の一覧には出さない（libItems から外す）
+   控え：seishu-workbook_github\_src_haigo.js（index.html の haigo の目印の間） */
+const HG={ kind:'moromi', sym:'', all:false };
+const hgN=s=>String(s==null?'':s).replace(/[\s　]/g,'');
+const HG_COLS=['酒母','初添','仲添','留添','水','四段','酒母四段','ｱﾙｺｰﾙ','計'];
+const HG_COLNAME={'水':'追水','ｱﾙｺｰﾙ':'アル添'};
+const HG_ROWS=[['総米','総米','kg'],['蒸米','掛米','kg'],['麹米','麹米','kg'],['水','汲水','L'],['酵素剤','酵素剤','g'],['アル','アルコール','L']];
+/* 造りex「清酒の１仕込製造方法」（記号ごとに1ブロック）を読む。cells＝[[行,列,値]…]（0はじまり） */
+function hgParse(cells){
+  const g={}; (cells||[]).forEach(([r,c,v])=>{ (g[r]=g[r]||{})[c]=v; });
+  const R=Object.keys(g).map(Number).sort((a,b)=>a-b);
+  const starts=R.filter(r=>hgN(g[r][0])==='記号' && hgN(Object.values(g[r]).join('')).indexOf('仕込区分')>=0);
+  const out=[];
+  starts.forEach((s,i)=>{
+    const e=i+1<starts.length?starts[i+1]:Infinity, rows=R.filter(r=>r>=s&&r<e), cols={};
+    rows.forEach(r=>{ if(hgN(g[r][0])==='個数') Object.keys(g[r]).forEach(c=>{ if(c>=15) cols[c]=hgN(g[r][c]); }); });
+    rows.forEach(r=>Object.keys(g[r]).forEach(c=>{ if(hgN(g[r][c])==='酒母四段') cols[c]='酒母四段'; }));
+    const b={sym:'', liq:'', n:'', shubo:'', moromiL:'', seiseiL:'', alcDo:'', v:{}};
+    rows.forEach(r=>{ const L=hgN(g[r][1]); let k='';
+      if(/^総米/.test(L)) k='総米'; else if(/^蒸米/.test(L)) k='蒸米'; else if(/^こうじ米/.test(L)) k='麹米';
+      else if(/^酵素剤/.test(L)) k='酵素剤'; else if(/^水/.test(L)) k='水'; else if(/^\(l\)\(/.test(L)){ k='アル'; b.alcDo=g[r][5]; }
+      if(k){ const o={}; Object.keys(g[r]).forEach(c=>{ if(c>=15&&cols[c]&&typeof g[r][c]==='number') o[cols[c]]=g[r][c]; }); b.v[k]=o; }
+      if(k==='蒸米') b.sym=hgN(g[r][0]);
+      if(k==='酵素剤'&&typeof g[r][0]==='number') b.n=g[r][0];
+      if(hgN(g[r][0]).indexOf('製造見込数量の算出')===0) b.liq=hgN(g[r][11]);
+      if(hgN(g[r][0])==='見込数量'){ b.moromiL=g[r][2]; b.seiseiL=g[r][17]; }
+      if(hgN(g[r][6])==='号' && g[r][3]!==undefined) b.shubo=hgN(g[r][3]);
+    });
+    if(b.sym) out.push(b);
+  });
+  return out;
+}
+/* 版（ライブラリの kind「配合表」）→ 改定の一覧（古い順）。中身が同じ版は1つにまとめ、最初の日を改定日にする */
+function hgRevs(){
+  const L=(typeof LIB!=='undefined'&&LIB&&LIB.items)||[];
+  const vs=L.filter(e=>e&&e.kind==='配合表'&&e.cells).sort((a,b)=>String(a.mtime).localeCompare(String(b.mtime)));
+  const revs=[]; let last='';
+  vs.forEach(e=>{ let bl=[]; try{ bl=hgParse(e.cells); }catch(x){} if(!bl.length) return;
+    const sig=JSON.stringify(bl);
+    if(sig===last){ revs[revs.length-1].files.push(e.file); return; }
+    last=sig; revs.push({date:e.date||String(e.mtime||'').slice(0,10), file:e.file, files:[e.file], blocks:bl}); });
+  return revs;
+}
+function hgMD(d){ if(!d) return ''; const x=dparse(d); return `${x.getMonth()+1}月${x.getDate()}日`; }
+const hgNum=(v,u)=>{ if(v===undefined||v===null||v==='') return ''; const n=Number(v); return isFinite(n)?n.toLocaleString('ja-JP',{maximumFractionDigits:1}):esc(String(v)); };
+/* いま仕込中・予定の記号 */
+function hgActive(){
+  const st=RC.state, T=(st&&st.today)||{}, today=dtoday(), A={};
+  ((st&&st.master)||[]).forEach(m=>{ if((T[m.no]||{}).state==='上槽済') return; const s=hgN(m.sym); if(!s) return;
+    const a=A[s]=A[s]||{now:0,plan:0,shubo:0};
+    if(m.soe&&today>=m.soe) a.now++; else a.plan++;
+    if(m.motodate&&today>=m.motodate&&(!m.soe||today<m.soe)) a.shubo++; });
+  return A;
+}
+/* 上段アイコン */
+function hgIconHTML(kind){
+  const R=hgRevs(), d=R.length?R[R.length-1].date:'';
+  if(!R.length && !HG.tried && typeof libRefresh==='function'){ HG.tried=true;   // まだ受け取っていなければ1回だけ取りに行き、届いたらアイコンに改定日を出す
+    libRefresh().then(()=>{ const R2=hgRevs(); if(!R2.length) return; const t=hgMD(R2[R2.length-1].date).replace('月','/').replace('日','')+'改定';
+      document.querySelectorAll('.st-ic.hg-ic').forEach(x=>{ if(!x.querySelector('.hg-d')) x.insertAdjacentHTML('beforeend',`<i class="hg-d">${t}</i>`); }); }).catch(()=>{}); }
+  return `<button class="st-ic hg-ic" data-hg="${kind}" type="button" title="配合表"><span class="e">🧾</span><small>配合表</small>${d?`<i class="hg-d">${hgMD(d).replace('月','/').replace('日','')}改定</i>`:''}</button>`;
+}
+(function(){ if(typeof stiHTML==='function'){ const _h=stiHTML;
+  stiHTML=function(){ const s=_h.apply(this,arguments); return s.replace(/<\/div>\s*$/, hgIconHTML('shubo')+'</div>'); }; } })();
+(function(){ if(typeof shkTopHTML==='function'){ const _h=shkTopHTML;
+  shkTopHTML=function(){ const s=_h.apply(this,arguments); return s.replace(/<\/div>\s*$/, hgIconHTML('moromi')+'</div>'); }; } })();
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('.st-ic[data-hg]'); if(!b) return;
+  e.preventDefault(); e.stopPropagation(); const k=b.dataset.hg; go(()=>hgScreen(k)); }, true);
+
+async function hgScreen(kind){
+  if(kind) HG.kind=kind;
+  head('配合表', HG.kind==='shubo'?'酒母の配合（記号ごと）':'仕込み配合（記号ごと）');
+  const top=nav[nav.length-1];
+  let R=hgRevs();
+  if(!R.length){ rcLoading('配合表を読み込んでいます…'); try{ await libRefresh(); }catch(e){} if(nav[nav.length-1]!==top) return; R=hgRevs(); }
+  else { libRefresh().then(()=>{ if(nav[nav.length-1]!==top) return; const R2=hgRevs(); const a=R[R.length-1], b=R2[R2.length-1];
+    if(b&&(!a||a.date!==b.date||R2.length!==R.length)) hgScreen(); }).catch(()=>{}); }
+  if(!R.length){ app.innerHTML=`<div class="card" style="margin-top:12px">配合表がまだ届いていません。<br><small class="muted">会社PCの「造りex\\仕込み配合」に置いたファイル（更新日時がいちばん新しいもの）を、会社PCの同期（5分ごと）がサーバーへ送ると出ます。${typeof LIB_ERR!=='undefined'&&LIB_ERR?'<br>'+esc(LIB_ERR):''}</small></div>`; return; }
+  const cur=R[R.length-1], prev=R.length>1?R[R.length-2]:null;
+  const P={}; if(prev) prev.blocks.forEach(b=>P[b.sym]=b);
+  const A=hgActive();
+  const blocks=cur.blocks.filter(b=>HG.all||A[b.sym]||!Object.keys(A).length);
+  let h=`<div class="hg-rev">${hgMD(cur.date)}改定<span>（${esc(cur.file||'')}${prev?`・前回 ${hgMD(prev.date)}`:''}）</span></div>`;
+  h+=`<div class="ks-sw hg-tab"><button data-k="shubo" class="${HG.kind==='shubo'?'on':''}">🧫 酒母</button><button data-k="moromi" class="${HG.kind!=='shubo'?'on':''}">🍶 仕込み</button></div>`;
+  h+=`<div class="hg-bar"><label><input type="checkbox" id="hgAll" ${HG.all?'checked':''}> 今季の仕込みが無い記号も出す</label>${prev?'<span class="hg-lg"><i></i>前回から変わった数字（押すと前の値）</span>':''}</div>`;
+  const chg=(sym,row,col,v)=>{ if(!prev) return ''; const p=P[sym]; if(!p) return ' chg'; const o=(p.v[row]||{})[col]; return (o===undefined?'':String(o))===(v===undefined?'':String(v))?'':' chg'; };
+  const pv=(sym,row,col)=>{ const p=P[sym]; const o=p&&(p.v[row]||{})[col]; return o===undefined?'空欄':String(o); };
+  const mark=s=>{ const a=A[s]; if(!a) return ''; return `${a.shubo?`<em class="hg-m s">酒母中</em>`:''}${a.now?`<em class="hg-m n">仕込中 ${a.now}</em>`:''}${a.plan?`<em class="hg-m p">予定 ${a.plan}</em>`:''}`; };
+  if(HG.kind==='shubo'){
+    h+=`<div class="kg-tw hg-tw"><table class="hg-t"><thead><tr><th class="s">記号</th><th class="l">液種</th><th>総米<small>kg</small></th><th>掛米<small>kg</small></th><th>麹米<small>kg</small></th><th>汲水<small>L</small></th><th>使用酒母</th></tr></thead><tbody>`;
+    blocks.forEach(b=>{ const td=(row)=>{ const v=(b.v[row]||{})['酒母']; const c=chg(b.sym,row,'酒母',v); return `<td class="${c}"${c?` title="前 ${esc(pv(b.sym,row,'酒母'))}"`:''}>${hgNum(v)}</td>`; };
+      h+=`<tr class="${A[b.sym]?'act':''}"><td class="s">${esc(b.sym)}</td><td class="l">${esc(b.liq)}${mark(b.sym)}</td>${td('総米')}${td('蒸米')}${td('麹米')}${td('水')}<td>${esc(b.shubo||'')}${b.shubo?'号':''}</td></tr>`; });
+    h+=`</tbody></table></div>`;
+  } else {
+    h+=`<div class="hg-jump">${blocks.map(b=>`<button data-j="${esc(b.sym)}" class="${A[b.sym]&&A[b.sym].now?'n':A[b.sym]?'p':''}">${esc(b.sym)}<small>${esc(b.liq)}</small></button>`).join('')}</div>`;
+    blocks.forEach(b=>{
+      const cols=HG_COLS.filter(c=>c!=='計' && HG_ROWS.some(([k])=>(b.v[k]||{})[c]!==undefined));
+      cols.push('計');
+      h+=`<div class="hg-card${A[b.sym]?' act':''}" id="hg_${esc(b.sym)}"><div class="hg-h"><b class="sym">${esc(b.sym)}</b><b class="lq">${esc(b.liq)}</b>${mark(b.sym)}<span class="hg-s">${b.n!==''?`${hgNum(b.n)}本`:''}${b.shubo?`・酒母 ${esc(b.shubo)}号`:''}${b.moromiL?`・もろみ見込 ${hgNum(b.moromiL)}L`:''}</span></div>
+        <div class="kg-tw hg-tw"><table class="hg-t"><thead><tr><th class="l"></th>${cols.map(c=>`<th class="${c==='計'?'sum':''}">${HG_COLNAME[c]||c}</th>`).join('')}</tr></thead><tbody>`;
+      HG_ROWS.forEach(([k,lab,u])=>{ const o=b.v[k]||{}; if(!Object.keys(o).length) return;
+        h+=`<tr class="${k==='水'?'kumi':''}"><td class="l">${lab}<small>${k==='アル'&&b.alcDo?`${hgNum(b.alcDo)}%`:''} ${u}</small></td>${cols.map(c=>{ const v=o[c], cl=chg(b.sym,k,c,v); return `<td class="${c==='計'?'sum':''}${cl}"${cl?` title="前 ${esc(pv(b.sym,k,c))}"`:''}>${hgNum(v)}</td>`; }).join('')}</tr>`; });
+      h+=`</tbody></table></div></div>`; });
+  }
+  if(!blocks.length) h+=`<p class="muted" style="text-align:center;padding:16px 0">今季の仕込みがある記号はありません（上のチェックで全部出せます）</p>`;
+  if(R.length>1) h+=`<div class="hg-hist">これまでの改定：${R.slice().reverse().map(r=>`${hgMD(r.date)}<small>（${esc(r.file||'')}）</small>`).join('／')}</div>`;
+  h+=`<p class="tl-note">もと：造りex「醪仕込製造方法」の書き出し（会社PC「造りex\\仕込み配合」の更新日時がいちばん新しいファイル）。配合を変えたら、そのフォルダに新しいファイルを置けば、ここに改定日つきで出ます。</p>`;
+  app.innerHTML=h;
+  app.querySelectorAll('.hg-tab button').forEach(b=>b.onclick=()=>{ HG.kind=b.dataset.k; hgScreen(); });
+  const ck=$('#hgAll'); if(ck) ck.onchange=()=>{ HG.all=ck.checked; hgScreen(); };
+  app.querySelectorAll('.hg-jump button').forEach(b=>b.onclick=()=>{ const t=document.getElementById('hg_'+b.dataset.j); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); });
+  app.querySelectorAll('.hg-t td.chg').forEach(td=>td.onclick=()=>rcToast(`前の値：${td.title.replace(/^前 /,'')}（${prev?hgMD(prev.date):''}版）`));
+}
+(function(){ const s=document.createElement('style'); s.textContent=`
+.st-ic.hg-ic .hg-d{font-style:normal;font-size:8.5px;color:var(--sub,#6b6b6b);line-height:1.1;white-space:nowrap}
+.hg-rev{font-size:11px;color:var(--sub,#6b6b6b);text-align:right;margin:6px 2px 4px}.hg-rev span{font-size:10px}
+.hg-tab{margin:0 0 8px}
+.hg-bar{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:12px;color:var(--sub);margin:0 2px 8px}
+.hg-lg i{display:inline-block;width:12px;height:10px;background:#fff1a8;border:1px solid #e0c040;vertical-align:-1px;margin-right:3px}
+.hg-jump{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.hg-jump button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 8px;font:inherit;font-weight:800;font-size:15px;color:var(--navy);cursor:pointer}
+.hg-jump button small{font-weight:400;font-size:10px;color:var(--sub);margin-left:3px}
+.hg-jump button.n{border:2px solid #1f5fa8;background:#eef3fb}.hg-jump button.p{border-color:#9fb3cf}
+.hg-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;margin:0 0 12px;scroll-margin-top:60px}
+.hg-card.act{border:2px solid #9fb3cf}
+.hg-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:0 2px 6px}
+.hg-h .sym{font-size:24px;color:var(--navy);line-height:1}.hg-h .lq{font-size:17px}.hg-s{font-size:11px;color:var(--sub);flex-basis:100%}
+.hg-m{font-style:normal;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;margin-left:4px;white-space:nowrap}
+.hg-m.n{background:#e3edf8;color:#2c5d9b}.hg-m.p{background:#eee;color:#666}.hg-m.s{background:#e6efe9;color:#2f6b3a}
+.hg-tw{max-height:none}
+.hg-t{border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums;width:100%}
+.hg-t th,.hg-t td{border-bottom:1px solid #f1ecdf;border-right:1px solid #f1ecdf;padding:5px 6px;text-align:right}
+.hg-t thead th{background:#f3efe4;color:var(--sub);font-size:11px;text-align:center;position:sticky;top:0}
+.hg-t thead th small{display:block;font-weight:400;font-size:9px}
+.hg-t .l{text-align:left;color:var(--navy);font-weight:700;background:#faf7ef;position:sticky;left:0}.hg-t .l small{font-weight:400;color:var(--sub);font-size:9px;margin-left:3px}
+.hg-t .s{text-align:center;font-weight:800;font-size:16px;color:var(--navy);background:#faf7ef}
+.hg-t td.sum,.hg-t th.sum{background:#f6f9fd;font-weight:700}
+.hg-t tr.kumi td{color:#103e74;font-weight:800;background:#e7f0fb}
+.hg-t tr.act td{background:#f3f8ff}
+.hg-t td.chg{background:#fff1a8!important;outline:1px solid #e0c040;outline-offset:-1px;cursor:pointer}
+.hg-hist{font-size:11px;color:var(--sub);margin:4px 2px}.hg-hist small{font-size:10px}`; document.head.appendChild(s); })();
+</script>
+<!-- /haigo -->
 </body>
 </html>
