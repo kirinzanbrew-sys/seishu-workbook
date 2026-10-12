@@ -10023,7 +10023,7 @@ function szoBandHTML(){
     const f=szoOilAlert();
     if(f) h+=`<button type="button" class="dp-al" data-szoal="oil">⚠ A重油 発注（${dtoday()>=f.cross?'3,000Lを切っています':rcMD(f.cross)+'に3,000Lを切る見込み'}）<small>今 約${sziF(f.est,0)}L。発注目安 ${rcMD(f.order)}・${sziF(SZO_OIL_LOT,0)}L。発注したら 資材 › A重油 で「発注した」を押してください</small></button>`;
     const c=szoOilChkAlert();
-    if(c) h+=`<button type="button" class="dp-al" data-szoal="oil">⚠ A重油 在庫の点検（週1回）${c.days===null?'がまだありません':`が${c.days}日あいています`}<small>${c.last?`最後の点検 ${rcMD(c.last.date)}。`:''}地下タンクの在庫は1週間に1回以上たしかめて記録します。資材 › A重油 で残量を入れてください</small></button>`;
+    if(c) h+=`<button type="button" class="dp-al" data-szoal="oil">⚠ A重油の点検がされていません<small>${c.last?`最後の点検 ${rcMD(c.last.date)}。`:''}地下タンクの在庫は1週間に1回以上たしかめて記録します。資材 › A重油 で残量を入れてください</small></button>`;
     const k=szoTankInfo();
     if(k.alert) h+=`<button type="button" class="dp-al" data-szoal="oil">⚠ 地下タンクの定期点検（3年に1回）${k.over?'の期限を過ぎています':`：${+k.due.slice(0,4)}年${+k.due.slice(5,7)}月までに`}<small>前回 ${esc(k.last.date)}。点検業者に依頼し、終わったら 資材 › A重油 で「点検した日を記録」を押してください</small></button>`;
   }catch(e){}
