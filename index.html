@@ -3528,7 +3528,7 @@ function rcMap2(out,mori,probes){
   const oPl=r=>rcPlaces(r['出麹 場所']).length?rcPlaces(r['出麹 場所']):rcPlaces(r['盛 場所']);
   const ids=(list,fn,pl)=>list.filter(r=>fn(r).includes(pl)).map(r=>r['麹ID']);
   const pb=(pl,a)=>Object.entries(probes||{}).filter(([n,x])=>x&&x.id&&x.place===pl&&a.includes(x.id)).map(([n])=>n);
-  const half=(a,cls,pl)=>{ const p=pb(pl,a); return `<div class="${cls}" style="${a.length?`background:${RC_KCOL[String(a[0]).charAt(0)]||'#e9f3ec'}`:''}">${a.map(x=>`<em>${esc(x)}</em>`).join('')}${p.map(n=>rcPbTag(probes,n)).join('')}</div>`; };
+  const half=(a,cls,pl)=>{ const p=pb(pl,a); return `<div class="${cls}" style="${a.length?`background:${RC_KCOL[String(a[0]).charAt(0)]||'#e9f3ec'}`:''}">${a.map(x=>`<em data-kid="${esc(x)}" data-kst="${cls==='up'?'出麹':'盛'}">${esc(x)}</em>`).join('')}${p.map(n=>rcPbTag(probes,n)).join('')}</div>`; };
   const box=(lb,pl)=>{ const o=ids(out,oPl,pl), m=ids(mori,r=>rcPlaces(r['盛 場所']),pl);
     return `<div class="bx"><b>${lb}</b>${out.length?half(o,'up',pl):''}${half(m,'dn',pl)}</div>`; };
   const grp=a=>`<div class="g" style="flex:${a.length} 1 0">${a.join('')}</div>`;
@@ -3742,13 +3742,13 @@ async function kojiScreen(day){
       <span class="id">${esc(w.stage)}${w.no}<small>${esc(w.rice)}</small></span>
       <span class="mid"><span class="b">${esc(w.liquid)}</span><br><span class="d">${esc(w.kind)} ${w.ratio}%・${w.kg}kg</span></span>
       <span class="r"><b>${w.kyusui!==''?'吸水 '+rcN(w.kyusui)+'%':'未'}</b><span>${w.shinseki!==''?'浸漬'+w.shinseki+'分':''} ${w.suion!==''?'水温'+w.suion+'℃':''}</span></span></button>`;
-  const map1=(list,pc)=>`<div class="rc-map" style="grid-template-columns:repeat(4,1fr)">${['D','C','B','A'].map(p=>{ const x=list.filter(r=>rcPlaces(r[pc]).includes(p)); const pn=Object.entries(j.probes||{}).filter(([n,q])=>q&&q.id&&q.place===p&&x.some(r=>r['麹ID']===q.id)).map(([n])=>n); return `<div class="${x.length?'on':''}"><b>${p}</b>${x.map(r=>`<em>${esc(r['麹ID'])} ${r['麹米kg']}kg</em>`).join('')}${pn.map(n=>rcPbTag(j.probes,n)).join('')}</div>`; }).join('')}</div><div class="tl-note" style="margin:-4px 0 6px;display:flex;justify-content:space-between"><span>奥</span><span>手前</span></div>`;
+  const map1=(list,pc)=>`<div class="rc-map" style="grid-template-columns:repeat(4,1fr)">${['D','C','B','A'].map(p=>{ const x=list.filter(r=>rcPlaces(r[pc]).includes(p)); const pn=Object.entries(j.probes||{}).filter(([n,q])=>q&&q.id&&q.place===p&&x.some(r=>r['麹ID']===q.id)).map(([n])=>n); return `<div class="${x.length?'on':''}"><b>${p}</b>${x.map(r=>`<em data-kid="${esc(r['麹ID'])}" data-kst="引込">${esc(r['麹ID'])} ${r['麹米kg']}kg</em>`).join('')}${pn.map(n=>rcPbTag(j.probes,n)).join('')}</div>`; }).join('')}</div><div class="tl-note" style="margin:-4px 0 6px;display:flex;justify-content:space-between"><span>奥</span><span>手前</span></div>`;
   const map2=(list,pc)=>`<div class="tl-note">麹棚</div><div class="rc-map" style="grid-template-columns:repeat(5,1fr)">${[10,9,8,7,6,5,4,3,2,1].map(i=>{ const x=list.filter(r=>r[pc]==='麹棚'+i); return `<div class="${x.length?'on':''}"><b>棚${i}</b>${x.map(r=>`<em>${esc(r['麹ID'])}</em>`).join('')}</div>`; }).join('')}</div>
     <div class="tl-note">天幕</div><div class="rc-map" style="grid-template-columns:repeat(5,1fr)">${['L5','L4','L3','L2','L1','R5','R4','R3','R2','R1'].map(n=>{ const x=list.filter(r=>r[pc]==='天幕'+n); return `<div class="${x.length?'on':''}"><b>${n}</b>${x.map(r=>`<em>${esc(r['麹ID'])}</em>`).join('')}</div>`; }).join('')}</div>`;
   const sec=(t,sub,list,fn)=>`<div class="rc-h">${t}<small>${sub}</small></div>`+(list.length?list.map(fn).join(''):`<p class="muted" style="margin:0 0 6px;font-size:13px">なし</p>`);
   const rmJ=j.room||{}, prJ=j.probes||{}, onMap=new Set([...hik,...out,...mori].map(r=>r['麹ID']));
   const pbEx=Object.entries(prJ).filter(([n,x])=>x&&x.id&&(!x.place||!onMap.has(x.id)));
-  const mapCard=`<div class="rc-h">配置図<small>順番・場所は各麹の画面で入れる</small></div>
+  const mapCard=`<div class="rc-h">配置図<small>麹を押すと詳細。順番・場所は各麹の画面で入れる</small></div>
     <div class="card k-mapc"><div class="k-rm"><b>1号室</b>${rcRoomTag(rmJ.r1)}</div>${map1(hik,'引込 場所')}<div class="k-rm"><b>2号室</b>${rcRoomTag(rmJ.r2)}</div>${rcMap2(out,mori,prJ)}${pbEx.length?`<p class="tl-note" style="margin:4px 0 0">配置図にない品温計：${pbEx.map(([n,x])=>`No${n}（${esc(x.id)}）${(x.temp!=null&&!x.stale)?x.temp+'℃':'—'}`).join('　')}</p>`:''}${rmJ.at?`<p class="tl-note" style="margin:4px 0 0">おんどとり ${esc(rmJ.at)} 取得</p>`:''}</div>`;
   let h=`<div class="rc-nav">${typeof o2Btn==='function'?o2Btn('koji',{icon:1}):''}<button class="d rc-dbtn" id="kDate">${djp(date)} <small>▾</small></button><button class="k-ic" id="kTane" type="button" title="種麹の仕入・在庫" aria-label="種麹の仕入・在庫"><span>種</span></button><button class="k-ic" id="kCmp" type="button" title="麹の比較・考察" aria-label="麹の比較・考察"><span class="i">i</span></button></div>
     <div class="rc-dstrip" id="kStrip" style="display:none"></div>
@@ -4604,8 +4604,11 @@ const O2_URL = "https://script.google.com/macros/s/AKfycbyQcDDDwzvAzFn1yoSQaQqXF
 const O2_AREAS = {
   koji:  { label:'麹室',       sub:'麹室の酸素濃度',               places:['麹室'] },
   shubo: { label:'酒母室',     sub:'酒母室の酸素濃度',             places:['酒母室'] },
-  wash:  { label:'タンク洗浄', sub:'タンクに入る前の酸素濃度',     places:null }
+  wash:  { label:'タンク洗浄', sub:'タンクに入る前の酸素濃度',     places:null },
+  shikomi:{ label:'仕込み',    sub:'仕込みの酸素濃度',             places:['仕込み'] }   // 2026-10-12 追加（記録は「仕込み」シート）
 };
+/* 2026-10-12 泰広さん指示：測定日時を入れる・あとから直せる場所（麹・仕込み。タンク洗浄は洗浄管理の 日付・時刻 で入れる／直す） */
+const O2_DT_AREAS = ['koji','shikomi'];
 const O2_MIN = 19.0, O2_MAX = 22.0, O2_DEF = 20.1;
 const O2_CSS = `
 .o2-open{width:100%;display:flex;align-items:center;gap:12px;background:#eaf4fb;border:1px solid #9cc7e4;border-radius:12px;padding:10px 12px;margin:10px 0;font-family:inherit;color:var(--ink);text-align:left;cursor:pointer}
@@ -4667,6 +4670,17 @@ button.o2-row:active{background:#f6f3ea}
 .o2-sheet .i.on::after{content:'✓';margin-left:10px;color:#1f6fa8}
 .o2-sheet.num .i{justify-content:center;font-size:22px;padding:11px 16px}
 .o2-sheet.num .i small{margin-left:10px}
+.o2-edit{background:#fff4d6;border:1px solid #e6c46a;color:#7a5a00;border-radius:10px;padding:9px 12px;margin-top:12px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.o2-edit button{margin-left:auto;border:1px solid #c9a640;background:#fff;border-radius:8px;padding:5px 12px;font-family:inherit;font-size:13px;color:#7a5a00}
+.o2-t .fix{border:1px solid #9cc7e4;background:none;border-radius:6px;padding:2px 7px;font-size:11px;color:#1f6fa8;font-family:inherit;margin-right:4px}
+.o2-t tr.ed td{background:#fff4d6}
+.o2-dt{padding:14px 16px 6px;display:flex;flex-direction:column;gap:12px}
+.o2-dt label{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--sub)}
+.o2-dt input{flex:1;font-size:20px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-family:inherit;color:var(--ink);background:var(--card)}
+.o2-dt .b{display:flex;gap:8px;margin-top:4px}
+.o2-dt .b button{flex:1;padding:13px;border-radius:10px;font-family:inherit;font-size:16px;font-weight:700;border:1px solid #1f6fa8;background:var(--card);color:#1f6fa8}
+.o2-dt .b button.ok{background:#1f6fa8;color:#fff}
+.o2-dt .w{color:var(--ng);font-size:13px;min-height:16px;font-weight:600}
 `;
 (function(){ const s=document.createElement('style'); s.textContent=O2_CSS; document.head.appendChild(s); })();
 
@@ -4751,6 +4765,31 @@ function o2Pick(title, items, cur, num){
   });
 }
 
+/* ---------- 測定日時を選ぶ（2026-10-12） ----------
+   返り値：{d,t}／'now'（今の時刻に戻す）／null（閉じた）。未来の日時は入れさせない */
+function o2PickDT(d, t, canNow){
+  return new Promise(res=>{
+    const m=document.createElement('div'); m.className='o2-mask';
+    m.innerHTML=`<div class="o2-sheet"><div class="t">測定日時<button type="button" class="x">閉じる</button></div>
+      <div class="o2-dt"><label>日付<input type="date" id="o2dD" value="${esc(d)}" max="${dtoday()}"></label>
+      <label>時刻<input type="time" id="o2dT" value="${esc(t)}"></label><div class="w" id="o2dW"></div>
+      <div class="b">${canNow?'<button type="button" class="now">今にする</button>':''}<button type="button" class="ok">決定</button></div></div></div>`;
+    document.body.appendChild(m);
+    const done=v=>{ m.remove(); res(v); };
+    m.onclick=e=>{ if(e.target===m) done(null); };
+    m.querySelector('.x').onclick=()=>done(null);
+    const nw=m.querySelector('.now'); if(nw) nw.onclick=()=>done('now');
+    m.querySelector('.ok').onclick=()=>{
+      const dd=m.querySelector('#o2dD').value, tt=m.querySelector('#o2dT').value, w=m.querySelector('#o2dW');
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(dd)){ w.textContent='日付を入れてください'; return; }
+      if(!/^\d{1,2}:\d{2}$/.test(tt)){ w.textContent='時刻を入れてください'; return; }
+      const n=new Date(), nt=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+      if((dd+' '+tt.padStart(5,'0'))>(dtoday()+' '+nt)){ w.textContent='これから先の日時は入れられません'; return; }
+      done({d:dd,t:tt.padStart(5,'0')});
+    };
+  });
+}
+
 /* ---------- 通信・端末の控え ---------- */
 const O2 = { rows:{}, at:{}, sheet:'', ym:{}, fresh:{}, busy:false };
 async function o2Api(body, ms){
@@ -4790,6 +4829,8 @@ function o2Screen(area){
   const places=o2Places(area);
   let place = area==='wash' ? (places[0]?places[0].v:'') : (lsGet('o2.place.'+area,'') && places.some(p=>p.v===lsGet('o2.place.'+area,'')) ? lsGet('o2.place.'+area,'') : (places[0]?places[0].v:A.label));
   let by=o2DefaultBy(area,o2Staff()), val=O2_DEF, byTouched=false, plTouched=false, newId='', delId='', msg='', warn=false;
+  const DT=O2_DT_AREAS.includes(area);
+  let dtD='', dtT='', edit=null;   // dtD/dtT：空＝「確定」を押した時刻。edit：記録を直しているとき {id,date,time,method,room,keep}
   O2.ym[area]=O2.ym[area]||dtoday().slice(0,7);
   o2Cached(area);
 
@@ -4800,35 +4841,39 @@ function o2Screen(area){
     const room = '';
     const inWork = by && S.work.some(n=>o2Same(n,by));
     let h='';
-    if(area==='koji' && o2KojiMissing()) h+=`<div class="o2-miss">⚠ 今日は麹の作業日です。酸素濃度をまだ測定していません。</div>`;
+    if(area==='koji' && o2KojiMissing() && !edit) h+=`<div class="o2-miss">⚠ 今日は麹の作業日です。酸素濃度をまだ測定していません。</div>`;
     if(!O2_URL) h+=`<div class="tl-warn" style="margin-top:14px">記録先（Apps Script）の設定がまだ済んでいません。いまは「確定」しても送れません。</div>`;
-    h+=`<div class="o2-card">
-      <div class="o2-row"><span class="k">測定日時</span><span class="v">${djp(dtoday())} ${hhmm}<small>「確定」を押した時刻で記録します・測定方法：酸素濃度計</small></span></div>`;
+    if(edit) h+=`<div class="o2-edit">✎ ${+edit.date.slice(5,7)}/${+edit.date.slice(8,10)} ${esc(edit.time)} の記録を直しています<button type="button" id="o2EdX">やめる</button></div>`;
+    h+=`<div class="o2-card">`;
+    if(DT){ const sd=edit?edit.date:(dtD||dtoday()), stt=edit?edit.time:(dtT||hhmm);
+      h+=`<button class="o2-row" id="o2Dt" type="button"><span class="k">測定日時</span><span class="v">${djp(sd)} ${esc(stt)}<small>${edit?'記録の日時を直せます':(dtD?'入れた日時で記録します（「今にする」で戻せます）':'「確定」を押した時刻で記録します')}・測定方法：酸素濃度計</small></span><span class="ch">変更</span></button>`; }
+    else h+=`<div class="o2-row"><span class="k">測定日時</span><span class="v">${djp(dtoday())} ${hhmm}<small>「確定」を押した時刻で記録します・測定方法：酸素濃度計</small></span></div>`;
     if(places.length>1 || area==='wash')
       h+=`<button class="o2-row" id="o2Pl" type="button"><span class="k">測定箇所</span><span class="v">${esc(place||'（タンクを選ぶ）')}${room!==''?`<small>室温 ${room}℃（おんどとり）</small>`:''}</span><span class="ch">変更</span></button>`;
     else
       h+=`<div class="o2-row"><span class="k">測定箇所</span><span class="v">${esc(place)}</span></div>`;
     h+=`<button class="o2-row" id="o2By" type="button"><span class="k">担当者</span><span class="v">${esc(by||'（選んでください）')}<small>${!S.fromKn?'今日の出勤表がまだ届いていません':(inWork?'今日の出勤表から自動で選択':'今日の出勤表では休みの人です')}</small></span><span class="ch">変更</span></button>
       <button class="o2-row big" id="o2Val" type="button"><span class="k">酸素濃度</span><span class="v">${val.toFixed(1)}<span>%</span></span><span class="ch">変更</span></button>
-      <button class="o2-ok" id="o2Ok" type="button" ${O2.busy?'disabled':''}>確　定</button>
+      <button class="o2-ok" id="o2Ok" type="button" ${O2.busy?'disabled':''}>${edit?'修正を保存':'確　定'}</button>
       <div class="o2-st ${warn?'warn':''}" id="o2St">${msg}</div></div>`;
     // 記録表（その月）
     const ym=O2.ym[area], rows=o2Cached(area), q=o2Queue().filter(x=>x.area===area);
     const yms=[...new Set(rows.map(r=>String(r.date||'').slice(0,7)).filter(Boolean).concat([dtoday().slice(0,7)]))].sort();
-    const list=rows.filter(r=>String(r.date).slice(0,7)===ym).map(r=>Object.assign({},r))
+    const list=rows.filter(r=>String(r.date).slice(0,7)===ym && !q.some(x=>x.cid===r.id)).map(r=>Object.assign({},r))
       .concat(q.filter(x=>x.date.slice(0,7)===ym).map(x=>({id:x.cid,date:x.date,time:x.time,place:x.place,room:x.room,o2:x.o2,by:x.by,pend:true})))
       .sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
     const [yy,mm]=ym.split('-').map(Number), i=yms.indexOf(ym);
     h+=`<div class="o2-h">記録表（${esc(A.label)}）<span class="n"><button id="o2Prev" ${i<=0?'disabled':''}>‹</button><span style="align-self:center;font-weight:600">${yy}年${mm}月</span><button id="o2Next" ${i<0||i>=yms.length-1?'disabled':''}>›</button></span></div>
       <div class="o2-tw"><table class="o2-t"><tr><th>日</th><th>時刻</th><th>測定箇所</th><th>結果</th><th>測定実施者</th><th></th></tr>`;
     const td=dtoday();
-    h+=list.length?list.map(r=>`<tr class="${r.id===newId?'new':''} ${r.pend?'pend':''}"><td>${+String(r.date).slice(5,7)}/${+String(r.date).slice(8,10)}</td><td>${esc(r.time)}</td><td>${esc(r.place)}</td><td class="o">${r.o2!==''&&r.o2!=null?Number(r.o2).toFixed(1):''}</td><td>${esc(r.by)}</td>
-        <td>${r.pend?'送信待ち':(r.date===td&&r.id?`<button class="del ${delId===r.id?'sure':''}" data-del="${esc(r.id)}">${delId===r.id?'取り消す':'取消'}</button>`:'')}</td></tr>`).join('')
+    h+=list.length?list.map(r=>`<tr class="${r.id===newId?'new':''} ${r.pend?'pend':''} ${edit&&edit.id===r.id?'ed':''}"><td>${+String(r.date).slice(5,7)}/${+String(r.date).slice(8,10)}</td><td>${esc(r.time)}</td><td>${esc(r.place)}</td><td class="o">${r.o2!==''&&r.o2!=null?Number(r.o2).toFixed(1):''}</td><td>${esc(r.by)}</td>
+        <td>${r.pend?'送信待ち':((DT&&r.id?`<button class="fix" data-fix="${esc(r.id)}">修正</button>`:'')+(r.date===td&&r.id?`<button class="del ${delId===r.id?'sure':''}" data-del="${esc(r.id)}">${delId===r.id?'取り消す':'取消'}</button>`:''))}</td></tr>`).join('')
       :`<tr><td colspan="6" style="color:var(--sub);padding:18px">この月の記録はまだありません</td></tr>`;
     h+=`</table></div>`;
     if(q.length) h+=`<p class="tl-note">送信待ち ${q.length}件（電波が入ると自動で送ります）　<a href="#" id="o2Re">いま送る</a></p>`;
     if(O2_URL) h+=`<div class="o2-links"><a href="${O2_URL}?area=${area}&ym=${ym}" target="_blank" rel="noopener">🖨 印刷用の表</a>${O2.sheet?`<a href="${esc(O2.sheet)}" target="_blank" rel="noopener">スプレッドシート</a>`:''}</div>`;
-    h+=`<p class="tl-note">取り消せるのは今日の記録だけです（取り消した内容もスプレッドシートの「取消の記録」に残ります）。前の日の分・換気口・防止措置の概要はスプレッドシートで直せます。</p>`;
+    h+=DT?`<p class="tl-note">「修正」で日時・担当者・酸素濃度を直せます（前の日の分も）。取り消せるのは今日の記録だけです（取り消した内容もスプレッドシートの「取消の記録」に残ります）。換気口・防止措置の概要はスプレッドシートで直せます。</p>`
+      :`<p class="tl-note">取り消せるのは今日の記録だけです（取り消した内容もスプレッドシートの「取消の記録」に残ります）。前の日の分・換気口・防止措置の概要はスプレッドシートで直せます。</p>`;
     app.innerHTML=h;
 
     $('#o2By').onclick=async()=>{
@@ -4847,6 +4892,23 @@ function o2Screen(area){
       const v=await o2Pick('測定箇所を選ぶ', items, place); if(v!=null){ place=v; plTouched=true; msg=''; draw(); }
     };
     $('#o2Ok').onclick=o2Commit;
+    const dtb=$('#o2Dt'); if(dtb) dtb.onclick=async()=>{
+      const n=new Date(), nt=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+      const v=await o2PickDT(edit?edit.date:(dtD||dtoday()), edit?edit.time:(dtT||nt), !edit);
+      if(v==null) return;
+      if(v==='now'){ dtD=''; dtT=''; }
+      else if(edit){ edit.date=v.d; edit.time=v.t; }
+      else { dtD=v.d; dtT=v.t; }
+      msg=''; warn=false; draw();
+    };
+    const edx=$('#o2EdX'); if(edx) edx.onclick=()=>{ const k=edit.keep; edit=null; place=k.place; by=k.by; val=k.val; msg=''; warn=false; draw(); };
+    app.querySelectorAll('[data-fix]').forEach(b=>b.onclick=()=>{
+      const r=o2Cached(area).find(x=>x.id===b.dataset.fix); if(!r) return;
+      const keep=edit?edit.keep:{place,by,val};
+      edit={ id:r.id, date:String(r.date), time:String(r.time||'').padStart(5,'0'), method:r.method||'酸素濃度計', room:(r.room===undefined||r.room===null)?'':r.room, keep };
+      if(r.place) place=r.place; if(r.by) by=r.by; if(r.o2!==''&&r.o2!=null) val=Math.round(Number(r.o2)*10)/10;
+      delId=''; msg=''; warn=false; draw(); window.scrollTo({top:0,behavior:'smooth'});
+    });
     const pv=$('#o2Prev'), nx=$('#o2Next');
     if(pv) pv.onclick=()=>{ O2.ym[area]=yms[i-1]; draw(); };
     if(nx) nx.onclick=()=>{ O2.ym[area]=yms[i+1]; draw(); };
@@ -4868,22 +4930,28 @@ function o2Screen(area){
     if(!by){ msg='担当者を選んでください'; warn=true; draw(); return; }
     if(!place){ msg='測定箇所を選んでください'; warn=true; draw(); return; }
     if(!O2_URL){ msg='記録先の設定がまだ済んでいないため送れません'; warn=true; draw(); return; }
-    const now=new Date();
-    const body={ action:'o2_add', area, cid:'o2-'+now.getTime().toString(36)+'-'+Math.random().toString(36).slice(2,7),
-      date:dtoday(), time:String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'),
-      method:'酸素濃度計', place, room:'', o2:val, by,
+    const now=new Date(), nowT=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    const ed=edit;
+    const date=ed?ed.date:(dtD||dtoday()), time=ed?ed.time:(dtT||nowT);
+    if((date+' '+time)>(dtoday()+' '+nowT)){ msg='これから先の日時は入れられません'; warn=true; draw(); return; }
+    const body={ action:'o2_add', area, cid:ed?ed.id:('o2-'+now.getTime().toString(36)+'-'+Math.random().toString(36).slice(2,7)),
+      date, time, method:ed?ed.method:'酸素濃度計', place, room:ed?ed.room:'', o2:val, by,
       user:rcUser(), device:(navigator.userAgent.match(/iPhone|iPad|Android|Windows|Mac/)||[''])[0] };
-    lsSet('o2.last.'+area, by); if(area!=='wash') lsSet('o2.place.'+area, place);
-    O2.busy=true; msg='送信しています…'; warn=false; O2.ym[area]=dtoday().slice(0,7); draw();
+    if(ed) body.upsert=true;   // 同じ id の行を書き換える（Code.gs の upsert。温度・換気口・防止措置の概要はそのまま残る）
+    if(!ed){ lsSet('o2.last.'+area, by); if(area!=='wash') lsSet('o2.place.'+area, place); }
+    O2.busy=true; msg='送信しています…'; warn=false; O2.ym[area]=date.slice(0,7); draw();
     // 先に端末へ預ける（途中で電波が切れても消えない）
-    lsSet('o2.q', o2Queue().concat([body]));
+    lsSet('o2.q', o2Queue().filter(x=>x.cid!==body.cid).concat([body]));
     let ok=false;
     try{ const j=await o2Api(body,25000);
       if(j&&j.ok){ o2Store(area,j); lsSet('o2.q', o2Queue().filter(x=>x.cid!==body.cid)); ok=true; }
       else { lsSet('o2.q', o2Queue().filter(x=>x.cid!==body.cid)); msg='記録できませんでした：'+((j&&j.error)||''); warn=true; }
     }catch(e){ msg=`電波が無いため端末に預かりました（${body.time} ${by} ${val.toFixed(1)}%）。電波が入ると自動で送ります`; warn=true; }
     O2.busy=false;
-    if(ok){ newId=body.cid; msg=`記録しました（${body.time}　${by}　${val.toFixed(1)}%）`; warn=false; val=O2_DEF; }
+    if(ok){ newId=body.cid; msg=`${ed?'直しました':'記録しました'}（${+date.slice(5,7)}/${+date.slice(8,10)} ${body.time}　${by}　${val.toFixed(1)}%）`; warn=false;
+      if(ed){ const k=ed.keep; edit=null; place=k.place; by=k.by; } val=O2_DEF; dtD=''; dtT=''; }
+    else if(ed && warn && /電波/.test(msg)){ const k=ed.keep; edit=null; place=k.place; by=k.by; val=O2_DEF; }
+    else if(!ed && warn && /電波/.test(msg)){ dtD=''; dtT=''; }
     if(O2_REDRAW===draw && app.querySelector('#o2Ok')) draw();
   }
 
@@ -8578,6 +8646,7 @@ function stiBind(){
 function shkTopHTML(){
   let tg=''; try{ if(typeof sziHomeTag==='function') tg=sziHomeTag(); }catch(e){}
   return `<div class="st-icons shk-icons">
+    <button class="st-ic st-o2" data-o2="shikomi" type="button" title="酸素濃度測定" aria-label="酸素濃度測定"><span class="o2c">O<sub>2</sub></span></button>
     <button class="st-ic${tg?' wn':''}" data-shi="zai" type="button"><span class="e">🧰</span>${tg?`<b class="shi-tg">${esc(tg)}</b>`:''}<small>資材</small></button>
     <button class="st-ic" data-shi="zn" type="button"><span class="e">📅</span><small>昨年</small></button>
   </div>`;
@@ -8982,6 +9051,9 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-12-2','🍚','麹','配置図の麹（1号室・2号室）を押すと、その麹の詳細（日程・種麹・吸水・場所・品温計・温度グラフ・各工程の時刻と品温）が下から出ます。「記録を開く」でその工程の入力画面へ。'],
+  ['2026-10-12-1','O₂','酸素濃度測定','🍶仕込みの上のアイコンに「O₂ 酸素濃度測定」を足しました（記録は酸素濃度測定記録の「仕込み」シートへ）。麹・仕込みの酸素濃度測定で、測定日時を入れられるようにしました（「測定日時」を押して日付・時刻を選ぶ。「今にする」で戻せます）。記録表の「修正」で、前の日の分も日時・担当者・酸素濃度を直せます。'],
+  ['2026-10-11-15','🧴','濾過・火入','濾過・火入の入力に「担当」を足しました。担当と日を入れると、出勤表のその人・その日のマスに「濾過」「火入」が入ります（会社PCが10分以内に書きます）。休みの記号が入っている日は書きません。蔵人員にも数えます。'],
   ['2026-10-11-14','🍶','仕込み','仕込みの📋表で上槽日を選べるようにしました。「日付」の行のマスを押すと「この日を上槽日にしますか」。選んだ日は本日の予定・部署カレンダー・出勤表（上槽と翌日の粕）に入ります。初めは仕込み計画表の上槽予定日です。'],
   ['2026-10-11-13','⏰','ホーム','本日の予定の上槽の終わりを、仕込み総米で決めるようにしました（2t＝15:00まで、4t＝17:00まで、その間は総米に比例）。上槽を押すと、号ごとの総米と終わりの時刻が出ます。'],
   ['2026-10-11-12','⏰','ホーム','本日の予定の上槽を11:00からにしました。'],
@@ -9769,6 +9841,10 @@ async function rkLoad(force){
   try{ rkKeep(await rkApi({action:'list'})); }catch(e){ RK.err=String(e.message||e); }
   return RK.items;
 }
+/* 出勤表（MFG.shukkin）：氏名の一覧と、その人・その日のマスの中身（月のシートが無ければ null） */
+const nrmS=s=>String(s==null?'':s).replace(/[\s　]/g,'');
+function rkStaffList(){ const K=typeof MFG!=='undefined'&&MFG&&MFG.shukkin; if(!K||!K.months) return []; const ys=Object.keys(K.months).sort(); const M=K.months[dtoday().slice(0,7)]||K.months[ys[ys.length-1]]; return M?(M.staff||[]).filter(x=>!/研\s*修/.test(x)):[]; }
+function rkShCell(staff,d){ const K=typeof MFG!=='undefined'&&MFG&&MFG.shukkin; const M=K&&K.months&&K.months[d.slice(0,7)]; if(!M) return null; const k=(M.staff||[]).findIndex(x=>nrmS(x)===nrmS(staff)); const dd=(M.days||[]).find(z=>z.d===d); if(k<0||!dd) return null; return String((dd.c||[])[k]||''); }
 const rkRow=(name,no)=>RK.items.find(x=>x.name===name && String(x.no)===String(no))||null;
 /* 上槽日：上槽を入れていれば（仕込カルテ）その日、無ければ予定上槽日 */
 function rkJoso(m){ const k=RC.karte&&RC.karte[m.no]; const a=k&&k.joso&&k.joso['上槽日']; return (a&&/^\d{4}-\d\d-\d\d/.test(String(a)))?String(a).slice(0,10):(m.joso||''); }
@@ -9815,7 +9891,7 @@ function rkDraw(){
     const w=o.warn.filter(v=>v.k===K).map(v=>`<div class="rk-w">⚠ ${esc(v.t)}（${rcMD(v.lim)}までに）</div>`).join('');
     return `<button class="rk-row ${cls}" data-no="${m.no}">
       <span class="id">${m.no}<small>${esc(m.sym||'')} T${esc(m.tank||'')}</small></span>
-      <span class="mid"><b>${esc(m.liquid||'')}</b><br><span class="d">${isR?`上槽 ${rcMD(o.J)}`:`濾過 ${rcMD(o.R)}${o.roD?'':'（予定）'}`}・期限 ${rcMD(lim)}</span>${w}${x&&x.tank?`<br><span class="d">タンク ${esc(x.tank)}${x.qty?'・'+esc(x.qty)+'L':''}${x.memo?'・'+esc(x.memo):''}</span>`:''}</span>
+      <span class="mid"><b>${esc(m.liquid||'')}</b><br><span class="d">${isR?`上槽 ${rcMD(o.J)}`:`濾過 ${rcMD(o.R)}${o.roD?'':'（予定）'}`}・期限 ${rcMD(lim)}</span>${w}${x&&x.staff?`<br><span class="d">担当 ${esc(x.staff)}</span>`:''}${x&&x.tank?`<br><span class="d">タンク ${esc(x.tank)}${x.qty?'・'+esc(x.qty)+'L':''}${x.memo?'・'+esc(x.memo):''}</span>`:''}</span>
       <span class="r">${D?`<b class="ok">済 ${rcMD(D)}</b>`:P?`<b>予定 ${rcMD(P)}</b>`:`<b class="ng">未定</b>`}<span>${D?'':'押して入力 ›'}</span></span></button>`; };
   let h=`<div class="rk-tabs">${['濾過','火入'].map(k=>`<button data-rk="${k}" class="${K===k?'on':''}">${k==='濾過'?'🧴':'🔥'} ${k}${all.some(o=>o.warn.some(w=>w.k===k))?`<i>${all.reduce((a,o)=>a+o.warn.filter(w=>w.k===k).length,0)}</i>`:''}</button>`).join('')}</div>
     <div id="rkBox">${RK.err?`<div class="tl-warn">${esc(RK.err)}</div>`:''}
@@ -9847,6 +9923,8 @@ function rkDialog(K, nos){
     <div class="rk-nos">${cand.map(o=>`<button type="button" data-n="${o.m.no}" class="${nos.map(String).includes(String(o.m.no))?'on':''}">${o.m.no}<small>${esc(o.m.liquid||'')}<br>${isR?'上槽 '+rcMD(o.J):'濾過 '+rcMD(o.R)}</small></button>`).join('')||'<span class="tl-note">対象の仕込がありません</span>'}</div>
     <label class="rk-f">予定日<input type="date" id="rkPlan" value="${first&&first.plan||''}"></label>
     <label class="rk-f">済んだ日<input type="date" id="rkDate" value="${first&&first.date||''}"><button type="button" class="rc-ghost" id="rkToday">きょう</button></label>
+    <label class="rk-f">担当<select id="rkStaff"><option value="">（出勤表に入れない）</option>${rkStaffList().map(x=>`<option ${nrmS(x)===nrmS(first&&first.staff||lsGet('rk.staff',''))?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
+    <div class="rk-lim" id="rkSh"></div>
     <label class="rk-f">タンク<input id="rkTank" inputmode="numeric" value="${esc(first&&first.tank||'')}" placeholder="例 183"></label>
     <label class="rk-f">数量 L<input id="rkQty" inputmode="decimal" value="${esc(first&&first.qty||'')}"></label>
     <label class="rk-f">${mlab}<input id="rkNum" inputmode="decimal" value="${esc(num0)}"></label>
@@ -9861,17 +9939,24 @@ function rkDialog(K, nos){
     const L=os.map(o=>dadd((isR?o.J:o.R)||today,RK_DAYS[K])).sort()[0]; const p=$('#rkPlan').value;
     $('#rkLim').innerHTML=L?`${isR?'上槽':'濾過'}から${RK_DAYS[K]}日：<b>${rcMD(L)}</b> までに${p&&p>L?' <span style="color:var(--ng)">← 予定が期限を過ぎています</span>':''}`:''; };
   d.querySelectorAll('.rk-nos button').forEach(b=>b.onclick=()=>{ b.classList.toggle('on'); lim(); });
-  $('#rkPlan').onchange=lim; lim();
-  $('#rkToday').onclick=()=>{ $('#rkDate').value=today; };
+  const shChk=()=>{ const st=$('#rkStaff').value, d=$('#rkDate').value||$('#rkPlan').value; const el=$('#rkSh');
+    if(!st||!d){ el.innerHTML=st?'':'担当を選ぶと、出勤表のその人・その日に「'+K+'」と入ります（会社PCが10分以内に書きます）'; return null; }
+    const c=rkShCell(st,d);
+    if(c===null){ el.innerHTML=`出勤表の ${esc(st)} ${rcMD(d)} に「${K}」と入ります（その月の出勤表がまだなら、できたときに入ります）`; return null; }
+    if(c===''||nrmS(c)===K){ el.innerHTML=`出勤表の ${esc(st)} ${rcMD(d)} に「${K}」と入ります`; return null; }
+    el.innerHTML=`<span style="color:var(--ng)">⚠ 出勤表の ${esc(st)} ${rcMD(d)} は「${esc(c)}」です。出勤表には書きません（予定だけ保存します）</span>`; return c; };
+  $('#rkPlan').onchange=()=>{ lim(); shChk(); }; $('#rkDate').onchange=shChk; $('#rkStaff').onchange=shChk; lim(); shChk();
+  $('#rkToday').onclick=()=>{ $('#rkDate').value=today; shChk(); };
   $('#rkSave').onclick=async()=>{
     const s=sel(); if(!s.length){ rcToast('仕込順号を選んでください',true); return; }
     const plan=$('#rkPlan').value, date=$('#rkDate').value; if(!plan&&!date){ rcToast('予定日か済んだ日を入れてください',true); return; }
     const num=$('#rkNum').value.trim(), memo=[num?(isR?`炭${num}kg`:`温度${num}℃`):'', $('#rkMemo').value.trim()].filter(Boolean).join(' ');
+    const staff=$('#rkStaff').value, busy=shChk(); if(staff) lsSet('rk.staff',staff);
     const btn=$('#rkSave'); btn.disabled=true; btn.textContent='保存中…';
     try{
       for(const n of s){ const m=(st.master||[]).find(x=>String(x.no)===String(n))||{}; const old=rkRow(K,n);
-        const item={ id:old?old.id:'', name:K, kind:s.length>1?`まとめ ${s.join('・')}`:'', no:String(n), liquid:m.liquid||'', plan, date, tank:$('#rkTank').value.trim(), qty:$('#rkQty').value.trim(), memo };
-        const j=await rkApi({action:'save', item}); rkKeep(j); if(j.calErr) rcToast('カレンダーに入れられませんでした：'+j.calErr,true,8000); }
+        const item={ id:old?old.id:'', name:K, kind:s.length>1?`まとめ ${s.join('・')}`:'', no:String(n), liquid:m.liquid||'', plan, date, tank:$('#rkTank').value.trim(), qty:$('#rkQty').value.trim(), memo, staff };
+        const j=await rkApi({action:'save', item, noShukkin:busy!==null}); rkKeep(j); if(j.calErr) rcToast('カレンダーに入れられませんでした：'+j.calErr,true,8000); if(j.shErr) rcToast(j.shErr,true,10000); }
       close(); rcToast(`${K}を保存しました`); rkDraw();
     }catch(e){ btn.disabled=false; btn.textContent='保存'; rcToast(String(e.message||e),true,8000); }
   };
@@ -9893,9 +9978,9 @@ function rkDialog(K, nos){
           const rows=RK.items.filter(x=>x.name===K && ((x.date||x.plan)===date));
           if(!rows.length) return;
           const a=dpMin(RK_T[K][0]), b=dpMin(RK_T[K][1]);
-          const nm=x=>{ const m=M.find(y=>String(y.no)===String(x.no))||{}; return `No.${x.no} ${m.sym||''}　${m.liquid||x.liquid||''}${x.tank?'　→ T'+x.tank:''}${x.qty?'　'+x.qty+'L':''}${x.memo?'　'+x.memo:''}${x.date?'（済）':''}`; };
-          out.push({lane:'roka', s:a, e:b, label:K+(typeof dpNin==='function'?dpNin(K):''), cls:K==='濾過'?'dp-j':'dp-s',   /* 2026-10-11：号ではなく必要な人数 */
-            d:{title:`${K}（${rows.map(x=>x.no).join('・')}号）`, nin:(typeof DP_NIN!=='undefined'?DP_NIN[K]:0), time:RK_T[K].join('〜')+'（目安）', lines:rows.map(nm), open:()=>{ RK_TAB=K; rokaScreen(); }, openL:'濾過・火入の画面を開く'}});
+          const nm=x=>{ const m=M.find(y=>String(y.no)===String(x.no))||{}; return `No.${x.no} ${m.sym||''}　${m.liquid||x.liquid||''}${x.staff?'　担当 '+nrmS(x.staff):''}${x.tank?'　→ T'+x.tank:''}${x.qty?'　'+x.qty+'L':''}${x.memo?'　'+x.memo:''}${x.date?'（済）':''}`; };
+          out.push({lane:'roka', s:a, e:b, label:`${K}${rows.map(x=>x.no).join('・')}`, cls:K==='濾過'?'dp-j':'dp-s',
+            d:{title:K, time:RK_T[K].join('〜')+'（目安）', lines:rows.map(nm), open:()=>{ RK_TAB=K; rokaScreen(); }, openL:'濾過・火入の画面を開く'}});
         });
       }catch(e){}
       return out;
@@ -9920,7 +10005,7 @@ setTimeout(()=>{ try{ if(ST&&ST.token) rkLoad(false).then(()=>{ const b=document
 .rk-lb{font-size:12px;color:var(--sub);margin:8px 0 4px}.rk-nos{display:flex;flex-wrap:wrap;gap:6px}
 .rk-nos button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:6px 8px;font-size:16px;font-weight:800;color:var(--navy);min-width:64px}
 .rk-nos button small{display:block;font-size:10px;font-weight:400;color:var(--sub)}.rk-nos button.on{background:var(--navy);color:#fff}.rk-nos button.on small{color:#dfe6f0}
-.rk-f{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:14px}.rk-f input{flex:1;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:16px;min-width:0}
+.rk-f{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:14px}.rk-f input,.rk-f select{flex:1;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:16px;min-width:0}
 .rk-lim{font-size:12px;color:var(--sub);margin:4px 0}`; document.head.appendChild(s); })();
 
 </script>
@@ -10297,5 +10382,81 @@ async function kaisekiHome(){
 
 </script>
 <!-- /kaiseki -->
+<!-- kmapinfo -->
+<style>
+/* 2026-10-12 麹の配置図：麹をタップすると詳細 */
+.k-mapc em[data-kid]{cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px;-webkit-tap-highlight-color:rgba(31,111,168,.25)}
+.k-mapc em[data-kid]:active{background:rgba(31,111,168,.18);border-radius:3px}
+.kmi .hd{display:flex;align-items:flex-start;gap:8px;padding:12px 14px 10px;border-bottom:1px solid var(--line)}
+.kmi .hd b{font-size:18px;color:var(--navy)} .kmi .hd small{display:block;font-size:12px;color:var(--sub);margin-top:2px;line-height:1.5}
+.kmi .hd button{margin-left:auto;border:0;background:none;font-size:22px;line-height:1;color:var(--sub);padding:2px 6px;font-family:inherit;cursor:pointer}
+.kmi .bd{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 14px 12px}
+.kmi .rc-calc{margin:4px 0 8px}
+.kmi .rc-calc div.now{background:#e6f1fa;outline:1.5px solid #1f6fa8}
+.kmi table{width:100%;border-collapse:collapse;font-size:13px;margin:4px 0 8px}
+.kmi th,.kmi td{border-bottom:1px solid #eee;padding:5px 4px;text-align:center}
+.kmi th{font-size:11px;color:var(--sub);font-weight:600}
+.kmi td:first-child,.kmi th:first-child{text-align:left}
+.kmi td.v{font-weight:700;color:var(--ink)} .kmi td.g{color:var(--sub);font-size:12px}
+.kmi tr.st td{background:#f7f5ef;font-size:11px;font-weight:700;color:var(--sub);padding:3px 4px}
+.kmi .ln{font-size:13px;margin:4px 0;line-height:1.6}
+.kmi .ln span{color:var(--sub);font-size:12px;margin-right:6px}
+.kmi .pbn{display:inline-block;background:#1d5fa8;color:#fff;border-radius:4px;font-size:12px;font-weight:700;padding:1px 6px;margin-right:4px}
+.kmi .ft{padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:8px}
+.kmi .ft button{flex:1;font-family:inherit;font-size:15px;font-weight:700;padding:12px 6px;border-radius:10px;cursor:pointer;border:1.5px solid var(--navy);background:#fff;color:var(--navy)}
+.kmi .ft button.go{background:var(--navy);color:#fff}
+</style>
+<script>
+/* 2026-10-12 泰広さん指示：麹の配置図の各麹をタップすると詳細を出す。
+   配置図（kojiScreen の map1／rcMap2）の <em data-kid data-kst> を押すと、下から詳細の窓（o2-mask の形）。
+   「記録を開く」でその工程（1号室＝引込／2号室の上段＝出麹／下段＝盛）の入力画面 kojiEdit へ。 */
+function kMapInfo(date,id,stage){
+  const j=(RC.koji||{})[date]; const r=j&&(j.koji||[]).find(x=>x['麹ID']===id); if(!r) return;
+  const tg=j.targets||{}, v=x=>(x===''||x==null)?'':x;
+  const sh=x=>String(x||'').replace(/麹棚/g,'棚').replace(/天幕/g,'');
+  const pbs=Object.entries(j.probes||{}).filter(([n,x])=>x&&x.id===id);
+  const tgT=k=>tg[k]&&tg[k].time?tg[k].time:'', tgV=k=>tg[k]&&tg[k].temp!=null&&tg[k].temp!==''?tg[k].temp+'℃':'';
+  const tr=(lb,tc,pc,tk)=>`<tr><td>${lb}</td><td class="v">${tc&&v(r[tc])!==''?esc(r[tc]):'—'}</td><td class="v">${pc&&v(r[pc])!==''?rcN(r[pc])+'℃':'—'}</td><td class="g">${tk?[tgT(tk),tgV(tk)].filter(Boolean).join(' '):''}</td></tr>`;
+  const stg=t=>`<tr class="st"><td colspan="4">${t}</td></tr>`;
+  const dd=(lb,c,on)=>`<div class="${on?'now':''}">${lb}<b>${v(r[c])!==''?rcMD(r[c]):'—'}</b></div>`;
+  const plc=(n,p,dflt)=>(v(r[n])!==''||v(r[p])!=='')?`${v(r[n])!==''?esc(r[n])+'番 ':''}${esc(sh(r[p]))||dflt||'場所未定'}`:'—';
+  const tane=[r['種麹']?esc(r['種麹'])+(v(r['種麹g'])!==''?' '+r['種麹g']+'g':'')+(v(r['割合%'])!==''?'（'+r['割合%']+'%）':''):'',
+              r['種麹2']?esc(r['種麹2'])+(v(r['種麹2g'])!==''?' '+r['種麹2g']+'g':'')+(v(r['割合2%'])!==''?'（'+r['割合2%']+'%）':''):''].filter(Boolean).join(' ＋ ');
+  let chart=''; try{ chart=kTempChart(r,(RC.pser||{})[id])||''; }catch(e){ chart=''; }
+  const m=document.createElement('div'); m.className='o2-mask';
+  m.innerHTML=`<div class="o2-sheet kmi" role="dialog" aria-label="${esc(id)} の詳細">
+    <div class="hd"><div><b>${esc(id)}</b> <span style="font-size:13px;color:var(--sub)">${esc(r['記号']||'')}</span>
+      <small>${esc(r['液種']||'')}　${esc(r['品種']||'')} ${v(r['精米歩合'])!==''?r['精米歩合']+'%':''}　麹米 ${v(r['麹米kg'])!==''?r['麹米kg']+'kg':'—'}</small></div>
+      <button type="button" class="x" aria-label="閉じる">×</button></div>
+    <div class="bd">
+      <div class="rc-calc" style="grid-template-columns:repeat(5,1fr)">${dd('洗米','洗米日')}${dd('引込','引込日',stage==='引込')}${dd('盛','盛日',stage==='盛')}${dd('出麹','出麹日',stage==='出麹')}${dd('使用','使用日')}</div>
+      <p class="ln"><span>種麹</span>${tane||'—'}　<span>吸水</span>${v(r['吸水%'])!==''?rcN(r['吸水%'])+'%':'—'}</p>
+      <p class="ln"><span>場所</span>1号室 ${plc('引込 順番','引込 場所')}　／　盛 ${plc('盛 順番','盛 場所')}${v(r['出麹 場所'])!==''||v(r['出麹 順番'])!==''?`　／　出麹 ${plc('出麹 順番','出麹 場所','盛と同じ箱')}`:''}</p>
+      ${pbs.length?`<p class="ln"><span>品温計</span>${pbs.map(([n,x])=>`<i class="pbn">No${n}</i>${(x.temp!=null&&!x.stale)?x.temp+'℃':'—'}${x.place?'（'+esc(sh(x.place))+'）':''}`).join('　')}</p>`:''}
+      ${chart?`<div class="card" style="padding:6px 8px;margin:6px 0">${chart}</div>`:''}
+      <table><tr><th>工程</th><th>時刻</th><th>品温</th><th>標準・目標</th></tr>
+        ${stg('引込み（1号室）')}${tr('引込','引込 時刻','引込 品温','引込')}${tr('種切','種切 時刻','種切 品温','種切')}${v(r['種切 水分%'])!==''?`<tr><td>種切 水分</td><td></td><td class="v">${rcN(r['種切 水分%'])}%</td><td></td></tr>`:''}${v(r['ねせ h'])!==''||v(r['ねせ 品温'])!==''?`<tr><td>ねせ</td><td class="v">${v(r['ねせ h'])!==''?r['ねせ h']+'h':'—'}</td><td class="v">${v(r['ねせ 品温'])!==''?rcN(r['ねせ 品温'])+'℃':'—'}</td><td></td></tr>`:''}${tr('切返し','切返し 時刻','切返し 品温','切返し')}
+        ${stg('盛（2号室）')}${tr('盛前','','盛前 品温','盛前')}${tr('盛後','盛 時刻','盛後 品温','盛後')}${tr('仲仕事','仲仕事 時刻','仲仕事 品温','仲仕事')}${tr('留仕事','留仕事 時刻','留仕事 品温','留仕事')}
+        ${stg('出麹')}${tr('出麹','出麹 時刻','出麹 品温','出麹')}${v(r['出麹重量kg'])!==''?`<tr><td>出麹重量</td><td></td><td class="v">${r['出麹重量kg']}kg</td><td></td></tr>`:''}
+      </table>
+      ${r['注意']?`<p class="ln" style="color:var(--ng)"><span>注意</span>${esc(r['注意'])}</p>`:''}
+      ${r['備考']?`<p class="ln"><span>備考</span>${esc(r['備考'])}</p>`:''}
+    </div>
+    <div class="ft"><button type="button" class="x">閉じる</button><button type="button" class="go">${esc(stage)}の記録を開く</button></div></div>`;
+  const close=()=>{ m.remove(); document.removeEventListener('keydown',esck); };
+  const esck=e=>{ if(e.key==='Escape') close(); };
+  m.addEventListener('click',e=>{ if(e.target===m) close(); });
+  m.querySelectorAll('.x').forEach(b=>b.onclick=close);
+  m.querySelector('.go').onclick=()=>{ close(); go(()=>kojiEdit(date,id,stage)); };
+  document.addEventListener('keydown',esck);
+  document.body.appendChild(m);
+}
+document.addEventListener('click',e=>{
+  const em=e.target&&e.target.closest&&e.target.closest('.k-mapc em[data-kid]'); if(!em) return;
+  e.preventDefault(); e.stopPropagation();
+  kMapInfo(RC.kday||dtoday(),em.dataset.kid,em.dataset.kst||'盛');
+},true);
+</script>
+<!-- /kmapinfo -->
 </body>
 </html>
