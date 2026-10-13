@@ -9150,6 +9150,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-13-14','💧','仕込み','仕込み時（添・仲・留）に「1℃水」の量を入れられるようにしました。汲水（氷を含む）から 10℃水＝汲水−1℃水−氷 を自動で出します（📋表の BMD の行・1本の画面の仕込み時の表・入力画面）。1℃水を使わない日は 0 を入れてください。'],
   ['2026-10-13-13','📅','ホーム（本日の予定）','カレンダーの題名が「蔵案内」の予定も、蔵見学として全部の担当の段に薄い帯で時間帯を出すようにしました（これまでは「蔵見学」の文字がある予定だけでした）。'],
   ['2026-10-13-12','📅','ホーム（本日の予定）','蒸米は 9:35 から 麹（引込）→ 酛仕込 → 添・仲・留 の順に飛ばす並びにしました。それぞれの長さは洗米表の量で出します（380kg で 25分）。'],
   ['2026-10-13-11','📅','ホーム（本日の予定）','仕込み（添・仲・留）の長さを、洗米表の掛米の量で出すようにしました（蒸米 380kg で 25分）。蒸米の終わりも仕込みに合わせて短くなります。'],
@@ -11511,5 +11512,99 @@ document.addEventListener('focusout', e=>{ const el=e.target; if(!af1Key(el)) re
 .kg-t.ed.mk td.st{min-width:46px}`; document.head.appendChild(s); })();
 </script>
 <!-- /shkcompact -->
+<!-- mizu -->
+<script>
+/* ================= 🍶 仕込み：仕込み水の内訳（1℃水・10℃水）2026-10-13 =================
+   泰広さん指示：添・仲・留で使う水が違う（10℃と1℃の水を混ぜる、そこに氷を入れることも）。それを分かるように。当日、担当者が選んで記録。
+   ・汲水＝10℃水＋1℃水＋氷（泰広さん確認：汲水に氷も含む）。入力するのは「1℃水 L」だけ。10℃水＝汲水−1℃水−氷 を自動で出す（1℃水を使わない日は 0）
+   ・🍶仕込みの📋表（仕込み時）：BMD の行に「1℃水」の欄（添・仲・留）。見出しに 10℃水の計算結果（打つとその場で変わる）
+   ・1本の画面「仕込み時」の表：氷の下に 1℃水・10℃水（計算）の行
+   ・入力画面（moromiSetup）：氷の次に「1℃水 L」、下に 10℃水（計算）
+   ・サーバー：醸造記録 R8BY の 仕込み水_追加.gs（シート「醪追加」）。入っていないうちは 1℃水 の欄は押せない（保存されないため）
+   控え：seishu-workbook_github\_src_mizu.js（index.html の mizu の目印の間）。差し込み _仕込み水を足す_20261013.py */
+function mzTen(o){ o=o||{}; const k=shN(o.kumi), w=shN(o.w1), i=shN(o.kori); if(k===null||w===null) return null; return k-w-(i===null?0:i); }
+function mzFmt(n){ return n===null?'':Math.round(n).toLocaleString('ja-JP'); }
+function mzSrv(no, st){ const b=RC.bun[no]; return !!(b&&b.setup&&b.setup[st]&&('w1' in b.setup[st])); }
+function mzTenTx(t){ return t===null?'':`<span class="mz10${t<0?' ng':''}">10℃ ${mzFmt(t)}</span>`; }
+try{ Object.assign(KGE_RANGE,{w1:[0,15000,'1℃水']}); }catch(e){}
+try{ if(!MR_SETUP.some(x=>x[0]==='w1')) MR_SETUP.splice(MR_SETUP.findIndex(x=>x[0]==='kori')+1,0,['w1','1℃水','L','1']); }catch(e){}
+try{ if(!KG_SET_M[8]||!KG_SET_M[8].length) KG_SET_M[8]=['w1','1℃水',0]; }catch(e){}
+/* 📋表：1℃水 のマスに 10℃水 の計算を添える／サーバー未対応なら押せない */
+(function(){
+  const o=window.kgSetVals; if(typeof o!=='function') return;
+  window.kgSetVals=function(kind, set, fi){
+    const a=o.apply(this, arguments);
+    if(kind!=='moromi'||fi!==8) return a;
+    return a.map((x,ci)=>{
+      const st=(KG_STG[ci]||[])[0]; if(!x||!st||st==='odori') return x;
+      const t=mzTen((set||{})[st]);
+      if(x.ks){
+        let h=x.html.replace('<small class="ksl">1℃水</small>', `<small class="ksl">1℃水 ${mzTenTx(t)}</small>`);
+        const m=h.match(/data-no="([^"]*)"/), no=m?m[1]:'';
+        if(no&&!mzSrv(no,st)) h=h.replace('<input ','<input disabled title="Apps Script（仕込み水_追加.gs）を入れると入力できます" ');
+        return Object.assign({}, x, {html:h});
+      }
+      if(t===null) return x;
+      return Object.assign({}, x, {html:(x.html||'')+mzTenTx(t)});
+    });
+  };
+})();
+/* 📋表：汲水・氷・1℃水 を打つと 10℃水 をその場で計算し直す */
+document.addEventListener('input', e=>{
+  const el=e.target; if(!el||!el.matches||!el.matches('.kg-i.ks')||!/^(kumi|kori|w1)$/.test(el.dataset.k||'')) return;
+  const no=el.dataset.no, ds=el.dataset.day, st=ds.slice(2), tb=el.closest('table')||document;
+  const q=f=>tb.querySelector(`.kg-i.ks[data-no="${no}"][data-day="${ds}"][data-k="${f}"]`);
+  const w=q('w1'); if(!w) return;
+  const S=((RC.bun[no]||{}).setup||{})[st]||{}, val=f=>{ const x=q(f); return x?x.value:S[f]; };
+  const lab=w.parentElement&&w.parentElement.querySelector('.ksl'); if(!lab) return;
+  lab.innerHTML='1℃水 '+mzTenTx(mzTen({kumi:val('kumi'), kori:val('kori'), w1:val('w1')}));
+});
+/* 1本の画面「仕込み時」の表（氷の下に 1℃水・10℃水） */
+function moromiSetupTable(b){
+  const S=b.setup||{}, today=dtoday();
+  const cell=(st,f)=>{ const v=shN((S[st]||{})[f]); return v===null?'':shF(v,/shaku|ryo|kumi|kori|w1/.test(f)?0:1); };
+  let h=`<div class="rc-h" style="margin-top:4px">仕込み時<small>押すと入力（分析醪シートの 添・踊・仲・留）</small></div><div class="sh-st"><div class="sh-tw"><table class="sh-t"><tr><th class="k"></th>${MR_STAGES.map(([st,l])=>`<th data-st="${st}">${l}<br><span style="font-weight:400">${rcMD((S[st]||{}).date)}</span></th>`).join('')}</tr>`;
+  const rows=[['尺','shaku'],['量','ryo'],['汲水','kumi'],['氷','kori'],['1℃水','w1'],['10℃水<small style="display:block;font-size:9px;font-weight:400">計算</small>','_w10'],['水麹','mizukoji'],['蒸米','mushi'],['品温','hin'],['Be','be'],['酸度','ta'],['ｱﾐﾉ','aa']];
+  rows.forEach(([l,f])=>{
+    h+=`<tr><td class="k">${l}</td>${MR_STAGES.map(([st])=>{
+      if(f==='_w10'){ if(st==='odori') return `<td data-st="${st}" style="background:#f6f3ea"></td>`;
+        const t=mzTen(S[st]); return `<td data-st="${st}" class="${t!==null?'v':''}" style="color:${t!==null&&t<0?'#c0392b':'#1f5fa8'};font-weight:700">${mzFmt(t)}</td>`; }
+      const ok=st==='odori'?MR_ODORI.some(x=>x[0]===f):MR_SETUP.some(x=>x[0]===f);
+      if(!ok) return `<td data-st="${st}" style="background:#f6f3ea"></td>`;
+      const v=cell(st,f), due=(S[st]||{}).date && (S[st]||{}).date<=today, req=f!=='kori'&&f!=='w1';
+      return `<td data-st="${st}" class="${v?'v':(due&&req?'miss':'')}" ${!v&&due&&req?'style="background:#fff7e0"':''}>${v}</td>`; }).join('')}</tr>`; });
+  return h+`</table></div></div><p class="sh-note" style="margin-top:2px">汲水＝10℃水＋1℃水＋氷。10℃水は 汲水−1℃水−氷 で計算（1℃水を使わない日は 0 を入れる）</p>`;
+}
+/* 入力画面：1℃水 の下に 10℃水（計算）。サーバー未対応なら 1℃水 は押せない */
+(function(){
+  const o=window.moromiSetup; if(typeof o!=='function') return;
+  window.moromiSetup=async function(no, st){
+    const r=await o.apply(this, arguments);
+    try{
+      const w=document.getElementById('mr_w1'); if(!w) return r;
+      if(!mzSrv(no,st)){ w.disabled=true; w.title='Apps Script（仕込み水_追加.gs）を入れると入力できます'; }
+      const box=document.createElement('div'); box.className='mz-box';
+      const g=id=>{ const x=document.getElementById(id); return x?x.value:''; };
+      const upd=()=>{ const t=mzTen({kumi:g('mr_kumi'), kori:g('mr_kori'), w1:g('mr_w1')});
+        box.innerHTML=`<small>10℃水（計算）</small><b class="${t!==null&&t<0?'ng':''}">${t===null?'—':mzFmt(t)}</b><span>L</span><em>＝汲水−1℃水−氷（1℃水を使わない日は 0 を入れる）${!mzSrv(no,st)?'<br>※ 1℃水 は Apps Script を入れると入力できます':''}</em>`; };
+      const grid=document.querySelector('#app .rc-grid'); if(grid) grid.after(box);
+      ['mr_kumi','mr_kori','mr_w1'].forEach(id=>{ const x=document.getElementById(id); if(x) x.addEventListener('input', upd); });
+      upd();
+    }catch(e){ console.log('mizu', e); }
+    return r;
+  };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.mz10{color:#1f5fa8;font-weight:700;margin-left:3px;font-size:inherit}
+.mz10.ng{color:#c0392b}
+.kg-t td .sv .mz10,.kg-t td.st .mz10{display:block;font-size:9px;margin:0}
+.mz-box{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;margin:8px 0 2px;padding:6px 10px;background:#e7f0fb;border-radius:8px}
+.mz-box small{font-size:12px;font-weight:700;color:#1f5fa8}
+.mz-box b{font-size:22px;font-weight:900;color:#103e74;font-variant-numeric:tabular-nums}
+.mz-box b.ng{color:#c0392b}
+.mz-box span{font-size:13px;font-weight:700;color:#103e74}
+.mz-box em{flex-basis:100%;font-style:normal;font-size:11px;color:var(--sub)}`; document.head.appendChild(s); })();
+</script>
+<!-- /mizu -->
 </body>
 </html>
