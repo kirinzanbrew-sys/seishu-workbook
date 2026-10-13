@@ -9124,6 +9124,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-13-7','🍶','仕込み','仕込みの表を詰めて見やすくしました（入力欄を低くし、仕込み時の「尺」「量」などの見出しはマスの左上に小さく）。'],
   ['2026-10-13-6','🔢','酒母・仕込み','分析値（Be/度・alc・酸度・ｱﾐﾉ・品温・水麹・蒸米）を、表の入力欄や1本ずつの入力画面でも 12 → 12.0 のように小数1桁で表示するようにしました（入れて欄を離れると自動で整います）。'],
   ['2026-10-13-5','🍶','仕込み・分析','🧪分析に「踊」（添の翌日：Be・酸度・ｱﾐﾉ）の入力を足しました。🍶仕込みの📋表で「仕込み時」を表示すると、添・踊・仲・留の仕込み時（尺・量・汲水・氷・水麹・品温・蒸米）もマスにそのまま入力できます。尺を入れると量が容量早見表から自動で入ります。尺だけ入っていて量が空だった仕込（1号の添など）は、表を開いたときに自動で入れます。「きょうの仕込み・資材」は上のアイコン「🍶 今日の仕込み」にしまいました（押すと開きます）。'],
   ['2026-10-13-4','🧰','資材','添加アルコール：入荷予定を便ごとのボタンにし、押すとその便から次の便までの添加予定の表と発注ができます（📋で全部の表も）。発注済の便の入荷も在庫に足して判定するので、発注済なら「足りなくなります」は出ません。A重油：「点検」「発注」「地下タンク点検」をボタンにし、押すとその欄が開きます。'],
@@ -11448,5 +11449,29 @@ document.addEventListener('focusout', e=>{ const el=e.target; if(!af1Key(el)) re
   new MutationObserver(()=>{ clearTimeout(t); t=setTimeout(()=>af1Fix(a),30); }).observe(a,{childList:true,subtree:true}); })();
 </script>
 <!-- /af1 -->
+<!-- shkcompact -->
+<script>
+/* ================= 🍶 仕込みの表を詰めて見やすく（2026-10-13） =================
+   泰広さん指示：仕込みの表の行が大きくなってしまい、表全体が見づらい。見やすくしてください。
+   ・原因：表にそのまま入力できるようにしたとき（10-12）、入力欄（高さ約28px）がマスに入って行が約33px（仕込み時を出すと、見出しを入力欄の上に置いたので約48px）に広がった
+   ・🍶仕込みの表（.kg-t.ed.mk）だけ：入力欄を枠の細い低い欄（高さ20px・12px）にしてマスの余白を詰める。
+     仕込み時のマスの見出し（尺・量…）は入力欄の上ではなく、マスの左上に小さく重ねる（行の高さを増やさない）
+   ・入力中の欄・未保存（黄色）・おかしい値（赤・橙）の色分けは今までどおり。🧫酒母の表は変更なし
+   控え：seishu-workbook_github\_src_shkcompact.js（index.html の shkcompact の目印の間） */
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-t.ed.mk th,.kg-t.ed.mk td{padding:1px 2px;height:20px;line-height:1.15}
+.kg-t.ed.mk td.in{padding:1px}
+.kg-t.ed.mk .kg-i{height:20px;width:42px;padding:0 3px;font-size:12px;line-height:18px;border-radius:4px;border-color:rgba(150,140,115,.28)}
+.kg-t.ed.mk .kg-i.ks{width:46px}
+.kg-t.ed.mk .kg-i.dirty,.kg-t.ed.mk .kg-i.warn,.kg-t.ed.mk .kg-i.bad{border-width:1.5px}
+.kg-t.ed.mk td.st,.kg-t.ed.mk td.mg{position:relative}
+.kg-t.ed.mk td .ksl{position:absolute;left:2px;top:0;display:block;font-size:7.5px;line-height:1;color:var(--sub);opacity:.85;pointer-events:none;z-index:1}
+.kg-t.ed.mk td.st:has(.kg-i.ks) small:not(.ksl){display:none}
+.kg-t.ed.mk td.mg .sv{display:inline;font-size:10px}
+.kg-t.ed.mk td.mg .sv:has(.kg-i){display:block}
+.kg-t.ed.mk td.mg .sv .kg-i.ks{margin-top:0}
+.kg-t.ed.mk td.st{min-width:46px}`; document.head.appendChild(s); })();
+</script>
+<!-- /shkcompact -->
 </body>
 </html>
