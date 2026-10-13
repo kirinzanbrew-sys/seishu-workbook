@@ -2980,10 +2980,12 @@ async function washScreen(){
   const draw=()=>{
     const f=WS.filter;
     let over=0,soon=0,todo=0,done=0;
-    WS.plan.forEach(p=>{ const s=wsStage(wsRec(p.id)); if(s===3){done++;return;} todo++; const d=wsDays(p.deadline); if(d<0)over++; else if(d<=14)soon++; });
+    /* 2026-10-13 泰広さん指示：使用日（添仕込日）になったタンクは非表示。「履歴」と「全部」には残る */
+    const used=p=>wsDays(p.soe)<=0, nUsed=WS.plan.filter(used).length;
+    WS.plan.forEach(p=>{ if(used(p))return; const s=wsStage(wsRec(p.id)); if(s===3){done++;return;} todo++; const d=wsDays(p.deadline); if(d<0)over++; else if(d<=14)soon++; });
     const vis=p=>{ const s=wsStage(wsRec(p.id)), d=wsDays(p.deadline);
-      if(f==='now')return d<=0; if(f==='all')return true; if(f==='done')return s===3; if(f==='todo')return s<3; if(f==='soon')return s<3&&d<=14; if(f==='over')return s<3&&d<0; return true; };
-    const rows=WS.plan.filter(vis).sort((a,b)=>a.deadline.localeCompare(b.deadline)||a.n-b.n);
+      if(f==='all')return true; if(f==='hist')return used(p); if(used(p))return false; if(f==='now')return d<=0; if(f==='done')return s===3; if(f==='todo')return s<3; if(f==='soon')return s<3&&d<=14; if(f==='over')return s<3&&d<0; return true; };
+    const rows=WS.plan.filter(vis).sort((a,b)=>f==='hist'?(b.soe.localeCompare(a.soe)||b.n-a.n):(a.deadline.localeCompare(b.deadline)||a.n-b.n));
     let h=`<div class="ws-sum">
       <button data-f="over"><span class="k">期限超過</span><span class="v ${over?'bad':''}">${over}</span></button>
       <button data-f="soon"><span class="k">14日以内</span><span class="v ${soon?'warn':''}">${soon}</span></button>
@@ -2994,6 +2996,7 @@ async function washScreen(){
       <button class="ws-chip ${f==='todo'?'on':''}" data-f="todo">未完了</button>
       <button class="ws-chip ${f==='soon'?'on':''}" data-f="soon">14日以内</button>
       <button class="ws-chip ${f==='done'?'on':''}" data-f="done">完了</button>
+      <button class="ws-chip ${f==='hist'?'on':''}" data-f="hist">履歴${nUsed?` ${nUsed}`:''}</button>
       <button class="ws-chip ${f==='all'?'on':''}" data-f="all">全部</button>
       <span style="flex:1"></span>
       <button class="ws-ghost" id="wsStaff">担当者名</button>
@@ -3005,7 +3008,7 @@ async function washScreen(){
     <div class="ws-status${ok?'':' warn'}" id="wsStatus">${bg?'最新の内容を確認しています…':ok?'':'（電波が無いため、端末に保存した内容を表示しています）'}</div>`;
     /* 2026-10-11 泰広さん指示：「現在まで」＝期限（酛下日）が今日までの使用予定タンクを、完了していても全部出す。下に「これから（14日以内）」も完了含めて出す */
     const rowH=p=>{ const r=wsRec(p.id), s=wsStage(r), u=wsUrg(p,r), d=wsDays(p.deadline);
-      const left=s===3?'完了':d<0?`${-d}日超過`:d===0?'今日まで':`あと${d}日`;
+      const left=used(p)?(s===3?'使用済':'使用済・未完了'):s===3?'完了':d<0?`${-d}日超過`:d===0?'今日まで':`あと${d}日`;
       return `<button class="ws-row ${u}" data-id="${p.id}"><span class="st"></span>
         <span class="tk">${p.tank}<small>No.${p.n} ${esc(p.kigo)}</small></span>
         <span class="mid"><span class="b">${esc(p.brand)}</span><br><span class="d">添 ${wsMD(p.soe)}・留 ${wsMD(p.tome)}・上槽 ${p.josouActual?`<b>${wsMD(p.josouActual)}</b>(実)`:wsMD(p.josou)}${p.prev?`　前回上槽 ${wsMD(p.prev)}${p.prevActual?'(実)':''}`:''}</span></span>
@@ -3013,11 +3016,12 @@ async function washScreen(){
           <span class="ws-steps"><span class="${r.wash&&r.wash.done?'on':''}">洗</span><span class="${r.finish&&r.finish.done?'on':''}">仕</span><span class="${r.check&&r.check.done?'on':''}">確</span></span></span></button>`; };
     if(f==='now'){
       const nd=rows.filter(p=>wsStage(wsRec(p.id))===3).length;
-      h+=`<div class="ws-sec">現在まで（期限が今日まで）　${rows.length}本・うち完了 ${nd}本</div>`;
-      h+=rows.length?rows.map(rowH).join(''):`<p class="muted" style="text-align:center;padding:16px 0">期限が今日までのタンクはまだありません</p>`;
-      const nx=WS.plan.filter(p=>{ const d=wsDays(p.deadline); return d>0&&d<=14; }).sort((a,b)=>a.deadline.localeCompare(b.deadline)||a.n-b.n);
+      h+=`<div class="ws-sec">現在まで（期限が今日まで・まだ使っていないもの）　${rows.length}本・うち完了 ${nd}本</div>`;
+      h+=rows.length?rows.map(rowH).join(''):`<p class="muted" style="text-align:center;padding:16px 0">期限が今日までで、まだ使っていないタンクはありません</p>`;
+      const nx=WS.plan.filter(p=>{ const d=wsDays(p.deadline); return !used(p)&&d>0&&d<=14; }).sort((a,b)=>a.deadline.localeCompare(b.deadline)||a.n-b.n);
       if(nx.length){ h+=`<div class="ws-sec">これから（14日以内）　${nx.length}本</div>`+nx.map(rowH).join(''); }
     }else{
+      if(f==='hist') h+=`<div class="ws-sec">履歴（使用日＝添仕込日を過ぎたタンク・新しい順）　${rows.length}本</div>`;
       if(!rows.length) h+=`<p class="muted" style="text-align:center;padding:24px 0">該当するタンクはありません</p>`;
       h+=rows.map(rowH).join('');
     }
@@ -9150,6 +9154,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-13-17','🫧','タンク洗浄管理','使用日（添仕込日）になったタンクは一覧から消えるようにしました。使い終わった分は「履歴」（新しい順）と「全部」でいつでも見られます。'],
   ['2026-10-13-16','🧫','酒母','酒母の表の「備考」（暖器・冷器）の欄を、ほかのマスと同じ小ささにしました。'],
   ['2026-10-13-15','🧫','酒母','酒母の表も仕込みの表と同じように詰めて見やすくしました（入力欄を低くし、1日目の仕込時の値は入力欄の左に小さく）。'],
   ['2026-10-13-14','💧','仕込み','仕込み時（添・仲・留）に「1℃水」の量を入れられるようにしました。汲水（氷を含む）から 10℃水＝汲水−1℃水−氷 を自動で出します（📋表の BMD の行・1本の画面の仕込み時の表・入力画面）。1℃水を使わない日は 0 を入れてください。'],
