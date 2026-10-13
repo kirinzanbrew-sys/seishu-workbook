@@ -9150,6 +9150,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-13-16','🧫','酒母','酒母の表の「備考」（暖器・冷器）の欄を、ほかのマスと同じ小ささにしました。'],
   ['2026-10-13-15','🧫','酒母','酒母の表も仕込みの表と同じように詰めて見やすくしました（入力欄を低くし、1日目の仕込時の値は入力欄の左に小さく）。'],
   ['2026-10-13-14','💧','仕込み','仕込み時（添・仲・留）に「1℃水」の量を入れられるようにしました。汲水（氷を含む）から 10℃水＝汲水−1℃水−氷 を自動で出します（📋表の BMD の行・1本の画面の仕込み時の表・入力画面）。1℃水を使わない日は 0 を入れてください。'],
   ['2026-10-13-13','📅','ホーム（本日の予定）','カレンダーの題名が「蔵案内」の予定も、蔵見学として全部の担当の段に薄い帯で時間帯を出すようにしました（これまでは「蔵見学」の文字がある予定だけでした）。'],
@@ -11613,13 +11614,16 @@ function moromiSetupTable(b){
    泰広さん指示：仕込みの表は読みやすくなった。同じように酒母も行の間隔を調整して。
    ・🧫酒母の表（.kg-t.ed で .mk が付いていない＝酒母）：仕込みの表（shkcompact）と同じく、入力欄を低い欄（高さ20px・12px）にしてマスの余白を詰める
    ・仕込時（尺・量・水麹・蒸米）の値は、1日目のマスで入力欄の上に積まず、左に小さく並べる（行の高さを増やさない）
+   ・備考（暖器・冷器の選択）も同じ高さ・幅の欄に（2026-10-13 泰広さん指示「備考欄が大きい」：76px幅のプルダウン → 42px・高さ20px、矢印は小さく）
    ・順号のマス（大きな順号・酵母・タンクの入力）は変更なし。入力中・未保存（黄色）・おかしい値（赤・橙）の色分けは今までどおり
    控え：seishu-workbook_github\_src_sbcompact.js（index.html の sbcompact の目印の間） */
 (function(){ const s=document.createElement('style'); s.textContent=`
 .kg-t.ed:not(.mk) th,.kg-t.ed:not(.mk) td:not(.n){padding:1px 2px;height:20px;line-height:1.15}
 .kg-t.ed:not(.mk) td.in{padding:1px}
 .kg-t.ed:not(.mk) td:not(.n) .kg-i{height:20px;width:42px;padding:0 3px;font-size:12px;line-height:18px;border-radius:4px;border-color:rgba(150,140,115,.28)}
-.kg-t.ed:not(.mk) td:not(.n) .kg-i.tx,.kg-t.ed:not(.mk) td:not(.n) .kg-i.sel{width:76px;font-size:11px;padding:0 1px}
+.kg-t.ed:not(.mk) td:not(.n) .kg-i.tx{width:42px;font-size:10px;padding:0 2px}
+.kg-t.ed:not(.mk) td:not(.n) .kg-i.sel{-webkit-appearance:none;appearance:none;width:42px;height:20px;min-height:0;font-size:11px;line-height:18px;padding:0 10px 0 3px;text-align:left;font-weight:700;
+  background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0h8L4 5z' fill='%23999'/%3E%3C/svg%3E") no-repeat right 2px center/7px 4px}
 .kg-t.ed:not(.mk) td:not(.n) .kg-i.dirty,.kg-t.ed:not(.mk) td:not(.n) .kg-i.warn,.kg-t.ed:not(.mk) td:not(.n) .kg-i.bad{border-width:1.5px}
 .kg-t.ed:not(.mk) td.in .sv{display:inline;font-size:9px;margin-right:2px;vertical-align:middle}
 .kg-t.ed:not(.mk) td.in .sv small{font-size:8px;margin-right:1px}
