@@ -6196,13 +6196,16 @@ const BN_CSS=`
 
 const BN_F={
   sb:[['be','Be'],['alc','alc'],['ta','酸度'],['aa','ｱﾐﾉ']],
-  mr:[['be','Be/度'],['alc','alc'],['ta','酸度'],['aa','ｱﾐﾉ']]
+  mr:[['be','Be/度'],['alc','alc'],['ta','酸度'],['aa','ｱﾐﾉ']],
+  od:[['be','Be'],['ta','酸度'],['aa','ｱﾐﾉ']]   /* 2026-10-13 踊（添の翌日）。仕込み時の値（setup.odori）に入る */
 };
 /* ありえない値（赤）。範囲はゆるめ。打ち間違い（桁・小数点）を拾うため */
-const BN_RANGE={ sb:{be:[0,25],ta:[0,20],alc:[0,20],aa:[0,10]}, mr:{be:[-30,40],alc:[0,23],ta:[0,6],aa:[0,6]} };
+const BN_RANGE={ sb:{be:[0,25],ta:[0,20],alc:[0,20],aa:[0,10]}, mr:{be:[-30,40],alc:[0,23],ta:[0,6],aa:[0,6]}, od:{be:[0,25],ta:[0,10],aa:[0,10]} };
 const BN={date:null, open:{}};
 const bnKey=(k,no)=>k+'_'+no;
 const bnStore=k=>k==='sb'?RC.shubo:RC.bun;
+/* その行の値の入れ物：酒母・醪＝その日の days、踊＝仕込み時の setup.odori（2026-10-13） */
+const bnDay=(x,s)=>x.k==='od'?(((s&&s.setup)||{}).odori||{}):(((s&&s.days)||[])[x.d-1]||{});
 function bnDraft(date){ return lsGet('bn.draft.'+date,{})||{}; }
 /* 2026-10-11：酛卸の日（酒母は全項目を分析する日）・小数1桁・はい／いいえの確認窓 */
 function bnOro(x){ if(!x||x.k!=='sb') return ''; const s=RC.shubo[x.m.no]; return (s&&(s.motooroshi||s.motooroshiPlan))||(x.m.soe?dadd(x.m.soe,-1):''); }
@@ -6218,6 +6221,10 @@ function bnTargets(st,date){
   M.filter(m=>m.motodate && dadd(m.motodate,2)<=date && (!m.soe || date<=dadd(m.soe,-1)))   // 2026-10-06：酒母は酛立を1日目として3日目から
    .sort((a,b)=>a.motodate.localeCompare(b.motodate)||a.no-b.no)
    .forEach(m=>{ const d=rcShuboDay(m,date); if(d>=1&&d<=13) out.push({k:'sb',m,d}); });
+  /* 2026-10-13 泰広さん指示：踊（添の翌日）の分析 Be・酸度・ｱﾐﾉ */
+  M.filter(m=>m.soe && dadd(m.soe,1)===date && ((st.today||{})[m.no]||{}).state!=='上槽済')
+   .sort((a,b)=>a.soe.localeCompare(b.soe)||a.no-b.no)
+   .forEach(m=>out.push({k:'od',m,d:0}));
   M.filter(m=>m.tome && dadd(m.tome,2)<=date && (!m.joso || date<=m.joso) && ((st.today||{})[m.no]||{}).state!=='上槽済')
    .sort((a,b)=>a.tome.localeCompare(b.tome)||a.no-b.no)
    .forEach(m=>{ const d=rcMoromiDay(m,date); if(d>=1&&d<=36) out.push({k:'mr',m,d}); });
@@ -6242,11 +6249,11 @@ async function bunHome(date){
   head('分析', '酒母・醪の分析値をまとめて入力');
   rcLoading('分析する仕込を読み込んでいます…');
   const st=await recState(false); if(!st||!st.master){ rcFail(); return; }
-  const T=bnTargets(st,date), sb=T.filter(x=>x.k==='sb'), mr=T.filter(x=>x.k==='mr');
+  const T=bnTargets(st,date), sb=T.filter(x=>x.k==='sb'), od=T.filter(x=>x.k==='od'), mr=T.filter(x=>x.k==='mr');
   const draft=bnDraft(date), isToday=date===dtoday();
   const row=x=>{ const key=bnKey(x.k,x.m.no), F=BN_F[x.k];
     const id=x.k==='sb'?`${x.m.no}<small>酒母${esc(x.m.shuboSym||'')}${x.m.shuboT?' T'+esc(x.m.shuboT):''}</small>`:`${x.m.no}<small>${esc(x.m.sym||'')} T${esc(x.m.tank||'')}</small>`;
-    return `<tr class="bn-r" data-key="${key}"><td class="id">${id}</td><td class="dy">${x.k==='mr'&&x.d===1?'留':x.d+'日'}${x.k==='sb'?`<span class="oro" data-oro="${key}" style="${bnOro(x)===date?'':'display:none'}">酛卸</span>`:''}</td>
+    return `<tr class="bn-r" data-key="${key}"><td class="id">${id}</td><td class="dy">${x.k==='od'?'踊':x.k==='mr'&&x.d===1?'留':x.d+'日'}${x.k==='sb'?`<span class="oro" data-oro="${key}" style="${bnOro(x)===date?'':'display:none'}">酛卸</span>`:''}</td>
       ${F.map(([f])=>{ const dv=draft[key]&&draft[key][f]; return `<td><input class="bn-in ${dv!==undefined?'dirty':''}" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-key="${key}" data-f="${f}" value="${dv!==undefined?esc(bnF1(dv)):''}" disabled><span class="bn-pv" data-pv="${key}_${f}">…</span></td>`; }).join('')}
       <td><button type="button" class="bn-hb" data-h="${key}">経過</button></td></tr>
       <tr class="bn-m"><td class="bn-msg" colspan="${F.length+3}" data-msg="${key}"></td></tr>
@@ -6257,6 +6264,7 @@ async function bunHome(date){
     <div class="rc-status" id="rcStatus"></div>`;
   if(!T.length) h+=`<p class="muted" style="text-align:center;padding:24px 0">この日に分析する仕込はありません</p>`;
   if(sb.length) h+=`<div class="bn-h">🧫 酒母<small>Be・alc・酸度・ｱﾐﾉ（酛卸の日は全項目）</small></div>${table('sb',sb)}`;
+  if(od.length) h+=`<div class="bn-h">🍶 踊<small>添の翌日（Be・酸度・ｱﾐﾉ）</small></div>${table('od',od)}`;
   if(mr.length) h+=`<div class="bn-h">🍶 醪<small>Be は3.0未満になったら日本酒度で（R7BYと同じ）</small></div>${table('mr',mr)}`;
   if(T.length) h+=`<p class="bn-note">数字の下の小さな字＝前回の値（何日目か）。入れると黄色の枠＝まだ保存していない値（この端末に下書きとして残ります）。前回から大きく外れると枠が光り、行の下に理由が出ます。「経過」でその仕込の全体の流れ（グラフと全日の表）が開きます。品温は 酒母・仕込み の画面で。</p>
     <div class="bn-bar"><button class="rc-ghost" id="bnReload" type="button">更新</button><button class="rc-btn" id="bnSave" type="button" disabled>まとめて保存</button></div>`;
@@ -6269,7 +6277,7 @@ async function bunHome(date){
 
   /* 1行ぶんに値を流し込む（自分が打った欄は触らない） */
   const fill=x=>{ if(!live()) return; const key=bnKey(x.k,x.m.no), s=bnStore(x.k)[x.m.no]; if(!s) return;
-    const days=s.days||[], D=days[x.d-1]||{};
+    const days=s.days||[], D=bnDay(x,s);
     BN_F[x.k].forEach(([f])=>{ const inp=app.querySelector(`.bn-in[data-key="${key}"][data-f="${f}"]`); if(!inp) return;
       if(!inp.classList.contains('dirty')) inp.value=shF(D[f],1);
       const p=bnPrev(days,x.d,f), pv=app.querySelector(`[data-pv="${key}_${f}"]`);
@@ -6282,7 +6290,7 @@ async function bunHome(date){
         const b=msg&&msg.querySelector('[data-setup]'); if(b) b.onclick=()=>go(()=>shuboInput(x.m.no, Math.min(13,Math.max(1,x.d)), 'setup')); } }
     validateRow(key); count(); };
   const count=()=>{ if(!live()) return; let n=0, k=0;
-    T.forEach(x=>{ const s=bnStore(x.k)[x.m.no]; if(!s) return; k++; const D=(s.days||[])[x.d-1]||{};
+    T.forEach(x=>{ const s=bnStore(x.k)[x.m.no]; if(!s) return; k++; const D=bnDay(x,s);
       if(BN_F[x.k].some(([f])=>shN(D[f])!==null)) n++; });
     const e=$('#bnDone'); if(e) e.textContent=k<T.length?`${n}/${T.length}…`:`${n}/${T.length}`;
     const box=$('#bnDoneBox'); if(box) box.className=n>=T.length?'ok':'ng'; };
@@ -6320,7 +6328,7 @@ async function bunHome(date){
   const bnHistRefresh=x=>{ const key=bnKey(x.k,x.m.no); if(!BN.open[key]||!live()) return; const tr=app.querySelector(`[data-hist="${key}"]`); if(tr&&tr.style.display!=='none') bnHist(x,tr.firstElementChild); };
   /* データ：手元の分ですぐ出し、裏で最新を取り直す */
   T.forEach(fill);
-  const byK={sb:T.filter(x=>x.k==='sb'), mr:T.filter(x=>x.k==='mr')};
+  const byK={sb:T.filter(x=>x.k==='sb'), mr:T.filter(x=>x.k==='mr'||x.k==='od')};
   const refetch=async()=>{ await Promise.all([
     shFetchMany(byK.sb.map(x=>x.m.no),'shubo_get',RC.shubo,no=>{ const x=byK.sb.find(y=>String(y.m.no)===String(no)); if(x){ fill(x); bnHistRefresh(x); } }),
     shFetchMany(byK.mr.map(x=>x.m.no),'bunseki_get',RC.bun,no=>{ const x=byK.mr.find(y=>String(y.m.no)===String(no)); if(x){ fill(x); bnHistRefresh(x); } }) ]);
@@ -6333,7 +6341,7 @@ async function bunHome(date){
   /* まとめて保存（2本ずつ並行で送る） */
   $('#bnSave').onclick=async()=>{
     const jobs=[];
-    T.forEach(x=>{ const key=bnKey(x.k,x.m.no), s=bnStore(x.k)[x.m.no]; const D=((s&&s.days)||[])[x.d-1]||{}; const values={};
+    T.forEach(x=>{ const key=bnKey(x.k,x.m.no), s=bnStore(x.k)[x.m.no]; const D=bnDay(x,s); const values={};
       app.querySelectorAll(`.bn-in.dirty[data-key="${key}"]`).forEach(inp=>{ if(inp.disabled) return; const v=String(inp.value).trim(), o=D[inp.dataset.f], nv=shN(v), no=shN(o);
         const same=(v!==''&&nv!==null&&no!==null)?nv===no:v===String(o??''); if(!same) values[inp.dataset.f]=(v!==''&&nv!==null)?String(nv):v; });
       const dirty=app.querySelectorAll(`.bn-in.dirty[data-key="${key}"]`).length;
@@ -6355,10 +6363,11 @@ async function bunHome(date){
     }
     /* 2026-10-06 泰広さん指示：待たずに裏で送り、前の画面に戻る（推奨追水・警告は画面の下の知らせに出る） */
     jobs.forEach(({x,key,values})=>{
-      const st=x.k==='mr'?RC.bun[x.m.no]:RC.shubo[x.m.no], D=st&&st.days&&st.days[x.d-1]; if(D) Object.assign(D,values);
+      const st=x.k!=='sb'?RC.bun[x.m.no]:RC.shubo[x.m.no], D=x.k==='od'?(st&&((st.setup=st.setup||{}).odori=st.setup.odori||{})):(st&&st.days&&st.days[x.d-1]); if(D) Object.assign(D,values);
       const dr=bnDraft(date); delete dr[key]; bnDraftSet(date,dr);
       app.querySelectorAll(`.bn-in[data-key="${key}"]`).forEach(e=>e.classList.remove('dirty'));
-      recSaveBg({action:x.k==='sb'?'shubo_save':'bunseki_save', no:x.m.no, day:x.d, values}, `${x.k==='sb'?'酒母':'醪'} 順号${x.m.no} ${x.k==='mr'&&x.d===1?'留':x.d+'日目'}`, true); });
+      if(x.k==='od') recSaveBg({action:'bunseki_save', no:x.m.no, setup:{stage:'odori', values}}, `踊 順号${x.m.no}`, true);
+      else recSaveBg({action:x.k==='sb'?'shubo_save':'bunseki_save', no:x.m.no, day:x.d, values}, `${x.k==='sb'?'酒母':'醪'} 順号${x.m.no} ${x.k==='mr'&&x.d===1?'留':x.d+'日目'}`, true); });
     rcToast(`${jobs.length}本 を裏で保存しています。ほかの作業に移ってOKです`);
     hBack.click(); return;
     const btn=$('#bnSave'); btn.disabled=true; let ok=0, ng=0, i=0, warnN=0;
@@ -9115,6 +9124,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-13-5','🍶','仕込み・分析','🧪分析に「踊」（添の翌日：Be・酸度・ｱﾐﾉ）の入力を足しました。🍶仕込みの📋表で「仕込み時」を表示すると、添・踊・仲・留の仕込み時（尺・量・汲水・氷・水麹・品温・蒸米）もマスにそのまま入力できます。尺を入れると量が容量早見表から自動で入ります。尺だけ入っていて量が空だった仕込（1号の添など）は、表を開いたときに自動で入れます。「きょうの仕込み・資材」は上のアイコン「🍶 今日の仕込み」にしまいました（押すと開きます）。'],
   ['2026-10-13-4','🧰','資材','添加アルコール：入荷予定を便ごとのボタンにし、押すとその便から次の便までの添加予定の表と発注ができます（📋で全部の表も）。発注済の便の入荷も在庫に足して判定するので、発注済なら「足りなくなります」は出ません。A重油：「点検」「発注」「地下タンク点検」をボタンにし、押すとその欄が開きます。'],
   ['2026-10-13-3','🛢','資材 › A重油','点検の入力は「📝 点検」ボタンを押すと開くようにしました。発注の欄は文字を減らし、くわしい計算は「計算のもと」の中にまとめました。点検のアラートが出ているときは、A重油の一番上に法令（消防法：在庫の点検は週1回以上・地下タンクの定期点検）が出ます。'],
   ['2026-10-13-2','🛢','資材 › A重油','法令の点検を知らせるようにしました。地下タンクの定期点検（3年に1回。前回 2026/6/12）は期限の年の3月1日から、在庫の点検（週1回以上）は前回から7日たつと、ホームの予定の枠と資材アイコン・A重油の箱に出ます。A重油の箱の点検は「◯日前」でなく日付で表示します。'],
@@ -11241,5 +11251,169 @@ async function hgScreen(kind){
 .hg-hist{font-size:11px;color:var(--sub);margin:4px 2px}.hg-hist small{font-size:10px}`; document.head.appendChild(s); })();
 </script>
 <!-- /haigo -->
+<!-- shk1013 -->
+<script>
+/* ================= 🍶 仕込み：表の「仕込み時」にそのまま入力・尺→量の自動・今日の仕込みをアイコンに（2026-10-13） =================
+   泰広さん指示：仕込みの表に直接入力できるように。尺を入力すると数量が自動で反映されるはずが、1号が反映されていない。今日の仕込みはアイコン化して上部に納める。
+   ・🍶仕込み「📋 表」で「仕込み時 ▾ 表示中」のとき、添・踊・仲・留 の仕込み時のマス（尺・量・汲水・氷・水麹・品温・蒸米、踊は Be・酸・ｱﾐﾉ・品温）が入力欄になる
+     （その段の日が来ているものだけ。留の品温は 1日目の品温AM の欄で入れる＝今までどおり同じ値）
+     保存は今までの「保存」ボタンと同じ。仕込み時は bunseki_save {setup:{stage,values}}（moromiSetup と同じ）を 順号×段 ごとに裏で送る
+   ・尺を入れると、量に容量早見表（tanks.json）の値が入る（仲・留＝醪タンク、添＝伝辛・超辛・純米辛口は醪タンク／それ以外は「添のタンク」mr.soeT。踊は対象外）
+   ・1号が反映されなかった原因：1号の添の尺（4250mm）は自動計算を入れる前（10/12）に保存されていて、量は「入力画面を開いたとき」にしか入らなかった
+     → 表を開いたとき、尺があって量が空の段は、早見表（照合済みの容器だけ）で量を計算して裏で保存する（1回だけ。知らせを出す）
+   ・📋 今日の仕込み：「きょう／あすの仕込み・資材」の枠を上のアイコン（🍶 今日の仕込み・件数）にしまう。押すとアイコンのすぐ下に開く（もう一度押すと閉じる）
+   ・kgSetVals・kgMoromiRows・kgBox・mkeSave・shkTopHTML・moromiHome を外側から包む（zennen・shkedit・shktop のコードは変更なし）
+   控え：seishu-workbook_github\_src_shk1013.js（index.html の shk1013 の目印の間） */
+const SKS={map:new WeakMap(), on:false, auto:{}, tdy:false};
+try{ Object.assign(KGE_RANGE,{shaku:[0,6000,'尺'],ryo:[0,30000,'量'],kumi:[0,15000,'汲水'],kori:[0,5000,'氷'],mizukoji:[0,40,'水麹'],mushi:[0,70,'蒸米'],hin:[0,40,'品温']}); }catch(e){}
+/* 段のタンク（尺→量に使う容器） */
+function sksTank(m, st){
+  if(!m) return '';
+  if(st==='naka'||st==='tome') return String(m.tank||'').trim();
+  if(st!=='soe') return '';
+  const big=typeof odoriNeed==='function'?!odoriNeed(m):['伝辛','超辛','純米辛口'].includes(String(m.liquid||'').replace(/[\s　]/g,''));
+  const S=lsGet('mr.soeT',{})||{};
+  if(S[m.no]!==undefined&&String(S[m.no]).trim()!=='') return String(S[m.no]).trim();
+  return big&&m.tank?String(m.tank):'';
+}
+/* 尺(mm) → 量(L)。照合できていない容器・範囲外は null（税務に関わるので概算しない） */
+async function sksVol(m, st, mm){
+  const T=sksTank(m,st); if(!T||mm===null||mm===undefined) return null;
+  try{ await loadTanks(); }catch(e){}
+  const t=tankByNo(T); if(!t||t.verify||t.blocked||!t.checked) return null;
+  const v=volAt(t,mm); return v===null?null:{T, L:Math.round(v)};
+}
+/* 行の set → 行（kgSetVals で順号を知るため） */
+(function(){
+  const o=window.kgMoromiRows; if(typeof o!=='function') return;
+  window.kgMoromiRows=function(){ const rows=o.apply(this, arguments); rows.forEach(r=>{ if(r&&r.set) SKS.map.set(r.set, r); }); return rows; };
+})();
+/* 仕込み時のマスを入力欄にする（仕込みの表を入力の形で描くときだけ） */
+(function(){
+  const o=window.kgSetVals; if(typeof o!=='function') return;
+  window.kgSetVals=function(kind, set, fi){
+    const a=o.apply(this, arguments);
+    if(!SKS.on||kind!=='moromi') return a;
+    const r=SKS.map.get(set); if(!r||!r.edit) return a;
+    const b=RC.bun[r.no]; if(!b) return a;
+    const today=dtoday(), d=KG_SET_M[fi]||[];
+    if(!d.length||d[0]==='date') return a;
+    return a.map((x,ci)=>{
+      const st=(KG_STG[ci]||[])[0], od=st==='odori', key=od?d[3]:d[0], lab=od?d[4]:d[1];
+      if(!st||!key) return x;
+      if(st==='tome'&&key==='hin') return x;   // 留の品温＝1日目の品温AM（その欄で入れる）
+      const dt=(set[st]||{}).date; if(!dt||dt>today) return x;
+      const v0=((b.setup||{})[st]||{})[key], val=(v0===undefined||v0===null)?'':String(v0);
+      const inp=`<input class="kg-i ks" data-no="${esc(String(r.no))}" data-day="s_${st}" data-k="${key}" value="${esc(val)}" type="text" inputmode="decimal" autocomplete="off" aria-label="順号${esc(String(r.no))} ${KG_STG[ci][1]} ${lab}">`;
+      return {html:`<small class="ksl">${lab}</small>${inp}`, raw:x.raw, key, ks:true};
+    });
+  };
+})();
+/* 表を描くとき：仕込みの表なら入力欄つきで描き、尺→量をつなぐ。量が空の段は自動で入れる */
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box, fields, rows, opt, open){
+    const isM = fields===kgFieldsMoromi && box && box.classList && box.classList.contains('kg-home') && !!document.getElementById('kgHd');
+    if(!isM) return o.apply(this, arguments);
+    SKS.on=true;
+    let r; try{ r=o.apply(this, arguments); } finally { SKS.on=false; }
+    try{ sksWire(box); }catch(e){ console.log('sksWire',e); }
+    try{ sksAutoFill(rows); }catch(e){ console.log('sksAutoFill',e); }
+    return r;
+  };
+})();
+function sksWire(box){
+  box.querySelectorAll('.kg-i.ks[data-k="shaku"]').forEach(el=>{
+    const no=el.dataset.no, st=el.dataset.day.slice(2);
+    el.addEventListener('input', async()=>{
+      const ry=box.querySelector(`.kg-i.ks[data-no="${no}"][data-day="s_${st}"][data-k="ryo"]`); if(!ry) return;
+      const mm=pnum(el.value); if(mm===null) return;
+      const v=await sksVol(rcMaster(no), st, mm);
+      if(!v){ ry.title=sksTank(rcMaster(no),st)?'早見表で計算できない容器・範囲のため、量は手で入れてください':'添のタンクが決まっていないため、量は手で入れてください（1本の画面の添で選べます）'; return; }
+      if(String(pnum(el.value))!==String(mm)) return;   // 打っている途中で変わった
+      ry.value=String(v.L); ry.title=`T${v.T} 早見表：尺 ${mm}mm → ${v.L} L（自動）`;
+      ry.dispatchEvent(new Event('input'));
+    });
+  });
+}
+/* 尺が入っていて量が空の段（自動計算を入れる前に保存した分など）→ 早見表で量を入れて裏で保存（1回だけ） */
+async function sksAutoFill(rows){
+  const jobs=[];
+  (rows||[]).forEach(r=>{ const b=RC.bun[r.no]; if(!b||!b.setup) return; const m=rcMaster(r.no); if(!m) return;
+    ['soe','naka','tome'].forEach(st=>{ const S=b.setup[st]||{}, key=r.no+'|'+st;
+      if(SKS.auto[key]) return;
+      const mm=shN(S.shaku); if(mm===null||mm<=0) return;
+      if(String(S.ryo??'').trim()!=='') return;
+      SKS.auto[key]=1; jobs.push({no:r.no, st, mm, m, key}); }); });
+  if(!jobs.length) return;
+  const done=[];
+  for(const j of jobs){
+    const v=await sksVol(j.m, j.st, j.mm); if(!v) continue;
+    const b=RC.bun[j.no]; if(!b) continue;
+    b.setup=b.setup||{}; b.setup[j.st]=Object.assign({}, b.setup[j.st]||{}, {ryo:v.L});
+    const L=(KG_STG.find(x=>x[0]===j.st)||[])[1]||j.st;
+    recSaveBg({action:'bunseki_save', no:j.no, setup:{stage:j.st, values:{ryo:String(v.L)}}}, `仕込み 順号${j.no} ${L}の量（尺から自動）`, true);
+    done.push(`${j.no}号 ${L}：T${v.T} 尺${j.mm}mm → ${v.L.toLocaleString('ja-JP')}L`);
+  }
+  if(done.length){ rcToast(`尺から量を自動で入れました（${done.join('、')}）`); if(MKE.draw) setTimeout(()=>MKE.draw(), 50); }
+}
+/* 保存：仕込み時のマスは 順号×段 ごとに setup で送る。日々のマスは今までの mkeSave */
+(function(){
+  const o=window.mkeSave; if(typeof o!=='function') return;
+  window.mkeSave=function(box){
+    const S=[...box.querySelectorAll('.kg-i.ks')].filter(el=>!el.disabled&&kgeChanged(el));
+    if(!S.length) return o.apply(this, arguments);
+    const D=[...box.querySelectorAll('.kg-i:not(.ks)')].filter(el=>!el.disabled&&kgeChanged(el)&&MKE_KEYS[el.dataset.k]);
+    const lab=el=>el.getAttribute('aria-label')||'';
+    const bad=S.concat(D).filter(el=>kgeCheck(el)==='bad');
+    if(bad.length){ kgeSay(box,'数字になっていないマス：'+bad.map(lab).slice(0,4).join('、'),true); bad[0].focus(); return; }
+    const warn=S.filter(el=>kgeCheck(el)==='warn');
+    if(warn.length && !window.confirm(`ありえない値かもしれません。\n${warn.map(el=>`・${lab(el)}：${el.value}`).slice(0,10).join('\n')}\n\nこのまま保存しますか？`)) return;
+    const G={};
+    S.forEach(el=>{ const no=el.dataset.no, st=el.dataset.day.slice(2), k=el.dataset.k, v=el.value.trim();
+      const g=(G[no+'|'+st]=G[no+'|'+st]||{no,st,values:{},els:[]}); g.values[k]=v===''?'':String(pnum(v)); g.els.push(el); });
+    const list=Object.values(G);
+    const nm=g=>`仕込み 順号${g.no} ${((KG_STG.find(x=>x[0]===g.st)||[])[1]||g.st)}の仕込み時`;
+    list.forEach(g=>{ const b=RC.bun[g.no]; if(b){ b.setup=b.setup||{}; b.setup[g.st]=Object.assign({}, b.setup[g.st]||{}, g.values); }
+      g.els.forEach(el=>{ delete KGE.dirty[kgeKey(el)]; el.defaultValue=el.value; });
+      recSaveBg({action:'bunseki_save', no:Number(g.no)||g.no, setup:{stage:g.st, values:g.values}}, nm(g), true); });
+    rcToast(`仕込み時 ${list.length}か所 を裏で保存しています。ほかの作業に移ってOKです`);
+    if(D.length) return o.apply(this, arguments);
+    kgeSay(box,`保存を受け付けました（${list.map(nm).join('、')}）。裏で送っています`);
+    if(MKE.draw) MKE.draw();
+  };
+})();
+/* ---- 📋 今日の仕込み：上のアイコンにしまう ---- */
+function sksTodayN(){ try{ const st=RC.state; if(!st||!st.master||!st.shkVer) return null; return shkEvents(st, dtoday()).length; }catch(e){ return null; } }
+(function(){ if(typeof shkTopHTML!=='function') return; const _h=shkTopHTML;
+  shkTopHTML=function(){ const s=_h.apply(this, arguments); const n=sksTodayN();
+    const ic=`<button class="st-ic sks-td${SKS.tdy?' on':''}" data-tdy="1" type="button" aria-label="今日の仕込み"><span class="e">🍶</span><b>${n===null?'':n?n+'件':'なし'}</b><small>今日の仕込み</small></button>`;
+    return s.replace(/<button class="st-ic[^"]*" data-shi="zai"/, m=>ic+m); }; })();
+function sksTodayApply(){
+  const row=app.querySelector('.shk-icons'), box=app.querySelector('.shk-today'); if(!row) return;
+  row.classList.toggle('tdy-on', SKS.tdy);
+  const b=row.querySelector('[data-tdy]'); if(b) b.classList.toggle('on', SKS.tdy);
+  if(SKS.tdy&&box&&row.nextElementSibling!==box) row.after(box);
+}
+document.addEventListener('click', e=>{
+  const b=e.target.closest&&e.target.closest('#app .shk-icons [data-tdy]'); if(!b) return;
+  e.preventDefault(); e.stopPropagation(); SKS.tdy=!SKS.tdy; sksTodayApply();
+}, true);
+(function(){
+  const o=window.moromiHome; if(typeof o!=='function') return;
+  window.moromiHome=async function(...a){
+    const top=nav[nav.length-1]; const r=await o.apply(this, a);
+    try{ if(nav[nav.length-1]===top) sksTodayApply(); }catch(e){ console.log('sksToday',e); }
+    return r; };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-t td .ksl{display:block;font-size:9px;color:var(--sub);font-weight:400;line-height:1.1;margin:0}
+.kg-i.ks{width:54px}
+.kg-t td.mg .sv .kg-i.ks{margin-top:1px}
+#app:has(.shk-icons:not(.tdy-on)) .shk-today{display:none}
+.shk-icons.tdy-on + .shk-today{margin-top:0}
+.st-ic.sks-td b{font-size:12px}`; document.head.appendChild(s); })();
+</script>
+<!-- /shk1013 -->
 </body>
 </html>
