@@ -9028,7 +9028,14 @@ function kiBtn(no,kind){ return `<button type="button" class="kg-info" data-no="
     rows.forEach(r=>{ if(r.head&&r.head.indexOf('kg-info')<0){ r.head=r.head.replace(/<small>\d+日目<\/small>/g,'')+kiBtn(r.no,'shubo'); } }); return rows; };
   if(typeof oM==='function') window.kgMoromiRows=function(list,...a){ const rows=oM.call(this,list,...a);
     rows.forEach(r=>{ if(r.head) return; const m=list.find(x=>String(x.no)===String(r.no))||rcMaster(r.no)||{};
-      const y=(typeof kgYeastHTML==='function')?kgYeastHTML(m):''; r.sub=y+String(r.sub||'').replace(/・\d+日目/g,'').replace(/<small>\d+日目<\/small>/g,'')+kiBtn(r.no,'moromi'); }); return rows; };
+      const y=(typeof kgYeastHTML==='function')?kgYeastHTML(m):'';
+      /* 2026-10-13 泰広さん指示：仕込みの順号のマスも酒母と同じ表示（順号 → 液種（太字大）→ 酵母 → タンクNo（大）。記号は小さく残す） */
+      let sub=String(r.sub||'').replace(/・\d+日目/g,'').replace(/<small>\d+日目<\/small>/g,''), kl='', tk='';
+      if(m.liquid){ const sm=`<small>${esc(m.sym||'')} ${esc(m.liquid||'')}</small>`, n=String(m.liquid).length, fs=n<=4?18:n<=5?15:n<=6?12:13;
+        if(sub.indexOf(sm)>=0){ sub=sub.replace(sm, m.sym?`<small>${esc(m.sym)}</small>`:''); kl=`<span class="kl" style="font-size:${fs}px">${esc(m.liquid)}</span>`; } }
+      if(m.tank){ const ts=`<small>T${esc(m.tank)}`, i=sub.indexOf(ts), j=i>=0?sub.indexOf('</small>',i):-1;
+        if(i>=0&&j>i){ const rest=sub.slice(i+ts.length,j).replace(/^・/,''); sub=sub.slice(0,i)+(rest?`<small>${rest}</small>`:'')+sub.slice(j+8); tk=`<span class="tk">T${esc(m.tank)}</span>`; } }
+      r.sub=kl+y+tk+sub+kiBtn(r.no,'moromi'); }); return rows; };
   document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('.kg-info'); if(!b) return;
     e.stopPropagation(); e.preventDefault(); kiDialog(b.dataset.no, b.dataset.kind); }, true);
 })();
@@ -9106,6 +9113,7 @@ async function kiDialog(no, kind){
 .kg-t.ed .n .ky{margin-bottom:4px !important}
 .kg-t.ed .n .tk{font-size:22px;line-height:1.1;margin-bottom:6px !important}
 .kg-t.ed .n .tk .kg-i.tki{width:56px;font-size:22px;padding:1px 3px}
+.kg-t .n > .tk{display:block;font-weight:800;color:#8a4b00}
 .kg-t .n .kl{display:block;font-weight:800;color:var(--navy);line-height:1.2;margin:2px 0 4px;word-break:break-all}
 .kg-t.ed .n .kg-info{width:40px;height:40px;font-size:22px;margin:10px auto 4px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .kg-t .n .kg-info:active{background:#2c5585}
@@ -9124,6 +9132,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-13-10','🧰','資材','資材の「不足」のアラート（ホームの資材アイコンの札・箱の赤枠・表の赤い行）は、不足になる日まで14日を切ったら出すようにしました。それより先の不足は日付だけ出します。'],
+  ['2026-10-13-9','🍶','仕込み','📋表の順号のマスを酒母と同じ表示にしました（順号の下に 液種（太字で大きく）→ 酵母 → タンクNo（大きく）。記号は小さく残しています）。'],
   ['2026-10-13-8','📅','ホーム（本日の予定）','麹の「留仕事」を夕方16:00に出すようにしました（23:00 と出ていたのは輝の麹の時刻だったため）。'],
   ['2026-10-13-7','🍶','仕込み','仕込みの表を詰めて見やすくしました（入力欄を低くし、仕込み時の「尺」「量」などの見出しはマスの左上に小さく）。'],
   ['2026-10-13-6','🔢','酒母・仕込み','分析値（Be/度・alc・酸度・ｱﾐﾉ・品温・水麹・蒸米）を、表の入力欄や1本ずつの入力画面でも 12 → 12.0 のように小数1桁で表示するようにしました（入れて欄を離れると自動で整います）。'],
@@ -9617,6 +9627,11 @@ function sziShort(r){
   for(const p of fut){ left-=p.qty; if(left< -1e-9) return { date:p.date, lack:Math.round(-left*1000)/1000, no:p.no }; }
   return null;
 }
+/* 2026-10-13 泰広さん指示：不足のアラートは、不足になる日まで14日を切ったら出す（それより先の不足は日付だけ出して、赤くしない） */
+const SZI_ALERT_D=14;
+function sziSoon(d){ if(!d) return false; if(!/^\d{4}-\d{2}-\d{2}/.test(String(d))) return true; return rcDays(dtoday(), String(d).slice(0,10)) < SZI_ALERT_D; }
+function sziShortSoon(r){ const s=sziShort(r); return s&&sziSoon(s.date)?s:null; }
+const sziTaneNg=x=>Number(x.diff)<0&&(!x.short||sziSoon(x.short));
 function sziRows(st){ return (st&&st.shizai&&typeof zaiCalc==='function')?zaiCalc(st):[]; }
 /* A重油：点検（残量）と受入から、使用量・1日あたり・今の見込み・あと何日 */
 function sziOil(){
@@ -9647,8 +9662,8 @@ function sziHomeTag(){
   try{
     const og=typeof szoTag==='function'?szoTag():''; if(og) return og;   /* 2026-10-12：発注のアラートを先に */
     const st=RC.state||lsGet('rec.state',null); let n=0;
-    if(st&&st.shizai) n=sziRows(st).filter(r=>r.name!==SZI_OIL && r.has && sziShort(r)).length;
-    const t=(RC.tane&&RC.tane.list)||[]; n+=t.filter(x=>Number(x.diff)<0).length;
+    if(st&&st.shizai) n=sziRows(st).filter(r=>r.name!==SZI_OIL && r.has && sziShortSoon(r)).length;
+    const t=(RC.tane&&RC.tane.list)||[]; n+=t.filter(sziTaneNg).length;
     if(n) return '不足 '+n;
     const o=sziOil(); if(o.last && o.overdue) return '重油点検';
   }catch(e){}
@@ -9773,9 +9788,9 @@ function sziHTML(st){
   const rows=sziRows(st), oil=sziOil();
   const alc=rows.find(r=>r.name===SZI_ALC)||{ name:SZI_ALC, unit:'L', plan:[], log:[], has:false, stock:0, need:0, short:null };
   const others=rows.filter(r=>r.name!==SZI_ALC && r.name!==SZI_OIL);
-  const tane=(RC.tane&&RC.tane.list)||[], taneNg=tane.filter(x=>Number(x.diff)<0);
-  const aS=sziShort(alc), oNg=oil.left!==null&&oil.left<7, oWn=oil.overdue||(oil.left!==null&&oil.left<14);
-  const otherNg=others.filter(r=>r.has&&sziShort(r)).length;
+  const tane=(RC.tane&&RC.tane.list)||[], taneNg=tane.filter(sziTaneNg);
+  const aS=sziShort(alc), aSs=aS&&sziSoon(aS.date)?aS:null, oNg=oil.left!==null&&oil.left<7, oWn=oil.overdue||(oil.left!==null&&oil.left<14);
+  const otherNg=others.filter(r=>r.has&&sziShortSoon(r)).length;
   /* 2026-10-12 発注：アラート中は赤枠、発注済なら入荷予定日 */
   const oAl=szoOilAlert(), oPd=szoOilPending().filter(p=>p.plan>=dtoday())[0], aAl=szoAlcAlerts()[0], aNx=szoAlcSlots().find(x=>x.ordered&&!x.done&&x.plan>=dtoday());
   const oChk=szoOilChkAlert(), oTank=szoTankInfo().alert;
@@ -9787,7 +9802,7 @@ function sziHTML(st){
     <button type="button" data-szt="oil" class="${SZI.tab==='oil'?'on ':''}${oNg||oAl||oTank||(oChk&&oil.last)?'ng':oWn?'wn':''}"><span class="e">🛢</span><b>A重油</b>
       ${oil.last?`<span class="v">${sziF(oil.est,0)}L</span><span class="s">点検 ${rcMD(oil.last.date)}${oil.left!==null?`<br>あと約${Math.floor(oil.left)}日`:''}</span>`
                :`<span class="v" style="font-size:14px">未点検</span><span class="s">週1回 残量を入力</span>`}${oOrd}</button>
-    <button type="button" data-szt="alc" class="${SZI.tab==='alc'?'on ':''}${aS||aAl?'ng':''}"><span class="e">🍶</span><b>添加アルコール</b>
+    <button type="button" data-szt="alc" class="${SZI.tab==='alc'?'on ':''}${aSs||aAl?'ng':''}"><span class="e">🍶</span><b>添加アルコール</b>
       ${!alc.has?`<span class="v" style="font-size:14px">在庫未入力</span><span class="s">今後 ${sziF(alc.need,0)}L</span>`
         :aS?`<span class="v">${rcMD(aS.date)}</span><span class="s">に不足<br>${sziF(aS.lack,0)}L（40%）</span>`
         :`<span class="v ok">足りる</span><span class="s">在庫 ${sziF(alc.stock,0)}L</span>`}${aOrd}</button>
@@ -9796,7 +9811,7 @@ function sziHTML(st){
         :taneNg.length?`<span class="v">不足 ${taneNg.length}</span><span class="s">${esc(taneNg.map(x=>x.name).join('・'))}</span>`
         :`<span class="v ok">足りる</span><span class="s">${tane.length}種</span>`}</button>
   </div>`;
-  const T=[['list','酵素剤・他',otherNg],['oil','A重油',oNg||oil.overdue&&oil.last||!!oAl||oTank],['alc','アルコール',!!aS||!!aAl],['tane','種麹',taneNg.length]];
+  const T=[['list','酵素剤・他',otherNg],['oil','A重油',oNg||oil.overdue&&oil.last||!!oAl||oTank],['alc','アルコール',!!aSs||!!aAl],['tane','種麹',taneNg.length]];
   h+=`<div class="szi-tabs">${T.map(t=>`<button type="button" data-szt="${t[0]}" class="${SZI.tab===t[0]?'on':''}">${t[1]}${t[2]?'<span class="d"></span>':''}</button>`).join('')}</div>`;
   if(SZI.tab==='oil') h+=sziOilHTML(oil);
   else if(SZI.tab==='alc') h+=sziAlcHTML(alc, st);
@@ -9808,7 +9823,7 @@ function sziHTML(st){
 function sziListHTML(others){
   if(!others.length) return `<div class="szi-none">資材の予定がありません（醪管理R8BY「資材予定」）</div>`;
   return `<table class="szi-t"><tr><th>資材</th><th>在庫</th><th>これから使う</th><th>不足する日</th></tr>
-    ${others.map(r=>{ const s=sziShort(r); return `<tr class="ck ${s?'ng':''}" data-zn="${esc(r.name)}"><td><b>${esc(r.name)}</b><small>${esc(r.unit)}${r.tana?`・棚卸 ${rcMD(r.tana.date)}`:''}</small></td>
+    ${others.map(r=>{ const s=sziShort(r); return `<tr class="ck ${s&&sziSoon(s.date)?'ng':''}" data-zn="${esc(r.name)}"><td><b>${esc(r.name)}</b><small>${esc(r.unit)}${r.tana?`・棚卸 ${rcMD(r.tana.date)}`:''}</small></td>
       <td>${r.has?sziF(r.stock,2):'<span class="na">未入力</span>'}</td><td>${sziF(r.need,2)}</td>
       <td class="${!r.has?'na':s?'ng':'ok'}">${!r.has?'—':s?rcMD(s.date):'足りる'}</td></tr>`; }).join('')}</table>
     <p class="tl-warn" style="background:none;border:0;color:var(--sub);font-size:12px;padding:6px 2px;margin:0">行を押すと 入荷・棚卸 を入れられます。使った分は予定日（留日・上槽日など）を過ぎると自動で減ります。</p>`;
@@ -9866,7 +9881,8 @@ function sziAlcHTML(alc, st){
   let h='';
   if(!alc.has) h+=`<div class="szi-alert"><b>在庫がまだ入っていません。</b>下で「棚卸（今ある量）」か「入荷」を入れると、添加予定に間に合うかを判定します。</div>`;
   else { const arr=szoAlcArrivals(), A=arr.reduce((a,x)=>a+x.q40,0), arrT=arr.length?`＋発注済の入荷 ${sziF(A,0)}L（${arr.map(x=>rcMD(x.date)).join('・')}）`:'';
-    if(s) h+=`<div class="szi-alert"><b>${rcMD(s.date)}（${esc(String(s.no))}号の添加）で足りなくなります。</b><br>在庫 ${sziF(alc.stock,0)}L${arrT} に対し、これからの添加予定 ${sziF(alc.need,0)}L（40%換算）。不足 ${sziF(s.lack,0)}L。次の便の発注を。</div>`;
+    if(s&&!sziSoon(s.date)) h+=`<div class="szi-good">${rcMD(s.date)}（${esc(String(s.no))}号の添加）で不足する見込みです（不足 ${sziF(s.lack,0)}L）。14日前になったら知らせます。</div>`;
+    else if(s) h+=`<div class="szi-alert"><b>${rcMD(s.date)}（${esc(String(s.no))}号の添加）で足りなくなります。</b><br>在庫 ${sziF(alc.stock,0)}L${arrT} に対し、これからの添加予定 ${sziF(alc.need,0)}L（40%換算）。不足 ${sziF(s.lack,0)}L。次の便の発注を。</div>`;
     else h+=`<div class="szi-good">在庫 ${sziF(alc.stock,0)}L${arrT}で、これからの添加予定 ${sziF(alc.need,0)}L（40%換算）に<b>間に合います</b>。</div>`; }
   h+=szoAlcHTML(alc);   /* 2026-10-12 入荷の便と発注 */
   const kind=SZI.alcKind||'入荷';
@@ -9887,7 +9903,7 @@ function sziTaneHTML(tane){
   let h=`<button type="button" class="szi-btn" id="szTaneGo" style="width:100%;margin:0 0 10px">🧫 種麹の仕入を入れる ›</button>`;
   if(!tane.length) return h+`<div class="szi-none">${RC.tane?'種麹の予定がありません':'読み込んでいます…（読めないときは 麹 › 種 から）'}</div>`;
   return h+`<div class="szi-scroll"><table class="szi-t"><tr><th>種麹</th><th>現在庫 g</th><th>今後必要 g</th><th>差 g</th><th>不足になる日</th></tr>
-    ${tane.map(x=>{ const ng=Number(x.diff)<0; return `<tr class="${ng?'ng':''}"><td><b>${esc(x.name)}</b>${x.order?`<small style="color:#b23b3b">${esc(x.order)}</small>`:''}</td><td><b>${sziF(x.stock,0)}</b></td><td>${sziF(x.need,0)}</td><td class="${ng?'ng':'ok'}">${sziF(x.diff,0)}</td><td>${x.short?esc(/^\d{4}-/.test(String(x.short))?rcMD(x.short):x.short):'—'}</td></tr>`; }).join('')}</table></div>
+    ${tane.map(x=>{ const ng=sziTaneNg(x); return `<tr class="${ng?'ng':''}"><td><b>${esc(x.name)}</b>${x.order?`<small style="color:#b23b3b">${esc(x.order)}</small>`:''}</td><td><b>${sziF(x.stock,0)}</b></td><td>${sziF(x.need,0)}</td><td class="${ng?'ng':'ok'}">${sziF(x.diff,0)}</td><td>${x.short?esc(/^\d{4}-/.test(String(x.short))?rcMD(x.short):x.short):'—'}</td></tr>`; }).join('')}</table></div>
     <p style="font-size:12px;color:var(--sub);margin:6px 2px">麹の引込みで入れた種麹の量が自動で引かれます（麹管理R8BY「種麹集計」）。</p>`;
 }
 function sziBind(st, draw){
