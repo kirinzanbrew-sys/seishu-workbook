@@ -3703,6 +3703,9 @@ function kTempChart(r,probe){
     if(std.length>1){ const up=std.map(x=>X(x.h)+','+Y(x.m+x.s)), dn=std.slice().reverse().map(x=>X(x.h)+','+Y(x.m-x.s));
       g+=`<polygon points="${up.concat(dn).join(' ')}" fill="#9aa0a6" fill-opacity=".22"/><polyline fill="none" stroke="#9aa0a6" stroke-dasharray="3 3" points="${std.map(x=>X(x.h)+','+Y(x.m)).join(' ')}"/>`; }
     [...new Set(d.pp.map(p=>p.no))].forEach(n=>{ const q=d.pp.filter(p=>p.no===n); if(q.length>1) g+=`<polyline fill="none" stroke="${PC[(n-1)%4]||PC[0]}" stroke-width="1.4" stroke-opacity=".85" points="${q.map(p=>X(p.h)+','+Y(p.v)).join(' ')}"/>`; });
+    /* 2026-10-14 品温計の最新の値（今の温度）に丸と数字 */
+    [...new Set(d.pp.map(p=>p.no))].forEach(n=>{ const q=d.pp.filter(p=>p.no===n), p=q[q.length-1]; if(!p) return; const c=PC[(n-1)%4]||PC[0], xx=+X(p.h);
+      g+=`<circle cx="${xx}" cy="${Y(p.v)}" r="4" fill="#fff" stroke="${c}" stroke-width="2"/><text x="${(xx>W-R-40?xx-6:xx+6).toFixed(1)}" y="${(+Y(p.v)+3).toFixed(1)}" font-size="9" text-anchor="${xx>W-R-40?'end':'start'}" fill="${c}" font-weight="700">No${n} ${cmpF(p.v)}</text>`; });
     const jd=d.pts.map(p=>(typeof kJudge==='function'?kJudge(d.sk,p.nm,p.v):null));
     if(d.pts.length>1) g+=`<polyline fill="none" stroke="#1b2a41" stroke-width="2" points="${d.pts.map(p=>X(p.h)+','+Y(p.v)).join(' ')}"/>`;
     d.pts.forEach((p,i)=>{ const c=LV[jd[i]?jd[i].lv:0]; g+=`<circle cx="${X(p.h)}" cy="${Y(p.v)}" r="3.6" fill="${c}"/><text x="${X(p.h)}" y="${(+Y(p.v)-6).toFixed(1)}" font-size="9" text-anchor="middle" fill="${c}" font-weight="700">${cmpF(p.v)}</text>`; });
@@ -9154,6 +9157,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-14-1','🍚','麹','配置図の麹を押したときの温度グラフに、品温計（おんどとり）の今の温度が出るようにしました。品温計の線の最後に「No1 44.5」のように今の値を表示します。'],
   ['2026-10-13-17','🫧','タンク洗浄管理','使用日（添仕込日）になったタンクは一覧から消えるようにしました。使い終わった分は「履歴」（新しい順）と「全部」でいつでも見られます。'],
   ['2026-10-13-16','🧫','酒母','酒母の表の「備考」（暖器・冷器）の欄を、ほかのマスと同じ小ささにしました。'],
   ['2026-10-13-15','🧫','酒母','酒母の表も仕込みの表と同じように詰めて見やすくしました（入力欄を低くし、1日目の仕込時の値は入力欄の左に小さく）。'],
@@ -10884,7 +10888,7 @@ function kMapInfo(date,id,stage){
   const plc=(n,p,dflt)=>(v(r[n])!==''||v(r[p])!=='')?`${v(r[n])!==''?esc(r[n])+'番 ':''}${esc(sh(r[p]))||dflt||'場所未定'}`:'—';
   const tane=[r['種麹']?esc(r['種麹'])+(v(r['種麹g'])!==''?' '+r['種麹g']+'g':'')+(v(r['割合%'])!==''?'（'+r['割合%']+'%）':''):'',
               r['種麹2']?esc(r['種麹2'])+(v(r['種麹2g'])!==''?' '+r['種麹2g']+'g':'')+(v(r['割合2%'])!==''?'（'+r['割合2%']+'%）':''):''].filter(Boolean).join(' ＋ ');
-  let chart=''; try{ chart=kTempChart(r,(RC.pser||{})[id])||''; }catch(e){ chart=''; }
+  let chart=''; try{ chart=kTempChart(r,kPbNow(j,id,(RC.pser||{})[id]))||''; }catch(e){ chart=''; }
   const m=document.createElement('div'); m.className='o2-mask';
   m.innerHTML=`<div class="o2-sheet kmi" role="dialog" aria-label="${esc(id)} の詳細">
     <div class="hd"><div><b>${esc(id)}</b> <span style="font-size:13px;color:var(--sub)">${esc(r['記号']||'')}</span>
@@ -10895,7 +10899,7 @@ function kMapInfo(date,id,stage){
       <p class="ln"><span>種麹</span>${tane||'—'}　<span>吸水</span>${v(r['吸水%'])!==''?rcN(r['吸水%'])+'%':'—'}</p>
       <p class="ln"><span>場所</span>1号室 ${plc('引込 順番','引込 場所')}　／　盛 ${plc('盛 順番','盛 場所')}${v(r['出麹 場所'])!==''||v(r['出麹 順番'])!==''?`　／　出麹 ${plc('出麹 順番','出麹 場所','盛と同じ箱')}`:''}</p>
       ${pbs.length?`<p class="ln"><span>品温計</span>${pbs.map(([n,x])=>`<i class="pbn">No${n}</i>${(x.temp!=null&&!x.stale)?x.temp+'℃':'—'}${x.place?'（'+esc(sh(x.place))+'）':''}`).join('　')}</p>`:''}
-      ${chart?`<div class="card" style="padding:6px 8px;margin:6px 0">${chart}</div>`:''}
+      ${chart?`<div class="card" id="kmiChart" style="padding:6px 8px;margin:6px 0">${chart}</div>`:''}
       <table><tr><th>工程</th><th>時刻</th><th>品温</th><th>標準・目標</th></tr>
         ${stg('引込み（1号室）')}${tr('引込','引込 時刻','引込 品温','引込')}${tr('種切','種切 時刻','種切 品温','種切')}${v(r['種切 水分%'])!==''?`<tr><td>種切 水分</td><td></td><td class="v">${rcN(r['種切 水分%'])}%</td><td></td></tr>`:''}${v(r['ねせ h'])!==''||v(r['ねせ 品温'])!==''?`<tr><td>ねせ</td><td class="v">${v(r['ねせ h'])!==''?r['ねせ h']+'h':'—'}</td><td class="v">${v(r['ねせ 品温'])!==''?rcN(r['ねせ 品温'])+'℃':'—'}</td><td></td></tr>`:''}${tr('切返し','切返し 時刻','切返し 品温','切返し')}
         ${stg('盛（2号室）')}${tr('盛前','','盛前 品温','盛前')}${tr('盛後','盛 時刻','盛後 品温','盛後')}${tr('仲仕事','仲仕事 時刻','仲仕事 品温','仲仕事')}${tr('留仕事','留仕事 時刻','留仕事 品温','留仕事')}
@@ -10912,7 +10916,21 @@ function kMapInfo(date,id,stage){
   m.querySelector('.go').onclick=()=>{ close(); go(()=>kojiEdit(date,id,stage)); };
   document.addEventListener('keydown',esck);
   document.body.appendChild(m);
+  /* 2026-10-14 品温計が付いている麹は、経過（10分ごと）を取ってグラフを描き直す */
+  if(pbs.length) recApi({action:'probe_series',id},30000).then(s=>{ if(!(s&&s.ok&&s.points&&s.points.length)) return;
+    RC.pser=RC.pser||{}; RC.pser[id]=s.points; const c=m.querySelector('#kmiChart'); if(c&&m.isConnected) c.innerHTML=kTempChart(r,kPbNow(j,id,s.points)); }).catch(()=>{});
 }
+/* 2026-10-14 品温計（おんどとり）の今の温度を、温度グラフの点として足す（経過の最後より新しいときだけ） */
+function kPbMs(x){ if(x.ms!=null&&isFinite(Number(x.ms))) return Number(x.ms); const t=String(x.time||x.t||''), now=Date.now(); let q;
+  if((q=t.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\D+(\d{1,2}):(\d{2})/))) return new Date(+q[1],q[2]-1,+q[3],+q[4],+q[5]).getTime();
+  if((q=t.match(/(\d{1,2})\/(\d{1,2})\D+(\d{1,2}):(\d{2})/))) return new Date(new Date().getFullYear(),q[1]-1,+q[2],+q[3],+q[4]).getTime();
+  if((q=t.match(/(\d{1,2}):(\d{2})/))){ const d=new Date(); d.setHours(+q[1],+q[2],0,0); if(d.getTime()>now+600000) d.setDate(d.getDate()-1); return d.getTime(); }
+  return now; }
+function kPbNow(j,id,ser){ const out=(ser||[]).map(p=>Object.assign({},p,{no:Number(p.no)}));
+  Object.entries((j&&j.probes)||{}).forEach(([n,x])=>{ if(!x||x.id!==id||x.stale||x.temp==null||x.temp==='') return; const no=Number(n), ms=kPbMs(x);
+    const last=out.filter(p=>Number(p.no)===no).reduce((a,p)=>Math.max(a,Number(p.ms)||0),0);
+    if(ms>last) out.push({ms,v:Number(x.temp),no,now:1}); });
+  return out; }
 document.addEventListener('click',e=>{
   const em=e.target&&e.target.closest&&e.target.closest('.k-mapc em[data-kid]'); if(!em) return;
   e.preventDefault(); e.stopPropagation();
