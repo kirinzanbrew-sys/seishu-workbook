@@ -3410,6 +3410,8 @@ const REC_CSS = `
 .rc-dstrip i{font-style:normal;font-size:10px;opacity:.7;height:13px}.rc-dstrip b{font-size:17px}.rc-dstrip span{font-size:11px}
 .rc-dstrip .sun span{color:#c0392b}.rc-dstrip .sat span{color:#2a78d6}.rc-dstrip .td{border-color:#2a78d6}.rc-dstrip .sel{background:#2a78d6;color:#fff;border-color:#2a78d6}.rc-dstrip .sel span{color:#fff}
 .rc-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 0 10px}
+/* 2026-10-15 麹の上部：盛〇本〇kg を小さく1行 */
+.k-sum{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--sub);margin:0 0 6px;padding:0 2px}.k-sum span{white-space:nowrap}
 .rc-sum div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 8px}
 .rc-sum .k{font-size:11px;color:var(--sub)} .rc-sum .v{font-size:20px;font-weight:700;color:var(--navy);line-height:1.1} .rc-sum .v small{font-size:11px;font-weight:500;color:var(--sub)}
 .rc-h{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 8px;margin:14px 0 6px;font-weight:700;font-size:15px;white-space:nowrap}
@@ -3786,7 +3788,8 @@ function kTempData(r,probe){
 function kRowBg(r){
   try{
     if(cmpAnchor(r)==null) return '';
-    const d=kTempData(r,(RC.pser||{})[r['麹ID']]), S=KSTD[d.sk];
+    const ser0=(RC.pser||{})[r['麹ID']], jj=RC.koji&&RC.koji[RC.kday];
+    const d=kTempData(r,(jj&&ser0&&typeof kPbNow==='function')?kPbNow(jj,r['麹ID'],ser0):ser0), S=KSTD[d.sk];
     const lo=26,hi=44, xmax=Math.max(64,...d.pts.map(p=>p.h+2),...d.pp.map(p=>p.h+2));
     const X=h=>(100*Math.max(0,Math.min(h,xmax))/xmax).toFixed(2), Y=v=>(40*(1-(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo))).toFixed(2);
     const std=Object.keys(S.st).map(nm=>[S.h[nm],S.st[nm][0]]).sort((a,b)=>a[0]-b[0]);
@@ -3892,8 +3895,7 @@ async function kojiScreen(day){
     <div class="card k-mapc"><div class="k-rm"><b>1号室</b>${rcRoomTag(rmJ.r1)}</div>${map1(hik,'引込 場所')}<div class="k-rm"><b>2号室</b>${rcRoomTag(rmJ.r2)}</div>${rcMap2(out,mori,prJ)}${pbEx.length?`<p class="tl-note" style="margin:4px 0 0">配置図にない品温計：${pbEx.map(([n,x])=>`No${n}（${esc(x.id)}）${(x.temp!=null&&!x.stale)?x.temp+'℃':'—'}`).join('　')}</p>`:''}${rmJ.at?`<p class="tl-note" style="margin:4px 0 0">おんどとり ${esc(rmJ.at)} 取得</p>`:''}</div>`;
   let h=`<div class="rc-nav">${typeof o2Btn==='function'?o2Btn('koji',{icon:1}):''}<button class="d rc-dbtn" id="kDate">${djp(date)} <small>▾</small></button><button class="k-ic" id="kTane" type="button" title="種麹の仕入・在庫" aria-label="種麹の仕入・在庫"><span>種</span></button><button class="k-ic" id="kCmp" type="button" title="麹の比較・考察" aria-label="麹の比較・考察"><span class="i">i</span></button></div>
     <div class="rc-dstrip" id="kStrip" style="display:none"></div>
-    <div class="rc-sum" style="grid-template-columns:repeat(3,1fr)"><div><span class="k">盛（仲・留仕事）</span><span class="v">${mori.length}<small> 本 ${kgfmt(kg(mori))}kg</small></span></div>
-      <div><span class="k">引込（種切・切返し）</span><span class="v">${hik.length}<small> 本 ${kgfmt(kg(hik))}kg</small></span></div><div><span class="k">出麹</span><span class="v">${out.length}<small> 本 ${kgfmt(kg(out))}kg</small></span></div></div>
+    <div class="k-sum"><span>盛${mori.length}本${kgfmt(kg(mori))}kg</span><span>引込${hik.length}本${kgfmt(kg(hik))}kg</span><span>出麹${out.length}本${kgfmt(kg(out))}kg</span></div>
     ${mapCard}
     <div class="rc-status" id="rcStatus"></div>`;
   h+=sec('盛・仲仕事・留仕事','盛の順番と棚を決めて記録',mori.sort((a,b)=>(a['盛 順番']||99)-(b['盛 順番']||99)),r=>row(r,'盛'));
@@ -3913,6 +3915,27 @@ async function kojiScreen(day){
     st.querySelectorAll('button[data-d]').forEach(b=>b.onclick=()=>kojiScreen(b.dataset.d)); };
   app.querySelectorAll('.rc-row[data-id]').forEach(b=>b.onclick=()=>go(()=>kojiEdit(date,b.dataset.id,b.dataset.st)));
   app.querySelectorAll('.rc-row[data-key]').forEach(b=>b.onclick=()=>go(()=>kyusuiEdit(date,b.dataset.key)));
+  kRowLive(date);
+}
+/* 2026-10-15 泰広さん指示：各麹の行のグラフを、麹を開かなくても品温計の最新で出す。
+   品温計を付けている麹は3分ごと（画面を出すたび）に取り直す。付けていない麹は1回だけ取る */
+const KROW_LIVE_MS=3*60000;
+function kRowLive(date){
+  const j=RC.koji&&RC.koji[date]; if(!j) return; RC.pserAt=RC.pserAt||{}; RC.pser=RC.pser||{};
+  const live=new Set(Object.values(j.probes||{}).filter(q=>q&&q.id).map(q=>q.id));
+  const seen=new Set();
+  app.querySelectorAll('.rc-row.kbg[data-id]').forEach(b=>{ const id=b.dataset.id; if(seen.has(id)) return; seen.add(id);
+    const r=(j.koji||[]).find(x=>x['麹ID']===id); if(!r) return;
+    const have=!!RC.pser[id], age=Date.now()-(RC.pserAt[id]||0);
+    if(have&&!(live.has(id)&&age>KROW_LIVE_MS)) return;
+    if(RC.pserAt[id]&&age<KROW_LIVE_MS) return;
+    RC.pserAt[id]=Date.now();
+    recApi({action:'probe_series',id},30000).then(s=>{ if(!(s&&s.ok&&s.points)) return; RC.pser[id]=s.points;
+      if(RC.kday!==date||!$('#kDate')) return;
+      app.querySelectorAll('.rc-row.kbg[data-id]').forEach(el=>{ if(el.dataset.id!==id) return;
+        const nw=kRowBg(r); if(!nw) return; const old=el.querySelector('.kbg-svg');
+        if(old) old.outerHTML=nw; else el.insertAdjacentHTML('afterbegin',nw); }); }).catch(()=>{ RC.pserAt[id]=0; });
+  });
 }
 /* ========== 🧫 種麹の仕入・在庫（2026-10-02 追加）：シート「種麹仕入」に1仕入1行。在庫は「種麹集計」で計算 ========== */
 async function taneScreen(){
@@ -9332,6 +9355,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-15-3','🍚','麹','上の「盛・引込・出麹」の本数を「盛◯本◯kg」の小さな1行にしました。苦味の注意は赤い帯をやめ「⚠ 苦み注意。酛13号」のアイコンに（押すとその麹）。各麹の行のグラフは、開かなくても品温計の最新の温度で描くようにしました（品温計を付けている麹は3分ごとに取り直し）。'],
   ['2026-10-15-2','🍚','麹','引込みで種麹を選ぶと、その種麹の力価（白夜を1.00とした倍率）と、割合（麹米100kgあたりのg）から「白夜換算◯g相当」を出すようにしました。力価が強い種麹（白夜の1.2倍以上は橙、1.5倍以上は赤）は「同じ量でも品温が上がりやすい」と注意が出ます。麹の一覧の引込みの行にも印が付きます。'],
   ['2026-10-15-1','📅','製造カレンダー','上の「出勤表・カレンダー・振休依頼・出勤表を直す」を小さなアイコンにまとめ、「🍶詰予定」を足しました（製品部の詰め作業予定を今日から3週間、押すと詳細）。製品の詰予定は本日の予定には出さないようにしました。'],
   ['2026-10-14-6','🍚','麹','品温計の欄に「↩ 除外した◯件を復元」ボタンを付けました。押すと除いた温度をグラフ・表に戻します（表では橙色の行）。「✂ もう一度除外する」で元に戻せます。麹ごと・端末ごとに覚えます。'],
@@ -9531,14 +9555,13 @@ function kgmInject(){
     const c=kgmCheck(r); if(c.lv<1) return; hits.push([r,c]);
     app.querySelectorAll('.rc-row[data-id]').forEach(b=>{ if(b.dataset.id===r['麹ID']){ const s=b.querySelector('.id'); if(s) s.insertAdjacentHTML('beforeend',kgmChip(c.lv)); } }); });
   if(!hits.length) return;
+  /* 2026-10-15 泰広さん指示：赤い帯をやめ「苦み注意。酛13号」のアイコンに（強＝赤・注意＝橙。押すとその麹の画面で理由） */
   const line=([r,c])=>{ const st=r['出麹日']===date?'出麹':'盛';
-    return `<button type="button" class="kgm-l" data-id="${esc(r['麹ID'])}" data-st="${st}"><b>${esc(r['麹ID'])}</b><span class="lq">${esc(r['液種']||'')}・${st}</span>${kgmChip(c.lv)}<br><span>${c.items.filter(x=>x.lv>=1).map(x=>esc(x.k)).join('／')}</span></button>`; };
-  const nOut=hits.filter(([r])=>r['出麹日']===date).length, nMo=hits.length-nOut;
+    return `<button type="button" class="kgm-ic${c.lv>=2?' s':''}" data-id="${esc(r['麹ID'])}" data-st="${st}" title="${esc(c.items.filter(x=>x.lv>=1).map(x=>x.k).join('／'))}">⚠ 苦み注意。${esc(r['麹ID'])}</button>`; };
   const d=document.createElement('div'); d.className='kgm-ban';
-  d.innerHTML=`<div class="kgm-t">⚠ 苦味の注意<small>出麹 ${nOut}本・盛 ${nMo}本／鍋倉氏の条件×昨年度の温度経過</small></div>${hits.map(line).join('')}
-    <div class="kgm-f">出麹の麹は<b>味見して苦味を確認</b>し、備考に書いてください。押すと理由が出ます。</div>`;
-  const at=app.querySelector('.rc-sum'); if(at) at.after(d); else app.prepend(d);
-  d.querySelectorAll('.kgm-l').forEach(b=>b.onclick=()=>go(()=>kojiEdit(date,b.dataset.id,b.dataset.st)));
+  d.innerHTML=hits.map(line).join('');
+  const at=app.querySelector('.k-sum')||app.querySelector('.rc-sum'); if(at) at.after(d); else app.prepend(d);
+  d.querySelectorAll('.kgm-ic').forEach(b=>b.onclick=()=>go(()=>kojiEdit(date,b.dataset.id,b.dataset.st)));
 }
 function kgmCardHTML(r){
   const c=kgmCheck(r); if(!c.items.length) return '';
@@ -9550,7 +9573,8 @@ function kgmCardHTML(r){
   const s=document.createElement('style'); s.textContent=`
 .kgm-chip{display:inline-block;margin-top:2px;font-size:10px;font-weight:700;color:#fff;background:#e08a00;border-radius:8px;padding:0 6px;line-height:1.6}
 .kgm-chip.s{background:#c0392b}.kgm-chip.i{background:#8a8272}
-.kgm-ban{background:#fdecea;border:1px solid #e3a39b;color:#5c1a10;border-radius:10px;padding:8px 10px;margin:6px 0 8px;font-size:13px}
+.kgm-ban{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 8px}
+.kgm-ic{border:0;border-radius:14px;padding:3px 10px;font:inherit;font-size:12px;font-weight:700;color:#fff;background:#e08a00;line-height:1.5}.kgm-ic.s{background:#c0392b}
 .kgm-t{font-weight:700;font-size:14px;color:#a3271a;margin-bottom:4px}.kgm-t small{font-weight:400;font-size:11px;color:#8a4a40;margin-left:6px}
 .kgm-l{display:block;width:100%;text-align:left;background:#fff;border:1px solid #f0c4be;border-radius:8px;padding:5px 8px;margin:4px 0;font:inherit;color:inherit}
 .kgm-l .lq{font-size:11px;color:#8a4a40;margin:0 6px}.kgm-l span{font-size:12px}
