@@ -1349,6 +1349,19 @@ const MFG_CSS = `
 .hkc{font-size:12.5px;background:#eef2ee;border-radius:6px;padding:2px 7px;white-space:nowrap}
 .hkc b{font-size:14px;color:var(--navy)}
 .mf-tabs{display:flex;gap:6px;margin:12px 0 10px}
+.ct-ic{display:flex;gap:6px;margin:10px 0 12px}
+.ct-ic button{flex:1;min-width:0;padding:6px 2px 5px;border:1px solid var(--line);background:#fff;border-radius:12px;font-family:inherit;font-size:10.5px;line-height:1.2;color:var(--sub);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;white-space:nowrap}
+.ct-ic button i{font-style:normal;font-size:19px;line-height:1}
+.ct-ic button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700}
+.ct-ic button.rq{color:#b21b1b;border-color:#e8b4b4}
+.ts-day{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 8px}
+.ts-day.td{border-color:var(--navy);box-shadow:0 0 0 1px var(--navy) inset}
+.ts-d{font-weight:700;font-size:14px;margin-bottom:2px}
+.ts-d small{margin-left:6px;font-size:11px;color:#fff;background:var(--navy);border-radius:8px;padding:1px 6px}
+.ts-it summary{cursor:pointer;padding:4px 0;font-size:14px;list-style:none}
+.ts-it summary::-webkit-details-marker{display:none}
+.ts-it summary small{display:block;color:var(--sub);font-size:11.5px}
+.ts-ds{font-size:12.5px;color:var(--sub);padding:2px 0 6px;line-height:1.5}
 .mf-tabs button{flex:1;padding:10px;border:1px solid var(--line);background:#fff;border-radius:10px;font-family:inherit;font-size:14px;color:var(--sub);cursor:pointer}
 .mf-tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700}
 .lb-grp{margin:14px 0 6px;font-size:13px;font-weight:700;color:var(--sub)}
@@ -2539,12 +2552,54 @@ function zcheckScreen(){
 function calendarScreen(tab){
   const t = tab || 'kinmu';
   if(t==='cal'){ calendarGoogle(); return; }
+  if(t==='tsume'){ tsumeScreen(); return; }
   kinmuScreen();
 }
+/* 2026-10-15 泰広さん指示：上部の 出勤表・カレンダー・振休依頼・出勤表を直す を小さなアイコン風に。詰予定も足す */
 function calTabs(on){
-  return `<div class="mf-tabs"><button data-t="kinmu" class="${on==='kinmu'?'on':''}">出勤表</button><button data-t="cal" class="${on==='cal'?'on':''}">カレンダー</button></div>`;
+  const adm=((MFG&&MFG.me)||{}).admin, B=(t,e,l)=>`<button type="button" data-t="${t}" class="${on===t?'on':''}"><i>${e}</i>${l}</button>`;
+  return `<div class="ct-ic">${B('kinmu','📋','出勤表')}${B('cal','📅','カレンダー')}${B('tsume','🍶','詰予定')}<button type="button" id="bReq" class="rq"><i>✋</i>振休依頼</button>${adm?`<button type="button" id="bEdit"><i>✏️</i>出勤表を直す</button>`:''}</div>`;
 }
-function bindCalTabs(){ app.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>calendarScreen(b.dataset.t)); }
+function bindCalTabs(){
+  app.querySelectorAll('.ct-ic [data-t]').forEach(b=>b.onclick=()=>calendarScreen(b.dataset.t));
+  const r=$('#bReq'); if(r) r.onclick=()=>go(()=>furikyuForm());
+  const be=$('#bEdit'); if(be) be.onclick=()=>go(()=>kinmuEditForm((typeof KN_SEL!=='undefined'&&KN_SEL)||dtoday()));
+}
+/* 詰予定：部署カレンダー「生産本部製造担当」の製品の詰予定（製品部 月間詰め作業予定）を、今日から3週間ぶん並べる */
+const TSUME_DAYS=21;
+function tsYmd(t0,i){ const d=new Date(t0+'T00:00:00'); d.setDate(d.getDate()+i); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function tsumeScreen(){
+  app.dataset.mfg='tsume';
+  head('製造カレンダー','製品の詰予定');
+  const t0=dtoday(), days=[...Array(TSUME_DAYS)].map((_,i)=>tsYmd(t0,i)), W='日月火水木金土';
+  const isT=x=>(typeof dpTsume==='function')?dpTsume(x):/詰め?作業予定より/.test(String(x&&x.desc||''));
+  const draw=()=>{
+    if(app.dataset.mfg!=='tsume') return;
+    const m=lsGet('dp.cal2',{})||{}; let h=calTabs('tsume'), n=0, wait=0;
+    for(const d of days){
+      const c=m[d]; if(!c||!c.events){ wait++; continue; }
+      const ev=c.events.filter(isT); if(!ev.length) continue; n++;
+      const w=new Date(d+'T00:00:00').getDay();
+      h+=`<div class="ts-day${d===t0?' td':''}"><div class="ts-d" style="${w===0||w===6?'color:#c0392b':''}">${+d.slice(5,7)}/${+d.slice(8,10)}（${W[w]}）${d===t0?'<small>今日</small>':''}</div>`
+        + ev.map(x=>{ const ds=String(x.desc||''), mm=ds.match(/作業者[：:]\s*([^\n]+)/);
+          return `<details class="ts-it"><summary>${esc(String(x.title||'').replace(/^\s*詰め?作業[：:]\s*/,''))}${mm?`<small>${esc(mm[1].trim())}</small>`:''}</summary><div class="ts-ds">${esc(ds.replace(/\[src:[^\]]*\]/g,'').trim()).replace(/\n/g,'<br>')}</div></details>`; }).join('')
+        + `</div>`;
+    }
+    if(!n) h+=`<div class="card" style="color:var(--sub)">${wait?'読み込んでいます…':'これから3週間の詰予定はありません'}</div>`;
+    else if(wait) h+=`<p class="tl-note">ほかの日を読み込んでいます…（${wait}日）</p>`;
+    h+=`<p class="tl-note">製品部の月間詰め作業予定（部署カレンダー「生産本部製造担当」に入れたもの）。今日から3週間。押すと詳細。本日の予定には出しません。</p>`;
+    app.innerHTML=h; bindCalTabs();
+  };
+  draw();
+  if(!O2_URL) return;
+  const need=days.filter(d=>{ const c=(lsGet('dp.cal2',{})||{})[d]; return !(c&&c.events&&Date.now()-(c.at||0)<10*60000); });
+  let k=0;
+  const one=async()=>{ while(k<need.length){ const d=need[k++];
+    try{ const j=await o2Api({action:'cal_day',date:d},20000);
+      if(j&&j.ok&&j.events){ const mm=lsGet('dp.cal2',{})||{}; Object.keys(mm).forEach(x=>{ if(x<dtoday()) delete mm[x]; }); mm[d]={events:j.events,at:Date.now()}; lsSet('dp.cal2',mm); } }catch(e){}
+    draw(); } };
+  for(let i=0;i<4;i++) one();
+}
 function calendarGoogle(){
   app.dataset.mfg='cal';
   head('製造カレンダー','生産本部製造担当・会社休日');
@@ -2615,9 +2670,7 @@ function kinmuScreen(){
     const me = MFG.me||{};
     // 承認待ち（管理者）
     const pend = reqs.filter(r=>r.status==='申請中').sort((a,b)=>a.date<b.date?-1:1);
-    h += `<button class="btn p" id="bReq" style="background:#b21b1b;border-color:#b21b1b">✋ 振休依頼</button>`;
-    // 権限のある人だけ：日付を押さなくても、ここから直せる
-    if(me.admin) h += `<button class="btn o" id="bEdit" style="margin-top:-4px">✏️ 出勤表を直す</button>`;
+    // 2026-10-15 振休依頼・出勤表を直す（権限のある人だけ）は上のアイコンへ（calTabs）
     if(me.admin && pend.length){
       h += `<div class="mf-sec">承認待ち<span>${pend.length}件</span></div>`;
       for(const r of pend) h += reqRow(r, 'admin');
@@ -2665,8 +2718,6 @@ function kinmuScreen(){
     }
     app.innerHTML = h + mfgSrcInfo('shukkin','出勤表Excel');
     bindCalTabs();
-    $('#bReq').onclick=()=>go(()=>furikyuForm());
-    const be=$('#bEdit'); if(be) be.onclick=()=>go(()=>kinmuEditForm(KN_SEL||dtoday()));
     const mp=$('#mPrev'), mn=$('#mNext');
     if(mp) mp.onclick=()=>{ KN_YM=yms[i-1]; KN_SEL=null; knRender(); };
     if(mn) mn.onclick=()=>{ KN_YM=yms[i+1]; KN_SEL=null; knRender(); };
@@ -5902,6 +5953,8 @@ function dpKinmuHTML(){
 }
 
 /* カレンダーの題名から電話番号を消す（2026-10-06 泰広さん指示：本日の予定のカレンダーはシンプルに。場所・電話番号は出さない） */
+/* 2026-10-15 泰広さん指示：製品の詰予定（製品部 月間詰め作業予定から入れた予定）は本日の予定に出さない。製造カレンダーの「詰予定」で見る */
+function dpTsume(x){ return /詰め?作業予定より/.test(String(x&&x.desc||''))||/^\s*詰め?作業/.test(String(x&&x.title||'')); }
 function dpCalTitle(t){
   let s=String(t||'').replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
   if(/酵母/.test(s)){   // 2026-10-06 泰広さん指示：酵母の種類は出さない（カッコの中＝時刻以外と、酵母の名前・記号を消す）
@@ -5927,7 +5980,7 @@ document.addEventListener('click', e=>{
 });
 const DP_CAL_MAX=3; let DP_CALALL=false;
 function dpCalHTML(){
-  const date=dpDate(), c=(lsGet('dp.cal2',{})||{})[date], ev=(c&&c.events)?c.events.filter(x=>!(typeof rkCalHide==='function'&&rkCalHide(x))):null;   /* 2026-10-11 濾過・火入は段に出すので箇条書きから外す */
+  const date=dpDate(), c=(lsGet('dp.cal2',{})||{})[date], ev=(c&&c.events)?c.events.filter(x=>!(typeof rkCalHide==='function'&&rkCalHide(x))&&!dpTsume(x)):null;   /* 2026-10-11 濾過・火入は段に出すので箇条書きから外す */
   const kd=dpShukkinDay(date);
   let li='', more='';   // 2026-10-08 泰広さん指示：3件まで。ほか◯件 › で全部
   /* 2026-10-06 泰広さん指示：シンプルに（場所・電話番号・酵母の種類は出さない。「終日」も出さない）。押すと詳細 */
@@ -9239,6 +9292,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-15-1','📅','製造カレンダー','上の「出勤表・カレンダー・振休依頼・出勤表を直す」を小さなアイコンにまとめ、「🍶詰予定」を足しました（製品部の詰め作業予定を今日から3週間、押すと詳細）。製品の詰予定は本日の予定には出さないようにしました。'],
   ['2026-10-14-6','🍚','麹','品温計の欄に「↩ 除外した◯件を復元」ボタンを付けました。押すと除いた温度をグラフ・表に戻します（表では橙色の行）。「✂ もう一度除外する」で元に戻せます。麹ごと・端末ごとに覚えます。'],
   ['2026-10-14-5','🍚','麹','品温計（おんどとり）を作業で引き抜いた間の急な温度変化（室温あたりへの急降下・20分くらいまで）を自動で除くようにしました。輝以外は就業時間（8:00～18:00）の変化だけ除きます（夜中は除湿機による変化として残します）。グラフ・40～42度の時間・数字の表すべてに効きます。品温計の「数字で見る」はタップしなくても最初から表示します。'],
   ['2026-10-14-4','🍚','麹','温度グラフの下の表示を「40～42度：〇時間〇分」に変えました。この麹に付けた品温計の記録だけで計算します（品温計が2本でも同じ時間は1回だけ数えます）。'],
