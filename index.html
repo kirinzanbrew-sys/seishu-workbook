@@ -3572,10 +3572,62 @@ async function rcProbeSection(date,id){
     }catch(e){ rcStatus('記録できませんでした。電波を確認してください',true); } });
   try{ const s=await recApi({action:'probe_series',id},30000); const c=$('#pChart'); if(!c) return;
     if(!s||!s.ok||!s.points||!s.points.length){ c.innerHTML=`<p class="muted" style="font-size:12px">${s&&s.segs&&s.segs.length?'まだ記録がありません（10分ごとに増えます）':'この麹にはまだ品温計を付けていません'}</p>`; return; }
-    RC.pser=RC.pser||{}; RC.pser[id]=s.points; if($('#kTop')) $('#kTop').innerHTML=kTempChart(r,s.points);
-    c.innerHTML=($('#kTop')?'<p class="tl-note" style="margin:0">温度経過のグラフは画面の一番上にあります</p>':rcProbeChart(s.points))+`<details style="margin-top:6px"><summary style="font-size:12px;color:var(--sub)">数字で見る（${s.points.length}件）</summary><table class="tl-tbl"><tr><th style="text-align:left">時刻</th><th>品温計</th><th>品温</th><th>室温</th></tr>${s.points.slice().reverse().map(p=>`<tr><td style="text-align:left">${esc(p.t)}</td><td>No${p.no}${p.place?' '+esc(sh(p.place)):''}</td><td>${p.v}</td><td>${p.room??'—'}</td></tr>`).join('')}</table></details>`;
+    RC.pser=RC.pser||{}; RC.pser[id]=s.points;
+    const draw=()=>{ if($('#kTop')) $('#kTop').innerHTML=kTempChart(r,s.points);
+    const kc=kPbClean(s.points,kIsKaga(r),id), kp=kc.pts, ex=kc.ex||new Set();
+    const btn=kc.cutN?`<div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button class="rc-ghost" id="pbRawBtn">${kc.raw?'✂ もう一度除外する':`↩ 除外した ${kc.cutN}件を復元`}</button><span class="tl-note" style="margin:0">${kc.raw?'復元中（橙色の行が除外していた分）':'引き抜き等の急な変化を除いています'}</span></div>`:'';
+    c.innerHTML=($('#kTop')?'<p class="tl-note" style="margin:0">温度経過のグラフは画面の一番上にあります</p>':rcProbeChart(kp))+btn+`<details open style="margin-top:6px"><summary style="font-size:12px;color:var(--sub)">数字で見る（${kp.length}件${kc.cut?`・引き抜き等の急な変化 ${kc.cut}件を除外`:''}${kc.raw?`・除外していた ${kc.cutN}件を復元中`:''}）</summary><table class="tl-tbl"><tr><th style="text-align:left">時刻</th><th>品温計</th><th>品温</th><th>室温</th></tr>${kp.slice().reverse().map(p=>`<tr${ex.has(p)?' style="background:#fde8cf"':''}><td style="text-align:left">${esc(p.t)}</td><td>No${p.no}${p.place?' '+esc(sh(p.place)):''}</td><td>${p.v}</td><td>${p.room??'—'}</td></tr>`).join('')}</table></details>`;
+    const b=c.querySelector('#pbRawBtn'); if(b) b.onclick=()=>{ kPbSetRaw(id,!kc.raw); draw(); rcToast(kc.raw?'急な変化をもう一度除外しました':`除外した ${kc.cutN}件を復元しました`); }; };
+    draw();
   }catch(e){ const c=$('#pChart'); if(c) c.innerHTML='<p class="muted" style="font-size:12px">温度経過を読み込めませんでした</p>'; }
 }
+/* 2026-10-14 おんどとり（品温計）を作業で引き抜いた間の急な温度変化を除く。
+   品温計ごとに時刻順に並べ、30分以内に3℃以上動いた所で区切る。区切られた一続きのうち
+   ・前後どちらか（または両方）が急変で区切られていて、・長さが20分以内で、・前後の品温より室温に近い（室温が無ければ低い）
+   ものを「引き抜いていた間」とみなして除く。なくなるまで繰り返す。20分を超えて続いた変化は本当の変化として残す
+   2026-10-14 泰広さん指示：輝（kagayaki）以外は就業時間内（日本時間 8:00～18:00）に変化したものだけ除く。夜中は除湿機で変わるので残す（kaga=true なら時間を問わない） */
+const KPB={jump:3,win:30,max:20,h0:8,h1:18};
+function kPbJstMin(ms){ return Math.floor(((Number(ms)+9*3600000)%86400000)/60000); }
+function kPbClean0(pts,kaga){
+  const all=(pts||[]).filter(p=>p), out=[], nos=[...new Set(all.map(p=>Number(p.no)))]; let cut=0;
+  const num=x=>x!=null&&x!==''&&isFinite(Number(x));
+  nos.forEach(n=>{
+    let q=all.filter(p=>Number(p.no)===n), bad=q.filter(p=>!(num(p.ms)&&num(p.v)));
+    q=q.filter(p=>num(p.ms)&&num(p.v)).sort((a,b)=>a.ms-b.ms);
+    for(let loop=0;loop<6;loop++){
+      const seg=[]; let cur=[], jb=false;
+      q.forEach((p,k)=>{ if(k){ const a=q[k-1], dt=(p.ms-a.ms)/60000, dv=Number(p.v)-Number(a.v);
+          if(Math.abs(dv)>=KPB.jump&&dt<=KPB.win){ seg.push({p:cur,jb,ja:true}); cur=[]; jb=true; }
+          else if(dt>60){ seg.push({p:cur,jb,ja:false}); cur=[]; jb=false; } }
+        cur.push(p); });
+      if(cur.length) seg.push({p:cur,jb,ja:false});
+      if(seg.length<2) break;
+      const drop=new Set();
+      seg.forEach((g,i)=>{ if(!(g.jb||g.ja)) return;
+        if((g.p[g.p.length-1].ms-g.p[0].ms)/60000>KPB.max) return;
+        if(!kaga){ const tm=kPbJstMin(g.jb?g.p[0].ms:g.p[g.p.length-1].ms); if(tm<KPB.h0*60||tm>KPB.h1*60) return; }
+        const nb=[]; if(g.jb&&i>0) nb.push(Number(seg[i-1].p[seg[i-1].p.length-1].v)); if(g.ja&&i<seg.length-1) nb.push(Number(seg[i+1].p[0].v));
+        if(!nb.length) return;
+        const m=g.p.reduce((a,p)=>a+Number(p.v),0)/g.p.length;
+        const rr=g.p.concat(i>0?seg[i-1].p.slice(-3):[],i<seg.length-1?seg[i+1].p.slice(0,3):[]).map(p=>p.room).filter(num).map(Number);
+        const r=rr.length?rr.reduce((a,b)=>a+b,0)/rr.length:null;
+        const ok=nb.every(v=>r!=null?Math.abs(m-r)<Math.abs(v-r):m<v);
+        if(ok) g.p.forEach(p=>drop.add(p)); });
+      if(!drop.size) break;
+      cut+=drop.size; q=q.filter(p=>!drop.has(p));
+    }
+    out.push(...q,...bad);
+  });
+  out.sort((a,b)=>(Number(a.ms)||0)-(Number(b.ms)||0));
+  return {pts:out,cut};
+}
+/* 2026-10-14 除外した温度帯の復元（麹ごと・端末に控える） */
+function kPbRaw(id){ return !!(id&&(lsGet('kpb.raw',{})||{})[id]); }
+function kPbSetRaw(id,on){ const o=lsGet('kpb.raw',{})||{}; if(on) o[id]=1; else delete o[id]; lsSet('kpb.raw',o); }
+function kPbClean(pts,kaga,id){ const c=kPbClean0(pts,kaga); c.cutN=c.cut;
+  if(!kPbRaw(id)) return c;
+  const keep=new Set(c.pts), all=(pts||[]).filter(p=>p).slice().sort((a,b)=>(Number(a.ms)||0)-(Number(b.ms)||0));
+  return {pts:all,cut:0,cutN:c.cutN,raw:true,ex:new Set(all.filter(p=>!keep.has(p)))}; }
 function rcProbeChart(pts){
   const PCOL=['#b23b3b','#1d5fa8','#2e8b57','#b8860b']; const nos=[...new Set(pts.map(p=>p.no))];
   const W=320,H=150,L=30,R=6,T=8,B=20; const xs=pts.map(p=>p.ms), vs=pts.map(p=>p.v).concat(pts.filter(p=>p.room!=null).map(p=>p.room));
@@ -3673,7 +3725,7 @@ function kZoneLine(d){ const h=kZoneProbeH(d.pp);
 function kTempData(r,probe){
   const pts=(typeof cmpStages==='function')?cmpStages(r):[], sk=kIsKaga(r)?'kaga':'ippan', a0=cmpAnchor(r);
   let pp=[];
-  if(probe&&probe.length&&a0!=null) pp=probe.filter(p=>p&&p.ms!=null&&p.v!=null&&p.v!=='').map(p=>({h:(Number(p.ms)-a0)/3600000,v:Number(p.v),no:p.no})).filter(p=>p.h>=-2&&p.h<=90&&isFinite(p.v)).sort((a,b)=>a.h-b.h);
+  if(probe&&probe.length&&a0!=null) pp=kPbClean(probe,kIsKaga(r),r['麹ID']).pts.filter(p=>p&&p.ms!=null&&p.v!=null&&p.v!=='').map(p=>({h:(Number(p.ms)-a0)/3600000,v:Number(p.v),no:p.no})).filter(p=>p.h>=-2&&p.h<=90&&isFinite(p.v)).sort((a,b)=>a.h-b.h);
   /* 2026-10-14 室温（品温計の経過に付いている室温。同じ時刻は1つに） */
   let rm=[]; if(probe&&probe.length&&a0!=null){ const seen=new Set();
     rm=probe.filter(p=>p&&p.ms!=null&&p.room!=null&&p.room!==''&&isFinite(Number(p.room))).map(p=>({h:(Number(p.ms)-a0)/3600000,v:Number(p.room),k:Math.round(Number(p.ms)/60000)}))
@@ -9187,6 +9239,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-14-6','🍚','麹','品温計の欄に「↩ 除外した◯件を復元」ボタンを付けました。押すと除いた温度をグラフ・表に戻します（表では橙色の行）。「✂ もう一度除外する」で元に戻せます。麹ごと・端末ごとに覚えます。'],
+  ['2026-10-14-5','🍚','麹','品温計（おんどとり）を作業で引き抜いた間の急な温度変化（室温あたりへの急降下・20分くらいまで）を自動で除くようにしました。輝以外は就業時間（8:00～18:00）の変化だけ除きます（夜中は除湿機による変化として残します）。グラフ・40～42度の時間・数字の表すべてに効きます。品温計の「数字で見る」はタップしなくても最初から表示します。'],
   ['2026-10-14-4','🍚','麹','温度グラフの下の表示を「40～42度：〇時間〇分」に変えました。この麹に付けた品温計の記録だけで計算します（品温計が2本でも同じ時間は1回だけ数えます）。'],
   ['2026-10-14-3','🍚','麹','麹の温度グラフに室温を薄い茶色の線で重ねました（品温計を付けている麹。おんどとりの10分ごとの室温）。'],
   ['2026-10-14-2','🍚','麹','麹の温度グラフの横軸（引込からの時間）の上に、時刻（0・6・12・18）も出るようにしました。日をまたぐ所（0時）に薄い点線、日付は最初と最後だけ。何時ころの操作が温度に響いたか見やすくなります。'],
