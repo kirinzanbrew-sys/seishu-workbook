@@ -3876,7 +3876,7 @@ async function kojiScreen(day){
       引込:['引込 順番','引込 場所',(r['切返し 品温']!==''?'done':(r['引込 時刻']!==''?'part':'')), r['切返し 品温']!==''?`切返し ${rcN(r['切返し 品温'])}℃`:(r['種切 品温']!==''?`種切 ${rcN(r['種切 品温'])}℃`:(r['引込 時刻']!==''?`引込 ${r['引込 時刻']}`:'未')),`引込${tg['引込']?tg['引込'].time:''} 目標${tg['引込']?tg['引込'].temp:''}℃`]}[stage];
     return `<button class="rc-row kbg ${map[2]}" data-id="${esc(r['麹ID'])}" data-st="${stage}">${kRowBg(r)}<span class="st"></span>
       <span class="id">${esc(r['麹ID'])}<small>${esc(r['記号'])} ${r['麹米kg']}kg</small>${prb[r['麹ID']]?`<small class="rc-prb">品温計 No${prb[r['麹ID']]}</small>`:''}</span>
-      <span class="mid">${pl(r[map[0]],r[map[1]]||(stage==='出麹'?r['盛 場所']:''))}<span class="b">${esc(r['液種'])}</span><br><span class="d">${esc(r['品種'])} ${r['精米歩合']}%${r['種麹']?'・'+esc(r['種麹']):''}${r['種麹2']?'＋'+esc(r['種麹2']):''}${r['使用日']?'・使用 '+rcMD(r['使用日']):''}${r['注意']?' ・'+esc(r['注意']):''}</span></span>
+      <span class="mid">${pl(r[map[0]],r[map[1]]||(stage==='出麹'?r['盛 場所']:''))}<span class="b">${esc(r['液種'])}</span><br><span class="d">${esc(r['品種'])} ${r['精米歩合']}%${r['種麹']?'・'+esc(r['種麹']):''}${r['種麹2']?'＋'+esc(r['種麹2']):''}${stage==='引込'?taneBadge(r):''}${r['使用日']?'・使用 '+rcMD(r['使用日']):''}${r['注意']?' ・'+esc(r['注意']):''}</span></span>
       <span class="r"><b>${map[3]}</b><span>${map[4]}</span></span></button>`; };
   const wrow=w=>`<button class="rc-row ${w.kyusui!==''?'done':''}" data-key="${esc(w.key)}"><span class="st"></span>
       <span class="id">${esc(w.stage)}${w.no}<small>${esc(w.rice)}</small></span>
@@ -4218,6 +4218,42 @@ function rcTanePrefetch(){ if(RC.tane||RC.tanePf) return; RC.tanePf=1;
   recApi({action:'tane_get'},40000).then(t=>{ RC.tanePf=0; if(!(t&&t.ok)) return; RC.tane=t;
     document.querySelectorAll('select[data-tane]').forEach(sel=>{ const have=[...sel.options].map(o=>o.value); rcTaneNames(sel.value).forEach(n=>{ if(!have.includes(n)){ const op=document.createElement('option'); op.textContent=n; sel.appendChild(op); } }); });
   }).catch(()=>{ RC.tanePf=0; }); }
+/* 2026-10-15 泰広さん指示：種麹の力価で引込みのときに注意。同じ量なら力価が強いほど品温が上がりやすい。
+   量は「割合%」＝麹米100kgあたりの g（例 24kg×50% → 12g）。
+   力価＝αアミラーゼ＋グルコアミラーゼ（U/g、メーカー公表値）。出典は Obsidian
+   醸造ナレッジベース「種麹_菱六カタログ」「製麹_秋田今野・日本醸造工業・ビオックの種麹力価」「製麹_稲麹由来の新種麹Roots36とOriza1061」・酵母麹ライブラリ。
+   一覧は Obsidian「製麹/種麹_力価と引込みの注意」。メーカーをまたぐ比較は目安（測り方が各社で違う）。 */
+const TANE_POT={
+  '酛立用':{p:1985,mk:'秋田今野',a:1700,g:285,memo:'前急型・破精込みが強い'},
+  'Roots36':{p:1764,mk:'秋田今野',a:1190,g:574,memo:'高グルコ（公表値の幅の中央）'},
+  '醪用':{p:1634,mk:'秋田今野',a:1412,g:222,memo:'汎用・バランス型'},
+  '吟香':{p:1453,mk:'秋田今野',a:1247,g:206,memo:'バランス型'},
+  '丸吟':{p:1218,mk:'菱六',a:980,g:238,memo:'中吟用'},
+  '白夜':{p:1120,mk:'菱六',a:700,g:420,memo:'高グルコ・低α（基準）'},
+  '吟味':{p:704,mk:'秋田今野',a:567,g:137,memo:'酵素力価が全体に低い'},
+  'ハイG':{p:null,mk:'樋口',memo:'力価の数値は非公開。増殖やや緩やか＝冷え込みに注意'} };
+const TANE_BASE='白夜', TANE_WARN=[1.2,1.5];   // 白夜の 1.2倍以上＝やや強い（橙）／1.5倍以上＝強い（赤）
+function taneK(n){ const t=TANE_POT[String(n||'').trim()]; return t&&t.p?t.p/TANE_POT[TANE_BASE].p:null; }
+function taneLv(k){ return k==null?0:(k>=TANE_WARN[1]?2:(k>=TANE_WARN[0]?1:0)); }
+/* 種麹①②の力価をまとめる。量（割合%）が入っていれば量で重みづけ */
+function taneMix(n1,p1,n2,p2){
+  const L=[[n1,p1],[n2,p2]].filter(([n])=>String(n||'').trim()).map(([n,p])=>({n:String(n).trim(),p:(p===''||p==null||isNaN(+p))?null:+p,k:taneK(n),t:TANE_POT[String(n).trim()]}));
+  const kk=L.filter(x=>x.k!=null); let k=null;
+  if(kk.length){ const w=kk.every(x=>x.p!=null&&x.p>0); k=w?kk.reduce((s,x)=>s+x.k*x.p,0)/kk.reduce((s,x)=>s+x.p,0):Math.max(...kk.map(x=>x.k)); }
+  return {L,k,lv:taneLv(k)}; }
+function taneBadge(r){ const m=taneMix(r['種麹'],r['割合%'],r['種麹2'],r['割合2%']); if(!m.lv) return '';
+  return ` <span class="rc-warn" style="${m.lv===1?'background:#fff1de;color:#b35c00':''}">${m.lv===2?'⚠ 力価強':'△ 力価やや強'} ×${m.k.toFixed(1)}</span>`; }
+function taneWarnHTML(n1,p1,n2,p2,kg){
+  const m=taneMix(n1,p1,n2,p2); if(!m.L.length) return '';
+  const lines=m.L.map(x=>{ const t=x.t;
+    const pot=t&&t.p?`力価 ${t.p}（α${t.a}＋G${t.g}）＝${TANE_BASE}の <b>${x.k.toFixed(2)}倍</b>`:(t?'力価の数値なし':'力価の登録なし（Obsidian の一覧に足すと出ます）');
+    const amt=x.p!=null?`・100kgあたり ${x.p}g${x.k!=null?` → ${TANE_BASE}換算 <b>${Math.round(x.p*x.k)}g</b> 相当`:''}${kg?`（この麹 ${kg}kg で ${Math.round(kg*x.p/100*10)/10}g）`:''}`:'';
+    return `<div style="margin-top:3px">${esc(x.n)}${t?`<small style="color:#777">（${esc(t.mk)}・${esc(t.memo)}）</small>`:''}<br>${pot}${amt}</div>`; }).join('');
+  const st=m.lv===2?'background:#fdecec;border:1px solid #e8a3a3;color:#7a1f1f':(m.lv===1?'background:#fff4e5;border:1px solid #f0c48a;color:#7a4300':'background:#f5f5f2;border:1px solid #ddd;color:#555');
+  const ttl=m.lv===2?'⚠ 力価が強い種麹です':(m.lv===1?'△ 力価がやや強い種麹です':'種麹の力価');
+  const msg=m.lv?`<div style="margin-top:4px;font-weight:700">同じ量でも品温が上がりやすくなります。種切〜盛前の品温の上がり方に注意してください${m.lv===2?'（量を控えめにすることも検討）':''}。</div>`:'';
+  return `<div class="card" style="${st};padding:8px 10px;margin:0 0 8px;font-size:13px;line-height:1.5"><b>${ttl}</b>${m.k!=null&&m.L.length>1?`（合わせて ${TANE_BASE}の ${m.k.toFixed(2)}倍）`:''}${msg}${lines}
+    <div style="margin-top:4px;font-size:11px;color:#888">力価＝αアミラーゼ＋グルコアミラーゼ（メーカー公表値）。基準は${TANE_BASE}＝1.00、${TANE_WARN[0]}倍以上で注意。メーカーが違うと測り方も違うので目安です。</div></div>`; }
 const KOJI_FIELDS = {
   引込:[['引込 順番','順番',{type:'select',options:[1,2,3,4,5,6,7,8,9,10]}],['引込 場所','場所（1号室）',{type:'select',options:RC_PLACE1}],['種麹','種麹①',{tane:true}],['割合%','種麹① の割合 %',{step:'1'}],['種麹2','種麹②（2種類使うときだけ）',{tane:true}],['割合2%','種麹② の割合 %',{step:'1'}],
     ['引込 時刻','引込 時刻',{type:'time',tg:'引込'}],['引込 品温','引込 品温 ℃',{tg:'引込'}],
@@ -4238,11 +4274,15 @@ function kojiEdit(date, id, stage){
     <div class="rc-calc"><div>洗米<b>${rcMD(r['洗米日'])}</b></div><div>引込<b>${rcMD(r['引込日'])}</b></div><div>盛<b>${rcMD(r['盛日'])}</b></div><div>出麹<b>${rcMD(r['出麹日'])}</b></div><div>使用日<b>${rcMD(r['使用日'])}</b></div>
     <div>種麹<b>${esc(r['種麹']||'—')} ${r['種麹g']!==''?r['種麹g']+'g':''}${r['種麹2']?'<br>＋'+esc(r['種麹2'])+' '+(r['種麹2g']!==''&&r['種麹2g']!=null?r['種麹2g']+'g':''):''}</b></div><div>吸水<b>${rcN(r['吸水%'])}%</b></div>${stage!=='引込'?`<div>引込 品温<b>${rcN(r['引込 品温'])}℃</b></div>`:''}${stage==='出麹'?`<div>留仕事 品温<b>${rcN(r['留仕事 品温'])}℃</b></div>`:''}</div>
     <div class="card"><div class="rc-grid">${defs.map(([c,l,o])=>{ o=Object.assign({},o||{}); if(o.tane){ o.type='select'; o.options=rcTaneNames(r[c]); o.tane1=1; } if(o.layout==='room2') o.occ=rcOcc(j,date,id); if(o.tg&&tg[o.tg]){ o.hint=(o.type==='time'?'標準 '+(tg[o.tg].time||'—'):'目標 '+(tg[o.tg].temp??'—')+'℃'); } return rcField(rcId(c),l,r[c],o); }).join('')}</div></div>
+    ${stage==='引込'?'<div id="taneWarn"></div>':''}
     <div class="rc-status" id="rcStatus"></div>
     <div class="rc-actions"><button class="rc-ghost" id="rcCancel">やめる</button><button class="rc-btn" id="rcSave">保存</button></div>
     <p class="tl-note">保存すると「麹管理R8BY › 麹DB」に書き込まれ、入力者（${esc(rcUser())}）が入力ログに残ります。</p>
     <div id="rcProbe"></div>`;
   app.innerHTML=h; if(stage==='引込') rcTanePrefetch();
+  if(stage==='引込'){ const tv=c=>{ const e=$('#'+rcId(c)); return e?e.value:(r[c]??''); };
+    const tw=()=>{ const b=$('#taneWarn'); if(b) b.innerHTML=taneWarnHTML(tv('種麹'),tv('割合%'),tv('種麹2'),tv('割合2%'),Number(r['麹米kg'])||0); };
+    ['種麹','割合%','種麹2','割合2%'].forEach(c=>{ const e=$('#'+rcId(c)); if(e){ e.addEventListener('change',tw); e.addEventListener('input',tw); } }); tw(); }
   rcMultiBind();
   rcProbeSection(date,id);
   $('#rcCancel').onclick=()=>hBack.click();
@@ -9292,6 +9332,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-15-2','🍚','麹','引込みで種麹を選ぶと、その種麹の力価（白夜を1.00とした倍率）と、割合（麹米100kgあたりのg）から「白夜換算◯g相当」を出すようにしました。力価が強い種麹（白夜の1.2倍以上は橙、1.5倍以上は赤）は「同じ量でも品温が上がりやすい」と注意が出ます。麹の一覧の引込みの行にも印が付きます。'],
   ['2026-10-15-1','📅','製造カレンダー','上の「出勤表・カレンダー・振休依頼・出勤表を直す」を小さなアイコンにまとめ、「🍶詰予定」を足しました（製品部の詰め作業予定を今日から3週間、押すと詳細）。製品の詰予定は本日の予定には出さないようにしました。'],
   ['2026-10-14-6','🍚','麹','品温計の欄に「↩ 除外した◯件を復元」ボタンを付けました。押すと除いた温度をグラフ・表に戻します（表では橙色の行）。「✂ もう一度除外する」で元に戻せます。麹ごと・端末ごとに覚えます。'],
   ['2026-10-14-5','🍚','麹','品温計（おんどとり）を作業で引き抜いた間の急な温度変化（室温あたりへの急降下・20分くらいまで）を自動で除くようにしました。輝以外は就業時間（8:00～18:00）の変化だけ除きます（夜中は除湿機による変化として残します）。グラフ・40～42度の時間・数字の表すべてに効きます。品温計の「数字で見る」はタップしなくても最初から表示します。'],
