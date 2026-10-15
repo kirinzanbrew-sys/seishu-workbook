@@ -9355,6 +9355,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-15-4','🌡','麹','盛のときの品温（盛前）が34℃以上の麹にアラートを出すようにしました（35℃以上は赤）。麹の画面の上に「🌡 盛高温。酛◯号」、盛・出麹の行に印、各麹の画面に理由が出ます。盛の入力で盛前の品温を打つと、その場で注意が出ます。立ち上がりが速すぎると表面だけの総ハゼになり、力価はあるのに醪の溶けが悪くなる可能性があるためです（樋口松之助商店 中川氏）。'],
   ['2026-10-15-3','🍚','麹','上の「盛・引込・出麹」の本数を「盛◯本◯kg」の小さな1行にしました。苦味の注意は赤い帯をやめ「⚠ 苦み注意。酛13号」のアイコンに（押すとその麹）。各麹の行のグラフは、開かなくても品温計の最新の温度で描くようにしました（品温計を付けている麹は3分ごとに取り直し）。'],
   ['2026-10-15-2','🍚','麹','引込みで種麹を選ぶと、その種麹の力価（白夜を1.00とした倍率）と、割合（麹米100kgあたりのg）から「白夜換算◯g相当」を出すようにしました。力価が強い種麹（白夜の1.2倍以上は橙、1.5倍以上は赤）は「同じ量でも品温が上がりやすい」と注意が出ます。麹の一覧の引込みの行にも印が付きます。'],
   ['2026-10-15-1','📅','製造カレンダー','上の「出勤表・カレンダー・振休依頼・出勤表を直す」を小さなアイコンにまとめ、「🍶詰予定」を足しました（製品部の詰め作業予定を今日から3週間、押すと詳細）。製品の詰予定は本日の予定には出さないようにしました。'],
@@ -9590,6 +9591,63 @@ function kgmCardHTML(r){
 
 </script>
 <!-- /nigami -->
+<!-- morihot -->
+<script>
+/* ================= 🌡 麹：盛の品温が高い（34℃以上）のアラート（2026-10-15 泰広さん指示） =================
+   引込みの翌朝、盛のときの品温（盛前 品温）が 34〜35℃ になっていたらアラート。
+   根拠：樋口松之助商店 研究室 中川拓郎氏 メール回答（2026-10、件名「RE: 今期麹造りについてのご相談」）
+     盛時 34〜35℃＝立ち上がりが速い＝製麹を急いでいる印象。突きハゼより総ハゼ
+     （というより表面にだけ菌糸が回り、なかなかハゼこまない）になる可能性。
+     → 力価は十分あるのに、なぜか醪の溶けが悪い、という状況も考えられる（あくまで可能性）。
+   背景：R8BY は仲仕事を廃止して35℃付近を早く通過させる試験中。それを意識するあまり盛時も34〜35℃になることがある。
+   しきい値：盛前 品温 34.0℃以上＝注意（橙）／35.0℃以上＝強（赤）。盛前が空なら盛後で見る。輝も同じしきい値。
+   出す場所：麹の画面の上（「⚠ 盛高温。酛13号」アイコン、盛の日と出麹の日）・盛／出麹の行の小さな印・
+             各麹の画面（温度グラフの下に理由）・盛の入力画面（盛前 品温を打つとその場で枠が出る）
+   根拠ノート：保管庫 醸造ナレッジベース/ノート/製麹_盛の品温が高いと表面だけの総ハゼ_樋口中川氏.md
+   控え：seishu-workbook_github\_src_morihot.js　差し込み：_盛の高温アラート_20261015.py */
+const MORI_HOT=[34.0,35.0];
+function moriVal(r){ for(const c of ['盛前 品温','盛後 品温']){ const v=r&&r[c]; if(v!==''&&v!=null&&!isNaN(+v)) return {c:c.replace(' 品温',''),v:+v}; } return null; }
+function moriLv(v){ return v==null||isNaN(v)?0:(v>=MORI_HOT[1]?2:(v>=MORI_HOT[0]?1:0)); }
+const MORI_WHY='盛時の品温が34〜35℃＝立ち上がりが速く、製麹を急いでいる印象。突きハゼよりは総ハゼ（というより表面にだけ菌糸が回り、なかなかハゼこまない）になる可能性。そうなると「力価は十分あるのに、なぜか醪の溶けが悪い」という状況も考えられる（あくまで可能性）。';
+function moriBoxHTML(v,lbl){
+  const lv=moriLv(v); if(!lv) return '';
+  const st=lv===2?'background:#fdecec;border:1px solid #e8a3a3;color:#7a1f1f':'background:#fff4e5;border:1px solid #f0c48a;color:#7a4300';
+  return `<div class="card mhot-card" style="${st}"><b>${lv===2?'⚠':'△'} 盛の品温が高い：${esc(lbl||'盛前')} ${cmpF(v)}℃</b><small>（${MORI_HOT[0]}℃以上で注意・${MORI_HOT[1]}℃以上で強）</small>
+    <div style="margin-top:4px">${esc(MORI_WHY)}</div>
+    <div style="margin-top:4px;font-weight:700">→ 出麹のハゼ込み（表面だけ白くないか）を確認。この麹を使う醪の溶け（ボーメの切れ）を見ておく。</div>
+    <div class="mhot-src">出典：樋口松之助商店 研究室 中川拓郎氏（2026-10 メール）／昨年度（R7BY）一般麹の盛前 33.6±0.8℃・輝 31.1±0.4℃</div></div>`; }
+function moriInject(){
+  const date=RC.kday, j=RC.koji&&RC.koji[date]; if(!j||!$('#kDate')||app.querySelector('.mhot-ban')) return;
+  const hits=[];
+  (j.koji||[]).filter(r=>r['盛日']===date||r['出麹日']===date).forEach(r=>{
+    const m=moriVal(r), lv=m?moriLv(m.v):0; if(!lv) return; hits.push([r,m,lv]);
+    app.querySelectorAll('.rc-row[data-id]').forEach(b=>{ if(b.dataset.id===r['麹ID']&&(b.dataset.st==='盛'||b.dataset.st==='出麹')){ const s=b.querySelector('.id'); if(s&&!s.querySelector('.mhot-chip')) s.insertAdjacentHTML('beforeend',`<small class="mhot-chip${lv>=2?' s':''}">盛 ${cmpF(m.v)}℃</small>`); } }); });
+  if(!hits.length) return;
+  const d=document.createElement('div'); d.className='mhot-ban';
+  d.innerHTML=hits.map(([r,m,lv])=>`<button type="button" class="mhot-ic${lv>=2?' s':''}" data-id="${esc(r['麹ID'])}" data-st="${r['出麹日']===date?'出麹':'盛'}" title="${esc(m.c)} ${cmpF(m.v)}℃">🌡 盛高温。${esc(r['麹ID'])}</button>`).join('');
+  const at=app.querySelector('.kgm-ban')||app.querySelector('.k-sum')||app.querySelector('.rc-sum'); if(at) at.after(d); else app.prepend(d);
+  d.querySelectorAll('.mhot-ic').forEach(b=>b.onclick=()=>go(()=>kojiEdit(date,b.dataset.id,b.dataset.st)));
+}
+(function(){
+  const s=document.createElement('style'); s.textContent=`
+.mhot-ban{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 8px}
+.mhot-ic{border:0;border-radius:14px;padding:3px 10px;font:inherit;font-size:12px;font-weight:700;color:#fff;background:#e08a00;line-height:1.5}.mhot-ic.s{background:#c0392b}
+.mhot-chip{display:inline-block;margin-top:2px;margin-left:2px;font-size:10px;font-weight:700;color:#fff;background:#e08a00;border-radius:8px;padding:0 6px;line-height:1.6}.mhot-chip.s{background:#c0392b}
+.mhot-card{padding:8px 10px;margin:0 0 8px;font-size:13px;line-height:1.5}.mhot-card small{font-size:11px;margin-left:4px;opacity:.8}
+.mhot-src{margin-top:4px;font-size:11px;color:#888}`;
+  document.head.appendChild(s);
+  const f=window.kojiScreen; if(typeof f==='function') window.kojiScreen=function(...a){ const p=f.apply(this,a); Promise.resolve(p).then(()=>{ try{ moriInject(); }catch(e){} }); return p; };
+  const g=window.kojiEdit; if(typeof g==='function') window.kojiEdit=function(...a){ const p=g.apply(this,a);
+    try{ const [date,id,stage]=a, j=RC.koji[date], r=j&&j.koji.find(x=>x['麹ID']===id), t=$('#kTop');
+      if(r&&t&&stage!=='盛'){ const m=moriVal(r); if(m){ const h=moriBoxHTML(m.v,m.c); if(h) t.insertAdjacentHTML('afterend',h); } }
+      if(r&&stage==='盛'){ const at=$('#rcStatus'); if(at){ at.insertAdjacentHTML('beforebegin','<div id="moriHot"></div>');
+        const tv=c=>{ const e=$('#'+rcId(c)); const v=e?e.value:(r[c]??''); return v===''||v==null||isNaN(+v)?null:+v; };
+        const w=()=>{ const b=$('#moriHot'); if(!b) return; const v0=tv('盛前 品温'), v1=tv('盛後 品温'); b.innerHTML=v0!=null?moriBoxHTML(v0,'盛前'):(v1!=null?moriBoxHTML(v1,'盛後'):''); };
+        ['盛前 品温','盛後 品温'].forEach(c=>{ const e=$('#'+rcId(c)); if(e){ e.addEventListener('input',w); e.addEventListener('change',w); } }); w(); } } }catch(e){}
+    return p; };
+})();
+</script>
+<!-- /morihot -->
 <!-- /tools -->
 <script>
 /* ================= 🧰 資材の在庫（仕込みの中）2026-10-06 泰広さん指示 =================
