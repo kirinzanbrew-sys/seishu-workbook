@@ -9355,6 +9355,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-15-5','📊','解析','解析で仕込を開くと「🍚 麹の温度経過・注意の履歴」が見られるようにしました。その仕込に使った麹ごとに、温度経過のグラフ（品温計・室温・昨年度の基準帯つき）と、そのとき出た注意（苦味・盛高温・種麹の力価）と理由が並びます。あとから仕込全体を振り返るときに使えます。'],
   ['2026-10-15-4','🌡','麹','盛のときの品温（盛前）が34℃以上の麹にアラートを出すようにしました（35℃以上は赤）。麹の画面の上に「🌡 盛高温。酛◯号」、盛・出麹の行に印、各麹の画面に理由が出ます。盛の入力で盛前の品温を打つと、その場で注意が出ます。立ち上がりが速すぎると表面だけの総ハゼになり、力価はあるのに醪の溶けが悪くなる可能性があるためです（樋口松之助商店 中川氏）。'],
   ['2026-10-15-3','🍚','麹','上の「盛・引込・出麹」の本数を「盛◯本◯kg」の小さな1行にしました。苦味の注意は赤い帯をやめ「⚠ 苦み注意。酛13号」のアイコンに（押すとその麹）。各麹の行のグラフは、開かなくても品温計の最新の温度で描くようにしました（品温計を付けている麹は3分ごとに取り直し）。'],
   ['2026-10-15-2','🍚','麹','引込みで種麹を選ぶと、その種麹の力価（白夜を1.00とした倍率）と、割合（麹米100kgあたりのg）から「白夜換算◯g相当」を出すようにしました。力価が強い種麹（白夜の1.2倍以上は橙、1.5倍以上は赤）は「同じ量でも品温が上がりやすい」と注意が出ます。麹の一覧の引込みの行にも印が付きます。'],
@@ -11112,6 +11113,56 @@ async function kaisekiHome(){
 
 </script>
 <!-- /kaiseki -->
+<!-- kshist -->
+<script>
+/* ================= 📊 解析：麹の温度経過と注意の履歴（2026-10-15 泰広さん指示） =================
+   解析 › 仕込（例 1号 伝辛）のカードで、その仕込に使った麹ごとに
+     ・温度経過のグラフ（麹の画面と同じ kTempChart：記録した品温＋品温計（おんどとり）＋室温＋昨年度の基準帯）
+     ・そのとき出た注意（⚠苦味＝kgmCheck／🌡盛高温＝moriVal／種麹の力価＝taneMix）と理由
+   をあとから見られるようにする。注意は保存してある記録から同じ判定で出し直すので、いつ開いても同じものが出る（＝履歴）。
+   データ：karte の koji（麹DBの行そのまま）＋ probe_series（品温計の経過。開いたときに取る）。サーバーの変更なし
+   ksDetail を包んで、吸水・麹・酒母の中身の上に「🍚 麹の温度経過・注意の履歴」を足す（元の関数は触っていない）
+   控え：seishu-workbook_github\_src_kshist.js　差し込み：_解析に麹の履歴_20261015.py */
+function khAlerts(r){
+  const A=[];
+  try{ if(typeof kgmCheck==='function'){ const c=kgmCheck(r); c.items.filter(x=>x.lv>=1).forEach(x=>A.push({lv:x.lv,ic:'⚠ 苦味',k:x.k,t:x.t,why:x.why})); } }catch(e){}
+  try{ if(typeof moriVal==='function'){ const m=moriVal(r), lv=m?moriLv(m.v):0; if(lv) A.push({lv,ic:'🌡 盛高温',k:`${m.c} ${cmpF(m.v)}℃（${MORI_HOT[0]}℃以上）`,t:'',why:MORI_WHY}); } }catch(e){}
+  try{ if(typeof taneMix==='function'){ const t=taneMix(r['種麹'],r['割合%'],r['種麹2'],r['割合2%']); if(t.lv) A.push({lv:t.lv,ic:'🧫 種麹',k:`力価${t.lv>=2?'強':'やや強'}（${TANE_BASE}の ${t.k.toFixed(2)}倍）`,t:'',why:'同じ量でも品温が上がりやすい種麹。種切〜盛前の上がり方に注意。'}); } }catch(e){}
+  return A.sort((a,b)=>b.lv-a.lv);
+}
+const khChip=a=>`<span class="kh-chip${a.lv>=2?' s':''}">${esc(a.ic)}</span>`;
+function khChart(r){ try{ return kTempChart(r,(RC.pser||{})[r['麹ID']]); }catch(e){ return '<div class="shk-none">グラフを描けませんでした</div>'; } }
+function khSection(m,k){
+  const kj=((k&&k.koji)||[]).slice().sort((a,b)=>String(a['使用日']||'').localeCompare(String(b['使用日']||''))||String(a['麹ID']).localeCompare(String(b['麹ID'])));
+  if(!kj.length) return '';
+  const all=kj.map(r=>({r,A:khAlerts(r)})), n=all.reduce((s,x)=>s+x.A.length,0), strong=all.some(x=>x.A.some(a=>a.lv>=2));
+  return `<details class="ks-det kh-det" data-khno="${esc(m.no)}"><summary>🍚 麹の温度経過・注意の履歴（${kj.length}麹${n?`・<span class="kh-n${strong?' s':''}">注意 ${n}件</span>`:'・注意なし'}）</summary>
+    ${all.map(({r,A})=>`<div class="kh-k" data-khid="${esc(r['麹ID'])}">
+      <div class="kh-hd"><b>${esc(r['麹ID'])}</b> <small>${esc(r['区分']||'')}　${esc(r['品種']||'')} ${r['精米歩合']||''}%　${r['麹米kg']||''}kg　種麹 ${esc(r['種麹']||'—')}${r['種麹2']?'＋'+esc(r['種麹2']):''}　引込 ${rcMD(r['引込日'])}・盛 ${rcMD(r['盛日'])}・出麹 ${rcMD(r['出麹日'])}</small> ${A.map(khChip).join('')}</div>
+      ${A.length?`<div class="kh-al">${A.map(a=>`<div>${khChip(a)} <b>${esc(a.k)}</b>${a.t?`<div class="kh-t">${a.t}</div>`:''}<small>${esc(a.why||'')}</small></div>`).join('')}</div>`:''}
+      <div class="kh-g">${cmpAnchor(r)==null?'<div class="shk-none">引込の記録がないためグラフなし</div>':khChart(r)}</div></div>`).join('')}
+    <p class="tl-note" style="margin:4px 0 0">注意は保存されている記録から、麹の画面と同じ判定で出し直しています。品温計（おんどとり）の線は開いたときに読み込みます。</p></details>`;
+}
+/* 開いたときに品温計の経過を取ってグラフを描き直す */
+document.addEventListener('toggle',ev=>{
+  const d=ev.target; if(!(d&&d.classList&&d.classList.contains('kh-det')&&d.open)) return;
+  const no=d.dataset.khno, k=(RC.karte||{})[no]; if(!k) return;
+  RC.pser=RC.pser||{};
+  d.querySelectorAll('.kh-k[data-khid]').forEach(el=>{ const id=el.dataset.khid, r=(k.koji||[]).find(x=>x['麹ID']===id); if(!r||cmpAnchor(r)==null||RC.pser[id]) return;
+    recApi({action:'probe_series',id},30000).then(s=>{ if(!(s&&s.ok&&s.points&&s.points.length)) return; RC.pser[id]=s.points; const g=el.querySelector('.kh-g'); if(g&&el.isConnected) g.innerHTML=khChart(r); }).catch(()=>{}); });
+},true);
+(function(){
+  const s=document.createElement('style'); s.textContent=`
+.kh-n{color:#b35c00}.kh-n.s{color:#c0392b}
+.kh-k{border-top:1px solid var(--line);padding:6px 0}.kh-k:first-of-type{border-top:0}
+.kh-hd{font-size:13px;line-height:1.5}.kh-hd small{color:var(--sub);font-size:11px}
+.kh-chip{display:inline-block;font-size:10px;font-weight:700;color:#fff;background:#e08a00;border-radius:8px;padding:0 6px;line-height:1.6;margin-right:2px}.kh-chip.s{background:#c0392b}
+.kh-al{background:#fff8f2;border:1px solid #f0c9a0;border-radius:8px;padding:4px 7px;margin:4px 0;font-size:12px;line-height:1.5}.kh-al>div{padding:2px 0}.kh-al small{display:block;color:#7a5a50;font-size:11px}.kh-t{font-size:12px}`;
+  document.head.appendChild(s);
+  const f=window.ksDetail; if(typeof f==='function') window.ksDetail=function(m,k){ let h=''; try{ h=khSection(m,k); }catch(e){ console.log('kshist',e); } return h+f.apply(this,arguments); };
+})();
+</script>
+<!-- /kshist -->
 <!-- kmapinfo -->
 <style>
 /* 2026-10-12 麹の配置図：麹をタップすると詳細 */
