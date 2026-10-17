@@ -9356,6 +9356,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-17-4','🍶','本日の予定','酛卸と踊り返しを1人で行う日は、13:00〜14:00 踊り返し → 14:00〜15:00 酛卸 の順に並べて表示するようにしました（2人以上いる日は今までどおり両方13:00〜）。'],
   ['2026-10-17-3','🍶','本日の予定','酛卸と踊り返しを1人で行う日の注意（⚠・オレンジの帯）を出さないようにしました（13:00〜14:00 踊り返し → 14:00〜15:00 酛卸 で1人でできるため）。留後の作業の帯は「🔔 日付 🕳 穴あけ No.◯」だけの短い表示にしました。'],
   ['2026-10-17-2','🕳','仕込み・本日の予定','留後の作業の通知を付けました。留仕込の翌日（2日目）は「🕳 穴あけ」、3日目は「🫧 泡消し器の設置」が、仕込みの画面の一番上に出ます。作業が済んだらタップすると通知が消えます（みんなのスマホで共有）。本日の予定にも「🔔 忘れずに」の帯で出て、済んだものは ✓ になります（すぐ終わる作業なので時刻・人数は数えません）。'],
   ['2026-10-17-1','📅','出勤表','出勤表Excelで薄い赤に塗ったマス（直したところ）が、アプリの出勤表でも同じ色で出るようにしました。日付を押したときの詳しい内容にも「（直した）」と出ます。'],
@@ -11426,6 +11427,7 @@ const ODORI_BIG=['伝辛','超辛','純米辛口'];   // 添も醪タンクで�
 const odoriNorm=s=>String(s||'').replace(/[\s　]/g,'');
 const odoriNeed=m=>!!m && !ODORI_BIG.includes(odoriNorm(m.liquid));
 DP_T.odori=DP_T.odori||['13:00','14:00'];
+DP_T.odoriAloneMoto=DP_T.odoriAloneMoto||['14:00','15:00'];   // 1人で行う日の酛卸（2026-10-17）
 DP_NIN['踊り返し']=DP_NIN['踊り返し']||1;
 /* その日の午後に蔵にいる人数（出勤表） */
 function odoriPmStaff(date){
@@ -11465,6 +11467,10 @@ function odoriAlone(date, items){
            open:()=>moromiHome(), openL:'仕込みの画面を開く'}};
       out.push(o2);
       const A=odoriAlone(date, out);
+      /* 2026-10-17 泰広さん指示：1人で行う日は 13:00〜14:00 踊り返し → 14:00〜15:00 酛卸 に並べる（2人以上いる日は今までどおり両方 13:00〜） */
+      if(A&&A.alone){ const mo=out.find(x=>x.lane==='shubo'&&String(x.label).indexOf('酛卸')===0);
+        if(mo){ const t=DP_T.odoriAloneMoto; mo.s=dpMin(t[0]); mo.e=dpMin(t[1]); if(mo.d){ mo.d.time=t.join('〜')+'（1人で行う日：踊り返しのあと）'; if(mo.d.lines) mo.d.lines.unshift(`1人で行う日：${DP_T.odori.join('〜')} 踊り返し → ${t.join('〜')} 酛卸`); }
+          o2.d.time=DP_T.odori.join('〜')+'（1人で行う日：このあと 酛卸）'; o2.d.lines.unshift(`1人で行う日：${DP_T.odori.join('〜')} 踊り返し → ${t.join('〜')} 酛卸`); } }
       if(ODORI_ALONE_ALERT&&A&&A.alone){ o2.label='⚠'+o2.label; o2.d.lines.unshift(`⚠ 注意：酛卸と踊り返しを1人で行う日です（13:00〜 約2時間）。午後の人 ${A.pm}人・13時台のほかの作業 ${A.load}人`);
         const mo=out.find(x=>x.lane==='shubo'&&String(x.label).indexOf('酛卸')===0); if(mo&&mo.d&&mo.d.lines) mo.d.lines.unshift('⚠ 注意：踊り返しと合わせて1人で行う日です（13:00〜 約2時間）'); }
     }catch(e){ console.log('odori',e); }
