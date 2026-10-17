@@ -1467,6 +1467,7 @@ body.yo-wide .wrap, body.yo-wide header .hin{max-width:none}
 .kn tr.today td{background:#fff7d6!important}
 .kn tr.sel td{outline:2px solid var(--navy);outline-offset:-2px}
 .kn .red{color:#d11a1a;font-weight:700}
+.kn td.c.chg,.kn tr.today td.c.chg,.kn tr.sel td.c.chg,.kn tr.hol td.c.chg{background:#ffc7ce}
 .kn .pend{outline:1.5px dashed #d11a1a;outline-offset:-3px;border-radius:4px}
 .kn-ed{border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:6px}
 .kn-ed summary{padding:10px 12px;font-size:14px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px}
@@ -2703,12 +2704,12 @@ function kinmuScreen(){
         const act = rs.find(reqActive);
         if(act && act.excel!==reqWant(act)){ v = act.mark; cls = (act.status==='申請中'?'red ':'')+'pend'; }
         else if(!act && rs.some(r=>(r.excel==='赤'||r.excel==='黒'))){ cls += ' gone'; }
-        h += `<td class="c ${k===mine?'me':''} ${v.length>2?'long':''}"><div><span class="${cls}">${esc(v)}</span></div></td>`;
+        h += `<td class="c ${k===mine?'me':''} ${v.length>2?'long':''} ${d.f&&d.f[k]?'chg':''}"><div><span class="${cls}">${esc(v)}</span></div></td>`;   /* 2026-10-17：出勤表Excelで薄い赤に塗ったマス（直したところ）は同じ色で出す */
       });
       h += `<td class="nt">${esc(d.n||'')}</td></tr>`;
     }
     h += `</tbody></table></div>
-      <p class="tl-note"><span style="color:#d11a1a;font-weight:700">赤×</span>＝振休の申請中／黒×＝承認済み。点線の枠は、まだ出勤表Excelに書き込まれていないもの（会社PCが数分以内に反映します）。行を押すとその日の詳しい内容が出ます。</p>
+      <p class="tl-note"><span style="color:#d11a1a;font-weight:700">赤×</span>＝振休の申請中／黒×＝承認済み。<span style="background:#ffc7ce;padding:0 4px;border-radius:3px">薄い赤のマス</span>＝出勤表を直したところ（Excelで色を付けたマス）。点線の枠は、まだ出勤表Excelに書き込まれていないもの（会社PCが数分以内に反映します）。行を押すとその日の詳しい内容が出ます。</p>
       <div id="knDay"></div>`;
     // アプリから直した分は一番下に、1行ずつ（押すと詳しい内容と「元に戻す」が出る）2026-09-30
     if(me.admin && eds.length){
@@ -2731,7 +2732,7 @@ function showDay(M, d){
   const x = M.days.find(z=>z.d===d); if(!x) return;
   const reqs = (MFG.requests||[]).filter(r=>r.date===d && r.status!=='取消');
   let h = `<div class="mf-day"><div style="font-weight:700;color:var(--navy);margin-bottom:6px">${djp(d)}</div><div class="g">`;
-  M.staff.forEach((s,k)=>{ if(x.c[k]) h += `<span class="muted">${esc(nrm(s))}</span><span class="${x.r[k]?'red':''}" style="${x.r[k]?'color:#d11a1a;font-weight:700':''}">${esc(x.c[k])}</span>`; });
+  M.staff.forEach((s,k)=>{ const fx=x.f&&x.f[k]; if(x.c[k]||fx) h += `<span class="muted">${esc(nrm(s))}</span><span class="${x.r[k]?'red':''}" style="${x.r[k]?'color:#d11a1a;font-weight:700;':''}${fx?'background:#ffc7ce;padding:0 4px;border-radius:3px':''}">${esc(x.c[k]||'出勤')}${fx?'（直した）':''}</span>`; });
   if(x.j) h += `<span class="muted">上槽</span><span>${esc(x.j)}</span>`;
   if(x.k) h += `<span class="muted">粕</span><span>${esc(x.k)}</span>`;
   if(x.p) h += `<span class="muted">蔵人員</span><span>${esc(x.p)}人</span>`;
@@ -9355,6 +9356,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-17-2','🕳','仕込み・本日の予定','留後の作業の通知を付けました。留仕込の翌日（2日目）は「🕳 穴あけ」、3日目は「🫧 泡消し器の設置」が、仕込みの画面の一番上に出ます。作業が済んだらタップすると通知が消えます（みんなのスマホで共有）。本日の予定にも「🔔 忘れずに」の帯で出て、済んだものは ✓ になります（すぐ終わる作業なので時刻・人数は数えません）。'],
+  ['2026-10-17-1','📅','出勤表','出勤表Excelで薄い赤に塗ったマス（直したところ）が、アプリの出勤表でも同じ色で出るようにしました。日付を押したときの詳しい内容にも「（直した）」と出ます。'],
   ['2026-10-16-1','🏷','麹','麹の上段に「札」のアイコン。洗米日を選ぶと、その日の麹の札を A4縦1枚に4枚で印刷できます（余白は次の洗米日の麹で埋めます。チェックで外せます）。'],
   ['2026-10-15-7','💧','仕込み','その日に仕込み（添・仲・留）がある日は、仕込みの上段に「💧 仕込み水」のアイコンが出ます。仕込み水を貯めたら押してください（押した人・時刻が残ります。間違えたらもう一度押して取り消し）。14時を過ぎても押されていないと、アイコンが赤く点滅し、ホームの🍶仕込みに「💧水」の札が出ます（押されるまで）。'],
   ['2026-10-15-6','🍶','仕込み','仕込みを開くと「📋 表」が最初に出るようにし、仕込み時（添・踊・仲・留）も最初から表示にしました。表の背景に薄くグラフ（青＝ボーメ、赤い点線＝品温）と、昨年の同じ液種の平均品温の灰色の帯（T275〜277は小さいタンクで仕込んだ同じ液種）を入れました。帯の平均から2℃以上離れたとき、または上限（伝辛15.5℃・超辛15.0℃・吟醸系12.8℃）を超えたときはマスが赤くなり、きょう・きのうの値なら上段に「🌡 品温！ ◯号」のアイコンが出ます。'],
@@ -12318,5 +12321,137 @@ function fudaPrint(list){
 })();
 </script>
 <!-- /fuda -->
+<!-- moromiwork -->
+<script>
+/* ================= 🕳 留後の作業（穴あけ・泡消し器）2026-10-17 =================
+   泰広さん指示：留仕込の次の日（2日目）は「穴あけ」、3日目は「泡消し器の設置」をしなければならない。
+   ・仕込みの画面の上にアイコンで通知 → 作業をしたらタップ → 済になって通知が消える（みんなのスマホで共有）
+   ・本日の予定にも出す（時刻・人数は数えない「忘れないでやる作業」として、予定の枠の上に帯で出す。済んだものは ✓）
+   ・日の数え方：留仕込の日＝1日目 → 穴あけ＝留の翌日、泡消し器＝留の翌々日。上槽済の仕込は出さない
+   ・済の記録先：Apps Script「製造ツール 共有データ」（SHARED_URL）の表「醪作業」（name＝作業、no＝順号、date＝済んだ日）
+     取り消しは delete（行は消さず「削除」欄に日時）
+   ・通知は「その日が来た〜済になるまで」。遅れても消えない（MW_LATE 日まで。それより前のものは出さない）
+   ・すぐ終わる作業なので、時刻・人数は数えない（棒にしない＝出勤表の人数の判定にも入れない）2026-10-17 泰広さん指示
+   控え：seishu-workbook_github\_src_moromiwork.js */
+const MW_JOBS=[ {name:'穴あけ', day:2, icon:'🕳', short:'穴あけ'}, {name:'泡消し器', day:3, icon:'🫧', short:'泡消'} ];
+const MW_FROM='2026-10-16';   // この日より前の作業は通知しない（機能を入れる前の分）
+const MW_LATE=7;              // 何日遅れまで通知を出し続けるか
+const MW={ items: lsGet('mw.items', []), at:0, err:'' };
+async function mwApi(body){
+  if(typeof SHARED_URL==='undefined' || !SHARED_URL) throw new Error('記録先の設定がまだです');
+  body.table='醪作業'; body.who={ id:String(ST.id||''), name:String(ST.name||'') };
+  const r=await fetch(SHARED_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow'});
+  const j=await r.json();
+  if(!j||!j.ok) throw new Error((j&&/その表はありません/.test(j.error||''))?'サーバー側の更新（Apps Script「製造ツール 共有データ」の新バージョン）がまだです':((j&&j.error)||'受け取れませんでした'));
+  return j;
+}
+function mwKeep(j){ MW.items=(j.items||[]).filter(x=>!x.deleted); MW.at=Date.now(); lsSet('mw.items', MW.items); MW.err=''; }
+async function mwLoad(force){
+  if(!force && MW.at && Date.now()-MW.at<60000) return MW.items;
+  try{ mwKeep(await mwApi({action:'list'})); }catch(e){ MW.err=String(e.message||e); }
+  return MW.items;
+}
+function mwDone(no, name){ return (MW.items||[]).find(x=>!x.deleted && String(x.no)===String(no) && x.name===name)||null; }
+/* その仕込のその作業の日（留＝1日目） */
+function mwDue(m, job){ return m&&m.tome ? dadd(m.tome, job.day-1) : null; }
+/* 通知する作業（その日が来ていて、まだ済んでいないもの） */
+function mwPending(today){
+  const st=dpState(); if(!st||!st.master) return [];
+  const T=st.today||{}, out=[];
+  st.master.forEach(m=>{
+    if(!m.tome || (T[m.no]||{}).state==='上槽済') return;
+    MW_JOBS.forEach(job=>{
+      const due=mwDue(m,job); if(!due || due<MW_FROM || due>today) return;
+      const late=Math.round((dparse(today)-dparse(due))/86400000); if(late>MW_LATE) return;
+      if(mwDone(m.no, job.name)) return;
+      out.push({m, job, due, late});
+    });
+  });
+  return out.sort((a,b)=>a.due.localeCompare(b.due)||a.m.no-b.m.no);
+}
+function mwAlertHTML(today){
+  const L=mwPending(today);
+  if(!L.length) return '';
+  return `<div class="mw-box"><div class="mw-t">🔔 留後の作業<small>済んだらタップ</small></div>`+
+    L.map(x=>`<button class="mw-btn" data-mwno="${esc(String(x.m.no))}" data-mwjob="${esc(x.job.name)}"><span class="ic">${x.job.icon}</span>
+      <span class="tx"><b>${esc(x.job.name)}${x.job.name==='泡消し器'?'の設置':''}</b>　No.${esc(String(x.m.no))} ${esc(x.m.sym||'')}　T${esc(x.m.tank||'')}
+      <small>${esc(x.m.liquid||'')}・留${x.job.day}日目（${+x.due.slice(5,7)}/${+x.due.slice(8,10)}）${x.late>0?`<em>${x.late}日遅れ</em>`:''}</small></span><span class="ok">済</span></button>`).join('')+
+    (MW.err?`<div class="tl-warn" style="margin:6px 0 0">${esc(MW.err)}</div>`:'')+`</div>`;
+}
+async function mwTap(no, name, redraw){
+  const m=(dpState()||{}).master&&(dpState().master.find(x=>String(x.no)===String(no)));
+  if(!confirm(`No.${no}${m&&m.sym?' '+m.sym:''} の「${name}」を済にしますか？`)) return;
+  try{
+    const j=await mwApi({action:'save', item:{ name, kind:'済', no:String(no), liquid:(m&&m.liquid)||'', tank:(m&&m.tank)||'', plan:m?mwDue(m,MW_JOBS.find(x=>x.name===name)):'', date:dtoday() }});
+    mwKeep(j);
+  }catch(e){ alert('保存できませんでした：'+(e.message||e)); }
+  if(redraw) redraw();
+}
+async function mwUndo(no, name, redraw){
+  const it=mwDone(no,name); if(!it) return;
+  if(!confirm(`No.${no} の「${name}」の済を取り消しますか？`)) return;
+  try{ mwKeep(await mwApi({action:'delete', id:it.id})); }catch(e){ alert('取り消せませんでした：'+(e.message||e)); }
+  if(redraw) redraw();
+}
+/* 仕込みの画面：上に通知を出す */
+function mwInject(){
+  const box=document.getElementById('mwSlot'); const html=mwAlertHTML(dtoday());
+  if(box){ box.innerHTML=html; }
+  else { const s=document.getElementById('rcStatus'); if(!s) return; s.insertAdjacentHTML('afterend', `<div id="mwSlot">${html}</div>`); }
+  document.querySelectorAll('#mwSlot .mw-btn').forEach(b=>b.onclick=e=>{ e.stopPropagation(); mwTap(b.dataset.mwno, b.dataset.mwjob, mwInject); });
+}
+(function(){
+  const o=window.moromiHome; if(typeof o!=='function') return;
+  window.moromiHome=async function(){
+    const top=nav[nav.length-1];
+    const r=await o.apply(this, arguments);
+    try{ mwInject(); mwLoad(true).then(()=>{ if(nav[nav.length-1]===top && document.getElementById('mwSlot')) mwInject(); }); }catch(e){ console.log('mw',e); }
+    return r; };
+})();
+/* 本日の予定：その日の「忘れないでやる作業」（時刻・人数は数えない） */
+function mwDayList(date){
+  const st=dpState(); if(!st||!st.master) return [];
+  const T=st.today||{}, out=[];
+  MW_JOBS.forEach(job=>st.master.forEach(m=>{ if(m.tome && mwDue(m,job)===date && (T[m.no]||{}).state!=='上槽済') out.push({m,job,done:mwDone(m.no,job.name)}); }));
+  return out;
+}
+(function(){
+  const o=window.dpBunHTML; if(typeof o!=='function') return;
+  window.dpBunHTML=function(){
+    let h=o.apply(this, arguments);
+    try{ const date=dpDate(), L=mwDayList(date);
+      if(L.length){ const d=dparse(date);
+        h=`<div class="dp-al mw-al">🔔 ${d.getMonth()+1}/${d.getDate()} 忘れずに：`+L.map(x=>`<span class="${x.done?'dn':''}">${x.done?'✓':x.job.icon} ${esc(x.job.name)} No.${esc(String(x.m.no))}${x.m.tank?' T'+esc(x.m.tank):''}</span>`).join('')+
+          `<small>済んだら仕込みの画面の上の通知をタップ</small></div>`+h; } }catch(e){ console.log('mw dp',e); }
+    return h; };
+})();
+/* 日付の一覧の右の主な作業にも「穴あけ」「泡消」 */
+(function(){
+  const o=window.dpSum; if(typeof o!=='function') return;
+  window.dpSum=function(d){
+    let t=o.apply(this, arguments);
+    try{ const L=mwDayList(d), k=[...new Set(L.map(x=>x.job.short))]; if(k.length) t=(t?t+'・':'')+k.join('・'); }catch(e){}
+    return t; };
+})();
+/* 済の記録を読み込んだら本日の予定を描き直す */
+setTimeout(()=>{ try{ if(ST&&ST.token) mwLoad(false).then(()=>{ if(document.getElementById('dpBox')&&typeof dpRedraw==='function') dpRedraw(); }); }catch(e){} }, 3800);
+(function(){ const s=document.createElement('style'); s.textContent=`
+.mw-box{background:#fff8e6;border:1.5px solid #e0a23a;border-radius:12px;padding:8px 10px;margin:0 0 10px}
+.mw-t{font-weight:700;color:#8a5300;font-size:14px;margin-bottom:6px}
+.mw-t small{font-weight:400;font-size:11px;color:#9a6a2a;margin-left:8px}
+.mw-btn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:#fff;border:1px solid #e8c88a;border-radius:10px;padding:8px 10px;margin:0 0 6px;font-family:inherit;font-size:14px;color:var(--navy);cursor:pointer}
+.mw-btn:last-child{margin-bottom:0}
+.mw-btn .ic{font-size:24px;line-height:1}
+.mw-btn .tx{flex:1}
+.mw-btn .tx small{display:block;font-size:11px;color:var(--sub)}
+.mw-btn .tx em{font-style:normal;color:#d11a1a;font-weight:700;margin-left:6px}
+.mw-btn .ok{border:1.5px solid #2e7d32;color:#2e7d32;border-radius:8px;padding:4px 10px;font-weight:700;font-size:13px}
+.mw-btn:active{background:#eef7ee}
+.dp-al.mw-al{background:#fff8e6;border-color:#e0a23a;color:#8a5300;animation:none;cursor:default}
+.dp-al.mw-al span{display:inline-block;margin:0 8px 0 2px;font-weight:700}
+.dp-al.mw-al span.dn{color:#2e7d32;font-weight:400}
+.dp-al.mw-al small{display:block;font-weight:600;font-size:11px;color:#8a5a2a}`; document.head.appendChild(s); })();
+</script>
+<!-- /moromiwork -->
 </body>
 </html>
