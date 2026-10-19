@@ -9356,6 +9356,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-18-1','🫧','仕込み・本日の予定','「泡消し器の設置」の通知は、酵母K7を使う仕込みだけに出るようにしました（穴あけは今までどおり全部の仕込み）。'],
   ['2026-10-17-4','🍶','本日の予定','酛卸と踊り返しを1人で行う日は、13:00〜14:00 踊り返し → 14:00〜15:00 酛卸 の順に並べて表示するようにしました（2人以上いる日は今までどおり両方13:00〜）。'],
   ['2026-10-17-3','🍶','本日の予定','酛卸と踊り返しを1人で行う日の注意（⚠・オレンジの帯）を出さないようにしました（13:00〜14:00 踊り返し → 14:00〜15:00 酛卸 で1人でできるため）。留後の作業の帯は「🔔 日付 🕳 穴あけ No.◯」だけの短い表示にしました。'],
   ['2026-10-17-2','🕳','仕込み・本日の予定','留後の作業の通知を付けました。留仕込の翌日（2日目）は「🕳 穴あけ」、3日目は「🫧 泡消し器の設置」が、仕込みの画面の一番上に出ます。作業が済んだらタップすると通知が消えます（みんなのスマホで共有）。本日の予定にも「🔔 忘れずに」の帯で出て、済んだものは ✓ になります（すぐ終わる作業なので時刻・人数は数えません）。'],
@@ -12342,7 +12343,10 @@ function fudaPrint(list){
    ・通知は「その日が来た〜済になるまで」。遅れても消えない（MW_LATE 日まで。それより前のものは出さない）
    ・すぐ終わる作業なので、時刻・人数は数えない（棒にしない＝出勤表の人数の判定にも入れない）2026-10-17 泰広さん指示
    控え：seishu-workbook_github\_src_moromiwork.js */
-const MW_JOBS=[ {name:'穴あけ', day:2, icon:'🕳', short:'穴あけ'}, {name:'泡消し器', day:3, icon:'🫧', short:'泡消'} ];
+const MW_JOBS=[ {name:'穴あけ', day:2, icon:'🕳', short:'穴あけ'}, {name:'泡消し器', day:3, icon:'🫧', short:'泡消', only:m=>mwK7(m)} ];   // 2026-10-18 泰広さん指示：泡消し器は酵母K7の仕込みだけ
+/* 酵母がK7か（K7・k-7・協会7号。K701 などは別） */
+function mwK7(m){ const y=String((m&&m.yeast)||'').normalize('NFKC'); return /(^|[^0-9A-Za-z])K-?7(?![0-9])/i.test(y) || /協会7号/.test(y); }
+const mwNeed=(m,job)=>!job.only || job.only(m);
 const MW_FROM='2026-10-16';   // この日より前の作業は通知しない（機能を入れる前の分）
 const MW_LATE=7;              // 何日遅れまで通知を出し続けるか
 const MW={ items: lsGet('mw.items', []), at:0, err:'' };
@@ -12370,6 +12374,7 @@ function mwPending(today){
   st.master.forEach(m=>{
     if(!m.tome || (T[m.no]||{}).state==='上槽済') return;
     MW_JOBS.forEach(job=>{
+      if(!mwNeed(m,job)) return;
       const due=mwDue(m,job); if(!due || due<MW_FROM || due>today) return;
       const late=Math.round((dparse(today)-dparse(due))/86400000); if(late>MW_LATE) return;
       if(mwDone(m.no, job.name)) return;
@@ -12421,7 +12426,7 @@ function mwInject(){
 function mwDayList(date){
   const st=dpState(); if(!st||!st.master) return [];
   const T=st.today||{}, out=[];
-  MW_JOBS.forEach(job=>st.master.forEach(m=>{ if(m.tome && mwDue(m,job)===date && (T[m.no]||{}).state!=='上槽済') out.push({m,job,done:mwDone(m.no,job.name)}); }));
+  MW_JOBS.forEach(job=>st.master.forEach(m=>{ if(m.tome && mwNeed(m,job) && mwDue(m,job)===date && (T[m.no]||{}).state!=='上槽済') out.push({m,job,done:mwDone(m.no,job.name)}); }));
   return out;
 }
 (function(){
