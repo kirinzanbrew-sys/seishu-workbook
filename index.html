@@ -4627,7 +4627,7 @@ recApi = async function(body, ms){
           if(a==='bunseki_get') RC.bun[body.no]=r;
           if(a==='shubo_get') RC.shubo[body.no]=r;
           if(a==='karte') RC.karte[body.no]=r;
-          if(!body._pf) fastRerender(myTop);
+          if(!body._pf) fastRerender(myTop, a);
         }
       }).catch(()=>{}).finally(()=>{ delete REC_BG[k]; });
     }
@@ -8216,17 +8216,17 @@ function kgBind(open, root){
 /* 表＋「仕込み時」ボタンを箱に描く。描き直してもスクロール位置は保つ */
 function kgBox(box, fields, rows, opt, open){
   if(!box||!document.body.contains(box)) return;
-  const skey=(opt&&opt.setKind==='moromi'&&box.classList&&box.classList.contains('kg-home'))?'kg.set.m':'kg.set', on=!!lsGet(skey, skey==='kg.set.m');   // 2026-10-15 🍶仕込みの表は仕込み時を最初から表示
+  const skey=(opt&&opt.setKind==='moromi'&&box.classList&&box.classList.contains('kg-home'))?'kg.set.m':'kg.set', fixM=skey==='kg.set.m', on=fixM?true:!!lsGet(skey, false);   // 2026-10-19 🍶仕込みの表は仕込み時を常に表示（「仕込み時 ▾ 表示中」ボタンは廃止）
   const tw0=box.querySelector('.kg-tw'), sl=tw0?tw0.scrollLeft:null, stp=tw0?tw0.scrollTop:null;
   const fk0=opt.edit?kgeKeep(box):null;
-  box.innerHTML=`<div class="rc-bar" style="margin:4px 0 6px"><button class="rc-chip kg-setbtn ${on?'on':''}">仕込み時 ${on?'▾ 表示中':'▸ 表示'}</button><span class="tl-note" style="margin:0">${opt.note||''}</span></div>`+
+  box.innerHTML=`<div class="rc-bar" style="margin:4px 0 6px">${fixM?'':`<button class="rc-chip kg-setbtn ${on?'on':''}">仕込み時 ${on?'▾ 表示中':'▸ 表示'}</button>`}<span class="tl-note" style="margin:0">${opt.note||''}</span></div>`+
     (rows.length?kgHTML(fields, rows, {...opt, showSet:on}):`<p class="muted" style="text-align:center;padding:16px 0">${opt.empty||'ありません'}</p>`);
   const first=tw0===null;
   kgBind(open, box);
   const tw=box.querySelector('.kg-tw');
   if(tw&&!first&&sl!==null){ tw.scrollLeft=sl; tw.scrollTop=stp; }
   else if(tw&&on) tw.scrollLeft=0;   // 仕込み時を出しているときは左（仕込み時の列）から見せる
-  box.querySelector('.kg-setbtn').onclick=()=>{ lsSet(skey,!on); kgBox(box, fields, rows, opt, open); const t=box.querySelector('.kg-tw'); if(t&&!on) t.scrollLeft=0; };
+  { const sb=box.querySelector('.kg-setbtn'); if(sb) sb.onclick=()=>{ lsSet(skey,!on); kgBox(box, fields, rows, opt, open); const t=box.querySelector('.kg-tw'); if(t&&!on) t.scrollLeft=0; }; }
   if(opt.edit) kgeBind(box, opt, fk0);
   if(opt.chart){ const f=()=>{ if(document.body.contains(box)) kgBg(box, rows, fields); }; requestAnimationFrame(f); KGE.bg=f; }
 }
@@ -9317,7 +9317,7 @@ async function kiDialog(no, kind){
   const ov=document.createElement('div'); ov.className='kge-ov';
   const ttl=`<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--navy)">${kind==='shubo'?'🧫 酒母':'🍶 仕込み'} 順号 ${esc(String(no))}</b><span class="muted" style="font-size:12px">${esc((kind==='shubo'?m.shuboSym:m.sym)||m.sym||'')} ${esc(m.liquid||'')}・酵母 ${esc(m.yeast||'—')}</span><button class="rc-ghost" id="kiX" style="margin-left:auto;padding:4px 10px">閉じる</button></div>`;
   ov.innerHTML=`<div class="kge-dl ki-dl" role="dialog" aria-label="順号${esc(String(no))}の情報">${ttl}<div id="kiBody"><p class="muted" style="padding:14px 0">麹・吸水の履歴を集めています…</p></div>
-    <button class="sh-link" id="kiKarte" style="margin-top:12px">📋 仕込カルテを開く（上槽・原酒評価まで）<span>›</span></button></div>`;
+    <button class="sh-link" id="kiKarte" style="margin-top:12px">📋 履歴<span>›</span></button></div>`;
   app.appendChild(ov);
   const close=()=>ov.remove();
   ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
@@ -9356,6 +9356,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-19-1','🍶','仕込み','仕込みの表：「仕込み時」は常に表示（ボタンを廃止）。尺を入れると量がすぐ入り、配合表（酒母からその段までの総米＋汲水）と比べて1.00〜1.08倍の外なら赤字＋お知らせ（「確認」で消えます）。保存は「保存」ボタンだけの表示に。開いてすぐスクロールしても上に戻らないようにしました。ℹ情報の「仕込カルテを開く」は「履歴」に。'],
   ['2026-10-18-1','🫧','仕込み・本日の予定','「泡消し器の設置」の通知は、酵母K7を使う仕込みだけに出るようにしました（穴あけは今までどおり全部の仕込み）。'],
   ['2026-10-17-4','🍶','本日の予定','酛卸と踊り返しを1人で行う日は、13:00〜14:00 踊り返し → 14:00〜15:00 酛卸 の順に並べて表示するようにしました（2人以上いる日は今までどおり両方13:00〜）。'],
   ['2026-10-17-3','🍶','本日の予定','酛卸と踊り返しを1人で行う日の注意（⚠・オレンジの帯）を出さないようにしました（13:00〜14:00 踊り返し → 14:00〜15:00 酛卸 で1人でできるため）。留後の作業の帯は「🔔 日付 🕳 穴あけ No.◯」だけの短い表示にしました。'],
@@ -12466,5 +12467,189 @@ setTimeout(()=>{ try{ if(ST&&ST.token) mwLoad(false).then(()=>{ if(document.getE
 .dp-al.mw-al small{display:block;font-weight:600;font-size:11px;color:#8a5a2a}`; document.head.appendChild(s); })();
 </script>
 <!-- /moromiwork -->
+<!-- shk1019 -->
+<script>
+/* ================= 🍶 仕込み：尺→量をすぐ反映・配合表と比べて量の異常をアラート／保存はボタンだけ／裏の読み込みで上へ戻らない（2026-10-19） =================
+   泰広さん指示：
+   ・仕込みの尺を入力すると量が瞬時に反映されるように。その量と仕込み配合表から異常でないかチェック。
+     1.00〜1.08倍は通常値。それ以外は異常値としてアラートし、「確認」ボタンで消える。異常値は赤字
+   ・入力時の保存の表示が大きいので「保存」ボタンだけにする
+   ・仕込みを表示してすぐスクロールしても、裏の読み込みで上に戻ってしまう → なくす
+   比べ方（後容量チェック_1.08倍以上_R7BY.md と同じ）：
+     比＝仕込み時の量(L) ÷ 配合の計画量。計画量＝酒母からその段までの「総米kg＋汲水L」の合計
+       添＝酒母＋初添、仲＝酒母＋初添＋仲添、留＝酒母＋初添＋仲添＋留添（追水・四段は入れない）
+     例 記号イ：添 1,611L・仲 4,075L・留 8,580L（R7BY の DBシート 添U/仲W/留Y と一致）
+     配合表は 🧾配合表 と同じ最新の版（hgRevs）。記号が配合表に無い／配合表がまだ届いていないときはチェックしない
+   ・表の「仕込み時 ▾ 表示中」ボタンは 2026-10-19 に廃止（kgBox 本体を直接修正。🍶仕込みは常に表示）
+   控え：seishu-workbook_github\_src_shk1019.js（index.html の shk1019 の目印の間） */
+const SK19={ack:{}, timer:null, lib:false};
+const SK19_LO=1.00, SK19_HI=1.08;
+const SK19_COLS={soe:['酒母','初添'], naka:['酒母','初添','仲添'], tome:['酒母','初添','仲添','留添']};
+const SK19_STN={soe:'添', naka:'仲', tome:'留'};
+/* 配合の計画量（L） */
+function sk19Plan(m, st){
+  try{
+    if(!m||!SK19_COLS[st]||typeof hgRevs!=='function') return null;
+    const R=hgRevs(); if(!R.length) return null;
+    const B=(R[R.length-1].blocks||[]).find(b=>b.sym===hgN(m.sym)); if(!B) return null;
+    const tr=B.v['総米']||{}, w=B.v['水']||{};
+    let s=0; SK19_COLS[st].forEach(c=>{ s+=(Number(tr[c])||0)+(Number(w[c])||0); });
+    return s>0?s:null;
+  }catch(e){ return null; }
+}
+/* 量の判定：null＝比べられない／{ratio, plan, ng} */
+function sk19Judge(no, st, v){
+  const L=pnum(v); if(L===null||L<=0) return null;
+  const m=rcMaster(no), P=sk19Plan(m, st); if(!P) return null;
+  const q=Math.round(L/P*1000)/1000;
+  return {ratio:q, plan:P, L, ng:(q<SK19_LO||q>SK19_HI)};
+}
+/* 量のマスを赤字に（異常値のときだけ） */
+function sk19Mark(el){
+  if(!el) return null;
+  const st=String(el.dataset.day||'').slice(2), J=sk19Judge(el.dataset.no, st, el.value);
+  el.classList.toggle('sk-ng', !!(J&&J.ng));
+  if(J) el.dataset.skr=J.ratio.toFixed(3); else delete el.dataset.skr;
+  return J;
+}
+function sk19MarkAll(box){ (box||app).querySelectorAll('.kg-i.ks[data-k="ryo"]').forEach(sk19Mark); }
+/* アラート（「確認」で消える） */
+function sk19Alert(el){
+  const J=sk19Mark(el); if(!J||!J.ng) return;
+  const no=el.dataset.no, st=String(el.dataset.day||'').slice(2), key=no+'|'+st+'|'+J.L;
+  if(SK19.ack[key]||document.getElementById('sk19Ov')) return;
+  const m=rcMaster(no)||{};
+  const ov=document.createElement('div'); ov.id='sk19Ov'; ov.className='sk19-ov';
+  ov.innerHTML=`<div class="sk19-box" role="alertdialog" aria-label="仕込み量の確認">
+    <div class="t">⚠ 仕込み量が配合と合いません</div>
+    <div class="b">順号${esc(String(no))}（${esc(m.sym||'')} ${esc(m.liquid||'')}）${SK19_STN[st]||''}<br>
+      量 <b>${J.L.toLocaleString('ja-JP')} L</b> ／ 配合 ${J.plan.toLocaleString('ja-JP')} L ＝ <b class="r">${J.ratio.toFixed(3)} 倍</b></div>
+    <div class="s">通常は ${SK19_LO.toFixed(2)}〜${SK19_HI.toFixed(2)} 倍（配合＝酒母から${SK19_STN[st]||''}までの総米＋汲水）。尺・量を確かめてください。</div>
+    <button class="rc-btn" id="sk19Ok" type="button">確認</button></div>`;
+  document.body.appendChild(ov);
+  const ok=ov.querySelector('#sk19Ok');
+  ok.onclick=()=>{ SK19.ack[key]=1; ov.remove(); };
+  try{ ok.focus({preventScroll:true}); }catch(e){}
+}
+/* 尺(mm) → 量(L)：早見表が手元にあればその場で（待たない）。照合できていない容器・範囲外は null */
+function sk19VolNow(m, st, mm){
+  const T=sksTank(m,st); if(!T||mm===null||mm===undefined) return null;
+  const t=tankByNo(T); if(!t||t.verify||t.blocked||!t.checked) return null;
+  const v=volAt(t,mm); return v===null?null:{T, L:Math.round(v)};
+}
+/* 尺 → 量 のつなぎ（shk1013 の sksWire を置きかえ）。量のマスは打つたびに判定して赤字、確定（Enter・欄を離れる）でアラート */
+sksWire=function(box){
+  box.querySelectorAll('.kg-i.ks[data-k="shaku"]').forEach(el=>{
+    const no=el.dataset.no, st=el.dataset.day.slice(2);
+    const ryOf=()=>box.querySelector(`.kg-i.ks[data-no="${no}"][data-day="s_${st}"][data-k="ryo"]`);
+    const apply=()=>{
+      const ry=ryOf(); if(!ry) return;
+      const mm=pnum(el.value); if(mm===null) return;
+      const v=sk19VolNow(rcMaster(no), st, mm);
+      if(!v){ ry.title=sksTank(rcMaster(no),st)?'早見表で計算できない容器・範囲のため、量は手で入れてください':'添のタンクが決まっていないため、量は手で入れてください（1本の画面の添で選べます）'; return; }
+      if(ry.value===String(v.L)) return;
+      ry.value=String(v.L); ry.title=`T${v.T} 早見表：尺 ${mm}mm → ${v.L} L（自動）`;
+      ry.dispatchEvent(new Event('input'));
+    };
+    el.addEventListener('input', ()=>{ if(TANKS) apply(); else loadTanks().then(apply).catch(()=>{}); });
+    el.addEventListener('change', ()=>{ const ry=ryOf(); if(ry) setTimeout(()=>sk19Alert(ry),0); });
+  });
+  box.querySelectorAll('.kg-i.ks[data-k="ryo"]').forEach(ry=>{
+    ry.addEventListener('input', ()=>sk19Mark(ry));
+    ry.addEventListener('change', ()=>sk19Alert(ry));
+  });
+};
+/* 表を描いたら：量の赤字・保存ボタンだけの形 */
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box, fields, rows, opt, open){
+    const r=o.apply(this, arguments);
+    try{
+      const isM = fields===kgFieldsMoromi && box && box.classList && box.classList.contains('kg-home') && !!document.getElementById('kgHd');
+      if(isM){ box.classList.add('sk-mbox'); sk19MarkAll(box); kgeBar(box); }
+    }catch(e){ console.log('sk19',e); }
+    return r;
+  };
+})();
+/* 保存の表示：🍶仕込みの表は「保存」ボタンだけ（未保存が無ければ出さない。数字になっていない等の注意だけは小さく出す） */
+(function(){
+  const o=window.kgeBar; if(typeof o!=='function') return;
+  kgeBar=function(box){
+    const r=o.apply(this, arguments);
+    try{ if(box&&box.classList&&box.classList.contains('sk-mbox')){ const bar=box.querySelector('.kg-sbar'); if(bar){
+      const n=[...box.querySelectorAll('.kg-i')].filter(kgeChanged).length, ng=bar.querySelector('.m.ng');
+      bar.hidden=!n && !ng; } } }catch(e){}
+    return r;
+  };
+})();
+/* 🍶仕込みを開いたら：早見表と配合表を先に読んでおく（尺→量・量のチェックを待たせない） */
+(function(){
+  const o=window.moromiHome; if(typeof o!=='function') return;
+  window.moromiHome=async function(...a){
+    try{ if(!TANKS) loadTanks().catch(()=>{}); }catch(e){}
+    const top=nav[nav.length-1]; const r=await o.apply(this, a);
+    try{ if(!SK19.lib && typeof libRefresh==='function' && !(typeof hgRevs==='function'&&hgRevs().length)){ SK19.lib=true;
+        libRefresh().then(()=>{ if(nav[nav.length-1]===top) sk19MarkAll(); }).catch(()=>{}); } }catch(e){}
+    return r; };
+})();
+
+/* ---- スクロールが上へ戻る件 ----
+   原因：🍶仕込みを開くと、端末に保存してある分析（bunseki_get）で先に表を出し、裏で最新を取る。届いた最新が違うと
+   fastRerender が画面全体を描き直す（いったん「読み込み中」に差し替え → 描き終わったら元の位置に戻す）。
+   描き直しの間に指でスクロールしていると、終わったときに「描き直し前の位置」へ戻されたり、短い画面で上に寄ったりしていた。仕込みは本数が多いので何度も起きる
+   直し：①🍶仕込みの表を見ているときに分析が届いたら、画面全体ではなく表だけ描き直す（表のスクロール位置もそのまま）
+         ②全体を描き直すとき（どの画面でも）：「読み込み中」に差し替えず前の中身を残したまま描き、指で動かしていたら位置を戻さない */
+FAST.re=false;
+(function(){ const _rl=rcLoading; rcLoading=function(t){ if(FAST.re && app.childElementCount) return; return _rl.apply(this, arguments); }; })();
+(function(){ const _go=go; go=function(fn,push){ FAST.re=false; return _go(fn, push); }; })();
+function sk19OnShkTable(){
+  if(!document.getElementById('kgHd')) return false;
+  const kg=app.querySelector('.kg-home'); if(!kg||kg.style.display==='none') return false;
+  return typeof MKE!=='undefined' && typeof MKE.draw==='function';
+}
+fastRerender=function(myTop, act){
+  if(FAST.dirty) return;
+  const a=document.activeElement;
+  if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  const f=nav[nav.length-1];
+  if(!f || f!==myTop) return;
+  if(act==='bunseki_get' && sk19OnShkTable()){   // ① 表だけ
+    clearTimeout(SK19.timer);
+    SK19.timer=setTimeout(()=>{ try{
+      if(nav[nav.length-1]!==myTop || FAST.dirty || !sk19OnShkTable()) return;
+      const b=document.activeElement; if(b && /^(INPUT|TEXTAREA|SELECT)$/.test(b.tagName)) return;
+      MKE.draw(); if(typeof mzIconsApply==='function') mzIconsApply();
+    }catch(e){ console.log('sk19 redraw',e); } }, 200);
+    return;
+  }
+  const y=window.scrollY, t0=Date.now(); let moved=false;   // ② 全体
+  const mv=()=>{ moved=true; }, EV=['touchstart','touchmove','wheel','mousedown','keydown'];
+  EV.forEach(e=>window.addEventListener(e, mv, {passive:true, capture:true}));
+  app.style.minHeight=app.offsetHeight+'px';
+  FAST.re=true;
+  let p; try{ p=f(); }catch(e){}
+  Promise.resolve(p).catch(()=>{}).then(()=>{
+    FAST.re=false;
+    EV.forEach(e=>window.removeEventListener(e, mv, {capture:true}));
+    if(nav[nav.length-1]===myTop && !moved && Date.now()-t0<1500 && Math.abs(window.scrollY-y)>2) window.scrollTo(0,y);
+    app.style.minHeight='';
+  });
+};
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-i.ks.sk-ng{color:#d11a1a !important;font-weight:800}
+.sk-mbox .kg-sbar{background:none;border:0;box-shadow:none;padding:0;margin:4px 0;justify-content:flex-end;gap:6px;pointer-events:none}
+.sk-mbox .kg-sbar.ok{background:none}
+.sk-mbox .kg-sbar .c,.sk-mbox .kg-sbar #kgUndo,.sk-mbox .kg-sbar .m{display:none}
+.sk-mbox .kg-sbar .m.ng{display:block;flex:0 1 auto;min-width:0;background:#fff;border:1px solid var(--ng);border-radius:8px;padding:3px 8px;font-size:11px;pointer-events:auto}
+.sk-mbox .kg-sbar #kgSave{pointer-events:auto;min-width:72px;padding:8px 16px;box-shadow:0 3px 10px rgba(0,0,0,.25)}
+.sk19-ov{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:16px}
+.sk19-box{background:#fff;border-radius:14px;border:2px solid #d11a1a;max-width:360px;width:100%;padding:16px;box-shadow:0 8px 28px rgba(0,0,0,.3)}
+.sk19-box .t{font-weight:800;color:#d11a1a;font-size:16px;margin-bottom:8px}
+.sk19-box .b{font-size:14px;line-height:1.7}
+.sk19-box .b .r{color:#d11a1a}
+.sk19-box .s{font-size:12px;color:var(--sub);margin:8px 0 12px}
+.sk19-box .rc-btn{width:100%}`; document.head.appendChild(s); })();
+</script>
+<!-- /shk1019 -->
 </body>
 </html>
