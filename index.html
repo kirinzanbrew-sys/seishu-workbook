@@ -9356,6 +9356,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-20-7','🏢','麹','麹の札をスマホから会社のプリンター（事務所 NEC 9160）で印刷できるようにしました。札の画面の「🖨 印刷」を押すと、会社PCが受け取って1〜2分で印刷します（会社PCの電源が入っているときだけ）。送った札の状況（待ち・印刷済）も画面に出ます。'],
   ['2026-10-20-6','🏷','麹','麹の札（印刷）を見やすくしました。酛＝赤・添＝青・仲＝緑・留＝紫で色分けし、仕込Noの数字を大きく、「酛15号」の部分と液種名に下線を付けました。札の上の洗米・引込の日付はなくしました。'],
   ['2026-10-20-5','🧫','酒母','酒母の表の上に「酛卸済も表示」の切り替えを付けました。入れると、酛卸が済んで表から消えた酒母（留から30日以内）も同じ表の下に出て、日々の値・仕込時の値・酛卸の尺・量・卸先をそのまま直せます。もう一度押すと元に戻ります。'],
   ['2026-10-20-4','🧫','酒母','酒母の表で、仕込時の値（尺・量・水麹・蒸米）を1日目の列にそのまま入力できるようにしました（Be・alc・酸度・アミノ酸の行の1日目）。尺を入れると酒母タンクの容量早見表で量がすぐ入ります。欄を離れると裏で保存。仕込時は常に表示にして「仕込み時」のボタンを削除、順号の欄の「酛卸 ◯/◯」「✎ 仕込時・酛卸」も削除しました（順号を押すと今までどおり酛卸日・酒母の備考の窓が開きます）。'],
@@ -12347,6 +12348,67 @@ function fudaPrint(list){
 })();
 </script>
 <!-- /fuda -->
+<!-- fudapc -->
+<script>
+/* ================= 🏢 麹の札を会社のプリンターで印刷（2026-10-20 泰広さん指示） =================
+   スマホから会社のプリンター（事務所 NEC 9160。AirPrint 非対応）で札を刷る。
+   ・札の画面の「🖨 印刷」を押すと（2026-10-21：ボタンは1つにまとめた。スマホの印刷画面は出さない）札の中身を Apps Script「製造ツール 共有データ」の表「資材在庫」に
+     資材名「麹の札印刷」・区分「印刷待ち」・メモ＝札の中身（JSON）で1行入れる（サーバーの変更なし。資材の一覧には出さない）
+   ・会社PCの「麹の札印刷.ps1」（1分ごと）が受け取り、プリンターで印刷 → 区分を「印刷済」（メモは空に）。だめなら「印刷できず」
+   ・会社PCの電源が入っているときだけ。6時間たっても刷られなかったものは会社PCが「取りやめ」にする
+   控え：seishu-workbook_github\_src_fudapc.js（index.html の fudapc の目印の間） */
+const FDPC_N='麹の札印刷';
+const FDPC={ t:0 };
+function fdpcJobs(){ return (ZAI.items||[]).filter(x=>x.name===FDPC_N).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||''))); }
+function fdpcCard(r){ return { id:String(r['麹ID']||''), lq:String(r['液種']||''), kd:String(r['品種']||''), pct:String(r['精米歩合']??''), kg:rcN(r['麹米kg']) }; }
+function fdpcState(x){
+  const k=x.kind||'';
+  if(k==='印刷待ち') return ['wait','⏳ 会社PCに届くのを待っています'];
+  if(k==='印刷中') return ['wait','🖨 印刷しています'];
+  if(k==='印刷済') return ['ok','✅ 印刷しました'+(x.unit?'（'+x.unit+'）':'')];
+  if(k==='取りやめ') return ['ng','✖ 取りやめ'+(x.unit?'（'+x.unit+'）':'')];
+  return ['ng','⚠ 印刷できませんでした'+(x.unit?'（'+x.unit+'）':'')];
+}
+function fdpcBox(){
+  const L=fdpcJobs().slice(0,3); if(!L.length) return '';
+  return `<div class="fdpc-box">${L.map(x=>{ const [c,t]=fdpcState(x); return `<div class="fdpc-j ${c}"><span>${esc(String(x.at||'').slice(5).replace('-','/'))}　${esc(x.qty||'')}枚</span><b>${esc(t)}</b></div>`; }).join('')}
+    ${L.some(x=>/^印刷(待ち|中)$/.test(x.kind||''))?'<small>会社PCの電源が入っていれば、1〜2分で事務所のプリンターから出ます。</small>':''}</div>`;
+}
+function fdpcPaint(){ const b=document.getElementById('fdpcBox'); if(b) b.innerHTML=fdpcBox(); }
+async function fdpcPoll(n){
+  clearTimeout(FDPC.t); FDPC.t=1; if(!document.getElementById('fdpcBox')){ FDPC.t=0; return; }
+  try{ zaiKeep(await zaiApi({action:'list'})); fdpcPaint(); }catch(e){}
+  FDPC.t=0; if(n>0 && fdpcJobs().some(x=>/^印刷(待ち|中)$/.test(x.kind||''))) FDPC.t=setTimeout(()=>fdpcPoll(n-1),15000);
+}
+async function fdpcSend(list,btn){
+  if(!list.length) return;
+  if(!confirm(`札 ${list.length}枚（A4 ${Math.ceil(list.length/4)}枚）を事務所のプリンターで印刷します。よろしいですか？`)) return;
+  btn.disabled=true; btn.textContent='送っています…';
+  try{
+    zaiKeep(await zaiApi({action:'save', item:{ name:FDPC_N, kind:'印刷待ち', qty:String(list.length), unit:'', date:dtoday(), memo:JSON.stringify(list.map(fdpcCard)) }}));
+    btn.textContent='✅ 送りました'; fdpcPaint(); FDPC.t=setTimeout(()=>fdpcPoll(20),15000);
+  }catch(e){ alert('送れませんでした：'+(e&&e.message||e)); btn.disabled=false; btn.textContent='🖨 印刷'; }
+}
+(function(){
+  const s=document.createElement('style'); s.textContent=`
+.fdpc-btn{background:#1f6fa8!important;color:#fff!important;border-color:#1f6fa8!important}
+.fdpc-box{margin:8px 0 4px;display:flex;flex-direction:column;gap:4px}.fdpc-box small{font-size:11px;color:var(--sub)}
+.fdpc-j{display:flex;justify-content:space-between;gap:8px;background:var(--card);border:1px solid var(--line);border-left:4px solid #999;border-radius:8px;padding:6px 8px;font-size:13px}
+.fdpc-j.wait{border-left-color:#e0a000}.fdpc-j.ok{border-left-color:#2a9d4a}.fdpc-j.ng{border-left-color:#d62728}`;
+  document.head.appendChild(s);
+  /* 資材の在庫の計算には入れない */
+  const zc=window.zaiCalc; if(typeof zc==='function') window.zaiCalc=function(...a){ const keep=ZAI.items; ZAI.items=(keep||[]).filter(x=>x.name!==FDPC_N); try{ return zc.apply(this,a); } finally{ ZAI.items=keep; } };
+  /* 札の画面の「🖨 印刷」を会社のプリンター行きにし、送った札の状況を出す */
+  const fd=window.fudaDraw; if(typeof fd==='function') window.fudaDraw=function(...a){ const p=fd.apply(this,a); try{
+    /* 2026-10-21 泰広さん指示：ボタンは「🖨 印刷」1つにまとめる。押すと会社のプリンターで刷る（スマホの印刷画面は出さない） */
+    const pb=document.getElementById('fdPrint'); if(pb && !document.getElementById('fdpcBox')){
+      pb.closest('.card').insertAdjacentHTML('afterend',`<div id="fdpcBox">${fdpcBox()}</div>`);
+      pb.onclick=()=>fdpcSend(FUDA.rows.filter(r=>FUDA.sel.has(r['麹ID'])),pb);
+      if(!FDPC.t) fdpcPoll(fdpcJobs().some(x=>/^印刷(待ち|中)$/.test(x.kind||''))?20:0);
+    } }catch(e){} return p; };
+})();
+</script>
+<!-- /fudapc -->
 <!-- moromiwork -->
 <script>
 /* ================= 🕳 留後の作業（穴あけ・泡消し器）2026-10-17 =================
