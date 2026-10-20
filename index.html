@@ -9356,6 +9356,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-20-1','🧫','酒母・仕込み','酒母の表で、酛卸の日の備考のマスに「尺」「量」「卸先」を入れられるようにしました。尺を入れると酒母タンクの容量早見表で量がすぐ入ります。卸先はリストから選択（T284・T285・酒母T、伝辛などは醪T。ほかは「その他」で番号）。選んだ卸先が仕込みの「添」のタンクになり、添の尺→量もそのタンクで計算します。仕込みの表の順号の下と添のマスに添のタンクを表示。仕込みの表の太線を「留｜2日目」の間に移しました。仕込みの上部の「グラフ／表」に「酒母」、酒母の上部に「表／仕込み」の切り替えを足しました。'],
+  ['2026-10-19-2','🍶','仕込み・酒母','仕込みの表の追水の見出しに、配合表の追水の量を出すようにしました（例「追水300」）。酒母の表で酛卸の日の札が「上槽」になっていたのを「酛卸」に直しました。'],
   ['2026-10-19-1','🍶','仕込み','仕込みの表：「仕込み時」は常に表示（ボタンを廃止）。尺を入れると量がすぐ入り、配合表（酒母からその段までの総米＋汲水）と比べて1.00〜1.08倍の外なら赤字＋お知らせ（「確認」で消えます）。保存は「保存」ボタンだけの表示に。開いてすぐスクロールしても上に戻らないようにしました。ℹ情報の「仕込カルテを開く」は「履歴」に。'],
   ['2026-10-18-1','🫧','仕込み・本日の予定','「泡消し器の設置」の通知は、酵母K7を使う仕込みだけに出るようにしました（穴あけは今までどおり全部の仕込み）。'],
   ['2026-10-17-4','🍶','本日の予定','酛卸と踊り返しを1人で行う日は、13:00〜14:00 踊り返し → 14:00〜15:00 酛卸 の順に並べて表示するようにしました（2人以上いる日は今までどおり両方13:00〜）。'],
@@ -12651,5 +12653,213 @@ fastRerender=function(myTop, act){
 .sk19-box .rc-btn{width:100%}`; document.head.appendChild(s); })();
 </script>
 <!-- /shk1019 -->
+<!-- shk1019b -->
+<script>
+/* ================= 🍶 仕込みの表：追水の見出しに配合の量（例「追水300」）／🧫 酒母の表：酛卸の日の札を「酛卸」に（2026-10-19） =================
+   泰広さん指示：仕込み、追水の量が分かるように、表の追水の表記を「追水300」の様に。酒母の酛卸の日が「上槽」となっているので「酛卸」に。
+   ・追水の量＝🧾配合表（最新版 hgRevs）のその記号の「水」（追水）の列の汲水L。配合表に記号が無い・未受信なら今までどおり「追水」
+   ・酛卸：日付の行の td.jo に CSS の ::after で「上槽」と出していた（joso ブロック）。酒母の表（opt.shubo）の箱に .kg-shubo を付けて「酛卸」に
+   控え：seishu-workbook_github\_src_shk1019b.js（index.html の shk1019b の目印の間） */
+function sk19Oimizu(m){
+  try{
+    if(!m||typeof hgRevs!=='function') return null;
+    const R=hgRevs(); if(!R.length) return null;
+    const B=(R[R.length-1].blocks||[]).find(b=>b.sym===hgN(m.sym)); if(!B) return null;
+    const v=Number((B.v['水']||{})['水']); return v>0?v:null;
+  }catch(e){ return null; }
+}
+function sk19OiLabel(box){
+  (box||app).querySelectorAll('.sk-mbox .kg-t tr[data-kg] td.f, .kg-t.mk tr[data-kg] td.f').forEach(td=>{
+    if(!/^追水/.test(td.textContent.trim())) return;
+    const v=sk19Oimizu(rcMaster(td.closest('tr').dataset.kg));
+    td.textContent=v?'追水'+v:'追水'; td.classList.toggle('oi', !!v);
+  });
+}
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box, fields, rows, opt, open){
+    const r=o.apply(this, arguments);
+    try{
+      if(box&&box.classList){ if(opt&&opt.shubo) box.classList.add('kg-shubo'); if(box.classList.contains('sk-mbox')) sk19OiLabel(box); }
+    }catch(e){ console.log('sk19b',e); }
+    return r;
+  };
+})();
+(function(){ const o=sk19MarkAll; sk19MarkAll=function(box){ const r=o.apply(this, arguments); try{ sk19OiLabel(box); }catch(e){} return r; }; })();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-t td.f.oi{white-space:nowrap}
+.kg-shubo .kg-t tr.top td.jo::after{content:'酛卸'}`; document.head.appendChild(s); })();
+</script>
+<!-- /shk1019b -->
+<!-- oro1020 -->
+<script>
+/* ================= 🧫 酒母：酛卸の尺・量・卸先タンク／🍶 仕込み：添のタンク＝酛卸先・表示／太線を留｜2日目へ／上部の切り替えに 酒母⇔仕込み（2026-10-20） =================
+   泰広さん指示：酒母の表の備考（酛卸の日）に「尺」「量」「卸先」。尺を入れたら量が瞬時に反映（酒母タンクの容量早見表）。卸先タンクはリストから選択（その他も）。
+   仕込みに移り、添仕込はそのタンクを使うので、添の尺→量は酛卸したタンクで計算。仕込みの表にも添がどのタンクか表示。
+   仕込みの表の太線は 仲｜留 → 留｜2日目 の間に。仕込みの上部「グラフ／表」に「酒母」、酒母の上部に「表／仕込み」。
+   ・保存先：醸造記録 R8BY の 酛卸_追加.gs（シート「酒母追加」の後ろ3列 酛卸尺(mm)／酛卸量(L)／卸先T）。shubo_get・bunseki_get に oro:{shaku,ryo,to}、shubo_save {oro:{…}}
+   ・保存は入れたらすぐ裏で（尺は欄を離れたとき・Enter、卸先は選んだとき）
+   ・量は 照合できていない容器・範囲外・酒母タンク未設定 のときは計算しない（手で入れる）
+   控え：seishu-workbook_github\_src_oro1020.js（index.html の oro1020 の目印の間） */
+const ORO={ loc:{} };
+const oroBig=m=>!!m && (typeof odoriNeed==='function'?!odoriNeed(m):['伝辛','超辛','純米辛口'].includes(String(m.liquid||'').replace(/[\s　]/g,'')));
+function oroOf(no){
+  const L=ORO.loc[no]||{}, s=RC.shubo&&RC.shubo[no], b=RC.bun&&RC.bun[no];
+  const o=Object.assign({}, (b&&b.oro)||{}, (s&&s.oro)||{}, L);
+  return {shaku:o.shaku==null?'':String(o.shaku), ryo:o.ryo==null?'':String(o.ryo), to:String(o.to==null?'':o.to).replace(/^[Tt]/,'').trim()};
+}
+/* 添のタンク（卸先）：酛卸で選んだタンク → 伝辛など＝醪タンク／それ以外＝空 */
+function oroTo(m){ if(!m) return ''; const o=oroOf(m.no); return o.to||(oroBig(m)&&m.tank?String(m.tank):''); }
+function oroCand(m){ const a=oroBig(m)&&m.tank?[[String(m.tank),'醪']]:[]; a.push(['284',''],['285','']); if(m.shuboT) a.push([String(m.shuboT),'酒母']);
+  const seen={}; return a.filter(([t])=>t&&!seen[t]&&(seen[t]=1)); }
+function oroVol(m, mm){   // → {L} ／ {err}
+  const T=String((m&&m.shuboT)||'').trim(); if(!T) return {err:'酒母タンク未設定'};
+  if(mm===null||mm===undefined) return {err:''};
+  if(typeof TANKS==='undefined'||!TANKS) return {err:'早見表を読み込み中'};
+  const t=tankByNo(T); if(!t) return {err:`T${T} は早見表に無い`};
+  if(t.verify||t.blocked||!t.checked) return {err:`T${T} は照合できていない容器`};
+  const v=volAt(t,mm); return v===null?{err:'範囲外'}:{L:Math.round(v), T};
+}
+function oroBoxHTML(m){
+  const o=oroOf(m.no), to=oroTo(m), cand=oroCand(m), known=!to||cand.some(([t])=>t===to);
+  const nm=`順号${esc(String(m.no))} 酛卸`;
+  return `<div class="oro-box" data-no="${esc(String(m.no))}">
+    <span>尺</span><input class="oro-i" data-k="shaku" type="text" inputmode="numeric" autocomplete="off" placeholder="mm" value="${esc(o.shaku)}" aria-label="${nm} 尺">
+    <span>量</span><input class="oro-i ry" data-k="ryo" type="text" inputmode="numeric" autocomplete="off" placeholder="L" value="${esc(o.ryo)}" aria-label="${nm} 量" readonly>
+    <span>卸先</span><select class="oro-i sel" data-k="to" aria-label="${nm} 卸先"><option value="">選択</option>${cand.map(([t,l])=>`<option value="${esc(t)}"${t===to?' selected':''}>T${esc(t)}${l?' '+l:''}</option>`).join('')}<option value="__o"${known?'':' selected'}>その他</option></select>
+    <span></span><input class="oro-i oth" data-k="oth" type="text" inputmode="numeric" autocomplete="off" placeholder="T番号" value="${known?'':esc(to)}" aria-label="${nm} 卸先（その他）" style="${known?'display:none':''}">
+  </div>`;
+}
+function oroSave(no, part){
+  const s=RC.shubo&&RC.shubo[no]; ORO.loc[no]=Object.assign(ORO.loc[no]||{}, part);
+  if(s) s.oro=Object.assign({}, s.oro||{}, part);
+  const b=RC.bun&&RC.bun[no]; if(b) b.oro=Object.assign({}, b.oro||{}, part);
+  recSaveBg({action:'shubo_save', no, oro:part}, `酒母 順号${no} 酛卸`, true);
+  rcToast(`順号${no} 酛卸の${part.to!==undefined?'卸先':'尺・量'}を保存しています（裏で送ります）`);
+}
+function oroBind(box){
+  box.querySelectorAll('.oro-box[data-no]').forEach(ob=>{
+    const no=ob.dataset.no, m=rcMaster(no)||{};
+    const sk=ob.querySelector('[data-k=shaku]'), ry=ob.querySelector('[data-k=ryo]'), sel=ob.querySelector('[data-k=to]'), oth=ob.querySelector('[data-k=oth]');
+    [sk,ry,oth].forEach(el=>{ el.dataset.igSkip='1'; el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); el.blur(); } }); });
+    const calc=()=>{
+      const mm=pnum(sk.value);
+      if(mm===null){ ry.readOnly=false; ry.classList.remove('auto'); ry.title=''; return null; }
+      const r=oroVol(m, mm);
+      if(r.L===undefined){ ry.readOnly=false; ry.classList.remove('auto'); ry.title=(r.err||'')+'（量は手で入れてください）'; return null; }
+      ry.value=String(r.L); ry.readOnly=true; ry.classList.add('auto'); ry.title=`T${r.T} 早見表：尺 ${mm}mm → ${r.L} L（自動）`; return r.L;
+    };
+    if(pnum(sk.value)!==null){ const keep=ry.value; calc(); if(keep!==''&&!ry.classList.contains('auto')) ry.value=keep; } else ry.readOnly=false;
+    if(!TANKS){ loadTanks().then(()=>{ if(document.body.contains(ob)&&pnum(sk.value)!==null) calc(); }).catch(()=>{}); }
+    sk.addEventListener('input',()=>{ calc(); sk.classList.add('dirty'); });
+    const saveSR=()=>{ const o=oroOf(no), a=sk.value.trim(), b=ry.value.trim();
+      if(a===o.shaku && b===o.ryo) return; sk.classList.remove('dirty'); ry.classList.remove('dirty'); oroSave(no,{shaku:a, ryo:b}); };
+    sk.addEventListener('change',saveSR);
+    ry.addEventListener('input',()=>ry.classList.add('dirty')); ry.addEventListener('change',saveSR);
+    const setTo=v=>{ v=String(v||'').replace(/^[Tt]/,'').trim(); if(v===oroOf(no).to) return; oroSave(no,{to:v}); oroLabel(box,no); };
+    sel.addEventListener('change',()=>{ if(sel.value==='__o'){ oth.style.display=''; oth.focus(); return; } oth.style.display='none'; oth.value=''; setTo(sel.value); });
+    oth.addEventListener('change',()=>setTo(oth.value));
+  });
+}
+/* 左の順号の下「酛卸 10/20→T◯◯」を卸先に */
+function oroLabel(box,no){
+  const m=rcMaster(no); if(!m) return;
+  (box||app).querySelectorAll(`.kg-t td.n[data-kgno="${CSS.escape(String(no))}"] small`).forEach(sm=>{
+    if(!/^酛卸 /.test(sm.textContent)) return;
+    const to=oroTo(m); sm.innerHTML=sm.innerHTML.replace(/→T[^<]*$|$/, to?'→T'+esc(to):'');
+  });
+}
+/* 🧫酒母の表：酛卸の日の備考のマスを 尺・量・卸先 に */
+function oroPaint(box, rows){
+  if(!box) return;
+  (rows||[]).forEach(r=>{ if(!r||!r.jo) return; const m=rcMaster(r.no); if(!m) return;
+    const tr=[...box.querySelectorAll(`.kg-t tr[data-kg="${CSS.escape(String(r.no))}"]`)].find(t=>{ const f=t.querySelector('td.f'); return f&&f.textContent.trim()==='備考'; });
+    const td=tr&&tr.querySelector(`td[data-i="${r.jo}"]`); if(!td) return;
+    td.classList.add('oro-c'); td.innerHTML=oroBoxHTML(m);
+    oroLabel(box, r.no); });
+  oroBind(box);
+}
+/* 🍶仕込みの表：順号の下に「添 T◯◯」、添の尺のマスにタンク番号 */
+function oroSoePaint(box){
+  if(!box) return;
+  box.querySelectorAll('.kg-t.mk td.n[data-kgno]').forEach(td=>{
+    const m=rcMaster(td.dataset.kgno); if(!m||!m.soe) return;
+    const T=sksTank(m,'soe'), big=oroBig(m)&&T===String(m.tank||'');
+    let el=td.querySelector('.soe-tk'); if(!el){ el=document.createElement('span'); el.className='soe-tk'; const tk=td.querySelector('.tk'); tk?tk.after(el):td.appendChild(el); }
+    el.classList.toggle('big', big); el.classList.toggle('none', !T);
+    el.innerHTML=T?`添 T${esc(T)}${big?'<small>（醪と同じ）</small>':''}`:'添 T未定<small>（酒母の酛卸で選択）</small>';
+  });
+  box.querySelectorAll('.kg-t.mk .kg-i.ks[data-k="shaku"][data-day="s_soe"]').forEach(inp=>{
+    const td=inp.closest('td'); if(!td) return; const m=rcMaster(inp.dataset.no); const T=m?sksTank(m,'soe'):'';
+    let t=td.querySelector('.soe-tt'); if(!t){ t=document.createElement('span'); t.className='soe-tt'; td.appendChild(t); }
+    t.textContent=T?'T'+T:'T未定'; t.classList.toggle('none',!T);
+  });
+}
+/* 添のタンク：酛卸の卸先を最優先（→ 端末で選んだ添のタンク → 伝辛など＝醪タンク） */
+(function(){
+  const o=window.sksTank; if(typeof o!=='function') return;
+  window.sksTank=sksTank=function(m, st){ if(st==='soe'&&m){ const to=oroOf(m.no).to; if(to) return to; } return o.apply(this, arguments); };
+})();
+/* 1本の画面の添（mrAutoRyo）：卸先があればそれを初期値に */
+(function(){
+  const o=window.mrAutoRyo; if(typeof o!=='function') return;
+  window.mrAutoRyo=mrAutoRyo=function(m, no, st){ try{ if(st==='soe'){ const to=oroOf(no).to; if(to){ const S=lsGet('mr.soeT',{})||{}; S[no]=to; lsSet('mr.soeT',S); } } }catch(e){} return o.apply(this, arguments); };
+})();
+/* 酒母の左の「酛卸 ◯/◯→T◯◯」を卸先に */
+(function(){
+  const o=window.kgShuboRows; if(typeof o!=='function') return;
+  window.kgShuboRows=function(list){ const rows=o.apply(this, arguments);
+    rows.forEach(r=>{ try{ const m=(list||[]).find(x=>String(x.no)===String(r.no))||rcMaster(r.no); if(!m||!r.head) return; const to=oroTo(m);
+      r.head=r.head.replace(/(<small>酛卸 [^<]*?)(→T[^<]*)?<\/small>/, (a,p)=>`${p}${to?'→T'+esc(to):''}</small>`); }catch(e){} });
+    return rows; };
+})();
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box, fields, rows, opt, open){
+    const r=o.apply(this, arguments);
+    try{ if(box&&opt&&opt.shubo&&opt.edit) oroPaint(box, rows); }catch(e){ console.log('oro',e); }
+    try{ if(box&&box.querySelector&&box.querySelector('.kg-t.mk')) oroSoePaint(box); }catch(e){ console.log('oro-soe',e); }
+    return r;
+  };
+})();
+/* 上部の切り替え：🍶仕込み［📈グラフ｜📋表｜🧫酒母］・🧫酒母［📋表｜🍶仕込み］。行き来しても「戻る」はホームへ */
+function oroJump(fn){ if(nav.length) nav[nav.length-1]=fn; else nav.push(fn); go(fn,false); }
+(function(){
+  const oM=window.moromiHome;
+  if(typeof oM==='function') window.moromiHome=moromiHome=async function(...a){
+    const top=nav[nav.length-1]; const r=await oM.apply(this,a);
+    try{ if(nav[nav.length-1]!==top) return r; const sw=app.querySelector('.ks-sw:not(.hg-tab)');
+      if(sw&&!sw.querySelector('[data-go="shubo"]')){ const b=document.createElement('button'); b.type='button'; b.dataset.go='shubo'; b.textContent='🧫 酒母'; b.onclick=()=>oroJump(shuboHome); sw.appendChild(b); } }catch(e){ console.log('oro-sw',e); }
+    return r; };
+  const oS=window.shuboHome;
+  if(typeof oS==='function') window.shuboHome=shuboHome=async function(...a){
+    const top=nav[nav.length-1]; const r=await oS.apply(this,a);
+    try{ if(nav[nav.length-1]!==top||app.querySelector('.ks-sw.sb-sw')) return r;
+      const kg=app.querySelector('.kg-home'); if(!kg) return r;
+      const sw=document.createElement('div'); sw.className='ks-sw sb-sw';
+      sw.innerHTML=`<button type="button" class="on">📋 表</button><button type="button" data-go="moromi">🍶 仕込み</button>`;
+      sw.querySelector('[data-go]').onclick=()=>oroJump(moromiHome);
+      kg.before(sw); }catch(e){ console.log('oro-sw',e); }
+    return r; };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-t td.oro-c{background:#fff4f6!important;min-width:104px;text-align:left;padding:2px 3px;white-space:nowrap;vertical-align:top}
+.oro-box{display:grid;grid-template-columns:auto auto;gap:2px 3px;align-items:center;font-size:10px;color:#7a3045;font-weight:700}
+.oro-i{width:66px;height:20px;box-sizing:border-box;border:1px solid rgba(150,140,115,.45);border-radius:5px;padding:1px 3px;font:inherit;font-size:12px;font-weight:700;text-align:right;background:#fff;color:var(--navy);margin:0}
+.oro-i.sel{text-align:left;font-size:11px;padding:0 1px}
+.oro-i.ry[readonly]{background:transparent;border-color:transparent;font-size:13px}
+.oro-i.ry.auto{color:var(--navy)}
+.oro-i.dirty{border:2px solid #e0a800;background:rgba(255,248,200,.9)}
+.oro-i:focus{outline:2px solid #1f5fa8;background:#fff}
+.kg-t td.n .soe-tk{display:block;margin-top:3px;font-size:12px;font-weight:800;color:#fff;background:#8a4b00;border-radius:5px;padding:1px 5px;line-height:1.35;white-space:normal}
+.kg-t td.n .soe-tk.big{background:#6b7280}
+.kg-t td.n .soe-tk.none{background:#fff;color:var(--ng);border:1px solid var(--ng)}
+.kg-t td.n .soe-tk small{display:inline;font-size:9.5px;font-weight:400;color:inherit;opacity:.85}
+.kg-t.ed.mk td .soe-tt{position:absolute;right:2px;top:0;font-size:8.5px;line-height:1;font-weight:800;color:#8a4b00;pointer-events:none;z-index:1}
+.kg-t.ed.mk td .soe-tt.none{color:var(--ng)}
+.kg-t.mk .se{border-right:1px solid #f1ecdf}
+.kg-t.mk th.mg,.kg-t.mk td.mg{border-right:2px solid #9fb3cf}`; document.head.appendChild(s); })();
+</script>
+<!-- /oro1020 -->
 </body>
 </html>
