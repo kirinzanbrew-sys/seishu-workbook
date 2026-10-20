@@ -8317,7 +8317,7 @@ function kgHomeBox(kind){
         draw();
         let tm=null; shFetchMany(list.filter(m=>!RC.bun[m.no]).map(m=>m.no),'bunseki_get',RC.bun,()=>{ clearTimeout(tm); tm=setTimeout(draw,150); });
       } else {
-        list=shuboList(st).map(x=>x.m);
+        list=(typeof sbdList==='function')?sbdList(st):shuboList(st).map(x=>x.m);   /* 2026-10-20 酛卸済も表示（sbdone1020） */
         draw=()=>kgBox(box, kgFieldsShuboNow, kgShuboRows(list,today), {setKind:'shubo', shubo:true, today:true, jo:'酛卸', outLabel:'酛卸の後', empty:'育成中の酒母はありません', note:'マスに直接入力 → 下の「保存」', edit:true, chart:true}, no=>kgeDialog(no));
         KGE.draw=draw;
         draw();
@@ -9356,6 +9356,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-20-5','🧫','酒母','酒母の表の上に「酛卸済も表示」の切り替えを付けました。入れると、酛卸が済んで表から消えた酒母（留から30日以内）も同じ表の下に出て、日々の値・仕込時の値・酛卸の尺・量・卸先をそのまま直せます。もう一度押すと元に戻ります。'],
   ['2026-10-20-4','🧫','酒母','酒母の表で、仕込時の値（尺・量・水麹・蒸米）を1日目の列にそのまま入力できるようにしました（Be・alc・酸度・アミノ酸の行の1日目）。尺を入れると酒母タンクの容量早見表で量がすぐ入ります。欄を離れると裏で保存。仕込時は常に表示にして「仕込み時」のボタンを削除、順号の欄の「酛卸 ◯/◯」「✎ 仕込時・酛卸」も削除しました（順号を押すと今までどおり酛卸日・酒母の備考の窓が開きます）。'],
   ['2026-10-20-3','🧫','酒母・仕込み','分析の画面にあった2つの確認を、酒母・仕込みの表にも入れました。①前回比：alc が0.3以上下がった、酸度・ｱﾐﾉが大きく変わった（醪 酸度±0.6・ｱﾐﾉ±0.5、酒母 酸度±3）、酒母の Be が1以上上がった などはマスがオレンジの枠になり、欄を離れると下に知らせが出ます（保存は止めません）。②酒母の表の酛卸の日：Be・alc・酸度・ｱﾐﾉ の空欄は赤い点線。その日の値を保存するときに空きがあれば「酛卸時は全て分析する事となっていますが、よろしいですか？」と確認します。'],
   ['2026-10-20-2','🍶','仕込み','仕込みの表の順号のマスを詰めました（「留まで◯日」「上槽◯/◯」「帯：…」を削除し、BMDの行が縦に広がらないように）。記号（イ・ロ・ハ…）は酵母の隣に同じ大きさで、仕込みNoも酵母と同じ大きさに。添の尺の欄のタンク表示は削除（タンクは順号の下の「添 T◯◯」で確認。伝辛などの「醪と同じ」の注記も削除）。'],
@@ -13021,5 +13022,54 @@ function sbsSave(box, no){
 .kg-t.ed:not(.mk) td.ssc .kg-ss.auto{color:#1d6b45}`; document.head.appendChild(s); })();
 </script>
 <!-- /sbset1020 -->
+<!-- sbdone1020 -->
+<script>
+/* ================= 🧫 酒母の表：「酛卸済も表示」（2026-10-20） =================
+   泰広さん指示：酛卸をした後の酒母を直したい → 案A「酒母の表の上に『酛卸済も表示』の切り替え」に決定。
+   ・ふだんの酒母の表は今までどおり（酛立〜留の翌日まで。shuboList）
+   ・切り替えを入れると、その後ろに「酛卸済」（留の翌日を過ぎたもの）のうち留が SBD_DAYS 日以内のものを新しい順に足す
+     同じ表でそのまま直せる（日々の値・仕込時の値・酛卸の尺・量・卸先。保存のしかたも同じ）。列は13日目まで
+   ・切り替えは端末に覚える（lsGet 'sb.done'）。順号の下に「酛卸済」の札
+   ・kgHome（酒母）の list=shuboList(...) を sbdList(st) に直接置きかえ
+   控え：seishu-workbook_github\_src_sbdone1020.js（index.html の sbdone1020 の目印の間） */
+const SBD_DAYS=30;
+function sbdOn(){ return !!lsGet('sb.done', false); }
+function sbdList(st){
+  const cur=shuboList(st).map(x=>x.m);
+  if(!sbdOn()) return cur;
+  const today=dtoday(), from=dadd(today,-SBD_DAYS), have=new Set(cur.map(m=>String(m.no)));
+  const done=((st&&st.master)||[]).filter(m=>m.motodate&&m.tome&&!have.has(String(m.no))&&rcShuboDay(m,today)>rcDays(m.motodate,m.tome)+1&&m.tome>=from)
+    .sort((a,b)=>b.motodate.localeCompare(a.motodate)||b.no-a.no);
+  done.forEach(m=>SBD.done.add(String(m.no)));
+  return cur.concat(done);
+}
+const SBD={ done:new Set() };
+/* 酛卸済の行：列は13日目まで・「酛卸済」の札 */
+(function(){
+  const o=window.kgShuboRows; if(typeof o!=='function') return;
+  window.kgShuboRows=function(){ const rows=o.apply(this, arguments);
+    rows.forEach(r=>{ if(!SBD.done.has(String(r.no))) return;
+      r.n=Math.min(r.n||13, 13); r.today=null; r.cls=(r.cls||'')+' sbd';
+      if(r.head) r.head=r.head.replace('</b>','</b><span class="sbd-tag">酛卸済</span>'); });
+    return rows; };
+})();
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box, fields, rows, opt, open){
+    const r=o.apply(this, arguments);
+    try{ if(box&&opt&&opt.shubo&&opt.edit){ const bar=box.querySelector('.rc-bar'); if(bar&&!bar.querySelector('.sbd-btn')){
+      const on=sbdOn(), b=document.createElement('button'); b.type='button'; b.className='rc-chip sbd-btn'+(on?' on':'');
+      b.textContent=on?'酛卸済も表示中 ✓':'酛卸済も表示';
+      b.onclick=()=>{ lsSet('sb.done', !on); shuboHome(); };
+      bar.prepend(b); } } }catch(e){ console.log('sbd',e); }
+    return r;
+  };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.rc-chip.sbd-btn{border:1px solid #9fb3cf;background:#fff;color:var(--navy);border-radius:999px;padding:3px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.rc-chip.sbd-btn.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.kg-t td.n .sbd-tag{display:inline-block;margin:2px 0 0;font-size:10px;font-weight:800;color:#fff;background:#8a6cc8;border-radius:5px;padding:0 5px;vertical-align:middle}`; document.head.appendChild(s); })();
+</script>
+<!-- /sbdone1020 -->
 </body>
 </html>
