@@ -6583,7 +6583,7 @@ async function bunHome(date){
     if(oroMiss.length){
       const a=await bnAsk('酛卸時は全て分析する事となっていますが、よろしいですか？', '未入力　'+oroMiss.map(esc).join('<br>'), [['いいえ',''],['はい','yes']]);
       if(a!==1){ if(oroFirst){ oroFirst.scrollIntoView({block:'center'}); oroFirst.focus(); } return; }
-      await bnAsk('次は全て分析する事！','',[['はい','yes']]);
+      await bnAsk('次は全項目分析してください！','',[['はい','yes']]);   /* 2026-10-20 泰広さん指示で文言変更 */
     }
     /* 2026-10-06 泰広さん指示：待たずに裏で送り、前の画面に戻る（推奨追水・警告は画面の下の知らせに出る） */
     jobs.forEach(({x,key,values})=>{
@@ -9356,6 +9356,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-20-3','🧫','酒母・仕込み','分析の画面にあった2つの確認を、酒母・仕込みの表にも入れました。①前回比：alc が0.3以上下がった、酸度・ｱﾐﾉが大きく変わった（醪 酸度±0.6・ｱﾐﾉ±0.5、酒母 酸度±3）、酒母の Be が1以上上がった などはマスがオレンジの枠になり、欄を離れると下に知らせが出ます（保存は止めません）。②酒母の表の酛卸の日：Be・alc・酸度・ｱﾐﾉ の空欄は赤い点線。その日の値を保存するときに空きがあれば「酛卸時は全て分析する事となっていますが、よろしいですか？」と確認します。'],
+  ['2026-10-20-2','🍶','仕込み','仕込みの表の順号のマスを詰めました（「留まで◯日」「上槽◯/◯」「帯：…」を削除し、BMDの行が縦に広がらないように）。記号（イ・ロ・ハ…）は酵母の隣に同じ大きさで、仕込みNoも酵母と同じ大きさに。添の尺の欄のタンク表示は削除（タンクは順号の下の「添 T◯◯」で確認。伝辛などの「醪と同じ」の注記も削除）。'],
   ['2026-10-20-1','🧫','酒母・仕込み','酒母の表で、酛卸の日の備考のマスに「尺」「量」「卸先」を入れられるようにしました。尺を入れると酒母タンクの容量早見表で量がすぐ入ります。卸先はリストから選択（T284・T285・酒母T、伝辛などは醪T。ほかは「その他」で番号）。選んだ卸先が仕込みの「添」のタンクになり、添の尺→量もそのタンクで計算します。仕込みの表の順号の下と添のマスに添のタンクを表示。仕込みの表の太線を「留｜2日目」の間に移しました。仕込みの上部の「グラフ／表」に「酒母」、酒母の上部に「表／仕込み」の切り替えを足しました。'],
   ['2026-10-19-2','🍶','仕込み・酒母','仕込みの表の追水の見出しに、配合表の追水の量を出すようにしました（例「追水300」）。酒母の表で酛卸の日の札が「上槽」になっていたのを「酛卸」に直しました。'],
   ['2026-10-19-1','🍶','仕込み','仕込みの表：「仕込み時」は常に表示（ボタンを廃止）。尺を入れると量がすぐ入り、配合表（酒母からその段までの総米＋汲水）と比べて1.00〜1.08倍の外なら赤字＋お知らせ（「確認」で消えます）。保存は「保存」ボタンだけの表示に。開いてすぐスクロールしても上に戻らないようにしました。ℹ情報の「仕込カルテを開く」は「履歴」に。'],
@@ -12787,12 +12789,19 @@ function oroSoePaint(box){
     const T=sksTank(m,'soe'), big=oroBig(m)&&T===String(m.tank||'');
     let el=td.querySelector('.soe-tk'); if(!el){ el=document.createElement('span'); el.className='soe-tk'; const tk=td.querySelector('.tk'); tk?tk.after(el):td.appendChild(el); }
     el.classList.toggle('big', big); el.classList.toggle('none', !T);
-    el.innerHTML=T?`添 T${esc(T)}${big?'<small>（醪と同じ）</small>':''}`:'添 T未定<small>（酒母の酛卸で選択）</small>';
+    el.innerHTML=T?`添 T${esc(T)}`:'添 T未定<small>（酒母の酛卸で選択）</small>';
   });
-  box.querySelectorAll('.kg-t.mk .kg-i.ks[data-k="shaku"][data-day="s_soe"]').forEach(inp=>{
-    const td=inp.closest('td'); if(!td) return; const m=rcMaster(inp.dataset.no); const T=m?sksTank(m,'soe'):'';
-    let t=td.querySelector('.soe-tt'); if(!t){ t=document.createElement('span'); t.className='soe-tt'; td.appendChild(t); }
-    t.textContent=T?'T'+T:'T未定'; t.classList.toggle('none',!T);
+  box.querySelectorAll('.kg-t.mk .soe-tt').forEach(x=>x.remove());   /* 2026-10-20 泰広さん指示：添の尺の欄のタンク表示は削除 */
+  /* 2026-10-20 泰広さん指示：BMDの行が縦に大きくなるので「留まで…」「上槽…」「帯…」を削除。記号（イロハ…）は酵母の隣に空白をあけて同じ大きさ、仕込みNoも酵母と同じ大きさ */
+  box.querySelectorAll('.kg-t.mk td.n[data-kgno]').forEach(td=>{
+    const m=rcMaster(td.dataset.kgno)||{}, ky=td.querySelector('.ky'), sym=String(m.sym||'').trim();
+    td.querySelectorAll(':scope > small').forEach(sm=>{ const t=sm.textContent.trim();
+      if(/^(留まで|上槽|帯[：:])/.test(t)||sm.classList.contains('js-ch')||/^\d+日目$/.test(t)||(sym&&t===sym)) sm.remove(); });
+    if(ky&&!ky.classList.contains('ky-no')){
+      if(sym&&!ky.querySelector('.ksym')){ const is=[...ky.querySelectorAll('i')], i=is[is.length-1]||ky; i.insertAdjacentHTML('beforeend',`<span class="ksym">&nbsp;${esc(sym)}</span>`);
+        const L=Math.max(...(is.length?is:[ky]).map(x=>x.textContent.replace(/\u00a0/g,' ').length)); ky.style.fontSize=(L<=6?19:L<=9?15:12)+'px'; }
+      const b=td.querySelector(':scope > b'); if(b) b.style.setProperty('font-size', getComputedStyle(ky).fontSize, 'important');
+    } else if(ky&&sym&&!td.querySelector('.ksym')) ky.insertAdjacentHTML('beforeend',`<span class="ksym">&nbsp;${esc(sym)}</span>`);
   });
 }
 /* 添のタンク：酛卸の卸先を最優先（→ 端末で選んだ添のタンク → 伝辛など＝醪タンク） */
@@ -12855,11 +12864,97 @@ function oroJump(fn){ if(nav.length) nav[nav.length-1]=fn; else nav.push(fn); go
 .kg-t td.n .soe-tk.big{background:#6b7280}
 .kg-t td.n .soe-tk.none{background:#fff;color:var(--ng);border:1px solid var(--ng)}
 .kg-t td.n .soe-tk small{display:inline;font-size:9.5px;font-weight:400;color:inherit;opacity:.85}
-.kg-t.ed.mk td .soe-tt{position:absolute;right:2px;top:0;font-size:8.5px;line-height:1;font-weight:800;color:#8a4b00;pointer-events:none;z-index:1}
-.kg-t.ed.mk td .soe-tt.none{color:var(--ng)}
+.kg-t.mk td.n .mz-rf{display:none}
+.kg-t.mk td.n .ky .ksym{font-weight:800;color:var(--navy)}
+.kg-t.mk td.n .ky i{white-space:nowrap}
 .kg-t.mk .se{border-right:1px solid #f1ecdf}
 .kg-t.mk th.mg,.kg-t.mk td.mg{border-right:2px solid #9fb3cf}`; document.head.appendChild(s); })();
 </script>
 <!-- /oro1020 -->
+<!-- chk1020 -->
+<script>
+/* ================= 🧫 酒母・🍶 仕込みの表：前回比の注意／🧫 酒母の表：酛卸の日の全項目チェック（2026-10-20） =================
+   泰広さん指示：分析の画面にしかなかった「酛卸の日の全項目チェック」と「前回比」を酒母・仕込みにも入れる。
+   ・前回比：分析の画面と同じ決まり（bnCheck）。その行の前の日で一番近い値と比べる（表の今の値＝未保存も含む）
+       alc が0.3以上下がる／醪の alc が4以上急に上がる／酸度 ±0.6以上（酒母は±3以上）／ｱﾐﾉ ±0.5以上／酒母の Be が1以上上がる
+       → マスをオレンジの太枠・文字を茶色（.pvw）。欄を離れたときに下に知らせ（保存は止めない）。表を開いたときも保存済みの値に印
+   ・酛卸の日（酒母の表）：Be・alc・酸度・ｱﾐﾉ の空いている欄は赤い点線（.need）。「保存」でその日の欄を保存するときに空きがあれば
+       「酛卸時は全て分析する事となっていますが、よろしいですか？」いいえ＝保存しない（空欄へ）／はい→「次は全項目分析してください！」→保存（分析の画面と同じ。2026-10-20 文言変更）
+   控え：seishu-workbook_github\_src_chk1020.js（index.html の chk1020 の目印の間） */
+const CK_F=['be','alc','ta','aa'];
+const CK_LB={be:'Be',alc:'alc',ta:'酸度',aa:'ｱﾐﾉ'};
+function ckKind(box){ return box&&box.classList&&box.classList.contains('kg-shubo')?'sb':(box&&box.querySelector&&box.querySelector('.kg-t.mk')?'mr':''); }
+function ckIns(box, no, k){ return [...box.querySelectorAll(`.kg-i[data-no="${CSS.escape(String(no))}"][data-k="${k}"]`)].filter(el=>/^\d+$/.test(el.dataset.day||'')&&Number(el.dataset.day)>0); }
+/* その欄より前の日で一番近い値（表の値 → 無ければ保存済みのデータ） */
+function ckPrev(box, kind, el){
+  const no=el.dataset.no, k=el.dataset.k, d=Number(el.dataset.day);
+  let best=null;
+  ckIns(box,no,k).forEach(x=>{ const dd=Number(x.dataset.day); if(dd>=d) return; const v=shN(x.value); if(v!==null&&(!best||dd>best.day)) best={v,day:dd}; });
+  const S=kind==='sb'?(RC.shubo&&RC.shubo[no]):(RC.bun&&RC.bun[no]), days=(S&&S.days)||[];
+  for(let i=d-2;i>=0;i--){ const x=days[i]; if(!x) continue; if(best&&x.day<=best.day) break; if(ckIns(box,no,k).some(e=>Number(e.dataset.day)===x.day)) continue; const v=shN(x[k]); if(v!==null){ best={v,day:x.day}; break; } }
+  return best;
+}
+function ckMark(box, kind, el){
+  const v=shN(el.value); let msg='';
+  if(v!==null && typeof bnCheck==='function'){ const r=bnCheck(kind, el.dataset.k, v, ckPrev(box,kind,el)); if(r&&r[0]==='warn') msg=r[1]; }
+  el.classList.toggle('pvw', !!msg);
+  if(msg) el.title=msg; else if(el.dataset.pvt) el.removeAttribute('title');
+  if(msg) el.dataset.pvt='1'; else delete el.dataset.pvt;
+  return msg;
+}
+function ckNeed(box){
+  if(ckKind(box)!=='sb') return;
+  Object.keys(CK.jo).forEach(no=>{ const jo=CK.jo[no];
+    CK_F.forEach(k=>{ ckIns(box,no,k).forEach(el=>{ el.classList.toggle('need', Number(el.dataset.day)===jo && !el.disabled && String(el.value).trim()===''); }); }); });
+}
+const CK={ jo:{} };
+function ckBind(box, rows){
+  const kind=ckKind(box); if(!kind) return;
+  if(kind==='sb'){ CK.jo={}; (rows||[]).forEach(r=>{ if(r&&r.jo) CK.jo[String(r.no)]=r.jo; }); }
+  const ins=[...box.querySelectorAll('.kg-i[data-k]')].filter(el=>CK_F.includes(el.dataset.k)&&/^\d+$/.test(el.dataset.day||'')&&Number(el.dataset.day)>0);
+  ins.forEach(el=>ckMark(box,kind,el));
+  ckNeed(box);
+  ins.forEach(el=>{
+    if(el.dataset.ckb) return; el.dataset.ckb='1';
+    el.addEventListener('input',()=>{ ckIns(box,el.dataset.no,el.dataset.k).forEach(x=>{ if(Number(x.dataset.day)>=Number(el.dataset.day)) ckMark(box,kind,x); }); ckNeed(box); });
+    el.addEventListener('change',()=>{ const m=ckMark(box,kind,el); if(m) rcToast(`順号${el.dataset.no} ${el.dataset.day}日目 ${CK_LB[el.dataset.k]||''}：${m}`, true, 4000); });
+  });
+}
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box, fields, rows, opt, open){
+    const r=o.apply(this, arguments);
+    try{ if(box&&box.querySelector&&box.querySelector('.kg-t .kg-i')) ckBind(box, rows); }catch(e){ console.log('ck',e); }
+    return r;
+  };
+})();
+/* 酒母の表の「保存」：酛卸の日の欄を保存するときに空きがあれば確認（分析の画面と同じ） */
+(function(){
+  const o=window.kgeSave; if(typeof o!=='function') return;
+  window.kgeSave=async function(box){
+    try{
+      if(box&&box.classList&&box.classList.contains('kg-shubo')&&typeof bnAsk==='function'){
+        const ch=[...box.querySelectorAll('.kg-i')].filter(el=>!el.disabled&&kgeChanged(el));
+        const miss=[], first=[];
+        Object.keys(CK.jo).forEach(no=>{ const jo=CK.jo[no];
+          if(!ch.some(el=>el.dataset.no===no&&Number(el.dataset.day)===jo)) return;   // 酛卸の日の欄を保存するときだけ
+          const em=CK_F.map(k=>ckIns(box,no,k).find(el=>Number(el.dataset.day)===jo)).filter(el=>el&&!el.disabled&&String(el.value).trim()==='');
+          if(em.length){ miss.push(`順号${no}：${em.map(el=>CK_LB[el.dataset.k]).join('・')}`); first.push(em[0]); } });
+        if(miss.length){
+          const a=await bnAsk('酛卸時は全て分析する事となっていますが、よろしいですか？', '未入力　'+miss.map(esc).join('<br>'), [['いいえ',''],['はい','yes']]);
+          if(a!==1){ const f=first[0]; if(f){ f.focus(); try{ f.scrollIntoView({block:'center',inline:'center'}); }catch(e){} } return; }
+          await bnAsk('次は全項目分析してください！','',[['はい','yes']]);   /* 2026-10-20 泰広さん指示で文言変更 */
+        }
+      }
+    }catch(e){ console.log('ck-oro',e); }
+    return o.apply(this, arguments);
+  };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-i.pvw{box-shadow:inset 0 0 0 2px #f08a00;color:#a04a00}
+.kg-i.need{border:1.5px dashed #c0392b;background:#fff5f4}
+.kg-i.need.dirty{border:2px solid #e0a800}`; document.head.appendChild(s); })();
+</script>
+<!-- /chk1020 -->
 </body>
 </html>
