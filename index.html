@@ -8216,7 +8216,7 @@ function kgBind(open, root){
 /* 表＋「仕込み時」ボタンを箱に描く。描き直してもスクロール位置は保つ */
 function kgBox(box, fields, rows, opt, open){
   if(!box||!document.body.contains(box)) return;
-  const skey=(opt&&opt.setKind==='moromi'&&box.classList&&box.classList.contains('kg-home'))?'kg.set.m':'kg.set', fixM=skey==='kg.set.m', on=fixM?true:!!lsGet(skey, false);   // 2026-10-19 🍶仕込みの表は仕込み時を常に表示（「仕込み時 ▾ 表示中」ボタンは廃止）
+  const skey=(opt&&opt.setKind==='moromi'&&box.classList&&box.classList.contains('kg-home'))?'kg.set.m':'kg.set', fixM=skey==='kg.set.m'||!!(opt&&opt.shubo&&opt.edit), on=fixM?true:!!lsGet(skey, false);   /* 2026-10-20 🧫酒母の表（今年）も仕込時を常に表示・ボタン廃止 */   // 2026-10-19 🍶仕込みの表は仕込み時を常に表示（「仕込み時 ▾ 表示中」ボタンは廃止）
   const tw0=box.querySelector('.kg-tw'), sl=tw0?tw0.scrollLeft:null, stp=tw0?tw0.scrollTop:null;
   const fk0=opt.edit?kgeKeep(box):null;
   box.innerHTML=`<div class="rc-bar" style="margin:4px 0 6px">${fixM?'':`<button class="rc-chip kg-setbtn ${on?'on':''}">仕込み時 ${on?'▾ 表示中':'▸ 表示'}</button>`}<span class="tl-note" style="margin:0">${opt.note||''}</span></div>`+
@@ -8225,7 +8225,7 @@ function kgBox(box, fields, rows, opt, open){
   kgBind(open, box);
   const tw=box.querySelector('.kg-tw');
   if(tw&&!first&&sl!==null){ tw.scrollLeft=sl; tw.scrollTop=stp; }
-  else if(tw&&on) tw.scrollLeft=0;   // 仕込み時を出しているときは左（仕込み時の列）から見せる
+  else if(tw&&on&&!(opt&&opt.shubo)) tw.scrollLeft=0;   // 仕込み時を出しているときは左（仕込み時の列）から見せる
   { const sb=box.querySelector('.kg-setbtn'); if(sb) sb.onclick=()=>{ lsSet(skey,!on); kgBox(box, fields, rows, opt, open); const t=box.querySelector('.kg-tw'); if(t&&!on) t.scrollLeft=0; }; }
   if(opt.edit) kgeBind(box, opt, fk0);
   if(opt.chart){ const f=()=>{ if(document.body.contains(box)) kgBg(box, rows, fields); }; requestAnimationFrame(f); KGE.bg=f; }
@@ -9356,6 +9356,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-20-4','🧫','酒母','酒母の表で、仕込時の値（尺・量・水麹・蒸米）を1日目の列にそのまま入力できるようにしました（Be・alc・酸度・アミノ酸の行の1日目）。尺を入れると酒母タンクの容量早見表で量がすぐ入ります。欄を離れると裏で保存。仕込時は常に表示にして「仕込み時」のボタンを削除、順号の欄の「酛卸 ◯/◯」「✎ 仕込時・酛卸」も削除しました（順号を押すと今までどおり酛卸日・酒母の備考の窓が開きます）。'],
   ['2026-10-20-3','🧫','酒母・仕込み','分析の画面にあった2つの確認を、酒母・仕込みの表にも入れました。①前回比：alc が0.3以上下がった、酸度・ｱﾐﾉが大きく変わった（醪 酸度±0.6・ｱﾐﾉ±0.5、酒母 酸度±3）、酒母の Be が1以上上がった などはマスがオレンジの枠になり、欄を離れると下に知らせが出ます（保存は止めません）。②酒母の表の酛卸の日：Be・alc・酸度・ｱﾐﾉ の空欄は赤い点線。その日の値を保存するときに空きがあれば「酛卸時は全て分析する事となっていますが、よろしいですか？」と確認します。'],
   ['2026-10-20-2','🍶','仕込み','仕込みの表の順号のマスを詰めました（「留まで◯日」「上槽◯/◯」「帯：…」を削除し、BMDの行が縦に広がらないように）。記号（イ・ロ・ハ…）は酵母の隣に同じ大きさで、仕込みNoも酵母と同じ大きさに。添の尺の欄のタンク表示は削除（タンクは順号の下の「添 T◯◯」で確認。伝辛などの「醪と同じ」の注記も削除）。'],
   ['2026-10-20-1','🧫','酒母・仕込み','酒母の表で、酛卸の日の備考のマスに「尺」「量」「卸先」を入れられるようにしました。尺を入れると酒母タンクの容量早見表で量がすぐ入ります。卸先はリストから選択（T284・T285・酒母T、伝辛などは醪T。ほかは「その他」で番号）。選んだ卸先が仕込みの「添」のタンクになり、添の尺→量もそのタンクで計算します。仕込みの表の順号の下と添のマスに添のタンクを表示。仕込みの表の太線を「留｜2日目」の間に移しました。仕込みの上部の「グラフ／表」に「酒母」、酒母の上部に「表／仕込み」の切り替えを足しました。'],
@@ -12819,7 +12820,7 @@ function oroSoePaint(box){
   const o=window.kgShuboRows; if(typeof o!=='function') return;
   window.kgShuboRows=function(list){ const rows=o.apply(this, arguments);
     rows.forEach(r=>{ try{ const m=(list||[]).find(x=>String(x.no)===String(r.no))||rcMaster(r.no); if(!m||!r.head) return; const to=oroTo(m);
-      r.head=r.head.replace(/(<small>酛卸 [^<]*?)(→T[^<]*)?<\/small>/, (a,p)=>`${p}${to?'→T'+esc(to):''}</small>`); }catch(e){} });
+      r.head=r.head.replace(/<small>酛卸 [^<]*<\/small>/, '').replace(/<span class="kg-edl">[^<]*<\/span>/, '');   /* 2026-10-20 泰広さん指示：順号の欄の「酛卸 ◯/◯」は削除（卸先は酛卸の日の備考で見る） */ }catch(e){} });
     return rows; };
 })();
 (function(){
@@ -12956,5 +12957,69 @@ function ckBind(box, rows){
 .kg-i.need.dirty{border:2px solid #e0a800}`; document.head.appendChild(s); })();
 </script>
 <!-- /chk1020 -->
+<!-- sbset1020 -->
+<script>
+/* ================= 🧫 酒母の表：仕込時の値（尺・量・水麹・蒸米）を表にそのまま入力／仕込み時は常に表示（2026-10-20） =================
+   泰広さん指示：酒母の仕込み時の表に直接入力できるように。順号の欄の「酛卸 ◯/◯」と「仕込み時」のボタンを削除。
+   ・🧫酒母の表（今年・入力つき）は仕込時を常に表示（kgBox 本体の fixM を直接修正。昨年度の表はボタンのまま）
+   ・1日目の列の Be／alc／酸度／アミノ酸 の行（1・2日目は分析しないので空いている）に 尺／量／水麹／蒸米 の入力欄（KG_SET_S と同じ並び）
+   ・尺を入れると酒母タンクの容量早見表でその場で量（oroVol。照合できていない容器・範囲外・酒母T未設定は量を手で）
+   ・保存は欄を離れたとき（Enter）にすぐ裏で shubo_save {setup:{…}}。仕込時の値がそろうと日々の欄の鍵が外れる（表を描き直す）
+   控え：seishu-workbook_github\_src_sbset1020.js（index.html の sbset1020 の目印の間） */
+const SBS_ROW={ 'Be':['shaku','尺',0], 'alc':['ryo','量',0], '酸度':['mizukoji','水麹',1], 'アミノ酸':['mushi','蒸米',1] };
+function sbsPaint(box){
+  box.querySelectorAll('.kg-t.ed:not(.mk) tr[data-kg]').forEach(tr=>{
+    const f=tr.querySelector('td.f'), d=f&&SBS_ROW[f.textContent.trim()]; if(!d) return;
+    const td=tr.querySelector('td[data-i="1"]'); if(!td||td.querySelector('.kg-i')) return;
+    const no=tr.dataset.kg, s=RC.shubo&&RC.shubo[no]; if(!s) return;
+    const u=s.setup||{}, v=u[d[0]]==null?'':String(u[d[0]]);
+    const val=v!==''&&d[2]&&shN(v)!==null?shF(v,1):v;
+    td.classList.add('ssc');
+    td.innerHTML=`<span class="ssl">${d[1]}</span><input class="kg-ss${v===''?' sneed':''}" data-no="${esc(String(no))}" data-sk="${d[0]}" type="text" inputmode="decimal" autocomplete="off" value="${esc(val)}" aria-label="順号${esc(String(no))} 仕込時 ${d[1]}">`;
+  });
+  box.querySelectorAll('.kg-ss').forEach(el=>{
+    if(el.dataset.sb) return; el.dataset.sb='1'; el.dataset.igSkip='1';
+    const no=el.dataset.no, k=el.dataset.sk, m=rcMaster(no)||{};
+    const other=kk=>box.querySelector(`.kg-ss[data-no="${CSS.escape(no)}"][data-sk="${kk}"]`);
+    el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); el.blur(); } });
+    el.addEventListener('input',()=>{ el.classList.add('dirty'); el.classList.remove('sneed');
+      if(k==='shaku'){ const ry=other('ryo'), mm=pnum(el.value); if(ry&&mm!==null){ const r=oroVol(m,mm); if(r.L!==undefined){ ry.value=String(r.L); ry.classList.add('dirty','auto'); ry.title=`T${r.T} 早見表：尺 ${mm}mm → ${r.L} L（自動）`; } else ry.title=(r.err||'')+'（量は手で入れてください）'; } } });
+    el.addEventListener('change',()=>sbsSave(box,no));
+  });
+  if(!TANKS) loadTanks().catch(()=>{});
+}
+function sbsSave(box, no){
+  const s=RC.shubo&&RC.shubo[no]; if(!s) return;
+  const u=s.setup||(s.setup={}), setup={};
+  box.querySelectorAll(`.kg-ss[data-no="${CSS.escape(String(no))}"]`).forEach(el=>{
+    const k=el.dataset.sk, v=el.value.trim();
+    if(v!==''&&pnum(v)===null){ el.classList.add('bad'); return; } el.classList.remove('bad');
+    if(!rcSame(v, u[k]==null?'':u[k])) setup[k]=v; el.classList.remove('dirty'); });
+  if(!Object.keys(setup).length) return;
+  const was=shSetupMissing(s).length;
+  Object.assign(u, setup);
+  recSaveBg({action:'shubo_save', no, setup}, `酒母 順号${no} 仕込時の値`, true);
+  rcToast(`順号${no} 仕込時の値を保存しています（裏で送ります）`);
+  if(was && !shSetupMissing(s).length && KGE.draw) setTimeout(()=>{ if(document.body.contains(box)) KGE.draw(); },50);   // 仕込時の値がそろったら日々の欄を使えるように
+}
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box, fields, rows, opt, open){
+    const r=o.apply(this, arguments);
+    try{ if(box&&opt&&opt.shubo&&opt.edit) sbsPaint(box); }catch(e){ console.log('sbs',e); }
+    return r;
+  };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-t.ed:not(.mk) td.ssc{white-space:nowrap;text-align:right;padding:1px 2px}
+.kg-t.ed:not(.mk) td.ssc .ssl{display:inline-block;font-size:9px;color:var(--sub);margin-right:2px;vertical-align:middle}
+.kg-ss{width:44px;height:20px;box-sizing:border-box;border:1px solid rgba(150,140,115,.35);border-radius:4px;padding:0 3px;font:inherit;font-weight:700;font-size:12px;line-height:18px;text-align:right;background:#fff;color:var(--navy);margin:0;vertical-align:middle}
+.kg-ss:focus{outline:2px solid #1f5fa8}
+.kg-ss.dirty{border:1.5px solid #e0a800;background:rgba(255,248,200,.9)}
+.kg-ss.bad{border:1.5px solid var(--ng);background:#fde8e6}
+.kg-t.ed:not(.mk) td.ssc .kg-ss.sneed{border:1.5px dashed var(--ng);background:#fff5f4}
+.kg-t.ed:not(.mk) td.ssc .kg-ss.auto{color:#1d6b45}`; document.head.appendChild(s); })();
+</script>
+<!-- /sbset1020 -->
 </body>
 </html>
