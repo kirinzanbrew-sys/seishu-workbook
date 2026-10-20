@@ -9356,6 +9356,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-20-6','🏷','麹','麹の札（印刷）を見やすくしました。酛＝赤・添＝青・仲＝緑・留＝紫で色分けし、仕込Noの数字を大きく、「酛15号」の部分と液種名に下線を付けました。札の上の洗米・引込の日付はなくしました。'],
   ['2026-10-20-5','🧫','酒母','酒母の表の上に「酛卸済も表示」の切り替えを付けました。入れると、酛卸が済んで表から消えた酒母（留から30日以内）も同じ表の下に出て、日々の値・仕込時の値・酛卸の尺・量・卸先をそのまま直せます。もう一度押すと元に戻ります。'],
   ['2026-10-20-4','🧫','酒母','酒母の表で、仕込時の値（尺・量・水麹・蒸米）を1日目の列にそのまま入力できるようにしました（Be・alc・酸度・アミノ酸の行の1日目）。尺を入れると酒母タンクの容量早見表で量がすぐ入ります。欄を離れると裏で保存。仕込時は常に表示にして「仕込み時」のボタンを削除、順号の欄の「酛卸 ◯/◯」「✎ 仕込時・酛卸」も削除しました（順号を押すと今までどおり酛卸日・酒母の備考の窓が開きます）。'],
   ['2026-10-20-3','🧫','酒母・仕込み','分析の画面にあった2つの確認を、酒母・仕込みの表にも入れました。①前回比：alc が0.3以上下がった、酸度・ｱﾐﾉが大きく変わった（醪 酸度±0.6・ｱﾐﾉ±0.5、酒母 酸度±3）、酒母の Be が1以上上がった などはマスがオレンジの枠になり、欄を離れると下に知らせが出ます（保存は止めません）。②酒母の表の酛卸の日：Be・alc・酸度・ｱﾐﾉ の空欄は赤い点線。その日の値を保存するときに空きがあれば「酛卸時は全て分析する事となっていますが、よろしいですか？」と確認します。'],
@@ -9516,6 +9517,7 @@ function updScreen(){
 }
 /* 起動直後のホームは、この部品が読まれる前に描かれるので、赤い数字を出すために一度だけ描き直す */
 try{ if(ST && ST.token && nav.length<=1 && app.querySelector('#bUpd') && updBadge()>0) go(home,false); }catch(e){}
+
 
 </script>
 <!-- /upd -->
@@ -12285,10 +12287,13 @@ function fudaDraw(){
 function fudaFit(s,max,w){ const len=[...String(s||'')].reduce((a,c)=>a+(/[ -~]/.test(c)?0.55:1),0)||1; return Math.min(max,(w||86)/len).toFixed(1)+'mm'; }
 function fudaCard(r){
   if(!r) return `<div class="fd-c"></div>`;
-  const id=String(r['麹ID']||'').replace(/^(\D+)(\d+)号$/,'$1 $2 号'), lq=r['液種']||'', kd=r['品種']||'';
-  return `<div class="fd-c"><div class="fd-d">洗米 ${rcMD(r['洗米日'])}　引込 ${rcMD(r['引込日'])}</div>
-    <div class="fd-id">${esc(id)}</div>
-    <div class="fd-lq" style="font-size:${fudaFit(lq,13)}">${esc(lq)}</div>
+  const raw=String(r['麹ID']||''), lq=r['液種']||'', kd=r['品種']||'';
+  /* 2026-10-20：区分（酛・添・仲・留）を色分け、仕込Noは区分の文字より大きく、区分・番号・号をまとめて下線。洗米・引込の日付は出さない */
+  const mm=raw.match(/^(\D+?)\s*(\d+)\s*号$/);
+  const idH=mm?`<span class="ku ku-${FUDA_KU[mm[1]]??'x'}">${esc(mm[1])}</span><span class="no">${esc(mm[2])}</span><span class="go">号</span>`:esc(raw);
+  return `<div class="fd-c">
+    <div class="fd-id">${idH}</div>
+    <div class="fd-lq" style="font-size:${fudaFit(lq,13)}"><span>${esc(lq)}</span></div>
     <div class="fd-kd"><span style="font-size:${fudaFit(kd,9,54)}">${esc(kd)}</span><span>${esc(String(r['精米歩合']??''))}<small>％</small></span></div>
     <div class="fd-kg">${rcN(r['麹米kg'])}<small> K</small></div>
     <div class="fd-dai"><span>／</span><small>台</small></div></div>`;
@@ -12323,8 +12328,12 @@ function fudaPrint(list){
   #fudaPrint .fd-pg:last-child{page-break-after:auto;break-after:auto}
   #fudaPrint .fd-c{box-sizing:border-box;border:0.3mm dashed #999;padding:8mm 8mm 6mm;display:flex;flex-direction:column;justify-content:space-between;font-family:"BIZ UDPGothic","Yu Gothic","Hiragino Sans",sans-serif;line-height:1.1;overflow:hidden}
   #fudaPrint .fd-d{font-size:3.6mm;color:#333}
-  #fudaPrint .fd-id{font-size:14mm;font-weight:800;text-align:center;letter-spacing:1mm}
+  #fudaPrint .fd-id{font-size:14mm;font-weight:800;text-align:center;white-space:nowrap;display:flex;justify-content:center;align-items:baseline;gap:1.5mm;width:fit-content;margin:0 auto;border-bottom:1mm solid #000;padding:0 1mm 1mm}
+  #fudaPrint .fd-id .ku{font-size:14mm}#fudaPrint .fd-id .no{font-size:24mm;letter-spacing:0.5mm}#fudaPrint .fd-id .go{font-size:9mm;font-weight:700}
+  #fudaPrint .ku-0{color:#d62728}#fudaPrint .ku-1{color:#1f5fbf}#fudaPrint .ku-2{color:#1a8a3a}#fudaPrint .ku-3{color:#7b3fa0}
+  #fudaPrint .fd-c{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   #fudaPrint .fd-lq{font-weight:700;text-align:center;white-space:nowrap}
+  #fudaPrint .fd-lq span{text-decoration:underline;text-decoration-thickness:0.7mm;text-underline-offset:2mm}
   #fudaPrint .fd-kd{display:flex;justify-content:space-between;align-items:baseline;font-weight:700;white-space:nowrap}
   #fudaPrint .fd-kd span:last-child{font-size:12mm;font-weight:400}#fudaPrint .fd-kd small{font-size:8mm}
   #fudaPrint .fd-kg{font-size:13mm;text-align:right;padding-right:6mm}#fudaPrint .fd-kg small{font-size:8mm}
