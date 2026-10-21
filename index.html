@@ -3518,6 +3518,7 @@ const rcMD=s=>s?`${+String(s).slice(5,7)}/${+String(s).slice(8,10)}`:'—';
 const rcDays=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000);
 function rcStatus(t,warn){ const s=$('#rcStatus'); if(!s)return; s.textContent=t; s.className='rc-status'+(warn?' warn':''); if(!warn) setTimeout(()=>{ if(s.textContent===t) s.textContent=''; },4000); }
 async function recApi(body, ms){
+  if(body && (body.action==='bunseki_get'||body.action==='shubo_get') && typeof rmEnqueue==='function' && !RM.off) return rmEnqueue(body, ms);   /* 2026-10-21 まとめて取る（rmany1021） */
   const ctl = typeof AbortController!=='undefined' ? new AbortController() : null;
   const t = ctl ? setTimeout(()=>ctl.abort(), ms||30000) : null;
   const b = Object.assign({user:rcUser(), device:(navigator.userAgent.match(/iPhone|iPad|Android|Windows|Mac/)||[''])[0]}, body);
@@ -5355,7 +5356,8 @@ async function shFetchMany(nos, action, store, onEach){
   let i=0;
   const worker=async()=>{ while(i<nos.length){ const no=nos[i++];
     try{ const r=await recApi({action,no},40000); if(r&&r.ok){ store[no]=r; onEach(no); } }catch(e){} } };
-  await Promise.all([worker(),worker(),worker()]);
+  const W=(typeof RM!=='undefined'&&!RM.off)?Math.max(1,Math.min(nos.length,40)):3;   /* 2026-10-21 まとめて取れるときは一度に出す（rmany1021） */
+  await Promise.all(Array.from({length:W},worker));
 }
 
 /* ================= 🧫 酒母 ================= */
@@ -8321,7 +8323,8 @@ function kgHomeBox(kind){
         draw=()=>kgBox(box, kgFieldsShuboNow, kgShuboRows(list,today), {setKind:'shubo', shubo:true, today:true, jo:'酛卸', outLabel:'酛卸の後', empty:'育成中の酒母はありません', note:'マスに直接入力 → 下の「保存」', edit:true, chart:true}, no=>kgeDialog(no));
         KGE.draw=draw;
         draw();
-        let tm=null; shFetchMany(list.filter(m=>!RC.shubo[m.no]).map(m=>m.no),'shubo_get',RC.shubo,()=>{ clearTimeout(tm); tm=setTimeout(draw,150); });
+        const sbdLast=m=>(typeof SBD!=='undefined'&&SBD.done.has(String(m.no)))?1:0;   /* 2026-10-21 今の酒母を先に、履歴は後で取る */
+        let tm=null; shFetchMany(list.filter(m=>!RC.shubo[m.no]).sort((a,b)=>sbdLast(a)-sbdLast(b)).map(m=>m.no),'shubo_get',RC.shubo,()=>{ clearTimeout(tm); tm=setTimeout(draw,150); });
       }
     }catch(e){ console.log('kgHome',e); }
     return r; };
@@ -9356,6 +9359,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-21-3','🧫','酒母・仕込み','酒母の表は「履歴を表示」を押さなくても、いつも今の酒母の上に履歴（酛卸済・留から30日以内）が並ぶようにしました（ボタンは削除）。上へスクロールすると古い順に見られます。また、酒母・仕込みの表の読み込みを速くしました（何本分かをまとめて1回で取ります。今の酒母を先に読み込みます）。'],
   ['2026-10-21-2','🧫','酒母','酒母の表の「酛卸済も表示」を「履歴を表示」にしました。押すと、酛卸が済んだ酒母（留から30日以内）が今の酒母の上に古い順で並びます。表は今の酒母から表示されるので、上へスクロールすると順番どおりに履歴が見られます。'],
   ['2026-10-21-1','👤','仕込み','仕込みの画面の上の「分析者」を「入力者」に変え、ほかと同じ大きさのアイコンにしました（会社PC・Pad で表示。押すと名前を選べます）。留後の作業（🕳 穴あけ・🫧 泡消し器）の通知も同じ大きさのアイコンになりました。済んだらタップします。'],
   ['2026-10-20-7','🏢','麹','麹の札をスマホから会社のプリンター（事務所 NEC 9160）で印刷できるようにしました。札の画面の「🖨 印刷」を押すと、会社PCが受け取って1〜2分で印刷します（会社PCの電源が入っているときだけ）。送った札の状況（待ち・印刷済）も画面に出ます。'],
@@ -13108,7 +13112,7 @@ function sbsSave(box, no){
      開いたときは今の酒母の先頭が表の一番上に来るように表をスクロール → 上へスクロールすると履歴が順番どおり見られる
    控え：seishu-workbook_github\_src_sbdone1020.js（index.html の sbdone1020 の目印の間） */
 const SBD_DAYS=30;
-function sbdOn(){ return !!lsGet('sb.done', false); }
+function sbdOn(){ return true; }   /* 2026-10-21 泰広さん指示：「履歴を表示」を押さなくても、いつも今の酒母の上に履歴（上へスクロールで見られる）。ボタンは削除 */
 function sbdList(st){
   const cur=shuboList(st).map(x=>x.m);
   if(!sbdOn()) return cur;
@@ -13141,7 +13145,7 @@ const SBD={ done:new Set(), cur:'' };
           const th=tw.querySelector('thead'), hh=th?th.getBoundingClientRect().height:0;
           tw.scrollTop+=td.getBoundingClientRect().top-tw.getBoundingClientRect().top-hh; };
         go1(); requestAnimationFrame(go1); } } }catch(e){ console.log('sbd scroll',e); }
-    try{ if(box&&opt&&opt.shubo&&opt.edit){ const bar=box.querySelector('.rc-bar'); if(bar&&!bar.querySelector('.sbd-btn')){
+    try{ if(false&&box&&opt&&opt.shubo&&opt.edit){ const bar=box.querySelector('.rc-bar'); if(bar&&!bar.querySelector('.sbd-btn')){   /* 2026-10-21 ボタンは出さない */
       const on=sbdOn(), b=document.createElement('button'); b.type='button'; b.className='rc-chip sbd-btn'+(on?' on':'');
       b.textContent=on?'履歴を表示 ✓':'履歴を表示';   /* 2026-10-21 名前を「履歴を表示」に */
       b.onclick=()=>{ lsSet('sb.done', !on); shuboHome(); };
@@ -13233,5 +13237,54 @@ const SBD={ done:new Set(), cur:'' };
 
 </script>
 <!-- /shk1021 -->
+<!-- rmany1021 -->
+<script>
+/* ================= ⚡ 酒母・仕込みの読み込みを速く：まとめて取る（2026-10-21） =================
+   泰広さん指示：情報量が多くなってきて反映される時間が長くなってきている。短縮できないか。
+   測定（2026-10-21）：bunseki_get／shubo_get は1本ごとに1回の通信で 3〜6秒（とっておきがあっても約1.1秒）。3本ずつ順に取るので 醪9本で約15秒、酒母11本で約17秒。
+   ・同じ瞬間（30ms 以内）に出た bunseki_get／shubo_get をまとめ、サーバーの rec_many（一括読み込み.gs）で数本ずつ1回の通信にする。
+     まとめた束は同時に送る（最大 RM_PAR 本）。1束の本数は全体を RM_PAR 等分（RM_MIN〜RM_MAX 本）
+   ・受け取った答えは1本ずつ今までどおり返す（端末の控え・裏で最新・送信待ちの重ね合わせはそのまま）
+   ・サーバーが古い（rec_many を知らない）ときは、今までどおり1本ずつ（RM.off）
+   ・shFetchMany は3本ずつ → まとめて出す（RM が使えるとき）
+   ・仕組み：一番もとの recApi（recApiNet）の頭で rmEnqueue に回す。本体の直しは1行（_読み込みをまとめる_20261021.py）
+   控え：seishu-workbook_github\_src_rmany1021.js（index.html の rmany1021 の目印の間） */
+const RM={ q:[], tm:null, off:false };
+const RM_PAR=4, RM_MIN=3, RM_MAX=8, RM_WAIT=30;
+function rmEnqueue(body, ms){
+  return new Promise((res,rej)=>{ RM.q.push({body, ms, res, rej}); if(!RM.tm) RM.tm=setTimeout(rmFlush, RM_WAIT); });
+}
+function rmFlush(){
+  const all=RM.q; RM.q=[]; RM.tm=null; if(!all.length) return;
+  /* 同じもの（action と no が同じ）は1つにまとめる */
+  const groups=new Map();
+  all.forEach(x=>{ const k=x.body.action+'|'+x.body.no; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(x); });
+  const keys=[...groups.keys()];
+  const size=Math.max(RM_MIN, Math.min(RM_MAX, Math.ceil(keys.length/RM_PAR)));
+  for(let i=0;i<keys.length;i+=size) rmSend(keys.slice(i,i+size).map(k=>groups.get(k)));
+}
+async function rmSend(gs){
+  const one=gs.map(g=>g[0]);
+  const items=one.map(x=>({action:x.body.action, no:x.body.no}));
+  const ms=Math.max(...one.map(x=>x.ms||40000)) + 15000;
+  const done=(g,r)=>g.forEach(x=>x.res(r)), fail=(g,e)=>g.forEach(x=>x.rej(e));
+  try{
+    if(RM.off) throw new Error('off');
+    const j=await recApiNet({action:'rec_many', items}, ms);
+    if(!j || !j.ok || !Array.isArray(j.res)){ if(j && /unknown_action/.test(j.err||'')) RM.off=true; throw new Error((j&&j.err)||'rec_many'); }
+    gs.forEach((g,i)=>{ const r=j.res[i]; if(r && r.ok) done(g,r); else rmOne(g); });
+  }catch(e){
+    gs.forEach(g=>rmOne(g));
+  }
+}
+/* 1本ずつ（今までと同じ取り方） */
+async function rmOne(g){
+  const x=g[0];
+  try{ const r=await rmDirect(x.body, x.ms); g.forEach(y=>y.res(r)); }catch(e){ g.forEach(y=>y.rej(e)); }
+}
+function rmDirect(body, ms){ const o=RM.off; RM.off=true; try{ return recApiNet(body, ms); } finally{ RM.off=o; } }
+
+</script>
+<!-- /rmany1021 -->
 </body>
 </html>
