@@ -9356,6 +9356,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-21-2','🧫','酒母','酒母の表の「酛卸済も表示」を「履歴を表示」にしました。押すと、酛卸が済んだ酒母（留から30日以内）が今の酒母の上に古い順で並びます。表は今の酒母から表示されるので、上へスクロールすると順番どおりに履歴が見られます。'],
   ['2026-10-21-1','👤','仕込み','仕込みの画面の上の「分析者」を「入力者」に変え、ほかと同じ大きさのアイコンにしました（会社PC・Pad で表示。押すと名前を選べます）。留後の作業（🕳 穴あけ・🫧 泡消し器）の通知も同じ大きさのアイコンになりました。済んだらタップします。'],
   ['2026-10-20-7','🏢','麹','麹の札をスマホから会社のプリンター（事務所 NEC 9160）で印刷できるようにしました。札の画面の「🖨 印刷」を押すと、会社PCが受け取って1〜2分で印刷します（会社PCの電源が入っているときだけ）。送った札の状況（待ち・印刷済）も画面に出ます。'],
   ['2026-10-20-6','🏷','麹','麹の札（印刷）を見やすくしました。酛＝赤・添＝青・仲＝緑・留＝紫で色分けし、仕込Noの数字を大きく、「酛15号」の部分と液種名に下線を付けました。札の上の洗米・引込の日付はなくしました。'],
@@ -13103,6 +13104,8 @@ function sbsSave(box, no){
      同じ表でそのまま直せる（日々の値・仕込時の値・酛卸の尺・量・卸先。保存のしかたも同じ）。列は13日目まで
    ・切り替えは端末に覚える（lsGet 'sb.done'）。順号の下に「酛卸済」の札
    ・kgHome（酒母）の list=shuboList(...) を sbdList(st) に直接置きかえ
+   ・2026-10-21 泰広さん指示：ボタンの名前を「履歴を表示」に。履歴（酛卸済）は今の酒母の【上】に古い順で並べ、
+     開いたときは今の酒母の先頭が表の一番上に来るように表をスクロール → 上へスクロールすると履歴が順番どおり見られる
    控え：seishu-workbook_github\_src_sbdone1020.js（index.html の sbdone1020 の目印の間） */
 const SBD_DAYS=30;
 function sbdOn(){ return !!lsGet('sb.done', false); }
@@ -13111,11 +13114,12 @@ function sbdList(st){
   if(!sbdOn()) return cur;
   const today=dtoday(), from=dadd(today,-SBD_DAYS), have=new Set(cur.map(m=>String(m.no)));
   const done=((st&&st.master)||[]).filter(m=>m.motodate&&m.tome&&!have.has(String(m.no))&&rcShuboDay(m,today)>rcDays(m.motodate,m.tome)+1&&m.tome>=from)
-    .sort((a,b)=>b.motodate.localeCompare(a.motodate)||b.no-a.no);
+    .sort((a,b)=>a.motodate.localeCompare(b.motodate)||a.no-b.no);   /* 2026-10-21 古い順（今の酒母と同じ並び） */
   done.forEach(m=>SBD.done.add(String(m.no)));
-  return cur.concat(done);
+  SBD.cur=cur.length?String(cur[0].no):'';
+  return done.concat(cur);   /* 2026-10-21 履歴を今の酒母の上に */
 }
-const SBD={ done:new Set() };
+const SBD={ done:new Set(), cur:'' };
 /* 酛卸済の行：列は13日目まで・「酛卸済」の札 */
 (function(){
   const o=window.kgShuboRows; if(typeof o!=='function') return;
@@ -13128,10 +13132,18 @@ const SBD={ done:new Set() };
 (function(){
   const o=window.kgBox; if(typeof o!=='function') return;
   window.kgBox=function(box, fields, rows, opt, open){
+    const first=!!(box&&!box.querySelector('.kg-tw'));
     const r=o.apply(this, arguments);
+    /* 2026-10-21 履歴を表示しているときは、最初に描いたときだけ 今の酒母の先頭を表の一番上に（上へスクロールで履歴） */
+    try{ if(first&&box&&opt&&opt.shubo&&opt.edit&&sbdOn()){ const tw=box.querySelector('.kg-tw');
+      if(tw){ const go1=()=>{ const td=SBD.cur?tw.querySelector(`td.n[data-kgno="${SBD.cur}"]`):null;
+          if(!td){ tw.scrollTop=tw.scrollHeight; return; }
+          const th=tw.querySelector('thead'), hh=th?th.getBoundingClientRect().height:0;
+          tw.scrollTop+=td.getBoundingClientRect().top-tw.getBoundingClientRect().top-hh; };
+        go1(); requestAnimationFrame(go1); } } }catch(e){ console.log('sbd scroll',e); }
     try{ if(box&&opt&&opt.shubo&&opt.edit){ const bar=box.querySelector('.rc-bar'); if(bar&&!bar.querySelector('.sbd-btn')){
       const on=sbdOn(), b=document.createElement('button'); b.type='button'; b.className='rc-chip sbd-btn'+(on?' on':'');
-      b.textContent=on?'酛卸済も表示中 ✓':'酛卸済も表示';
+      b.textContent=on?'履歴を表示 ✓':'履歴を表示';   /* 2026-10-21 名前を「履歴を表示」に */
       b.onclick=()=>{ lsSet('sb.done', !on); shuboHome(); };
       bar.prepend(b); } } }catch(e){ console.log('sbd',e); }
     return r;
