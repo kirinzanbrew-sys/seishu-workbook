@@ -9356,6 +9356,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-21-1','👤','仕込み','仕込みの画面の上の「分析者」を「入力者」に変え、ほかと同じ大きさのアイコンにしました（会社PC・Pad で表示。押すと名前を選べます）。留後の作業（🕳 穴あけ・🫧 泡消し器）の通知も同じ大きさのアイコンになりました。済んだらタップします。'],
   ['2026-10-20-7','🏢','麹','麹の札をスマホから会社のプリンター（事務所 NEC 9160）で印刷できるようにしました。札の画面の「🖨 印刷」を押すと、会社PCが受け取って1〜2分で印刷します（会社PCの電源が入っているときだけ）。送った札の状況（待ち・印刷済）も画面に出ます。'],
   ['2026-10-20-6','🏷','麹','麹の札（印刷）を見やすくしました。酛＝赤・添＝青・仲＝緑・留＝紫で色分けし、仕込Noの数字を大きく、「酛15号」の部分と液種名に下線を付けました。札の上の洗米・引込の日付はなくしました。'],
   ['2026-10-20-5','🧫','酒母','酒母の表の上に「酛卸済も表示」の切り替えを付けました。入れると、酛卸が済んで表から消えた酒母（留から30日以内）も同じ表の下に出て、日々の値・仕込時の値・酛卸の尺・量・卸先をそのまま直せます。もう一度押すと元に戻ります。'],
@@ -13142,5 +13143,83 @@ const SBD={ done:new Set() };
 .kg-t td.n .sbd-tag{display:inline-block;margin:2px 0 0;font-size:10px;font-weight:800;color:#fff;background:#8a6cc8;border-radius:5px;padding:0 5px;vertical-align:middle}`; document.head.appendChild(s); })();
 </script>
 <!-- /sbdone1020 -->
+<!-- shk1021 -->
+<script>
+/* ================= 🍶 仕込み：上段の「分析者」→「入力者」アイコン／留後の作業（穴あけ・泡消し器）もアイコンに（2026-10-21） =================
+   泰広さん指示：仕込みの画面で上部にある分析者→入力者に表示を変更。これもアイコンと同じ大きさで表示。穴あけ等の表示もアイコン化。
+   ・🍶仕込み（moromiHome）の上段アイコン（.shk-icons）の並びに「👤 入力者」を足す（共用端末＝会社PC・会社PC2・Pad だけ。スマホは今までどおり出さない）
+     押すと名前の選択リスト（今日の出勤者 → そのほか）。未選択はオレンジ枠。選ぶまで保存を止めるのは今までどおり（#iaSel・iaGet をそのまま使う。.ia-bar は付けない＝元の止め方と二重にならないように、このブロックで止める）
+   ・留後の作業の通知（大きな黄色の枠）をやめ、同じ並びに 🕳／🫧 のアイコン（No.◯・作業名、遅れは赤い札）。タップ → 確認 → 済（今までと同じ mwTap）
+   ・ほかの画面（🧫酒母・🧪分析・醪の入力）の「分析者」の帯は変更なし
+   控え：seishu-workbook_github\_src_shk1021.js（index.html の shk1021 の目印の間） */
+(function(){
+  if(typeof iaBar!=='function') return;
+  const _ia=iaBar;
+  iaBar=function(){
+    try{
+      const row=app.querySelector('.shk-icons');
+      if(row && IA_ON && !app.querySelector('.ia-bar,.ia-ic') && igShared()){
+        const cur=iaGet(), N=iaNames();
+        const opt=a=>a.map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');
+        const d=document.createElement('label');
+        d.className='st-ic ia-ic'+(cur?'':' ng');
+        d.title=`${ST.name||''}（共用端末）：入力した人を選んでから保存`;
+        d.innerHTML=`<span class="e">👤</span><b class="ia-nm">${cur?esc(cur):'未選択'}</b><small>入力者</small>`+
+          `<select id="iaSel" aria-label="入力者"><option value="">— だれが入力しましたか —</option>${N.work.length?`<optgroup label="今日の出勤者">${opt(N.work)}</optgroup>`:''}${N.rest.length?`<optgroup label="そのほか">${opt(N.rest)}</optgroup>`:''}</select>`;
+        const s=d.querySelector('select'); s.dataset.igSkip='1';
+        s.onchange=()=>{ iaSet(s.value); d.classList.toggle('ng',!s.value); d.querySelector('.ia-nm').textContent=s.value||'未選択'; };
+        const ms=row.querySelector('#mwSlot'); ms?ms.before(d):row.appendChild(d);
+        return;
+      }
+    }catch(e){ console.log('shk1021 ia',e); }
+    return _ia.apply(this,arguments);
+  };
+  /* 選ぶまで保存を止めたときの知らせ（仕込みのアイコンのときだけ「入力した人」） */
+  document.addEventListener('click',e=>{
+    const b=e.target&&e.target.closest&&e.target.closest('#rcSave,#bnSave,#kgSave'); if(!b||!app.contains(b)||b.disabled) return;
+    const t=app.querySelector('.ia-ic'); if(!t||!igShared()||iaGet()) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    t.classList.add('ng'); t.scrollIntoView({block:'center'}); const s=$('#iaSel'); if(s) s.focus();
+    window.alert('入力した人（入力者）を選んでから保存してください');
+  },true);
+})();
+(function(){
+  if(typeof mwInject!=='function') return;
+  const _mw=mwInject;
+  const tiles=()=>mwPending(dtoday()).map(x=>{
+    const nm=x.job.name+(x.job.name==='泡消し器'?'の設置':'');
+    return `<button class="st-ic mw-ic${x.late>0?' late':''}" type="button" data-mwno="${esc(String(x.m.no))}" data-mwjob="${esc(x.job.name)}"
+      title="${esc(nm)}　No.${esc(String(x.m.no))} ${esc(x.m.sym||'')} T${esc(x.m.tank||'')}　${esc(x.m.liquid||'')}・留${x.job.day}日目（${+x.due.slice(5,7)}/${+x.due.slice(8,10)}）${x.late>0?' '+x.late+'日遅れ':''}　済んだらタップ">
+      <span class="e">${x.job.icon}</span><b>No.${esc(String(x.m.no))}</b><small>${esc(x.job.short)}</small>${x.late>0?`<i class="mw-lt">${x.late}日遅れ</i>`:''}</button>`;
+  }).join('');
+  mwInject=function(){
+    const row=app.querySelector('.shk-icons');
+    if(!row) return _mw.apply(this,arguments);
+    let slot=document.getElementById('mwSlot');
+    if(slot && !row.contains(slot)){ slot.remove(); slot=null; }
+    if(!slot){ slot=document.createElement('span'); slot.id='mwSlot'; row.appendChild(slot); }
+    slot.innerHTML=tiles();
+    slot.querySelectorAll('.mw-ic').forEach(b=>b.onclick=e=>{ e.stopPropagation(); mwTap(b.dataset.mwno, b.dataset.mwjob, mwInject); });
+    let er=app.querySelector('.mw-err');
+    if(MW.err){ if(!er){ er=document.createElement('div'); er.className='tl-warn mw-err'; er.style.margin='0 0 8px'; row.after(er); } er.textContent=MW.err; }
+    else if(er) er.remove();
+  };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.shk-icons{flex-wrap:wrap}
+#mwSlot{display:contents}
+.st-ic.ia-ic{position:relative;box-sizing:border-box;margin:0;padding:4px;width:72px;height:66px;flex-direction:column;flex-wrap:nowrap;justify-content:center;gap:1px;background:var(--card,#fff);border:1px solid var(--line,#e4ded1);border-radius:14px;color:var(--navy,#1f3f72);font-size:inherit;font-weight:400}
+.st-ic.ia-ic b{font-size:12px;font-weight:700;max-width:64px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.st-ic.ia-ic small{flex-basis:auto;font-size:10px;color:var(--sub,#6b6b6b)}
+.st-ic.ia-ic select{position:absolute;inset:0;width:100%;height:100%;min-width:0;opacity:0;cursor:pointer;border:none;padding:0;font-size:16px}
+.st-ic.ia-ic.ng{border:2px solid #e8a13a;background:#fff8ec}.st-ic.ia-ic.ng b{color:#a0610b}
+.st-ic.mw-ic{position:relative;border:2px solid #e0a23a;background:#fff8e6}
+.st-ic.mw-ic b{color:#8a5300}.st-ic.mw-ic small{color:#8a5300;font-weight:700}
+.st-ic.mw-ic.late{border-color:#d62b22}
+.st-ic.mw-ic .mw-lt{position:absolute;top:-7px;right:-6px;font-style:normal;font-size:9px;font-weight:800;color:#fff;background:#d62b22;border-radius:6px;padding:1px 4px;white-space:nowrap}
+.st-ic.mw-ic:active{background:#eef7ee}`; document.head.appendChild(s); })();
+
+</script>
+<!-- /shk1021 -->
 </body>
 </html>
