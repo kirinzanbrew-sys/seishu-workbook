@@ -9359,6 +9359,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-23-6','🍶','仕込み','仕込みの 添・仲・留 の水麹を 💧麹 のマークにしました（表・1本の画面）。'],
+  ['2026-10-23-5','🍶','仕込み','仕込みの 添・仲・留 の氷のマークを ❄️ に、蒸米を湯気と米粒の絵にしました（表・1本の画面）。'],
   ['2026-10-23-4','🍶','仕込み','仕込みの表の順号の下の「添 T◯◯」に、添のタンク番号を直接入れられるようにしました（酒母の酛卸の卸先と同じところに保存されます）。入れると添の量も新しいタンクの早見表で直ります。'],
   ['2026-10-23-3','🍶','仕込み','添の量が尺と合っていなかった件を直しました（酛卸の卸先を選ぶ前の別のタンクで量が入っていたため）。仕込みの表を開くと、添・仲・留の尺から今のタンクの早見表で量を出し直し、違っていれば自動で直して保存します。'],
   ['2026-10-23-2','🍶','仕込み','仕込みの表で、添・仲・留の仕込み時の「量」の横に、配合の計画に対して何倍かを小さな色札で出すようにしました（例 1.03。緑＝通常 1.00〜1.08倍／赤＝それ以外）。また、仕込みの量は尺から自動で入るだけにして（入力不要）、仕込み・酒母の量の欄の囲み（枠）をなくして数字だけの表示にしました。'],
@@ -13293,7 +13295,7 @@ function rmDirect(body, ms){ const o=RM.off; RM.off=true; try{ return recApiNet(
 <!-- /rmany1021 -->
 <!-- fix1022 -->
 <script>
-/* ================= 🧫 酒母：仕込時の量は自動のみ・未入力でも保存可／🍶 仕込み：汲水は入力不可・氷は🧊（2026-10-22） =================
+/* ================= 🧫 酒母：仕込時の量は自動のみ・未入力でも保存可／🍶 仕込み：汲水は入力不可・氷は❄️（2026-10-22） =================
    泰広さん指示：酒母の仕込み時で尺を入れても量が反映されない → 調べる。未入力でも保存できるように。量は自動反映なので、
    仕込み時も表からも入力できないように。仕込みの 添・仲・留 の汲水は変更できないように（入力不可）。氷の文字は氷のマーク（文字と同じ大きさ）に。
    ・量が入らなかった原因：酒母タンク（仕込マスタの shuboT）が空の酒母（10/22 時点で順号16以降はすべて空）は「酒母タンク未設定」で計算しなかった。
@@ -13301,9 +13303,12 @@ function rmDirect(body, ms){ const o=RM.off; RM.off=true; try{ return recApiNet(
      → 表の T 欄に打った番号でもその場で計算。T を後から入れたときも尺から量を入れ直して裏で保存。窓・1本の画面も自動。
    ・量の欄は 表・窓・1本の画面 すべて読むだけ（自動）。計算できないとき（T未設定・照合できていない容器・範囲外）は理由を出す
    ・仕込時の値が未入力でも 日々の値・仕込時の値 を保存できる（shSetupMissing を常に空に＝鍵・「必須」の表示もなくなる）
-   ・🍶仕込みの表と1本の画面：汲水は読むだけ（計画値。空なら配合の計画値を薄く表示）。表の「氷」の札は 🧊
+   ・🍶仕込みの表と1本の画面：汲水は読むだけ（計画値。空なら配合の計画値を薄く表示）。表の「氷」の札は ❄️
+   ・2026-10-23 泰広さん指示：氷のマークは見本から ❄️（雪の結晶）、蒸米は 湯気と米粒 の絵に、水麹は 💧＋小さな「麹」に（表・1本の画面・仕込み時の表）
    控え：seishu-workbook_github\_src_fix1022.js */
 const FX={};
+const FX_MIZU='<span class="fx-mizu" role="img" aria-label="水麹">💧<i>麹</i></span>';
+const FX_MUSHI='<svg viewBox="0 0 16 16" width="1.1em" height="1.1em" style="vertical-align:-0.18em" aria-hidden="true"><path d="M3 4c0-1 .8-1 .8-2M7 4c0-1 .8-1 .8-2M11 4c0-1 .8-1 .8-2" fill="none" stroke="#9aa3ad" stroke-width="1" stroke-linecap="round"/><ellipse cx="5" cy="10" rx="2.2" ry="3.4" transform="rotate(-25 5 10)" fill="#fff" stroke="#8a7a5a" stroke-width="1"/><ellipse cx="10.5" cy="10" rx="2.2" ry="3.4" transform="rotate(20 10.5 10)" fill="#fff" stroke="#8a7a5a" stroke-width="1"/></svg>';
 shSetupMissing=function(){ return []; };
 FX.miss=function(no){ const s=RC.shubo&&RC.shubo[no], u=(s&&s.setup)||{}; return SH_SETUP.filter(([f])=>shN(u[f])===null).map(x=>x[1]); };
 FX.missTx=function(root,no){   // 「入力済み」の札を本当の状態に（未入力があっても保存はできる）
@@ -13399,7 +13404,7 @@ FX.wireForm=function(root, skId, ryId, T){
     return r;
   };
 })();
-/* 🍶 仕込みの表：汲水は読むだけ／氷 → 🧊 */
+/* 🍶 仕込みの表：汲水は読むだけ／氷 → ❄️ */
 FX.mkPaint=function(box){
   box.querySelectorAll('.kg-t.mk .kg-i.ks[data-k="kumi"]').forEach(el=>{
     el.readOnly=true; el.tabIndex=-1; el.classList.add('fx-ro');
@@ -13407,9 +13412,9 @@ FX.mkPaint=function(box){
     if(String(el.value).trim()===''&&plan!=null&&plan!=='') el.placeholder=String(plan);
     el.title='汲水は配合の計画値（変更できません）';
   });
-  box.querySelectorAll('.kg-t.mk .ksl').forEach(l=>{ if(l.textContent.trim()==='氷'){ l.innerHTML='<span class="fx-ice" role="img" aria-label="氷">🧊</span>'; } });
+  box.querySelectorAll('.kg-t.mk .ksl').forEach(l=>{ if(l.textContent.trim()==='水麹'){ l.innerHTML=FX_MIZU; return; } if(l.textContent.trim()==='蒸米'){ l.innerHTML='<span class="fx-mushi" role="img" aria-label="蒸米">'+FX_MUSHI+'</span>'; return; } if(l.textContent.trim()==='氷'){ l.innerHTML='<span class="fx-ice" role="img" aria-label="氷">❄️</span>'; } });
 };
-/* 1本の画面（仕込み時の入力）：汲水は読むだけ／氷 → 🧊 */
+/* 1本の画面（仕込み時の入力）：汲水は読むだけ／氷 → ❄️ */
 (function(){
   const o=window.moromiSetup; if(typeof o!=='function') return;
   window.moromiSetup=async function(no, st){
@@ -13419,23 +13424,29 @@ FX.mkPaint=function(box){
       if(k){ k.readOnly=true; k.tabIndex=-1; k.classList.add('fx-ro'); k.title='汲水は配合の計画値（変更できません）';
         const m=rcMaster(no)||{}, plan=m.kumi&&m.kumi[st]; if(String(k.value).trim()===''&&plan!=null&&plan!=='') k.placeholder=String(plan); }
       const kr=document.getElementById('mr_kori'), lab=kr&&kr.closest('.rc-f'), sp=lab&&lab.querySelector('span');
-      if(sp&&/^氷/.test(sp.textContent.trim())) sp.innerHTML=sp.innerHTML.replace(/^(\s*)氷/,'$1<span class="fx-ice" role="img" aria-label="氷">🧊</span>');
+      if(sp&&/^氷/.test(sp.textContent.trim())) sp.innerHTML=sp.innerHTML.replace(/^(\s*)氷/,'$1<span class="fx-ice" role="img" aria-label="氷">❄️</span>');
+      const mz=document.getElementById('mr_mizukoji'), mzl=mz&&mz.closest('.rc-f'), mzs=mzl&&mzl.querySelector('span');
+      if(mzs&&/^水麹/.test(mzs.textContent.trim())) mzs.innerHTML=mzs.innerHTML.replace(/^(\s*)水麹/,'$1'+FX_MIZU);
+      const mu=document.getElementById('mr_mushi'), ml=mu&&mu.closest('.rc-f'), ms=ml&&ml.querySelector('span');
+      if(ms&&/^蒸米/.test(ms.textContent.trim())) ms.innerHTML=ms.innerHTML.replace(/^(\s*)蒸米/,'$1<span class="fx-mushi" role="img" aria-label="蒸米">'+FX_MUSHI+'</span>');
       app.querySelectorAll('.tl-note').forEach(p=>{ p.innerHTML=p.innerHTML.replace('汲水は計画値が最初から入っています（実際と違えば直す）。','汲水は計画値（変更できません）。'); });
     }catch(e){ console.log('fx-mr',e); }
     return r;
   };
 })();
-/* 1本の画面の「仕込み時」の表：氷 → 🧊 */
+/* 1本の画面の「仕込み時」の表：氷 → ❄️ */
 (function(){
   const o=window.moromiSetupTable; if(typeof o!=='function') return;
   window.moromiSetupTable=function(){ const h=o.apply(this, arguments);
-    return typeof h==='string'?h.replace('<td class="k">氷</td>','<td class="k"><span class="fx-ice" role="img" aria-label="氷">🧊</span></td>'):h; };
+    return typeof h==='string'?h.replace('<td class="k">氷</td>','<td class="k"><span class="fx-ice" role="img" aria-label="氷">❄️</span></td>').replace('<td class="k">水麹</td>','<td class="k">'+FX_MIZU+'</td>').replace('<td class="k">蒸米</td>','<td class="k"><span class="fx-mushi" role="img" aria-label="蒸米">'+FX_MUSHI+'</span></td>'):h; };
 })();
 (function(){ const s=document.createElement('style'); s.textContent=`
 input.fx-ro,input.fx-ro:focus{background:#eef1f4!important;color:#1d6b45!important;border-style:solid!important;outline:none!important;cursor:default}
 .kg-t.mk input.kg-i.ks.fx-ro{color:var(--navy)!important}
 input.fx-ro.fx-ng{color:#a0610b!important}
 .fx-ice{font-size:1em;line-height:1;font-style:normal}
+.fx-mushi{font-style:normal;line-height:1}
+.fx-mizu{font-style:normal;line-height:1;white-space:nowrap}.fx-mizu i{font-style:normal;color:#888}
 /* 2026-10-23 汲水は入力欄に見えないように囲み（枠・角丸・背景）をなくす */
 .kg-t.mk input.kg-i.ks.fx-ro[data-k="kumi"],.kg-t.mk input.kg-i.ks.fx-ro[data-k="kumi"]:focus,#mr_kumi.fx-ro,#mr_kumi.fx-ro:focus{border:none!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;outline:none!important}`; document.head.appendChild(s); })();
 </script>
