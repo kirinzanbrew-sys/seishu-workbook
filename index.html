@@ -8348,8 +8348,8 @@ const KGE_RANGE={be:[-5,25,'Be'],alc:[0,22,'alc'],ta:[0,30,'酸度'],aa:[0,10,'�
 const kgeKey=el=>`${el.dataset.no}|${el.dataset.day}|${el.dataset.k}`;
 const kgeOrig=el=>el.dataset.orig!==undefined?el.dataset.orig:el.defaultValue;   // 選択（備考）は data-orig に元の値
 const kgeChanged=el=>el.value!==kgeOrig(el);
-/* 備考（日ごと）：暖器／冷器／その他（自由に入力）を選ぶ（2026-10-05 泰広さん指示） */
-const KGE_BIKO=['暖器','冷器'];
+/* 備考（日ごと）：暖気／冷器／その他（自由に入力）を選ぶ（2026-10-05 泰広さん指示。2026-10-23 暖器→暖気） */
+const KGE_BIKO=['暖気','冷器'];   /* 2026-10-23 泰広さん指示：暖器 → 暖気（だき。酒母を温める操作の正しい表記）。前に「暖器」で保存した日は文字のまま出る */
 function kgeBikoSel(r, i, val, fl){
   const lab=`順号${esc(String(r.no))} ${i}日目 ${fl}`, dis=r.lock?' disabled title="仕込時の値が未入力です（左の順号を押して入れてください）"':'';
   const known=val===''||KGE_BIKO.includes(val);
@@ -9359,6 +9359,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-23-9','🧫','酒母','酒母の表の備考の選択肢「暖器」を正しい表記「暖気（だき）」に変えました。前に「暖器」で保存した日はそのままの文字で出ます。'],
   ['2026-10-23-8','🧫','酒母','水麹のマークを しずくの中に米粒 の絵に直しました（仕込み・酒母）。'],
   ['2026-10-23-7','🧫','酒母','酒母の仕込時の 水麹 を 💧麹、蒸米 を湯気と米粒のマークにしました（表・順号の窓・1本の画面）。'],
   ['2026-10-23-6','🍶','仕込み','仕込みの 添・仲・留 の水麹を 💧麹 のマークにしました（表・1本の画面）。'],
