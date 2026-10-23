@@ -9359,6 +9359,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-23-3','🍶','仕込み','添の量が尺と合っていなかった件を直しました（酛卸の卸先を選ぶ前の別のタンクで量が入っていたため）。仕込みの表を開くと、添・仲・留の尺から今のタンクの早見表で量を出し直し、違っていれば自動で直して保存します。'],
   ['2026-10-23-2','🍶','仕込み','仕込みの表で、添・仲・留の仕込み時の「量」の横に、配合の計画に対して何倍かを小さな色札で出すようにしました（例 1.03。緑＝通常 1.00〜1.08倍／赤＝それ以外）。また、仕込みの量は尺から自動で入るだけにして（入力不要）、仕込み・酒母の量の欄の囲み（枠）をなくして数字だけの表示にしました。'],
   ['2026-10-23-1','🍶','仕込み','仕込みの 添・仲・留 の汲水は入力できないので、入力欄の囲み（枠）をなくして数字だけの表示にしました。'],
   ['2026-10-22-1','🧫','酒母・仕込み','酒母の仕込時の「量」は尺から自動で入るだけにしました（手では入れられません）。表の T 欄に打った酒母タンクでもすぐ計算し、T を後から入れても量が入ります（T が空だと量は出ません）。仕込時の値が未入力でも保存できます。仕込みの 添・仲・留 の汲水は計画値のまま変更できないようにし、「氷」は 🧊 のマークにしました。'],
@@ -13486,5 +13487,47 @@ function ro1023(el){ if(!el) return; el.readOnly=true; el.tabIndex=-1; el.classL
 .rt1023.ng{background:#d0352b}`; document.head.appendChild(s); })();
 </script>
 <!-- /ratio1023 -->
+<!-- soefix1023 -->
+<script>
+/* ================= 🍶 仕込み：保存されている量が尺と合わないとき、今のタンクの早見表で直して保存（2026-10-23） =================
+   泰広さん指示：仕込みの添の尺と量が合っていない。同じ数字を入れ直すと何倍の数字も近くなる。
+   ・原因：添の量は、酛卸の卸先（添のタンク）を選ぶ前に別のタンク（端末に覚えた添のタンク・手入力など）で入っていた。
+     卸先を選んだあとも、尺を打ち直さない限り古い量のままだった（10/23 時点 3〜8号の添：例 3号 312mm 457L → T284 では 852L）
+   ・直し：🍶仕込みの表を開いたとき、添・仲・留の 尺 から今のタンクの早見表で量を出し、保存されている量と違えば直して裏で保存（知らせを出す）
+     タンク：添＝酛卸の卸先 → 無ければ 伝辛・超辛・純米辛口だけ醪タンク（端末に覚えた添のタンクは使わない）／仲・留＝醪タンク
+     照合できていない容器・範囲外・タンク未定は何もしない（税務に関わるので概算しない）
+   控え：seishu-workbook_github\_src_soefix1023.js */
+const SF={done:{}};
+function sfTank(m, st){
+  if(!m) return '';
+  if(st==='naka'||st==='tome') return String(m.tank||'').trim();
+  const to=(typeof oroOf==='function')?oroOf(m.no).to:''; if(to) return to;
+  const big=typeof oroBig==='function'?oroBig(m):['伝辛','超辛','純米辛口'].includes(String(m.liquid||'').replace(/[\s　]/g,''));
+  return big&&m.tank?String(m.tank).trim():'';
+}
+async function sfFix(rows){
+  if(!TANKS){ try{ await loadTanks(); }catch(e){} } if(!TANKS) return;
+  const done=[];
+  (rows||[]).forEach(r=>{ const b=RC.bun&&RC.bun[r.no]; if(!b||!b.setup) return; const m=rcMaster(r.no); if(!m) return;
+    ['soe','naka','tome'].forEach(st=>{ const S=b.setup[st]||{}; const mm=shN(S.shaku); if(mm===null||mm<=0) return;
+      const T=sfTank(m,st); if(!T) return; const t=tankByNo(T); if(!t||t.verify||t.blocked||!t.checked) return;
+      const v=volAt(t,mm); if(v===null) return; const L=Math.round(v);
+      const cur=shN(S.ryo); if(cur!==null&&Math.round(cur)===L) return;
+      const key=r.no+'|'+st+'|'+mm+'|'+L; if(SF.done[key]) return; SF.done[key]=1;
+      b.setup[st]=Object.assign({}, S, {ryo:L});
+      const lab=(KG_STG.find(x=>x[0]===st)||[])[1]||st;
+      recSaveBg({action:'bunseki_save', no:r.no, setup:{stage:st, values:{ryo:String(L)}}}, `仕込み 順号${r.no} ${lab}の量（尺から直し）`, true);
+      done.push(`${r.no}号 ${lab}：T${T} 尺${mm}mm ${cur===null?'空':cur.toLocaleString('ja-JP')+'L'} → ${L.toLocaleString('ja-JP')}L`);
+    }); });
+  if(done.length){ rcToast(`量が尺と合っていなかったので直しました（${done.join('、')}）`); if(typeof MKE!=='undefined'&&MKE.draw) setTimeout(()=>MKE.draw(), 50); }
+}
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box, fields, rows){ const r=o.apply(this, arguments);
+    try{ if(box&&box.querySelector&&box.querySelector('.kg-t.mk')) sfFix(rows); }catch(e){ console.log('soefix1023',e); }
+    return r; };
+})();
+</script>
+<!-- /soefix1023 -->
 </body>
 </html>
