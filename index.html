@@ -9359,6 +9359,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-22-1','🧫','酒母・仕込み','酒母の仕込時の「量」は尺から自動で入るだけにしました（手では入れられません）。表の T 欄に打った酒母タンクでもすぐ計算し、T を後から入れても量が入ります（T が空だと量は出ません）。仕込時の値が未入力でも保存できます。仕込みの 添・仲・留 の汲水は計画値のまま変更できないようにし、「氷」は 🧊 のマークにしました。'],
   ['2026-10-21-3','🧫','酒母・仕込み','酒母の表は「履歴を表示」を押さなくても、いつも今の酒母の上に履歴（酛卸済・留から30日以内）が並ぶようにしました（ボタンは削除）。上へスクロールすると古い順に見られます。また、酒母・仕込みの表の読み込みを速くしました（何本分かをまとめて1回で取ります。今の酒母を先に読み込みます）。'],
   ['2026-10-21-2','🧫','酒母','酒母の表の「酛卸済も表示」を「履歴を表示」にしました。押すと、酛卸が済んだ酒母（留から30日以内）が今の酒母の上に古い順で並びます。表は今の酒母から表示されるので、上へスクロールすると順番どおりに履歴が見られます。'],
   ['2026-10-21-1','👤','仕込み','仕込みの画面の上の「分析者」を「入力者」に変え、ほかと同じ大きさのアイコンにしました（会社PC・Pad で表示。押すと名前を選べます）。留後の作業（🕳 穴あけ・🫧 泡消し器）の通知も同じ大きさのアイコンになりました。済んだらタップします。'],
@@ -13286,5 +13287,152 @@ function rmDirect(body, ms){ const o=RM.off; RM.off=true; try{ return recApiNet(
 
 </script>
 <!-- /rmany1021 -->
+<!-- fix1022 -->
+<script>
+/* ================= 🧫 酒母：仕込時の量は自動のみ・未入力でも保存可／🍶 仕込み：汲水は入力不可・氷は🧊（2026-10-22） =================
+   泰広さん指示：酒母の仕込み時で尺を入れても量が反映されない → 調べる。未入力でも保存できるように。量は自動反映なので、
+   仕込み時も表からも入力できないように。仕込みの 添・仲・留 の汲水は変更できないように（入力不可）。氷の文字は氷のマーク（文字と同じ大きさ）に。
+   ・量が入らなかった原因：酒母タンク（仕込マスタの shuboT）が空の酒母（10/22 時点で順号16以降はすべて空）は「酒母タンク未設定」で計算しなかった。
+     表の T 欄に番号を打っても、保存するまでは計算に使っていなかった。順号を押して開く窓（kgeDialog）には自動計算そのものが無かった。
+     → 表の T 欄に打った番号でもその場で計算。T を後から入れたときも尺から量を入れ直して裏で保存。窓・1本の画面も自動。
+   ・量の欄は 表・窓・1本の画面 すべて読むだけ（自動）。計算できないとき（T未設定・照合できていない容器・範囲外）は理由を出す
+   ・仕込時の値が未入力でも 日々の値・仕込時の値 を保存できる（shSetupMissing を常に空に＝鍵・「必須」の表示もなくなる）
+   ・🍶仕込みの表と1本の画面：汲水は読むだけ（計画値。空なら配合の計画値を薄く表示）。表の「氷」の札は 🧊
+   控え：seishu-workbook_github\_src_fix1022.js */
+const FX={};
+shSetupMissing=function(){ return []; };
+FX.miss=function(no){ const s=RC.shubo&&RC.shubo[no], u=(s&&s.setup)||{}; return SH_SETUP.filter(([f])=>shN(u[f])===null).map(x=>x[1]); };
+FX.missTx=function(root,no){   // 「入力済み」の札を本当の状態に（未入力があっても保存はできる）
+  const mi=FX.miss(no); root.querySelectorAll('small, span.muted').forEach(e=>{ if(e.textContent.trim()==='入力済み'&&mi.length) e.innerHTML=`未入力：${esc(mi.join('・'))}<span style="opacity:.7">（未入力でも保存できます）</span>`; }); };
+FX.T=function(box,no,tv){   // 表の T 欄に打った番号（未保存でも）→ 無ければ仕込マスタの酒母タンク
+  if(tv!==undefined&&String(tv).trim()!=='') return String(tv).trim();
+  const tis=[...document.querySelectorAll(`.kg-home .kg-i.tki[data-no="${CSS.escape(String(no))}"]`)].map(x=>String(x.value).trim()).filter(Boolean);
+  if(tis.length) return tis[tis.length-1];
+  const m=rcMaster(no)||{}; return String(m.shuboT==null?'':m.shuboT).trim(); };
+FX.box=function(el){ return (el&&el.isConnected&&el.closest('.kg-home'))||document.querySelector('.kg-home.kg-shubo')||null; };
+FX.vol=function(T, mm){   // → {L,T} ／ {err}
+  if(!T) return {err:'酒母タンク（T）が未設定のため量は計算できません。T を入れてください'};
+  if(mm===null||mm===undefined) return {err:''};
+  if(typeof TANKS==='undefined'||!TANKS) return {err:'早見表を読み込み中', wait:true};
+  const t=tankByNo(T); if(!t) return {err:`T${T} は容量早見表に無い容器のため量は計算できません`};
+  if(t.verify||t.blocked||!t.checked) return {err:`T${T} は早見表が照合できていない容器のため量は計算しません（造りexで確認）`};
+  const v=volAt(t,mm); return v===null?{err:`尺 ${mm}mm は T${T} の早見表の範囲外です`}:{L:Math.round(v), T};
+};
+/* 酒母の表：量は読むだけ。尺・T を打ったらその場で量 */
+FX.sbCalc=function(box, no, save, tv){
+  if(!box||!box.isConnected) box=FX.box(); if(!box) return;
+  const q=k=>box.querySelector(`.kg-ss[data-no="${CSS.escape(String(no))}"][data-sk="${k}"]`);
+  const sk=q('shaku'), ry=q('ryo'); if(!sk||!ry) return;
+  const mm=pnum(sk.value);
+  if(mm===null){ if(String(sk.value).trim()===''){ ry.title='尺を入れると早見表から自動で入ります'; } return; }
+  const r=FX.vol(FX.T(box,no,tv), mm);
+  if(r.wait){ loadTanks().then(()=>FX.sbCalc(box,no,save,tv)).catch(()=>{}); return; }
+  if(r.L===undefined){ ry.title=r.err; ry.classList.add('fx-ng'); if(ry.value==='') ry.placeholder=/^酒母タンク/.test(r.err)?'T未':'不可'; return; }
+  ry.classList.remove('fx-ng'); ry.placeholder='自動'; ry.title=`T${r.T} 早見表：尺 ${mm}mm → ${r.L} L（自動）`;
+  if(ry.value!==String(r.L)){ ry.value=String(r.L); ry.classList.add('auto','dirty'); }
+  if(save) sbsSave(box, no);   // 変わっていなければ sbsSave は何も送らない
+};
+FX.sbPaint=function(box){
+  box.querySelectorAll('.kg-ss[data-sk="ryo"]').forEach(ry=>{
+    ry.readOnly=true; ry.tabIndex=-1; ry.classList.add('fx-ro'); ry.classList.remove('sneed'); ry.placeholder='自動';
+    if(!ry.title) ry.title='尺を入れると早見表から自動で入ります（手では入れられません）';
+  });
+  box.querySelectorAll('.kg-ss[data-sk="shaku"]').forEach(sk=>{
+    if(sk.dataset.fx) return; sk.dataset.fx='1'; const no=sk.dataset.no;
+    sk.addEventListener('input',()=>FX.sbCalc(FX.box(sk),no,false));
+    sk.addEventListener('change',()=>FX.sbCalc(FX.box(sk),no,true));
+    // 尺があって量が空（T を後から入れた等）→ 開いたときに入れて裏で保存（入っている量は書き換えない）
+    const ry=box.querySelector(`.kg-ss[data-no="${CSS.escape(no)}"][data-sk="ryo"]`);
+    if(pnum(sk.value)!==null && ry && String(ry.value).trim()==='') FX.sbCalc(box,no,true);
+  });
+  box.querySelectorAll('.kg-i.tki').forEach(ti=>{
+    if(ti.dataset.fx) return; ti.dataset.fx='1'; const no=ti.dataset.no;
+    let tm=null;
+    const run=save=>{ const v=ti.value; FX.sbCalc(FX.box(ti),no,save,v); };
+    ti.addEventListener('input',()=>{ run(false); clearTimeout(tm); tm=setTimeout(()=>run(true),900); });   // 打ち終わったら量を裏で保存
+    ti.addEventListener('change',()=>{ clearTimeout(tm); run(true); });
+  });
+};
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box, fields, rows, opt, open){
+    const r=o.apply(this, arguments);
+    try{ if(box&&opt&&opt.shubo&&opt.edit) FX.sbPaint(box); }catch(e){ console.log('fx-sb',e); }
+    try{ if(box&&box.querySelector&&box.querySelector('.kg-t.mk')) FX.mkPaint(box); }catch(e){ console.log('fx-mk',e); }
+    return r;
+  };
+})();
+/* 量の欄（窓・1本の画面）を読むだけにして、尺から自動で入れる */
+FX.wireForm=function(root, skId, ryId, T){
+  const sk=root.querySelector('#'+skId), ry=root.querySelector('#'+ryId); if(!sk||!ry) return;
+  ry.readOnly=true; ry.tabIndex=-1; ry.classList.add('fx-ro'); ry.placeholder='自動';
+  const lab=ry.closest('.rc-f'); let note=lab&&lab.querySelector('.sh-auto');
+  if(lab&&!note){ note=document.createElement('small'); note.className='sh-auto'; note.style.cssText='display:block;font-size:11px;color:var(--sub);margin-top:2px'; lab.appendChild(note); }
+  const say=(t,ok)=>{ if(note){ note.textContent=t; note.style.color=ok?'#1d6b45':'#a0610b'; } };
+  const calc=()=>{ const mm=pnum(sk.value);
+    if(mm===null){ say(String(sk.value).trim()===''?'尺を入れると早見表から自動で入ります':'尺は数字で入れてください', true); return; }
+    const r=FX.vol(T, mm);
+    if(r.wait){ loadTanks().then(calc).catch(()=>{}); return; }
+    if(r.L===undefined){ say(r.err); return; }
+    ry.value=String(r.L); if(typeof FAST!=='undefined') FAST.dirty=true; say(`T${r.T} 早見表：尺 ${mm}mm → ${r.L} L（自動）`, true); };
+  sk.addEventListener('input',calc);
+  if(!TANKS) loadTanks().then(calc).catch(()=>{}); else calc();
+};
+(function(){
+  const o=window.kgeDialog; if(typeof o!=='function') return;
+  window.kgeDialog=async function(no){
+    const r=await o.apply(this, arguments);
+    try{ const ov=document.querySelector('.kge-ov:last-of-type')||document; const m=rcMaster(no)||{};
+      FX.wireForm(ov,'kd_shaku','kd_ryo',String(m.shuboT==null?'':m.shuboT).trim()); FX.missTx(ov,no); }catch(e){ console.log('fx-kge',e); }
+    return r;
+  };
+})();
+(function(){
+  const o=window.shuboInput; if(typeof o!=='function') return;
+  window.shuboInput=async function(no){
+    const r=await o.apply(this, arguments);
+    try{ const ry=document.getElementById('sh_ryo'); if(ry){ ry.readOnly=true; ry.tabIndex=-1; ry.classList.add('fx-ro'); ry.placeholder='自動'; } const c=document.getElementById('shSetCard'); if(c) FX.missTx(c,no); }catch(e){}
+    return r;
+  };
+})();
+/* 🍶 仕込みの表：汲水は読むだけ／氷 → 🧊 */
+FX.mkPaint=function(box){
+  box.querySelectorAll('.kg-t.mk .kg-i.ks[data-k="kumi"]').forEach(el=>{
+    el.readOnly=true; el.tabIndex=-1; el.classList.add('fx-ro');
+    const st=(el.dataset.day||'').slice(2), m=rcMaster(el.dataset.no)||{}, plan=m.kumi&&m.kumi[st];
+    if(String(el.value).trim()===''&&plan!=null&&plan!=='') el.placeholder=String(plan);
+    el.title='汲水は配合の計画値（変更できません）';
+  });
+  box.querySelectorAll('.kg-t.mk .ksl').forEach(l=>{ if(l.textContent.trim()==='氷'){ l.innerHTML='<span class="fx-ice" role="img" aria-label="氷">🧊</span>'; } });
+};
+/* 1本の画面（仕込み時の入力）：汲水は読むだけ／氷 → 🧊 */
+(function(){
+  const o=window.moromiSetup; if(typeof o!=='function') return;
+  window.moromiSetup=async function(no, st){
+    const r=await o.apply(this, arguments);
+    try{
+      const k=document.getElementById('mr_kumi');
+      if(k){ k.readOnly=true; k.tabIndex=-1; k.classList.add('fx-ro'); k.title='汲水は配合の計画値（変更できません）';
+        const m=rcMaster(no)||{}, plan=m.kumi&&m.kumi[st]; if(String(k.value).trim()===''&&plan!=null&&plan!=='') k.placeholder=String(plan); }
+      const kr=document.getElementById('mr_kori'), lab=kr&&kr.closest('.rc-f'), sp=lab&&lab.querySelector('span');
+      if(sp&&/^氷/.test(sp.textContent.trim())) sp.innerHTML=sp.innerHTML.replace(/^(\s*)氷/,'$1<span class="fx-ice" role="img" aria-label="氷">🧊</span>');
+      app.querySelectorAll('.tl-note').forEach(p=>{ p.innerHTML=p.innerHTML.replace('汲水は計画値が最初から入っています（実際と違えば直す）。','汲水は計画値（変更できません）。'); });
+    }catch(e){ console.log('fx-mr',e); }
+    return r;
+  };
+})();
+/* 1本の画面の「仕込み時」の表：氷 → 🧊 */
+(function(){
+  const o=window.moromiSetupTable; if(typeof o!=='function') return;
+  window.moromiSetupTable=function(){ const h=o.apply(this, arguments);
+    return typeof h==='string'?h.replace('<td class="k">氷</td>','<td class="k"><span class="fx-ice" role="img" aria-label="氷">🧊</span></td>'):h; };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+input.fx-ro,input.fx-ro:focus{background:#eef1f4!important;color:#1d6b45!important;border-style:solid!important;outline:none!important;cursor:default}
+.kg-t.mk input.kg-i.ks.fx-ro{color:var(--navy)!important}
+input.fx-ro.fx-ng{color:#a0610b!important}
+.fx-ice{font-size:1em;line-height:1;font-style:normal}`; document.head.appendChild(s); })();
+</script>
+<!-- /fix1022 -->
 </body>
 </html>
