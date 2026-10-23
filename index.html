@@ -9359,6 +9359,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-23-1','🍶','仕込み','仕込みの 添・仲・留 の汲水は入力できないので、入力欄の囲み（枠）をなくして数字だけの表示にしました。'],
   ['2026-10-22-1','🧫','酒母・仕込み','酒母の仕込時の「量」は尺から自動で入るだけにしました（手では入れられません）。表の T 欄に打った酒母タンクでもすぐ計算し、T を後から入れても量が入ります（T が空だと量は出ません）。仕込時の値が未入力でも保存できます。仕込みの 添・仲・留 の汲水は計画値のまま変更できないようにし、「氷」は 🧊 のマークにしました。'],
   ['2026-10-21-3','🧫','酒母・仕込み','酒母の表は「履歴を表示」を押さなくても、いつも今の酒母の上に履歴（酛卸済・留から30日以内）が並ぶようにしました（ボタンは削除）。上へスクロールすると古い順に見られます。また、酒母・仕込みの表の読み込みを速くしました（何本分かをまとめて1回で取ります。今の酒母を先に読み込みます）。'],
   ['2026-10-21-2','🧫','酒母','酒母の表の「酛卸済も表示」を「履歴を表示」にしました。押すと、酛卸が済んだ酒母（留から30日以内）が今の酒母の上に古い順で並びます。表は今の酒母から表示されるので、上へスクロールすると順番どおりに履歴が見られます。'],
@@ -13431,7 +13432,9 @@ FX.mkPaint=function(box){
 input.fx-ro,input.fx-ro:focus{background:#eef1f4!important;color:#1d6b45!important;border-style:solid!important;outline:none!important;cursor:default}
 .kg-t.mk input.kg-i.ks.fx-ro{color:var(--navy)!important}
 input.fx-ro.fx-ng{color:#a0610b!important}
-.fx-ice{font-size:1em;line-height:1;font-style:normal}`; document.head.appendChild(s); })();
+.fx-ice{font-size:1em;line-height:1;font-style:normal}
+/* 2026-10-23 汲水は入力欄に見えないように囲み（枠・角丸・背景）をなくす */
+.kg-t.mk input.kg-i.ks.fx-ro[data-k="kumi"],.kg-t.mk input.kg-i.ks.fx-ro[data-k="kumi"]:focus,#mr_kumi.fx-ro,#mr_kumi.fx-ro:focus{border:none!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;outline:none!important}`; document.head.appendChild(s); })();
 </script>
 <!-- /fix1022 -->
 </body>
