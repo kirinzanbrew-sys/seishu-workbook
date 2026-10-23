@@ -9359,6 +9359,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-23-4','🍶','仕込み','仕込みの表の順号の下の「添 T◯◯」に、添のタンク番号を直接入れられるようにしました（酒母の酛卸の卸先と同じところに保存されます）。入れると添の量も新しいタンクの早見表で直ります。'],
   ['2026-10-23-3','🍶','仕込み','添の量が尺と合っていなかった件を直しました（酛卸の卸先を選ぶ前の別のタンクで量が入っていたため）。仕込みの表を開くと、添・仲・留の尺から今のタンクの早見表で量を出し直し、違っていれば自動で直して保存します。'],
   ['2026-10-23-2','🍶','仕込み','仕込みの表で、添・仲・留の仕込み時の「量」の横に、配合の計画に対して何倍かを小さな色札で出すようにしました（例 1.03。緑＝通常 1.00〜1.08倍／赤＝それ以外）。また、仕込みの量は尺から自動で入るだけにして（入力不要）、仕込み・酒母の量の欄の囲み（枠）をなくして数字だけの表示にしました。'],
   ['2026-10-23-1','🍶','仕込み','仕込みの 添・仲・留 の汲水は入力できないので、入力欄の囲み（枠）をなくして数字だけの表示にしました。'],
@@ -13529,5 +13530,47 @@ async function sfFix(rows){
 })();
 </script>
 <!-- /soefix1023 -->
+<!-- soetin1023 -->
+<script>
+/* ================= 🍶 仕込みの表：順号の下の「添 T◯◯」を入力できるように（2026-10-23） =================
+   泰広さん指示：仕込みの添タンク表示を入力できるようにしてください。
+   ・「添 T[ ]」の欄に番号を入れて Enter／欄を離れると、酒母の酛卸の卸先と同じところに保存（oroSave → shubo_save {oro:{to}}）。
+     酒母の表の卸先にも同じ番号が出る。空にすると卸先なし（伝辛・超辛・純米辛口は醪タンク、それ以外は「未定」）
+   ・保存したら表を描き直し、添の量は新しいタンクの早見表で直る（soefix1023）
+   ・早見表に無い番号は保存の前に確認
+   控え：seishu-workbook_github\_src_soetin1023.js */
+function stiPaint1023(box){
+  box.querySelectorAll('.kg-t.mk td.n[data-kgno] .soe-tk').forEach(el=>{
+    if(el.querySelector('input.soe-in')) return;
+    const no=el.closest('td.n').dataset.kgno, m=rcMaster(no); if(!m) return;
+    const T=sksTank(m,'soe');
+    el.innerHTML=`添 T<input class="soe-in" type="text" inputmode="numeric" autocomplete="off" value="${esc(T||'')}" placeholder="未定" aria-label="順号${esc(String(no))} 添のタンク">`;
+    const inp=el.querySelector('input'); inp.dataset.igSkip='1';
+    ['click','mousedown','touchstart'].forEach(ev=>inp.addEventListener(ev,e=>e.stopPropagation()));
+    inp.addEventListener('focus',()=>{ try{ inp.select(); }catch(e){} });
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.isComposing){ e.preventDefault(); inp.blur(); } });
+    inp.addEventListener('change',()=>{
+      const v=String(inp.value).replace(/^[Tt]/,'').replace(/[^\d]/g,'').trim();
+      if(v===String(T||'')){ inp.value=T||''; return; }
+      if(v){ if(TANKS&&!tankByNo(v)&&!window.confirm(`T${v} は容量早見表にありません（量は計算されません）。このまま添のタンクにしますか？`)){ inp.value=T||''; return; } }
+      oroSave(no, {to:v});
+      try{ const S=lsGet('mr.soeT',{})||{}; if(S[no]!==undefined){ delete S[no]; lsSet('mr.soeT',S); } }catch(e){}
+      if(typeof MKE!=='undefined'&&MKE.draw) setTimeout(()=>MKE.draw(),50);
+    });
+  });
+}
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box){ const r=o.apply(this, arguments);
+    try{ if(box&&box.querySelector&&box.querySelector('.kg-t.mk')) stiPaint1023(box); }catch(e){ console.log('soetin1023',e); }
+    return r; };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-t td.n .soe-tk input.soe-in{width:44px;height:20px;box-sizing:border-box;margin:0 0 0 1px;padding:0 3px;border:1px solid rgba(255,255,255,.75);border-radius:4px;background:rgba(255,255,255,.95);color:#5a3200;font:inherit;font-weight:800;font-size:13px;line-height:18px;vertical-align:middle}
+.kg-t td.n .soe-tk.none input.soe-in{border-color:var(--ng);color:var(--ng)}
+.kg-t td.n .soe-tk input.soe-in::placeholder{color:#c0392b;font-weight:700;font-size:11px}
+.kg-t td.n .soe-tk input.soe-in:focus{outline:2px solid #1f5fa8}`; document.head.appendChild(s); })();
+</script>
+<!-- /soetin1023 -->
 </body>
 </html>
