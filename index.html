@@ -9359,6 +9359,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-23-2','🍶','仕込み','仕込みの表で、添・仲・留の仕込み時の「量」の横に、配合の計画に対して何倍かを小さな色札で出すようにしました（例 1.03。緑＝通常 1.00〜1.08倍／赤＝それ以外）。また、仕込みの量は尺から自動で入るだけにして（入力不要）、仕込み・酒母の量の欄の囲み（枠）をなくして数字だけの表示にしました。'],
   ['2026-10-23-1','🍶','仕込み','仕込みの 添・仲・留 の汲水は入力できないので、入力欄の囲み（枠）をなくして数字だけの表示にしました。'],
   ['2026-10-22-1','🧫','酒母・仕込み','酒母の仕込時の「量」は尺から自動で入るだけにしました（手では入れられません）。表の T 欄に打った酒母タンクでもすぐ計算し、T を後から入れても量が入ります（T が空だと量は出ません）。仕込時の値が未入力でも保存できます。仕込みの 添・仲・留 の汲水は計画値のまま変更できないようにし、「氷」は 🧊 のマークにしました。'],
   ['2026-10-21-3','🧫','酒母・仕込み','酒母の表は「履歴を表示」を押さなくても、いつも今の酒母の上に履歴（酛卸済・留から30日以内）が並ぶようにしました（ボタンは削除）。上へスクロールすると古い順に見られます。また、酒母・仕込みの表の読み込みを速くしました（何本分かをまとめて1回で取ります。今の酒母を先に読み込みます）。'],
@@ -13437,5 +13438,53 @@ input.fx-ro.fx-ng{color:#a0610b!important}
 .kg-t.mk input.kg-i.ks.fx-ro[data-k="kumi"],.kg-t.mk input.kg-i.ks.fx-ro[data-k="kumi"]:focus,#mr_kumi.fx-ro,#mr_kumi.fx-ro:focus{border:none!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;outline:none!important}`; document.head.appendChild(s); })();
 </script>
 <!-- /fix1022 -->
+<!-- ratio1023 -->
+<script>
+/* ================= 🍶 仕込みの表：仕込み時の量の横に「配合の何倍か」を小さな色札で（2026-10-23） =================
+   泰広さん指示：添・仲・留の仕込み時の数量が計画に対して1.0〇倍なのかを数字でも。大きいと邪魔なので小さく量のわきに。
+   見本（A〜D）から D「量」の札の横に小さな色札「1.03」（緑＝通常 1.00〜1.08倍／赤＝それ以外）に決定。
+   ・倍率は今までの量チェック（sk19Judge：量 ÷ 配合の計画量）と同じ。sk19Mark を外側から包み、量の欄の「量」の札に色札を足す
+   ・配合表が無い／記号が無い／量が空のときは札を出さない（「量」のまま）。対象は🍶仕込みの表（.kg-t.mk）の仕込み時の量だけ
+   ・同日 泰広さん指示「量も入力不要なので、丸四角の囲みをなくして」：🍶仕込みの表・1本の画面の量を入力不可（尺から自動のみ）、
+     🍶仕込み・🧫酒母（表・窓・1本の画面）の量の欄の 枠・角丸・背景をなし（数字だけ）
+   控え：seishu-workbook_github\_src_ratio1023.js */
+(function(){
+  const o=window.sk19Mark; if(typeof o!=='function') return;
+  window.sk19Mark=function(el){
+    const J=o.apply(this, arguments);
+    try{
+      if(el&&el.closest&&el.closest('.kg-t.mk')){
+        const p=el.parentElement, l=(el.previousElementSibling&&el.previousElementSibling.classList.contains('ksl'))?el.previousElementSibling:(p&&p.querySelector('.ksl'));
+        if(l){
+          let t='';
+          if(J){ let s=J.ratio.toFixed(2); if(J.ng&&Number(s)>=SK19_LO&&Number(s)<=SK19_HI) s=J.ratio.toFixed(3);
+            t=` <b class="rt1023${J.ng?' ng':''}" title="量 ${J.L} L ／ 配合 ${J.plan} L">${s}</b>`; }
+          const h='量'+t; if(l.innerHTML!==h) l.innerHTML=h;
+        }
+      }
+    }catch(e){ console.log('ratio1023',e); }
+    return J;
+  };
+})();
+/* 🍶仕込みの量：入力不可（尺から自動のみ） */
+function ro1023(el){ if(!el) return; el.readOnly=true; el.tabIndex=-1; el.classList.add('ro1023'); el.title=el.title||'量は尺から自動で入ります（入力不要）'; }
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box){ const r=o.apply(this, arguments);
+    try{ if(box&&box.querySelectorAll) box.querySelectorAll('.kg-t.mk .kg-i.ks[data-k="ryo"]').forEach(ro1023); }catch(e){ console.log('ro1023',e); }
+    return r; };
+})();
+(function(){
+  const o=window.moromiSetup; if(typeof o!=='function') return;
+  window.moromiSetup=async function(){ const r=await o.apply(this, arguments); try{ ro1023(document.getElementById('mr_ryo')); }catch(e){} return r; };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-t.mk input.kg-i.ks[data-k="ryo"],.kg-t.mk input.kg-i.ks[data-k="ryo"]:focus,#mr_ryo,#mr_ryo:focus,
+.kg-ss[data-sk="ryo"],.kg-ss[data-sk="ryo"]:focus,#kd_ryo,#kd_ryo:focus,#sh_ryo,#sh_ryo:focus{border:none!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;outline:none!important;cursor:default}
+.kg-t.mk input.kg-i.ks[data-k="ryo"]{padding-top:7px!important;padding-bottom:0!important}
+.rt1023{display:inline-block;font-size:7.5px;line-height:8px;padding:0 2px;border-radius:4px;color:#fff;background:#2f8a57;font-weight:700;vertical-align:top;font-style:normal}
+.rt1023.ng{background:#d0352b}`; document.head.appendChild(s); })();
+</script>
+<!-- /ratio1023 -->
 </body>
 </html>
