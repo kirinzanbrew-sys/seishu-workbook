@@ -9359,6 +9359,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-23-7','🧫','酒母','酒母の仕込時の 水麹 を 💧麹、蒸米 を湯気と米粒のマークにしました（表・順号の窓・1本の画面）。'],
   ['2026-10-23-6','🍶','仕込み','仕込みの 添・仲・留 の水麹を 💧麹 のマークにしました（表・1本の画面）。'],
   ['2026-10-23-5','🍶','仕込み','仕込みの 添・仲・留 の氷のマークを ❄️ に、蒸米を湯気と米粒の絵にしました（表・1本の画面）。'],
   ['2026-10-23-4','🍶','仕込み','仕込みの表の順号の下の「添 T◯◯」に、添のタンク番号を直接入れられるようにしました（酒母の酛卸の卸先と同じところに保存されます）。入れると添の量も新しいタンクの早見表で直ります。'],
@@ -13305,10 +13306,18 @@ function rmDirect(body, ms){ const o=RM.off; RM.off=true; try{ return recApiNet(
    ・仕込時の値が未入力でも 日々の値・仕込時の値 を保存できる（shSetupMissing を常に空に＝鍵・「必須」の表示もなくなる）
    ・🍶仕込みの表と1本の画面：汲水は読むだけ（計画値。空なら配合の計画値を薄く表示）。表の「氷」の札は ❄️
    ・2026-10-23 泰広さん指示：氷のマークは見本から ❄️（雪の結晶）、蒸米は 湯気と米粒 の絵に、水麹は 💧＋小さな「麹」に（表・1本の画面・仕込み時の表）
+   ・同日 泰広さん指示「酒母も同じく」：🧫酒母の表（仕込時の札）・順号の窓・1本の画面（入力・経過）の 水麹・蒸米 も同じマーク
    控え：seishu-workbook_github\_src_fix1022.js */
 const FX={};
 const FX_MIZU='<span class="fx-mizu" role="img" aria-label="水麹">💧<i>麹</i></span>';
 const FX_MUSHI='<svg viewBox="0 0 16 16" width="1.1em" height="1.1em" style="vertical-align:-0.18em" aria-hidden="true"><path d="M3 4c0-1 .8-1 .8-2M7 4c0-1 .8-1 .8-2M11 4c0-1 .8-1 .8-2" fill="none" stroke="#9aa3ad" stroke-width="1" stroke-linecap="round"/><ellipse cx="5" cy="10" rx="2.2" ry="3.4" transform="rotate(-25 5 10)" fill="#fff" stroke="#8a7a5a" stroke-width="1"/><ellipse cx="10.5" cy="10" rx="2.2" ry="3.4" transform="rotate(20 10.5 10)" fill="#fff" stroke="#8a7a5a" stroke-width="1"/></svg>';
+FX.mkMushi=()=>'<span class="fx-mushi" role="img" aria-label="蒸米">'+FX_MUSHI+'</span>';
+FX.labMark=function(root){   // 入力欄の札（rc-f の span）・小さな札の「水麹」「蒸米」をマークに
+  if(!root) return;
+  root.querySelectorAll('.rc-f > span, .ssl, #shSet small').forEach(sp=>{ if(sp.querySelector('.fx-mizu,.fx-mushi')) return; const t=sp.textContent.trim();
+    if(/^水麹/.test(t)) sp.innerHTML=sp.innerHTML.replace(/^(\s*)水麹/,'$1'+FX_MIZU);
+    else if(/^蒸米/.test(t)) sp.innerHTML=sp.innerHTML.replace(/^(\s*)蒸米/,'$1'+FX.mkMushi()); });
+};
 shSetupMissing=function(){ return []; };
 FX.miss=function(no){ const s=RC.shubo&&RC.shubo[no], u=(s&&s.setup)||{}; return SH_SETUP.filter(([f])=>shN(u[f])===null).map(x=>x[1]); };
 FX.missTx=function(root,no){   // 「入力済み」の札を本当の状態に（未入力があっても保存はできる）
@@ -13342,6 +13351,7 @@ FX.sbCalc=function(box, no, save, tv){
   if(save) sbsSave(box, no);   // 変わっていなければ sbsSave は何も送らない
 };
 FX.sbPaint=function(box){
+  try{ FX.labMark(box); }catch(e){}
   box.querySelectorAll('.kg-ss[data-sk="ryo"]').forEach(ry=>{
     ry.readOnly=true; ry.tabIndex=-1; ry.classList.add('fx-ro'); ry.classList.remove('sneed'); ry.placeholder='自動';
     if(!ry.title) ry.title='尺を入れると早見表から自動で入ります（手では入れられません）';
@@ -13392,7 +13402,7 @@ FX.wireForm=function(root, skId, ryId, T){
   window.kgeDialog=async function(no){
     const r=await o.apply(this, arguments);
     try{ const ov=document.querySelector('.kge-ov:last-of-type')||document; const m=rcMaster(no)||{};
-      FX.wireForm(ov,'kd_shaku','kd_ryo',String(m.shuboT==null?'':m.shuboT).trim()); FX.missTx(ov,no); }catch(e){ console.log('fx-kge',e); }
+      FX.wireForm(ov,'kd_shaku','kd_ryo',String(m.shuboT==null?'':m.shuboT).trim()); FX.missTx(ov,no); FX.labMark(ov.querySelector?ov:document); }catch(e){ console.log('fx-kge',e); }
     return r;
   };
 })();
@@ -13400,9 +13410,13 @@ FX.wireForm=function(root, skId, ryId, T){
   const o=window.shuboInput; if(typeof o!=='function') return;
   window.shuboInput=async function(no){
     const r=await o.apply(this, arguments);
-    try{ const ry=document.getElementById('sh_ryo'); if(ry){ ry.readOnly=true; ry.tabIndex=-1; ry.classList.add('fx-ro'); ry.placeholder='自動'; } const c=document.getElementById('shSetCard'); if(c) FX.missTx(c,no); }catch(e){}
+    try{ const ry=document.getElementById('sh_ryo'); if(ry){ ry.readOnly=true; ry.tabIndex=-1; ry.classList.add('fx-ro'); ry.placeholder='自動'; } const c=document.getElementById('shSetCard'); if(c){ FX.missTx(c,no); FX.labMark(c); } }catch(e){}
     return r;
   };
+})();
+(function(){
+  const o=window.shuboSheet; if(typeof o!=='function') return;
+  window.shuboSheet=async function(){ const r=await o.apply(this, arguments); try{ FX.labMark(document.getElementById('shSet')?document.getElementById('shSet').parentElement:null); }catch(e){} return r; };
 })();
 /* 🍶 仕込みの表：汲水は読むだけ／氷 → ❄️ */
 FX.mkPaint=function(box){
