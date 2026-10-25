@@ -4612,7 +4612,7 @@ recApi = async function(body, ms){
   const a=body&&body.action;
   if(!REC_READ[a]){
     const r=await recApiNet(body, ms);
-    if(r && r.ok && /save/.test(a)){ PC.delPrefix('rec:'); }   // 保存したら保存分は捨てる（古い値を出さない）
+    if(r && r.ok && /save/.test(a)){ const no=body&&body.no; if((a==='bunseki_save'||a==='shubo_save') && no!=null && no!==''){ ['bunseki_get','shubo_get','karte'].forEach(x=>PC.delPrefix('rec:'+x+':'+no+':')); } else PC.delPrefix('rec:'); }   // 保存したら保存分は捨てる（古い値を出さない）。2026-10-26 酒母・分析の保存はその順号の分だけ（shk1026）
     return r;
   }
   if(!body._pf && (a==='bunseki_get'||a==='shubo_get'||a==='karte')) useAdd('tank', String(body.no));
@@ -9359,6 +9359,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-10-26-1','🍶','仕込み','仕込みの上段に 📈グラフ・📋表・🧫酒母 をアイコンで並べ、上段のアイコンを少し小さくしました。「仕込中・醪中の経過〇本」の見出しを消しました。酒母・仕込みのデータはアプリを開いたときから裏で読んでおくので、開くとすぐ表が出ます。'],
   ['2026-10-23-9','🧫','酒母','酒母の表の備考の選択肢「暖器」を正しい表記「暖気（だき）」に変えました。前に「暖器」で保存した日はそのままの文字で出ます。'],
   ['2026-10-23-8','🧫','酒母','水麹のマークを しずくの中に米粒 の絵に直しました（仕込み・酒母）。'],
   ['2026-10-23-7','🧫','酒母','酒母の仕込時の 水麹 を 💧麹、蒸米 を湯気と米粒のマークにしました（表・順号の窓・1本の画面）。'],
@@ -13599,5 +13600,131 @@ function stiPaint1023(box){
 .kg-t td.n .soe-tk input.soe-in:focus{outline:2px solid #1f5fa8}`; document.head.appendChild(s); })();
 </script>
 <!-- /soetin1023 -->
+<!-- shk1026 -->
+<script>
+/* ================= 🍶 仕込み：グラフ・表・酒母をアイコンに／アイコンを小さく／見出しを消す
+                     ⚡ 酒母・仕込みのデータを起動時から先に読んでおく（2026-10-26） =================
+   泰広さん指示：仕込みの「グラフ、表、酒母」もアイコン化。各アイコンをもう少し小さくする。
+   「仕込中・醪中の経過〇〇本」を削除。酒母・仕込みのデータ読み込みが長い → ツールを立ち上げたときから読み込む。
+   ・アイコン：.shk-icons の O₂ の右に 📈グラフ／📋表／🧫酒母。もとの切り替え（.ks-sw）は隠して残し、アイコンはそのボタンを押す
+   ・見出し #kgHd は目印として多くの場所が使うので消さずに隠す（display:none）
+   ・小さく：🍶仕込みの上段（.shk-icons）だけ。72×66 → 56×52（🧫酒母の上段は変えていない）
+   ・先読み（PF26）：ホームが出たら（fastPrefetch の light 仕事）・アプリに戻ったとき・ホームか酒母・仕込みの表を開いている間は4分ごとに、
+     育成中/履歴の酒母（sbdList）と仕込中・醪中の醪の shubo_get／bunseki_get を取り、手元（RC.shubo／RC.bun）と端末（IndexedDB）に入れる。
+     → 酒母・仕込みを開いたときは通信を待たずに表が出る。4分ごとに取り直して変わっていれば、表を見ているときだけ描き直す
+       （入力中・未保存のマスがあるとき・送信待ちのある順号は描き直さない／上書きしない）
+   ・あわせて recApi の「保存したら端末の保存分を全部捨てる」を、酒母・分析の保存は その順号の分だけ捨てる に変更（本体1行）
+   控え：seishu-workbook_github\_src_shk1026.js　差し込み：_仕込みアイコンと先読み_20261026.py */
+
+/* ---------- アイコン ---------- */
+function shk26Icons(){
+  try{
+    const row=app.querySelector('.shk-icons'); if(!row) return false;
+    const sw=app.querySelector('.ks-sw:not(.hg-tab):not(.sb-sw)'); if(!sw) return false;
+    sw.classList.add('shk26-hide');
+    let box=row.querySelector('.shk26-vw');
+    if(!box){
+      box=document.createElement('span'); box.className='shk26-vw';
+      box.innerHTML=`<button class="st-ic vw-ic" data-vw="graph" type="button" aria-label="グラフ"><span class="e">📈</span><small>グラフ</small></button>`+
+        `<button class="st-ic vw-ic" data-vw="table" type="button" aria-label="表"><span class="e">📋</span><small>表</small></button>`+
+        `<button class="st-ic vw-ic" data-vw="shubo" type="button" aria-label="酒母へ"><span class="e">🧫</span><small>酒母</small></button>`;
+      const o2=row.querySelector('.st-o2'); o2?o2.after(box):row.prepend(box);
+      box.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{
+        const v=b.dataset.vw, s=app.querySelector('.ks-sw:not(.hg-tab):not(.sb-sw)'); if(!s) return;
+        const t=v==='shubo'?s.querySelector('[data-go="shubo"]'):s.querySelector(`button[data-v="${v}"]`);
+        if(t) t.click(); else if(v==='shubo' && typeof oroJump==='function') oroJump(shuboHome);
+        shk26Sync();
+      });
+    }
+    shk26Sync();
+    return true;
+  }catch(e){ console.log('shk1026',e); return false; }
+}
+function shk26Sync(){
+  const s=app.querySelector('.ks-sw:not(.hg-tab):not(.sb-sw)'); if(!s) return;
+  const on=(s.querySelector('button[data-v].on')||{}).dataset||{};
+  app.querySelectorAll('.shk26-vw [data-vw]').forEach(b=>b.classList.toggle('on', b.dataset.vw===on.v));
+}
+(function(){
+  const o=window.moromiHome; if(typeof o!=='function') return;
+  window.moromiHome=moromiHome=async function(...a){
+    const top=nav[nav.length-1]; const r=await o.apply(this,a);
+    try{ if(nav[nav.length-1]===top && !shk26Icons()){ let n=0; const t=setInterval(()=>{ if(++n>20||nav[nav.length-1]!==top||shk26Icons()) clearInterval(t); },150); } }catch(e){ console.log('shk1026',e); }
+    return r; };
+})();
+
+/* ---------- 先読み（起動時から） ---------- */
+const PF26={ running:false, at:0, got:{} };
+function pf26Lists(st){
+  const today=dtoday(), T=st.today||{};
+  const mor=st.master.filter(m=>(T[m.no]||{}).state!=='上槽済' && m.tome && m.soe && today>=m.soe).map(m=>String(m.no));
+  let sb=[]; try{ sb=((typeof sbdList==='function')?sbdList(st):shuboList(st).map(x=>x.m)).map(m=>String(m.no)); }catch(e){}
+  // 今の酒母を先に、履歴は後
+  if(typeof SBD!=='undefined' && SBD.done) sb.sort((a,b)=>(SBD.done.has(a)?1:0)-(SBD.done.has(b)?1:0));
+  return {mor, sb};
+}
+function pf26Pending(no){ try{ return (typeof recQ==='function'?recQ():[]).some(it=>it&&it.body&&String(it.body.no)===String(no)); }catch(e){ return true; } }
+async function pf26Run(){
+  if(!ST.token || PF26.running) return;
+  PF26.running=true; let changed=false;
+  try{
+    const st=RC.state && RC.state.master ? RC.state : await recState(); if(!st||!st.master) return;
+    const L=pf26Lists(st);
+    const items=L.sb.map(no=>['shubo_get',no]).concat(L.mor.map(no=>['bunseki_get',no]));
+    let i=0;
+    const one=async([action,no])=>{
+      const store=action==='shubo_get'?RC.shubo:RC.bun, k=action+':'+no;
+      try{
+        if(!store[no]){                     // まだ手元に無い：端末の保存分があればそれ、無ければ通信
+          const r=await recApi({action,no,_pf:1},40000);
+          if(r&&r.ok&&!store[no]){ store[no]=r; PF26.got[k]=Date.now(); changed=true; }
+          if(!(PF26.got[k]>0)) PF26.got[k]=Date.now()-170000;   // 端末の保存分だったときは少しあとで取り直す
+        } else if(Date.now()-(PF26.got[k]||0) > 3*60000){   // 手元にある：3分より古ければ取り直す
+          const r=await recFetchStore({action,no,_pf:1},40000);
+          PF26.got[k]=Date.now();
+          if(r&&r.ok && !pf26Pending(no) && JSON.stringify(r)!==JSON.stringify(store[no])){ store[no]=r; changed=true; }
+        }
+      }catch(e){}
+    };
+    const W=(typeof RM!=='undefined'&&!RM.off)?Math.max(1,items.length):3;
+    const worker=async()=>{ while(i<items.length) await one(items[i++]); };
+    await Promise.all(Array.from({length:Math.min(W,items.length)||1},worker));
+    PF26.at=Date.now();
+    if(changed) pf26Redraw();
+  } finally { PF26.running=false; }
+}
+/* 酒母・仕込みの表を見ているときだけ描き直す（入力中・未保存があれば描き直さない） */
+function pf26Redraw(){
+  try{
+    if(!app.querySelector('.kg-home')) return;
+    if(typeof KGE!=='undefined' && KGE.dirty && Object.keys(KGE.dirty).length) return;
+    if(app.querySelector('.dirty, .kg-i.dirty')) return;
+    const top=nav[nav.length-1]; if(typeof fastRerender==='function') fastRerender(top);
+  }catch(e){}
+}
+/* きっかけ：ホームの先読み（fastPrefetch）に軽い仕事として入れる＋開いている間4分ごと＋戻ってきたとき */
+(function(){
+  if(typeof PF_TASKS!=='undefined') PF_TASKS.shk26={ light:true, ttl:60000, run:pf26Run, at:()=>PF26.at };
+  setInterval(()=>{ if(document.visibilityState==='visible' && Date.now()-PF26.at>4*60000 && (FAST.onHome || app.querySelector('.kg-home'))) pf26Run(); }, 30000);   // ホームか 酒母・仕込みの表を見ているときだけ
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && Date.now()-PF26.at>60000) setTimeout(pf26Run, 1500); });
+  setTimeout(()=>{ if(!PF26.at) pf26Run(); }, 2500);   // 起動直後（ホーム以外から開いたときも）
+})();
+
+(function(){ const s=document.createElement('style'); s.textContent=`
+#kgHd{display:none!important}
+#app .ks-sw.shk26-hide{display:none}
+.shk-icons{gap:6px}
+.shk-icons .shk26-vw{display:contents}
+.shk-icons .st-ic,.shk-icons .st-ic.ia-ic{width:56px;min-height:52px;height:auto;border-radius:12px;padding:3px 2px;box-sizing:border-box}
+.shk-icons .st-ic .e{font-size:17px}
+.shk-icons .st-ic b{font-size:10px;line-height:1.1;text-align:center}
+.shk-icons .st-ic small{font-size:9px;text-align:center}
+.shk-icons .st-ic.ia-ic b{max-width:52px}
+.shk-icons .st-ic.st-o2{width:auto;min-height:0;padding:0;border-radius:50%}
+.shk-icons .st-ic.st-o2 .o2c{width:36px;height:36px;font-size:14px}
+.shk-icons .st-ic.hg-ic .hg-d{font-size:8px}
+.shk-icons .st-ic.vw-ic.on{border:2px solid #1f5fa8;background:#eef3fb}`; document.head.appendChild(s); })();
+</script>
+<!-- /shk1026 -->
 </body>
 </html>
