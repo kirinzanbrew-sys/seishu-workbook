@@ -14079,121 +14079,6 @@ setTimeout(()=>{ try{ if(ST&&ST.token) mwLoad(false).then(stoPaint); }catch(e){}
 `; document.head.appendChild(s); })();
 </script>
 <!-- /settemp -->
-<!-- bgsave1101 -->
-<script>
-/* ================= 💾 保存を速く・画面を消しても送る（2026-11-01 泰広さん指示） =================
-   困りごと：仕込み・酒母・麹で入力したあと、1件ずつの保存が長い。スマホ・iPadの画面を消すと、保存まで止まってしまう。
-   原因：①送信待ち（rec.q）を1件ずつ順番に送っていた（醪の保存は1件 3〜6秒かかる＝10件で約1分）
-         ②画面を消すとアプリの動きが止まり、送信も止まる。戻っても「電波が戻ったとき・30秒ごと」しか送り直さなかった
-   直し：①送信待ちを全部一斉に送る（同じ所＝同じ順号・日・段への分は1本にまとめ、後から入れた値が勝つ）
-         ①' サーバーに 一括保存.gs（rec_put_many）が入っていれば、1回の通信でまとめて送る（無ければ①）
-         ②保存の通信は keepalive（画面を消しても通信を最後まで続ける）。recApi 本体の fetch を1か所直した
-         ③画面を消す瞬間（visibilitychange→hidden／pagehide）に、送信待ちを sendBeacon でまとめて先に送る
-           （ブラウザが画面の外で送り届ける。対象は同じ内容を2回送っても結果が同じ保存だけ：bunseki_save/shubo_save/koji_save/kyusui_save）
-         ④画面に戻ったらすぐ送り直して確認する（サーバーは同じ値なら書かない・入力ログも増えない＝二重にならない）
-           画面を消している間に止まっていた通信は待たずに打ち切って送り直す
-   控え：seishu-workbook_github\_src_bgsave1101.js　差し込み：_保存の高速化と画面オフ送信_20261101.py（<!-- bgsave1101 --> ブロック、</body> の直前）
-   ======================================================================================= */
-(function(){
-  if(typeof recQ!=='function' || typeof recApi!=='function') return;
-  const IDEMP=/^(bunseki_save|shubo_save|koji_save|kyusui_save)$/;    // 2回送っても結果が同じ保存
-  /* 送り先の「形」：値（values・setup・oro）以外が同じなら同じ所への保存 → 1本にまとめられる */
-  const shapeOf=b=>{ const o={}; Object.keys(b).sort().forEach(k=>{ if(k==='values'||k==='oro') o[k]=1; else if(k==='setup') o[k]=(b.setup&&b.setup.stage)?'st:'+b.setup.stage:1; else o[k]=b[k]; }); return JSON.stringify(o); };
-  const mergeBody=(a,b)=>{ if(!a) return JSON.parse(JSON.stringify(b)); const r=a;
-    if(b.values) r.values=Object.assign({},r.values||{},b.values);
-    if(b.oro) r.oro=Object.assign({},r.oro||{},b.oro);
-    if(b.setup){ if(b.setup.stage) r.setup={stage:b.setup.stage, values:Object.assign({},(r.setup&&r.setup.values)||{},b.setup.values||{})}; else r.setup=Object.assign({},r.setup||{},b.setup); }
-    return r; };
-  const same=(a,b)=>a&&b&&a.at===b.at&&JSON.stringify(a.body)===JSON.stringify(b.body);
-  /* 一括保存（rec_put_many）がサーバーで使えるか。使えたことがあれば端末に覚える（画面を消すときの送信も1本にできる） */
-  const BS={off:false, ok:!!lsGet('rec.putmany',0), on(){ if(!this.ok){ this.ok=true; lsSet('rec.putmany',1); } }};
-  /* 端末の保存分（PC）を捨てる：1件ずつ送ったとき（recApi の中）と同じ決まり */
-  function pcDrop(b){ try{ const no=b&&b.no; if((b.action==='bunseki_save'||b.action==='shubo_save') && no!=null && no!==''){ ['bunseki_get','shubo_get','karte'].forEach(x=>PC.delPrefix('rec:'+x+':'+no+':')); } else PC.delPrefix('rec:'); }catch(e){} }
-  const BGS=window.BGS={run:false, again:false, hidAt:0, stale:new Set(), sent:0};
-  const dev=()=>(navigator.userAgent.match(/iPhone|iPad|Android|Windows|Mac/)||[''])[0];
-  function qRemove(it){ const q=recQ(); const i=q.findIndex(x=>same(x,it)); if(i>=0){ q.splice(i,1); lsSet('rec.q',q); } }
-  /* 画面を消して戻ったら、止まっていた通信は待たない（打ち切って送り直す） */
-  function waitRes(p){ return new Promise((ok,ng)=>{ let done=false; const st=Date.now(); const kill=(hid)=>{ if(!done && st<=hid){ done=true; ng(Object.assign(new Error('stale'),{stale:true})); } };   // 画面を消す前に出した通信だけ
-    BGS.stale.add(kill); p.then(v=>{ if(!done){ done=true; ok(v); } BGS.stale.delete(kill); }, e=>{ if(!done){ done=true; ng(e); } BGS.stale.delete(kill); }); }); }
-
-  recFlush=async function(){
-    if(BGS.run){ BGS.again=true; return; }
-    BGS.run=true; RC.qBusy=true; clearTimeout(RC.qRetry);
-    await new Promise(r=>setTimeout(r,80));   // 続けて押した保存を1回にまとめて同時に送る
-    const warns=[], fails=[]; let netFail=false, okN=0;
-    try{
-      do{ BGS.again=false;
-        const q=recQ(); if(!q.length) break;
-        /* 2026-11-01 泰広さん指示：順号ごとではなく一斉に送る。
-           同じ所（同じ保存・順号・日・段）への分は1本にまとめ（後から入れた値が勝つ）、残りは全部同時に送る */
-        const G={}, order=[];
-        q.forEach(it=>{ const k=shapeOf(it.body||{}); if(!G[k]){ G[k]={items:[],body:null}; order.push(k); } const g=G[k]; g.items.push(it); g.body=mergeBody(g.body,it.body||{}); });
-        const one=async k=>{ const g=G[k], it0=g.items[0], n=g.items.length;
-          const it={body:g.body, label:n>1?`${it0.label} ほか${n-1}件`:it0.label, at:it0.at}; let res=null;
-          try{ res=await waitRes(recApi(g.body,60000)); }
-          catch(e){ if(e&&e.stale){ BGS.again=true; return; } netFail=true; return; }
-          g.items.forEach(qRemove); BGS.sent+=n;
-          if(res&&res.ok){ okN+=n; const w=recAfterSave(it,res); if(w) warns.push(w); }
-          else { fails.push(`${it.label}：${(res&&res.err)||''}`); } };
-        if(order.length>1) rcToast(`${q.length}件 を一斉に送っています…`);
-        /* 2026-11-01 泰広さん指示：1回の通信でまとめて送る（サーバーの 一括保存.gs＝rec_put_many）。
-           入っていないサーバー（unknown_action）なら、今までどおり1件ずつ同時に送る */
-        let doneBatch=false;
-        const bat=order.filter(k=>IDEMP.test(String(G[k].body.action||'')));
-        if(bat.length>=2 && !BS.off){
-          const res=[]; let ok=true;
-          for(let i=0;i<bat.length && ok;i+=40){ const part=bat.slice(i,i+40); let r=null;
-            try{ r=await waitRes(recApi({action:'rec_put_many', items:part.map(k=>G[k].body)},90000)); }
-            catch(e){ if(e&&e.stale){ BGS.again=true; } else netFail=true; ok=false; break; }
-            if(r&&r.ok&&Array.isArray(r.res)&&r.res.length===part.length){ BS.on(); part.forEach((k,j)=>res.push([k,r.res[j]])); }
-            else { if(r&&r.err==='unknown_action') BS.off=true; ok=false; } }
-          res.forEach(([k,r])=>{ const g=G[k], it0=g.items[0], n=g.items.length, b=g.body;
-            const it={body:b, label:n>1?`${it0.label} ほか${n-1}件`:it0.label, at:it0.at};
-            g.items.forEach(qRemove); BGS.sent+=n; g.sent=1; pcDrop(b);
-            if(r&&r.ok){ okN+=n; const w=recAfterSave(it,r); if(w) warns.push(w); } else fails.push(`${it.label}：${(r&&r.err)||''}`); });
-          doneBatch=true;
-        }
-        if(!netFail) await Promise.all(order.filter(k=>!G[k].sent).map(one));
-        /* 同じ順号の醪を何日分も同時に送ったときは、返事の順が前後するので最後に取り直して画面の控えをそろえる */
-        const cnt={}; if(!doneBatch) order.forEach(k=>{ const b=G[k].body; if(b.action==='bunseki_save') cnt[b.no]=(cnt[b.no]||0)+1; });
-        Object.keys(cnt).filter(n=>cnt[n]>1).forEach(n=>{ recApi({action:'bunseki_get',no:Number(n)||n},40000).then(r=>{ if(r&&r.ok){ RC.bun[n]=recOverlay('bunseki_get',n,r); RC.at=0; } }).catch(()=>{}); });
-      } while(BGS.again && !netFail);
-    } finally { BGS.run=false; RC.qBusy=false; }
-    if(okN && !netFail && !fails.length && !warns.length) rcToast(`${okN}件 を保存しました`);
-    if(netFail) rcToast(`電波が弱いため未送信が${recQ().length}件あります。電波が戻ったら自動で送ります`,true);
-    /* 注意（推奨追水・警告）と保存できなかった分は、最後にまとめて出す */
-    if(warns.length||fails.length) rcToast([...fails.map(x=>'✕ 保存できませんでした　'+x), ...warns].join('\n'), true, 12000);
-    /* 酒母：全部送れたら最新を取り直し、表を開いていれば描き直す（未保存の入力があるときは描き直さない） */
-    if(!recQ().length && RC.shDirty && Object.keys(RC.shDirty).length){ const nos=Object.keys(RC.shDirty); RC.shDirty={};
-      try{ await shFetchMany(nos,'shubo_get',RC.shubo,()=>{}); }catch(e){}
-      try{ if(typeof KGE!=='undefined' && KGE.draw && document.querySelector('.kg-sbar') && !Object.keys(KGE.dirty||{}).length) KGE.draw(); }catch(e){} }
-    if(netFail){ clearTimeout(RC.qRetry); RC.qRetry=setTimeout(recFlush,30000); }
-    else if(recQ().length && !BGS.run) setTimeout(recFlush,500);
-  };
-
-  /* 画面を消す瞬間：送信待ちを先に送り届ける（ブラウザが画面の外で送る） */
-  function beaconAll(){
-    if(!navigator.sendBeacon) return; const q=recQ(); if(!q.length) return; const now=Date.now(); let ch=false;
-    if(BS.ok && !BS.off){ const L=q.filter(it=>IDEMP.test(String((it.body||{}).action||'')) && !(it.bk && now-it.bk<10000));
-      if(L.length>=2){ try{ const blob=new Blob([JSON.stringify({user:rcUser(), device:dev(), via:'beacon', action:'rec_put_many', items:L.slice(0,60).map(it=>it.body)})],{type:'text/plain;charset=utf-8'});
-          if(navigator.sendBeacon(REC_URL, blob)){ L.slice(0,60).forEach(it=>{ it.bk=now; }); lsSet('rec.q',q); return; } }catch(e){} } }
-    q.forEach(it=>{ const b=it.body||{}; if(!IDEMP.test(String(b.action||''))) return; if(it.bk && now-it.bk<10000) return;
-      try{ const blob=new Blob([JSON.stringify(Object.assign({user:rcUser(), device:dev(), via:'beacon'}, b))],{type:'text/plain;charset=utf-8'});
-        if(navigator.sendBeacon(REC_URL, blob)){ it.bk=now; ch=true; } }catch(e){} });
-    if(ch) lsSet('rec.q',q);
-  }
-  document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState==='hidden'){ BGS.hidAt=Date.now(); beaconAll(); return; }
-    const hid=BGS.hidAt, away=hid?Date.now()-hid:0; BGS.hidAt=0;
-    if(away>4000) [...BGS.stale].forEach(f=>f(hid));    // 画面を消す前から止まっていた通信は打ち切って送り直す
-    if(recQ().length) setTimeout(()=>recFlush(),300);   // 戻ったらすぐ送り直して確認
-  });
-  window.addEventListener('pagehide',beaconAll);
-  window.addEventListener('pageshow',()=>{ if(recQ().length) setTimeout(()=>recFlush(),300); });
-})();
-
-</script>
-<!-- /bgsave1101 -->
 <!-- kurokasu -->
 <script>
 /* ================= 🟫 仕込み：黒粕の札（2026-11-01 泰広さん指示） =================
@@ -14334,6 +14219,124 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
   document.head.appendChild(s); })();
 </script>
 <!-- /kurokasu -->
+<!-- bgsave1101 -->
+<script>
+/* ================= 💾 保存を速く・画面を消しても送る（2026-11-01 泰広さん指示） =================
+   困りごと：仕込み・酒母・麹で入力したあと、1件ずつの保存が長い。スマホ・iPadの画面を消すと、保存まで止まってしまう。
+   原因：①送信待ち（rec.q）を1件ずつ順番に送っていた（醪の保存は1件 3〜6秒かかる＝10件で約1分）
+         ②画面を消すとアプリの動きが止まり、送信も止まる。戻っても「電波が戻ったとき・30秒ごと」しか送り直さなかった
+   直し：①送信待ちを全部一斉に送る（同じ所＝同じ順号・日・段への分は1本にまとめ、後から入れた値が勝つ）
+         ①' 一括保存.gs（rec_put_many）は実測で遅かったので、画面を消すときのビーコンだけに使う
+         ②保存の通信は keepalive（画面を消しても通信を最後まで続ける）。recApi 本体の fetch を1か所直した
+         ③画面を消す瞬間（visibilitychange→hidden／pagehide）に、送信待ちを sendBeacon でまとめて先に送る
+           （ブラウザが画面の外で送り届ける。対象は同じ内容を2回送っても結果が同じ保存だけ：bunseki_save/shubo_save/koji_save/kyusui_save）
+         ④画面に戻ったらすぐ送り直して確認する（サーバーは同じ値なら書かない・入力ログも増えない＝二重にならない）
+           画面を消している間に止まっていた通信は待たずに打ち切って送り直す
+   控え：seishu-workbook_github\_src_bgsave1101.js　差し込み：_保存の高速化と画面オフ送信_20261101.py（<!-- bgsave1101 --> ブロック、</body> の直前）
+   ======================================================================================= */
+(function(){
+  if(typeof recQ!=='function' || typeof recApi!=='function') return;
+  const IDEMP=/^(bunseki_save|shubo_save|koji_save|kyusui_save)$/;    // 2回送っても結果が同じ保存
+  /* 送り先の「形」：値（values・setup・oro）以外が同じなら同じ所への保存 → 1本にまとめられる */
+  const shapeOf=b=>{ const o={}; Object.keys(b).sort().forEach(k=>{ if(k==='values'||k==='oro') o[k]=1; else if(k==='setup') o[k]=(b.setup&&b.setup.stage)?'st:'+b.setup.stage:1; else o[k]=b[k]; }); return JSON.stringify(o); };
+  const mergeBody=(a,b)=>{ if(!a) return JSON.parse(JSON.stringify(b)); const r=a;
+    if(b.values) r.values=Object.assign({},r.values||{},b.values);
+    if(b.oro) r.oro=Object.assign({},r.oro||{},b.oro);
+    if(b.setup){ if(b.setup.stage) r.setup={stage:b.setup.stage, values:Object.assign({},(r.setup&&r.setup.values)||{},b.setup.values||{})}; else r.setup=Object.assign({},r.setup||{},b.setup); }
+    return r; };
+  const same=(a,b)=>a&&b&&a.at===b.at&&JSON.stringify(a.body)===JSON.stringify(b.body);
+  /* 一括保存（rec_put_many）がサーバーで使えるか。使えたことがあれば端末に覚える（画面を消すときの送信も1本にできる） */
+  const BS={off:false, flush:false, ok:!!lsGet('rec.putmany',0), on(){ if(!this.ok){ this.ok=true; lsSet('rec.putmany',1); } }};
+  /* サーバーが rec_put_many を知っているか、起動して少ししたら1回だけ確かめる（空の箱を送るだけ・何も書かない） */
+  setTimeout(()=>{ if(BS.ok || !ST.token) return; recApiNet({action:'rec_put_many', items:[]},30000).then(r=>{ if(r&&r.ok) BS.on(); }).catch(()=>{}); }, 6000);
+  /* 端末の保存分（PC）を捨てる：1件ずつ送ったとき（recApi の中）と同じ決まり */
+  function pcDrop(b){ try{ const no=b&&b.no; if((b.action==='bunseki_save'||b.action==='shubo_save') && no!=null && no!==''){ ['bunseki_get','shubo_get','karte'].forEach(x=>PC.delPrefix('rec:'+x+':'+no+':')); } else PC.delPrefix('rec:'); }catch(e){} }
+  const BGS=window.BGS={run:false, again:false, hidAt:0, stale:new Set(), sent:0};
+  const dev=()=>(navigator.userAgent.match(/iPhone|iPad|Android|Windows|Mac/)||[''])[0];
+  function qRemove(it){ const q=recQ(); const i=q.findIndex(x=>same(x,it)); if(i>=0){ q.splice(i,1); lsSet('rec.q',q); } }
+  /* 画面を消して戻ったら、止まっていた通信は待たない（打ち切って送り直す） */
+  function waitRes(p){ return new Promise((ok,ng)=>{ let done=false; const st=Date.now(); const kill=(hid)=>{ if(!done && st<=hid){ done=true; ng(Object.assign(new Error('stale'),{stale:true})); } };   // 画面を消す前に出した通信だけ
+    BGS.stale.add(kill); p.then(v=>{ if(!done){ done=true; ok(v); } BGS.stale.delete(kill); }, e=>{ if(!done){ done=true; ng(e); } BGS.stale.delete(kill); }); }); }
+
+  recFlush=async function(){
+    if(BGS.run){ BGS.again=true; return; }
+    BGS.run=true; RC.qBusy=true; clearTimeout(RC.qRetry);
+    await new Promise(r=>setTimeout(r,80));   // 続けて押した保存を1回にまとめて同時に送る
+    const warns=[], fails=[]; let netFail=false, okN=0;
+    try{
+      do{ BGS.again=false;
+        const q=recQ(); if(!q.length) break;
+        /* 2026-11-01 泰広さん指示：順号ごとではなく一斉に送る。
+           同じ所（同じ保存・順号・日・段）への分は1本にまとめ（後から入れた値が勝つ）、残りは全部同時に送る */
+        const G={}, order=[];
+        q.forEach(it=>{ const k=shapeOf(it.body||{}); if(!G[k]){ G[k]={items:[],body:null}; order.push(k); } const g=G[k]; g.items.push(it); g.body=mergeBody(g.body,it.body||{}); });
+        const one=async k=>{ const g=G[k], it0=g.items[0], n=g.items.length;
+          const it={body:g.body, label:n>1?`${it0.label} ほか${n-1}件`:it0.label, at:it0.at}; let res=null;
+          try{ res=await waitRes(recApi(g.body,60000)); }
+          catch(e){ if(e&&e.stale){ BGS.again=true; return; } netFail=true; return; }
+          g.items.forEach(qRemove); BGS.sent+=n;
+          if(res&&res.ok){ okN+=n; const w=recAfterSave(it,res); if(w) warns.push(w); }
+          else { fails.push(`${it.label}：${(res&&res.err)||''}`); } };
+        if(order.length>1) rcToast(`${q.length}件 を一斉に送っています…`);
+        /* 1回の通信でまとめて送る（一括保存.gs＝rec_put_many）は、2026-11-01 の実測で「同時に1件ずつ」より遅かった
+           （本番・同じ値で6件：まとめて15.6秒／同時8.4秒。サーバーは1回の実行の中では1件ずつ順に書くため）→ ふだんは使わない（BS.flush=false）。
+           画面を消すときの送信（ビーコン）だけ1本にまとめて使う */
+        let doneBatch=false;
+        const bat=order.filter(k=>IDEMP.test(String(G[k].body.action||'')));
+        if(BS.flush && bat.length>=2 && !BS.off){
+          const res=[]; let ok=true;
+          for(let i=0;i<bat.length && ok;i+=40){ const part=bat.slice(i,i+40); let r=null;
+            try{ r=await waitRes(recApi({action:'rec_put_many', items:part.map(k=>G[k].body)},90000)); }
+            catch(e){ if(e&&e.stale){ BGS.again=true; } else netFail=true; ok=false; break; }
+            if(r&&r.ok&&Array.isArray(r.res)&&r.res.length===part.length){ BS.on(); part.forEach((k,j)=>res.push([k,r.res[j]])); }
+            else { if(r&&r.err==='unknown_action') BS.off=true; ok=false; } }
+          res.forEach(([k,r])=>{ const g=G[k], it0=g.items[0], n=g.items.length, b=g.body;
+            const it={body:b, label:n>1?`${it0.label} ほか${n-1}件`:it0.label, at:it0.at};
+            g.items.forEach(qRemove); BGS.sent+=n; g.sent=1; pcDrop(b);
+            if(r&&r.ok){ okN+=n; const w=recAfterSave(it,r); if(w) warns.push(w); } else fails.push(`${it.label}：${(r&&r.err)||''}`); });
+          doneBatch=true;
+        }
+        if(!netFail) await Promise.all(order.filter(k=>!G[k].sent).map(one));
+        /* 同じ順号の醪を何日分も同時に送ったときは、返事の順が前後するので最後に取り直して画面の控えをそろえる */
+        const cnt={}; if(!doneBatch) order.forEach(k=>{ const b=G[k].body; if(b.action==='bunseki_save') cnt[b.no]=(cnt[b.no]||0)+1; });
+        Object.keys(cnt).filter(n=>cnt[n]>1).forEach(n=>{ recApi({action:'bunseki_get',no:Number(n)||n},40000).then(r=>{ if(r&&r.ok){ RC.bun[n]=recOverlay('bunseki_get',n,r); RC.at=0; } }).catch(()=>{}); });
+      } while(BGS.again && !netFail);
+    } finally { BGS.run=false; RC.qBusy=false; }
+    if(okN && !netFail && !fails.length && !warns.length) rcToast(`${okN}件 を保存しました`);
+    if(netFail) rcToast(`電波が弱いため未送信が${recQ().length}件あります。電波が戻ったら自動で送ります`,true);
+    /* 注意（推奨追水・警告）と保存できなかった分は、最後にまとめて出す */
+    if(warns.length||fails.length) rcToast([...fails.map(x=>'✕ 保存できませんでした　'+x), ...warns].join('\n'), true, 12000);
+    /* 酒母：全部送れたら最新を取り直し、表を開いていれば描き直す（未保存の入力があるときは描き直さない） */
+    if(!recQ().length && RC.shDirty && Object.keys(RC.shDirty).length){ const nos=Object.keys(RC.shDirty); RC.shDirty={};
+      try{ await shFetchMany(nos,'shubo_get',RC.shubo,()=>{}); }catch(e){}
+      try{ if(typeof KGE!=='undefined' && KGE.draw && document.querySelector('.kg-sbar') && !Object.keys(KGE.dirty||{}).length) KGE.draw(); }catch(e){} }
+    if(netFail){ clearTimeout(RC.qRetry); RC.qRetry=setTimeout(recFlush,30000); }
+    else if(recQ().length && !BGS.run) setTimeout(recFlush,500);
+  };
+
+  /* 画面を消す瞬間：送信待ちを先に送り届ける（ブラウザが画面の外で送る） */
+  function beaconAll(){
+    if(!navigator.sendBeacon) return; const q=recQ(); if(!q.length) return; const now=Date.now(); let ch=false;
+    if(BS.ok && !BS.off){ const L=q.filter(it=>IDEMP.test(String((it.body||{}).action||'')) && !(it.bk && now-it.bk<10000));
+      if(L.length>=2){ try{ const blob=new Blob([JSON.stringify({user:rcUser(), device:dev(), via:'beacon', action:'rec_put_many', items:L.slice(0,60).map(it=>it.body)})],{type:'text/plain;charset=utf-8'});
+          if(navigator.sendBeacon(REC_URL, blob)){ L.slice(0,60).forEach(it=>{ it.bk=now; }); lsSet('rec.q',q); return; } }catch(e){} } }
+    q.forEach(it=>{ const b=it.body||{}; if(!IDEMP.test(String(b.action||''))) return; if(it.bk && now-it.bk<10000) return;
+      try{ const blob=new Blob([JSON.stringify(Object.assign({user:rcUser(), device:dev(), via:'beacon'}, b))],{type:'text/plain;charset=utf-8'});
+        if(navigator.sendBeacon(REC_URL, blob)){ it.bk=now; ch=true; } }catch(e){} });
+    if(ch) lsSet('rec.q',q);
+  }
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='hidden'){ BGS.hidAt=Date.now(); beaconAll(); return; }
+    const hid=BGS.hidAt, away=hid?Date.now()-hid:0; BGS.hidAt=0;
+    if(away>4000) [...BGS.stale].forEach(f=>f(hid));    // 画面を消す前から止まっていた通信は打ち切って送り直す
+    if(recQ().length) setTimeout(()=>recFlush(),300);   // 戻ったらすぐ送り直して確認
+  });
+  window.addEventListener('pagehide',beaconAll);
+  window.addEventListener('pageshow',()=>{ if(recQ().length) setTimeout(()=>recFlush(),300); });
+})();
+
+</script>
+<!-- /bgsave1101 -->
 <!-- shkfast1101 -->
 <script>
 /* ================= 🍶 仕込み・🧫 酒母の表：反映を1回に・位置を保つ／仕込みの表を画面に固定（2026-11-01 泰広さん指示） =================
