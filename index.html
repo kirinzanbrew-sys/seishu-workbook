@@ -14455,5 +14455,143 @@ html.shk-fit .sk-mbox .kg-sbar{position:fixed;left:12px;right:12px;bottom:calc(1
 
 </script>
 <!-- /shkfast1101 -->
+<!-- oisig1101 -->
+<script>
+/* ================= 💧 仕込みの表：追水を入れられるかを「追水の見出し」の色で（2026-11-01 泰広さん指示） =================
+   泰広さん：追水はボーメに対してアルコールが低いと入れられない。その判断を磨くシステムを組みたい。
+   決まったこと（設計は Obsidian 杜氏/追水判断システム_設計メモ.md）：
+   ・追水の行の見出し（td.f「追水300」）を「追水 100/150」＋バーにして、入れられるかどうかで色分け（見本B）
+       緑＝入れられる：5日目以降、昨年（R7BY）の同じ液種・同じ日の平均アルコールとの差が 0 以上
+       黄＝様子見：0〜−1.5　赤＝入れない：−1.5 より低い／その日の醪DB の警告に「酸度急上昇」／ぽたりの上槽見込みが16%未満
+       灰＝3・4日目（米が溶けておらず醪が回っていない＝分析値を参考にしない。入れて可）、5日目以降のアルコールがまだ無いときも灰
+       色なし＋✓＝規定に届いた
+   ・バーの下の「入れられる」などの字も「あと〇」も出さない（11/1 泰広さん）。赤のときの「上槽15.4%」だけ
+   ・ぽたり：上槽の見込み＝昨年のその液種の21日目の平均アルコール（ぽたり五百万16.7）＋ 今日の差。狙い16〜17%台。16%未満は赤
+   ・教科書の目安（醪日数≒アルコール）は参考としてカードに並べる。推奨追水（A−B直線の計算）はカードに薄い字
+   ・見出しを押すとカード。「見送り」と理由を記録（記録先：製造ツール 共有データ「醪作業」 name＝追水見送り。入れたときは今までどおりマスに量を入れる）
+   ・規定の量＝見出しの「追水300」と同じ（🧾配合表 sk19Oimizu、無ければ bunseki_get の head.oimizuPlan）
+   ・昨年の平均アルコール＝R7BY 醪日次の液種×日数の平均（醪管理R8BY「標準経過」と同じ値。控え _oistd_R7BY.json）
+   控え：seishu-workbook_github\_src_oisig1101.js　差し込み：_追水の信号_20261101.py（<!-- oisig1101 --> ブロック、</body> の直前） */
+const OI_STD={"超辛":{"3":2.68,"4":3.88,"5":5.54,"6":6.12,"7":7.1,"8":7.72,"9":9.02,"10":9.54,"11":10.39,"12":11.0,"13":11.7,"14":12.73,"15":13.6,"16":14.7,"17":15.31,"18":16.07,"19":16.66,"20":17.31,"21":17.66,"22":17.87,"23":17.52,"24":17.5,"25":18},"ぽたり五百万":{"3":2.63,"4":3.97,"5":5.06,"6":5.88,"7":7.56,"8":8.95,"9":9.77,"10":11.3,"11":11.8,"12":12.68,"13":13.33,"14":14.18,"15":14.78,"16":15.3,"17":15.6,"18":15.88,"19":16.23,"20":16.3,"21":16.7,"22":16.8,"23":16.97,"24":16.8},"金雲母":{"3":2.07,"4":3.87,"5":4.43,"6":5.4,"7":6.5,"8":8.27,"9":9.0,"10":10.9,"11":11.45,"12":11.6,"13":12.45,"14":13.3,"15":14.2,"16":14.8,"17":15.05,"18":15.6,"19":15.93,"20":16.25,"21":16.27,"22":17.0,"23":17.1,"24":17.37,"25":17.45,"26":17.65,"27":17.7,"28":17.8},"伝辛":{"3":3.18,"4":4.79,"5":5.82,"6":6.76,"7":7.77,"8":8.66,"9":9.44,"10":10.21,"11":10.93,"12":11.83,"13":12.56,"14":13.33,"15":14.36,"16":15.25,"17":16.11,"18":16.7,"19":17.19,"20":17.57,"21":17.8,"22":17.94,"23":17.96,"24":17.7},"一片氷心":{"3":2.1,"4":3.5,"5":4.6,"6":8.7,"7":7.1,"8":8.9,"9":9.6,"10":10,"11":12.3,"12":13.1,"13":13.8,"14":14.2,"15":14.8,"16":15.2,"17":15.4,"18":15.7,"19":16,"20":16.2,"21":16.4,"22":16.6,"23":16.4},"はでっぱの香":{"4":4.4,"5":8.9,"6":6.7,"7":8.4,"11":11.7,"12":13.2,"13":14.3,"14":14.8,"15":15.6,"16":16.1,"17":16.5,"18":16.9,"19":17.3,"20":17.7,"21":17.3},"kagayaki":{"3":2.06,"4":2.68,"5":3.42,"6":4.14,"7":5.04,"8":6.26,"9":7.28,"10":7.88,"11":8.98,"12":9.76,"13":10.48,"14":11.2,"15":11.66,"16":12.26,"17":12.66,"18":13.1,"19":13.46,"20":13.86,"21":14.1,"22":14.38,"23":14.62,"24":14.84,"25":15.04,"26":15.2,"27":15.36,"28":15.54,"29":15.5,"30":15.63,"31":15.73,"32":16,"33":16.2,"34":16.4},"ぽたり越淡麗":{"3":1.6,"4":1.94,"5":2.43,"6":3.92,"7":5.26,"8":5.97,"9":8.57,"10":9.0,"11":11.4,"12":10.58,"13":11.58,"14":12.82,"15":13.44,"16":14.1,"17":14.82,"18":15.24,"19":15.58,"20":15.94,"21":16.36,"22":16.62,"23":16.74,"24":17.0,"25":17.05,"26":16.9,"27":17.4},"なごり雪":{"3":4.2,"4":5.55,"5":7.45,"6":8.55,"7":10.1,"8":10.95,"9":11.9,"10":13.55,"11":14.25,"12":14.95,"13":15.4,"14":15.95,"15":16.35,"16":16.65,"17":17.0,"18":17.25},"やわらか":{"3":2.65,"4":3.95,"5":5.35,"6":7.0,"7":8.37,"8":9.62,"9":11.22,"10":12.4,"11":12.98,"12":14.18,"13":15.65,"14":15.97,"15":16.27,"16":16.82,"17":17.23,"18":17.35,"19":17.75,"20":18.03,"21":18.2,"22":18.33,"23":18.36,"24":18.4,"25":18.35,"26":18.5,"27":18.7,"28":18.5},"遠雷":{"3":2.65,"4":4.1,"5":5.4,"6":6.4,"7":7.65,"8":8.85,"9":9.85,"10":11.2,"11":12.3,"12":13.35,"14":14.7,"15":15.3,"16":15.5,"17":15.9,"18":16.2,"19":16.6,"20":16.8,"21":17.05,"22":17.1},"普通純米":{"3":2.9,"4":3.85,"5":4.9,"6":6.3,"7":7.5,"8":8.63,"9":9.6,"10":10.65,"11":12.45,"12":12.65,"13":14.13,"14":14.6,"15":15.17,"16":15.5,"17":15.35,"18":15.93,"19":16.07,"20":16.23,"21":16.8},"紅葉純米":{"3":1.55,"4":2.9,"5":4.15,"6":4.9,"7":6.7,"8":7.8,"9":9.3,"10":9.8,"12":11.5,"13":13.65,"14":13,"15":14.35,"16":14.85,"17":15.25,"18":16.2,"19":16.0,"20":16.35,"21":16.55,"22":17.2,"23":16.9,"24":17.0,"25":17.2,"26":17.4,"27":17.65,"28":17.6},"ながれぼし":{"3":1.8,"4":3.76,"5":4.12,"6":5.86,"7":6.93,"8":8.16,"9":9.38,"10":10.43,"11":11.24,"12":12.69,"13":13.4,"14":14.17,"15":14.83,"16":15.45,"17":16.04,"18":16.43,"19":16.53,"20":16.96,"21":17.09,"22":17.29,"23":17.44,"24":17.62,"25":17.6,"26":17.85,"27":18.4},"純米大吟醸":{"3":2.5,"4":3.1,"5":3.7,"6":4.6,"7":5.2,"8":7.1,"9":8.1,"10":9.2,"11":10,"12":11.4,"13":12.1,"14":12.7,"15":13.2,"16":13.6,"17":14,"18":14.4,"19":14.7,"20":14.9,"21":15.2,"22":15.3,"23":15.6,"24":15.7,"25":15.8,"26":16.1,"27":16.1,"28":16.3,"29":16.5},"火鉢":{"3":2.8,"4":3.5,"6":5.9,"7":6.6,"8":7.6,"9":8,"10":7.8,"12":9.2,"13":10.3,"14":10.9,"15":11.4,"16":13.2,"17":14.2,"18":15,"19":15.7,"20":16.4,"21":16.9,"22":17.3,"23":17.6,"24":17.9},"研究室":{"3":1.4,"4":2.7,"5":3.4,"6":4.3,"7":5.5,"8":6.8,"9":8,"10":8.8,"11":9.4,"12":10.6,"13":12.3,"14":13.2,"15":13.8,"16":14.3,"18":15.4,"19":15.8,"20":16,"21":16.6,"22":17,"23":17.1},"ユキノシタ":{"3":1.57,"4":2.7,"5":4.17,"6":5.3,"7":6.23,"8":7.83,"9":8.6,"10":10.0,"11":11.25,"12":11.9,"13":13.55,"14":14.12,"15":14.63,"16":15.23,"17":15.8,"18":16.2,"19":16.6,"20":16.95,"21":17.18,"22":17.3,"23":17.55,"24":17.77,"25":17.7,"26":18},"とろりとろり":{"3":2.25,"4":3.2,"5":3.75,"6":4.95,"7":5.8,"8":7.15,"9":8.05,"10":9.05,"11":9.95,"12":11.4,"13":12.35,"14":13.1,"15":13.7,"16":14.15,"17":14.7,"18":15.15,"19":15.55,"20":15.7,"21":15.95,"22":16.05,"23":16.35,"24":16.2},"低アル純米":{"3":2.4,"4":3,"5":3.9,"6":5,"7":6.1,"8":7.5,"9":7.9,"10":9.3,"11":10.4,"12":11.7,"13":12.2,"14":12.8,"15":13.3,"16":13.8,"17":13.8,"18":14.1,"19":14.3,"20":14.7,"21":15,"22":15.1}};
+const OI_REASONS=['アルコールが低い','ボーメが切れていない','酸が出ている','泡・状貌','品温','その他'];
+const OI_JOB='追水見送り';
+const oiN=v=>{ if(v===''||v==null) return null; const n=Number(v); return isNaN(n)?null:n; };
+const oiF=(v,d=1)=>v==null?'—':(Math.round(v*10**d)/10**d).toFixed(d);
+const oiS=v=>v==null?'—':(v>0?'+':'')+oiF(v);
+function oiKey(liq){
+  const s=String(liq||'').normalize('NFKC').replace(/\s/g,'');
+  if(/ぽたり/.test(s)) return /越淡麗/.test(s)?'ぽたり越淡麗':'ぽたり五百万';
+  if(/kagayaki|輝/i.test(s)) return 'kagayaki';
+  if(/紅葉/.test(s)) return '紅葉純米';
+  if(OI_STD[s]) return s;
+  return Object.keys(OI_STD).find(k=>s.indexOf(k)>=0)||null;
+}
+function oiState(no){
+  const m=rcMaster(no), b=RC.bun&&RC.bun[no]; if(!m||!b||!b.days) return null;
+  let plan=(typeof sk19Oimizu==='function')?sk19Oimizu(m):null; if(plan==null) plan=oiN(b.head&&b.head.oimizuPlan);
+  if(!(plan>0)) return null;
+  const cum=b.days.reduce((a,d)=>{ const v=oiN(d.oimizu); return a+(v>0?v:0); },0);
+  const today=rcMoromiDay(m);
+  const o={no, m, plan, cum, rest:Math.max(0,plan-cum), today};
+  if(cum>=plan){ o.s='ok'; return o; }
+  if(!today || today<=4){ o.s='n'; o.early=1; return o; }
+  let L=null; b.days.forEach(d=>{ if(oiN(d.alc)!=null && d.day>=5 && d.day<=today) L=d; });
+  if(!L){ o.s='n'; o.noalc=1; return o; }
+  const key=oiKey(m.liquid), std=key?oiN((OI_STD[key]||{})[String(L.day)]):null;
+  o.day=L.day; o.alc=oiN(L.alc); o.key=key; o.std=std; o.txt=Math.round((o.alc-L.day)*10)/10;
+  const c=((b.calc||{})[L.day])||{}; o.rec=oiN(c.rec);
+  if(std==null){ o.s='x'; return o; }
+  o.diff=Math.round((o.alc-std)*10)/10;
+  o.s=o.diff>=0?'g':(o.diff>=-1.5?'y':'r');
+  if(/酸度急上昇/.test(String(c.warn||''))){ o.s='r'; o.acid=1; }
+  if(/^ぽたり/.test(key||'')){ const base=oiN((OI_STD[key]||{})['21']); if(base!=null){ o.proj=Math.round((base+o.diff)*10)/10; if(o.proj<16){ o.s='r'; o.low=1; } } }
+  return o;
+}
+function oiPaint(box){
+  (box||app).querySelectorAll('.sk-mbox .kg-t tr[data-kg] td.f, .kg-t.mk tr[data-kg] td.f').forEach(td=>{
+    if(!td.classList.contains('oisig') && !/^追水/.test(td.textContent.trim())) return;
+    const no=td.closest('tr').dataset.kg, o=oiState(no); if(!o) return;
+    ['g','y','r','n','ok','x'].forEach(k=>td.classList.remove('oi-'+k));
+    td.classList.add('oisig','oi-'+o.s); td.dataset.oino=no;
+    const pct=Math.min(100,Math.round(o.cum/o.plan*100));
+    td.innerHTML=`<span class="oi-t">追水 <b>${o.cum}/${o.plan}</b>${o.s==='ok'?' ✓':''}</span><span class="oi-bar"><i style="width:${pct}%"></i></span>`+
+      (o.low?`<span class="oi-up">上槽${oiF(o.proj)}%</span>`:'');
+  });
+}
+if(typeof sk19OiLabel==='function'){ const o=sk19OiLabel; sk19OiLabel=function(box){ const r=o.apply(this, arguments); try{ oiPaint(box); }catch(e){ console.log('oisig',e); } return r; }; }
+
+/* ---- カード ---- */
+function oiSkips(no){ return (MW.items||[]).filter(x=>!x.deleted && x.name===OI_JOB && String(x.no)===String(no)).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||''))); }
+async function oiCard(no){
+  const o=oiState(no); if(!o) return;
+  const m=o.m, col={g:'#2e7d32',y:'#8a5d00',r:'#c62828',n:'#56637a',ok:'#7a8a7c',x:'#5d574c'}[o.s];
+  const mask=document.createElement('div'); mask.className='o2-mask'; document.body.appendChild(mask);
+  const close=()=>mask.remove(); mask.addEventListener('click', e=>{ if(e.target===mask) close(); });
+  let pick='';
+  const draw=()=>{
+    const sk=oiSkips(no).slice(0,5), td=sk.find(x=>x.date===dtoday());
+    const main = o.s==='ok' ? `<div class="oi-big" style="color:${col}">規定に届いています ✓</div>`
+      : o.early ? `<div class="oi-big" style="color:${col}">3・4日目：入れて可</div><div class="oi-sub">米が溶けておらず醪が回っていないため、分析値では判定しません</div>`
+      : o.noalc ? `<div class="oi-big" style="color:${col}">5日目以降のアルコールがまだありません</div>`
+      : `<div class="oi-two"><div class="oi-m"><div class="oi-h">昨年（R7BY）の${esc(o.key||'')} ${o.day}日目との差</div><div class="oi-v" style="color:${col}">${oiS(o.diff)}</div><div class="oi-sub">アルコール ${oiF(o.alc)} − 昨年 ${o.std==null?'—':oiF(o.std,2)}</div></div>`+
+        `<div class="oi-c"><div class="oi-h">参考：教科書（醪日数）</div><div class="oi-v">${oiS(o.txt)}</div><div class="oi-sub">${oiF(o.alc)} − ${o.day}日</div></div></div>`+
+        (o.proj!=null?`<div class="oi-proj" style="color:${o.proj<16?'#c62828':o.proj>=18?'#c88a00':'inherit'}">上槽 ${oiF(o.proj)}%</div>`:'')+
+        (o.acid?`<div class="oi-sub" style="color:#c62828">酸度急上昇（醪DB の警告）</div>`:'')+
+        (o.s==='x'?`<div class="oi-sub">この液種は昨年のデータが無いため色を付けていません</div>`:'');
+    mask.innerHTML=`<div class="o2-sheet"><div class="t">💧 追水　${esc(String(no))}号 ${esc(m.liquid||'')} T${esc(String(m.tank||''))}<button type="button" data-a="x">閉じる</button></div><div class="l oi-card">
+      <div class="oi-sum">追水 <b>${o.cum}/${o.plan}</b>${o.s!=='ok'?`　あと${o.rest}`:''}</div>${main}
+      ${o.rec>0?`<div class="oi-rec">参考：推奨追水 ${Math.round(o.rec)}L（教科書のA−B直線の計算）</div>`:''}
+      ${o.s!=='ok'?`<div class="oi-h" style="margin-top:12px">きょう見送るとき（入れたときはマスに量を入れるだけ）</div>
+      ${td?`<div class="oi-done">⏸ きょうは見送り：${esc(String(td.memo||'').split('｜')[0])}（${esc(td.by||'')}）<button type="button" data-a="undo">取り消す</button></div>`:
+      `<div class="oi-why">${OI_REASONS.map(r=>`<button type="button" data-r="${esc(r)}" class="${pick===r?'on':''}">${esc(r)}</button>`).join('')}</div>
+      <div class="oi-row"><button type="button" class="oi-go" data-a="skip" ${pick?'':'disabled'}>⏸ 見送りを記録</button></div>`}`:''}
+      ${sk.length?`<div class="oi-h" style="margin-top:12px">見送りの記録</div>${sk.map(x=>`<div class="oi-hist">${esc(String(x.date||'').slice(5))}　${esc(String(x.memo||'').split('｜')[0])}　<span>${esc(x.kind||'')}・${esc(x.by||'')}</span></div>`).join('')}`:''}
+      <div class="oi-msg"></div></div></div>`;
+    mask.querySelector('[data-a="x"]').onclick=close;
+    mask.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ pick=b.dataset.r; draw(); });
+    const say=t=>{ const e=mask.querySelector('.oi-msg'); if(e) e.textContent=t; };
+    const sb=mask.querySelector('[data-a="skip"]'); if(sb) sb.onclick=async()=>{
+      let r=pick; if(r==='その他'){ const t=prompt('見送りの理由'); if(!t) return; r='その他：'+t.replace(/[｜|]/g,'/'); }
+      say('保存しています…');
+      const sig={g:'緑',y:'黄',r:'赤',n:'灰',x:'色なし'}[o.s]||'';
+      const item={ name:OI_JOB, kind:sig, no:String(no), liquid:m.liquid||'', tank:String(m.tank||''), plan:dtoday(), date:dtoday(),
+        memo:`${r}｜${o.today}日目｜追水${o.cum}/${o.plan}`+(o.diff!=null?`｜差${oiS(o.diff)}｜alc${oiF(o.alc)}(${o.day}日)`:'')+(o.proj!=null?`｜上槽${oiF(o.proj)}`:'') };
+      try{ mwKeep(await mwApi({action:'save', item})); pick=''; draw(); }catch(e){ say('保存できませんでした：'+(e.message||e)); } };
+    const ub=mask.querySelector('[data-a="undo"]'); if(ub) ub.onclick=async()=>{
+      const t=oiSkips(no).find(x=>x.date===dtoday()); if(!t||!confirm('きょうの見送りの記録を取り消しますか？')) return;
+      say('取り消しています…'); try{ mwKeep(await mwApi({action:'delete', id:t.id})); draw(); }catch(e){ say('取り消せませんでした：'+(e.message||e)); } };
+  };
+  draw();
+  try{ await mwLoad(false); if(document.body.contains(mask)) draw(); }catch(e){}
+}
+document.addEventListener('click', e=>{ const td=e.target.closest&&e.target.closest('td.oisig[data-oino]'); if(!td) return; e.preventDefault(); e.stopPropagation(); oiCard(td.dataset.oino); }, true);
+
+(function(){ const s=document.createElement('style'); s.textContent=`
+.kg-t td.f.oisig{white-space:normal!important;line-height:1.15;padding:2px 3px;cursor:pointer;min-width:64px;font-weight:700}
+.oi-t{display:block;font-size:10.5px}.oi-t b{font-size:11.5px}
+.oi-bar{display:block;height:6px;border-radius:4px;background:#e9e4da;overflow:hidden;margin:2px 0}.oi-bar i{display:block;height:100%;background:#8a8272}
+.oi-rest{display:block;font-size:10px}.oi-up{display:block;font-size:10px;font-weight:800;color:#c62828}
+.kg-t td.f.oi-g{background:#e6f3e7!important;color:#2e7d32}.oi-g .oi-bar i{background:#2e7d32}
+.kg-t td.f.oi-y{background:#fff3d6!important;color:#8a5d00}.oi-y .oi-bar i{background:#c88a00}
+.kg-t td.f.oi-r{background:#fde7e7!important;color:#c62828}.oi-r .oi-bar i{background:#c62828}
+.kg-t td.f.oi-n{background:#eef1f5!important;color:#56637a}.oi-n .oi-bar i{background:#7d8a99}
+.kg-t td.f.oi-ok{color:#9aa39b;font-weight:600}.oi-ok .oi-bar i{background:#c9cec9}
+.oi-card{padding:10px 16px 16px!important}
+.oi-sum{font-size:15px;margin:2px 0 8px}.oi-big{font-size:16px;font-weight:800;margin:6px 0}
+.oi-two{display:grid;grid-template-columns:3fr 2fr;gap:8px}
+.oi-two>div{border:1px solid var(--line);border-radius:10px;padding:8px}.oi-m{border:2px solid #1b2a41!important}
+.oi-h{font-size:12px;font-weight:800;color:#5d574c}.oi-v{font-size:22px;font-weight:800}.oi-sub{font-size:12px;color:var(--sub)}
+.oi-proj{font-size:16px;font-weight:800;margin-top:8px}
+.oi-rec{color:#b5ada0;font-size:12px;margin-top:8px}
+.oi-why{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.oi-why button{border:1px solid #e3c9c9;background:#fff6f6;border-radius:999px;padding:6px 12px;font-size:13px;font-family:inherit}
+.oi-why button.on{background:#c62828;color:#fff;border-color:#c62828}
+.oi-row{margin-top:8px}.oi-go{border:0;background:#1b2a41;color:#fff;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:700;font-family:inherit}.oi-go[disabled]{opacity:.4}
+.oi-done{background:#fff6f6;border:1px solid #e3c9c9;border-radius:10px;padding:8px 10px;font-size:13px;margin-top:6px}.oi-done button{margin-left:8px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:3px 8px;font-family:inherit}
+.oi-hist{font-size:12.5px;padding:3px 0;border-bottom:1px dashed var(--line)}.oi-hist span{color:var(--sub);font-size:11.5px}
+.oi-msg{font-size:12.5px;color:#c62828;margin-top:6px}
+`; document.head.appendChild(s); })();
+
+</script>
+<!-- /oisig1101 -->
 </body>
 </html>
