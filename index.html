@@ -613,7 +613,7 @@ function home(){
     {id:'bCal',  e:'📅', lb:'製造<br>カレンダー', c:['#eed469','#d8bd4b'], t:'ho',   n:homeBadge('cal')},
     {id:'bRice', e:'🌾', lb:'米管理',             c:['#f4de7b','#dfc75c'], t:'ho',   n:homeBadge('rice'), tag:riceAlert()?'在庫未確認':''},
     {id:'bKoji', e:'<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAWfmNhQlgAABZ+anVtYgAAAB5qdW1kYzJwYQARABCAAACqADibcQNjMnBhAAAAFlhqdW1iAAAAR2p1bWRjMm1hABEAEIAAAKoAOJtxA3VybjpjMnBhOmJkNjRjNTgyLTEzOGMtNDk1OC1hY2QwLWJlNzA4ZWNlNmY3NAAAAAOTanVtYgAAAClqdW1kYzJhcwARABCAAACqADibcQNjMnBhLmFzc2VydGlvbnMAAAAAuGp1bWIAAABEanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5pbmdyZWRpZW50LnYzAAAAABhjMnNo+H4oHMm5lcBNd2VkAhSYMQAAAGxjYm9yo2lkYzpmb3JtYXRpaW1hZ2UvcG5namluc3RhbmNlSUR4LHhtcDppaWQ6YTdjMjMxNjEtNWJlZS00MjZmLTkxMmQtYTAyMjgzNDBmZTE1bHJlbGF0aW9uc2hpcGhwYXJlbnRPZgAAAeJqdW1iAAAAQWp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuYWN0aW9ucy52MgAAAAAYYzJzaJB7PcCxfY+9TrFRAPT/9lsAAAGZY2JvcqJnYWN0aW9uc4KiZmFjdGlvbmtjMnBhLm9wZW5lZGpwYXJhbWV0ZXJzoWtpbmdyZWRpZW50c4GiY3VybHgtc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5pbmdyZWRpZW50LnYzZGhhc2hYIJehc8QP86Nl1n0wVJFZkWF1nt4v00hy2CHpu4/47W9/pGZhY3Rpb254HWNvbS5hbnRocm9waWMuY2xhdWRlLnByb3ZpZGVkanBhcmFtZXRlcnOheB9jb20uYW50aHJvcGljLm9yaWdpbi1jb25maWRlbmNlZ3Vua25vd25rZGVzY3JpcHRpb254ZkNsYXVkZSBwcm92aWRlZCB0aGlzIGZpbGUgYXQgdGhlIHJlcXVlc3Qgb2YgYSB1c2VyIGFuZCBtYXkgaGF2ZSBjcmVhdGVkIG9yIG1vZGlmaWVkIHRoZSBmaWxlIGNvbnRlbnRzLm1zb2Z0d2FyZUFnZW50oWRuYW1lZkNsYXVkZXJhbGxBY3Rpb25zSW5jbHVkZWT1AAAAyGp1bWIAAABAanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5oYXNoLmRhdGEAAAAAGGMyc2gTOucxfFq0NNM0vjGmbRgDAAAAgGNib3KlY2FsZ2ZzaGEyNTZjcGFkTQAAAAAAAAAAAAAAAABkaGFzaFgg6djiwJmqJaOkzkhnjN4i7VDZYnQ2lxTfsSRS/ujGiUNkbmFtZW5qdW1iZiBtYW5pZmVzdGpleGNsdXNpb25zgaJlc3RhcnQYIWZsZW5ndGgZFooAAAI+anVtYgAAACdqdW1kYzJjbAARABCAAACqADibcQNjMnBhLmNsYWltLnYyAAAAAg9jYm9ypWNhbGdmc2hhMjU2aXNpZ25hdHVyZXhNc2VsZiNqdW1iZj0vYzJwYS91cm46YzJwYTpiZDY0YzU4Mi0xMzhjLTQ5NTgtYWNkMC1iZTcwOGVjZTZmNzQvYzJwYS5zaWduYXR1cmVqaW5zdGFuY2VJRHgseG1wOmlpZDo0MWU0N2VjOC1iYWEyLTRiNjgtOWJiZC0zZGIyZGEwMzA2NGJyY3JlYXRlZF9hc3NlcnRpb25zg6JjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFggl6FzxA/zo2XWfTBUkVmRYXWe3i/TSHLYIem7j/jtb3+iY3VybHgqc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5hY3Rpb25zLnYyZGhhc2hYIILkLVuog0/7lv+beGwDYk4RCmFJWwFdkIeETHpiMqUuomN1cmx4KXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaGFzaC5kYXRhZGhhc2hYIKXnH5O7S1OtJWFlNXZdF5EMs5QQ+o1b/Wusbi0vgTNRdGNsYWltX2dlbmVyYXRvcl9pbmZvo2RuYW1lb0FudGhyb3BpYyBGaWxlc2d2ZXJzaW9uZTEuMC4wa3NwZWNWZXJzaW9uZTIuNC4wAAAQOGp1bWIAAAAoanVtZGMyY3MAEQAQgAAAqgA4m3EDYzJwYS5zaWduYXR1cmUAAAAQCGNib3LShFkCEqIBJhghWQIKMIICBjCCAY2gAwIBAgIUQOWgCu7COdC+uIP6BkIFPWdVEwAwCgYIKoZIzj0EAwMwSTEXMBUGA1UEChMOQW50aHJvcGljLCBQQkMxLjAsBgNVBAMTJUFudGhyb3BpYyBDb250ZW50IENyZWRlbnRpYWxzIFJvb3QgQ0EwHhcNMjYwODA3MTg0MzU2WhcNMjgwODA2MTk0MzU2WjBEMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEpMCcGA1UEAxMgQW50aHJvcGljIENsYXVkZSBDb250ZW50IFNpZ25pbmcwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASYegpry1AYBRTVNL1CpTlbROnY3dey+UrsF9C3phYrATN3ZHf93Mo8RQN0KOUuOn19P4oWNFWe5n2/She9N7eTo1gwVjAOBgNVHQ8BAf8EBAMCB4AwFQYDVR0lBA4wDAYKKwYBBAGD6F4CATAMBgNVHRMBAf8EAjAAMB8GA1UdIwQYMBaAFM5R4gSBTmRbI/jjxM+aPpzB11zCMAoGCCqGSM49BAMDA2cAMGQCMDFzHRSeAXrSy1WOzkbhPZ6Km2wGTmZ/2gK18k8BQGXyqz88Rdrz6CTX9flAnYNVxgIwcF9c3fVhqmJKpi+UhasNUMko69cyX6STPfta3Q8EjyzDjzoyrol46FP6VFHhvUcJoWNwYWRZDZ4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA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" alt="" style="width:46px;height:46px;display:block">', lb:'麹',                 c:['#f1dc86','#e2c868'], t:'ho', tag:(typeof o2KojiAlert==='function'&&o2KojiAlert())?'O₂未測定':''},
-    {id:'bBun',  e:'🧪', lb:'分析',               c:['#dcc45f','#c6ad46'], t:'ho'},
+    /* 2026-11-02 泰広さん指示：🧪分析アイコンは削除（酒母・仕込みの表に直接入力するため） */
     {id:'bShubo',e:'🧫', lb:'酒母',               c:['#dac862','#c4b048'], t:'ho', tag:(typeof o2AreaAlert==='function'&&o2AreaAlert('shubo'))?'O₂未測定':''},
     {id:'bShk',  e:'🍶', lb:'仕込み',             c:['#d9cc6a','#c2b44f'], t:'momi', tag:(typeof mzHomeTag==='function'&&mzHomeTag())||((typeof o2AreaAlert==='function'&&o2AreaAlert('shikomi'))?'O₂未測定':'')},
     {id:'bRoka', e:'🧴', lb:'濾過・火入',         c:['#d7cd6c','#bfb550'], t:'momi', tag:(typeof rkHomeTag==='function'?rkHomeTag():'')},
@@ -641,7 +641,7 @@ function home(){
   $('#bRice').onclick=()=>go(riceScreen);
   $('#bKoji').onclick=()=>go(()=>kojiScreen());
   $('#bShubo').onclick=()=>go(()=>shuboHome());
-  $('#bBun').onclick=()=>go(()=>bunHome(dtoday()));
+  { const b=$('#bBun'); if(b) b.onclick=()=>go(()=>bunHome(dtoday())); }
   $('#bShk').onclick=()=>go(()=>moromiHome());
   { const b=$('#bRoka'); if(b) b.onclick=()=>go(()=>rokaScreen()); }
   { const b=$('#bKaiseki'); if(b) b.onclick=()=>go(()=>kaisekiHome()); }
@@ -8317,7 +8317,7 @@ function kgHomeBox(kind){
       const box=kgHomeBox(kind);
       let list, draw;
       if(kind==='moromi'){
-        list=st.master.filter(m=>(T[m.no]||{}).state!=='上槽済' && m.tome && m.soe && today>=m.soe).sort((a,b)=>String(a.tome).localeCompare(String(b.tome))||a.no-b.no);
+        list=st.master.filter(m=>(typeof ydKeep==='function'?ydKeep(m,T,today):(T[m.no]||{}).state!=='上槽済') && m.tome && m.soe && today>=m.soe).sort((a,b)=>String(a.tome).localeCompare(String(b.tome))||a.no-b.no);
         const hd=$('#kgHd'); if(hd) hd.innerHTML=`仕込中・醪中の経過<small>${list.length}本</small>`;
         draw=()=>kgBox(box, kgFieldsMoromi, kgMoromiRows(list,today,T), {setKind:'moromi', today:true, jo:'上槽予定', outLabel:'上槽予定の後', empty:'仕込中・醪中の仕込はありません', note:'左の順号を押すと1本の画面（入力）'}, no=>go(()=>moromiSheet(no)));
         draw();
@@ -9363,6 +9363,10 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-02-5','🧪','ホーム','ホームの「🧪 分析」アイコンをなくしました（酒母・仕込みの表に直接入力できるため）。上槽後の分析が残っているときは🍶仕込みに「上槽後 ◯」と出ます。'],
+  ['2026-11-02-4','🧪','仕込み','上槽後の分析：仕込みの表の「上槽の翌日」のマスに「🧪 上槽後の分析」の枠が出ます。押すと上槽先タンクごとにリールで入力（日本酒度は 符号・十の位・一の位・小数第1位）。いちばん上の「空欄」で飛ばせます。'],
+  ['2026-11-02-3','📝','仕込み','四段・アル添・上槽の記録：日付を押した窓の「📝 記録」から、四段仕込み・添加・合併の尺と量（自動）、アル添（目標の日本酒度から添加量と予想値を計算）、上槽先タンク、粕（粕歩合）を入れられます。'],
+  ['2026-11-02-2','📅','仕込み','仕込みの表の日付を押すと、その日にする作業（四洗・四仕・四アル添・上槽）を選べます。「四洗」で翌日から 四仕→四アル添→上槽 を自動で入力。直すときも日付を押して選ぶだけ。四段だけ先に添加するときは「四添」「アル添」を別の日にできます。'],
   ['2026-11-02-1','🛢','ホーム','本日の予定の上に出るA重油の通知（発注・点検）を、長い文章の帯から「A重油 約〇〇ℓ 発注」「A重油 点検」の小さな札にしました。押すと今までどおり資材 › A重油 が開きます。'],
   ['2026-11-01-3','🟫','仕込み','白夜・清麗の種麹を使った麹が入った醪に、茶色の札「黒粕」を出すようにしました（🍶仕込みの表の順号の下・📊解析のカード・📋仕込カルテの上）。酛・添・仲・留のどれか1つでも白夜・清麗を使っていれば出ます。札を押すと、どの麹に何を使ったか（まだ引込んでいない麹は「予定」）と、麹米に占める割合が見られます。黒粕は製品として普通に出荷できないので、粕の扱いに注意してください。'],
   ['2026-11-01-2','🍶','仕込み・酒母','表を開いたとき、最新の内容が何回にも分けて反映されて元の位置に戻ってしまうのを直しました。裏で最新を全部取り終えてから1回だけ反映し、見ている位置はそのままです。仕込みの表は画面にぴったり収め、画面全体は動かないようにしたので、表の上の日数（何日目か）と左の順号がいつも見えます。表の下の予定と説明書きはなくしました（上槽済は上のアイコンから開けます）。'],
@@ -11128,7 +11132,7 @@ async function kaisekiHome(){
       hd.before(sw);
       const box=document.createElement('div'); box.className='ks-list'; kg.after(box);
       const st=RC.state, today=dtoday(), T=(st&&st.today)||{};
-      const list=((st&&st.master)||[]).filter(m=>(T[m.no]||{}).state!=='上槽済' && m.tome && m.soe && today>=m.soe).sort((x,y)=>Number(x.no)-Number(y.no));
+      const list=((st&&st.master)||[]).filter(m=>(typeof ydKeep==='function'?ydKeep(m,T,today):(T[m.no]||{}).state!=='上槽済') && m.tome && m.soe && today>=m.soe).sort((x,y)=>Number(x.no)-Number(y.no));
       const show=w=>{ sw.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===w)); kg.style.display=w==='graph'?'none':''; box.style.display=w==='graph'?'':'none';
         if(w==='graph'&&!box.childElementCount) ksList(box, list, 'bun'); };
       sw.querySelectorAll('button').forEach(b=>b.onclick=()=>{ lsSet('shk.view',b.dataset.v); show(b.dataset.v); });
@@ -13670,7 +13674,7 @@ function shk26Sync(){
 const PF26={ running:false, at:0, got:{} };
 function pf26Lists(st){
   const today=dtoday(), T=st.today||{};
-  const mor=st.master.filter(m=>(T[m.no]||{}).state!=='上槽済' && m.tome && m.soe && today>=m.soe).map(m=>String(m.no));
+  const mor=st.master.filter(m=>(typeof ydKeep==='function'?ydKeep(m,T,today):(T[m.no]||{}).state!=='上槽済') && m.tome && m.soe && today>=m.soe).map(m=>String(m.no));
   let sb=[]; try{ sb=((typeof sbdList==='function')?sbdList(st):shuboList(st).map(x=>x.m)).map(m=>String(m.no)); }catch(e){}
   // 今の酒母を先に、履歴は後
   if(typeof SBD!=='undefined' && SBD.done) sb.sort((a,b)=>(SBD.done.has(a)?1:0)-(SBD.done.has(b)?1:0));
@@ -14392,7 +14396,7 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
   function listChanged(){
     try{ if(!isMoromiTable() || !MKE.args) return false; const st=RC.state; if(!st||!st.master) return false;
       const today=dtoday(), T=st.today||{};
-      const now=st.master.filter(m=>(T[m.no]||{}).state!=='上槽済' && m.tome && m.soe && today>=m.soe).map(m=>String(m.no)).sort().join(',');
+      const now=st.master.filter(m=>(typeof ydKeep==='function'?ydKeep(m,T,today):(T[m.no]||{}).state!=='上槽済') && m.tome && m.soe && today>=m.soe).map(m=>String(m.no)).sort().join(',');
       const old=(MKE.args[0]||[]).map(m=>String(m.no)).sort().join(',');
       return now!==old; }catch(e){ return false; }
   }
@@ -14599,5 +14603,581 @@ document.addEventListener('click', e=>{ const td=e.target.closest&&e.target.clos
 
 </script>
 <!-- /oisig1101 -->
+<!-- yodan1102 -->
+<script>
+/* ================= 🍶 四段・アル添・上槽／上槽後の分析（2026-11-02 泰広さん指示） =================
+   ① 🍶仕込みの表の「日付」の行のマスを押す → その日にする作業を選ぶ（四洗・四仕・四アル添・上槽、日程があれば 四添・アル添 も）
+      ・「四洗」を選ぶと 翌日＝四仕、その翌日＝四アル添、その翌日＝上槽 を自動で入れる
+      ・直すときも同じ（移したい日のマスを押して作業を選ぶ）。後ろの工程も一緒にずれる（チェックを外すとその作業だけ）
+      ・「四段だけ先に添加」＝その日に「四添」、アル添の日に「アル添」を選ぶと 四アル添 が2つに分かれる（同じ日に戻すと四アル添）
+      ・順番がおかしい選び方（アル添より前に上槽など）は決定できない
+      ・上槽日は今までどおり「濾過火入」表の 工程＝上槽（カレンダー・本日の予定・出勤表につながる）。それ以外の日程は「醪作業」表の 作業＝四段日程
+      ・旧：日付を押すと「この日を上槽日にしますか」（joso ブロックの jsDialog）→ この窓に置きかえ（上槽・計画に戻す はこの窓から）
+   ② 窓の「📝 四段・アル添・上槽の記録」（案A改）：①四段仕込み ②四段添加・合併 ③アル添（目標の日本酒度→添加量）④添加後の予想値
+      ⑤上槽先（タンク・量） ⑥粕（粕歩合） ⑦上槽後の分析（分析担当）。尺→量は早見表で自動
+      ・記録先：「醪作業」表 作業＝上槽記録（1仕込1行・メモにJSON）。醸造記録 R8BY の 上槽（joso_save）にも 四段仕込日・四段払出L・アル添L(40%)・上槽前容量L・粕重量kg、
+        上槽先を入れて上槽日を過ぎていれば 上槽日 も書く（仕込カルテ・解析・タンク洗浄管理と同じ値になる）
+   ③ 上槽後の分析：表の「上槽の翌日」のマスに、やや大きめの「🧪 上槽後の分析」の枠（未＝緑の枠／済＝値と合算／空欄あり＝黄）
+      ・押すと その仕込みの上槽先タンク → リールで入力（日本酒度は 符号・十の位・一の位・小数第1位、alc・酸度・ｱﾐﾉ は1本。いちばん上が「空欄」）
+      ・記録先：「醪作業」表 作業＝上槽後分析（1タンク1行、タンク＝上槽先、メモにJSON）。全タンクそろったら合算を joso_save（上槽 日本酒度・alc・酸度・アミノ酸度）
+      ・ホームの🍶仕込みに「上槽後 ◯」（上槽先を入れたのに分析が無いタンクのある仕込の数）
+      ・上槽済になっても、上槽の翌日まで（分析がまだなら上槽から7日まで）は表に残す（ydKeep）
+   ④ ホームの🧪分析アイコンは削除（酒母・仕込みの表に直接入力するため。2026-11-02 泰広さん指示）
+   サーバー（Apps Script）の変更なし。控え：seishu-workbook_github\_src_yodan1102.js　差し込み：_四段アル添上槽_20261102.py */
+const YD_SCH='四段日程', YD_REC='上槽記録', YD_ANA='上槽後分析';
+const YD_ALC_PCT=40, YD_ALC_SM=73.6, YD_YON_SM=-150, YD_YON_ALC=1;   // アル添計算と同じ初期値（醸造アルコール40%）
+const YD_RANGE={alc:[12,23], ta:[0.5,3.5], aa:[0.3,3.0]};
+const YD={ chain:true };
+const ydN=v=>{ if(v===''||v===null||v===undefined) return null; const n=typeof pnum==='function'?pnum(String(v)):Number(v); return (n===null||isNaN(n))?null:n; };
+const ydF1=v=>{ const n=ydN(v); return n===null?'—':n.toFixed(1); };
+const ydSg=v=>{ const n=ydN(v); return n===null?'—':(n>0?'+':'')+n.toFixed(1); };
+const ydL=v=>{ const n=ydN(v); return n===null?'—':Math.round(n).toLocaleString('ja-JP'); };
+const ydMD=d=>{ if(!d) return '—'; const x=dparse(d); return `${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`; };
+function ydItem(name, no, tank){
+  const L=(MW.items||[]).filter(x=>!x.deleted && x.name===name && String(x.no)===String(no) && (tank===undefined || String(x.tank)===String(tank)));
+  L.sort((a,b)=>String(a.upd||a.at||'').localeCompare(String(b.upd||b.at||'')));
+  return L.length?L[L.length-1]:null;
+}
+function ydJ(it){ try{ return it&&it.memo?JSON.parse(String(it.memo)):null; }catch(e){ return null; } }
+/* 日程：{sen,shi,soe,alc,split,jo}（上槽は m.joso＝選んだ上槽日／計画） */
+function ydSch(m){
+  const it=ydItem(YD_SCH, m.no), j=ydJ(it);
+  if(!j||!j.sen||!j.soe) return null;
+  const alc=j.alc||j.soe;
+  return { sen:j.sen, shi:j.shi||dadd(j.sen,1), soe:j.soe, alc, split:alc!==j.soe, jo:m.joso||jsPlan(m), _id:it.id };
+}
+function ydRec(m){ const it=ydItem(YD_REC, m.no), j=ydJ(it)||{}; if(!Array.isArray(j.dests)) j.dests=[]; j._id=it?it.id:''; return j; }
+function ydAna(m, t){ const it=ydItem(YD_ANA, m.no, t), j=ydJ(it); return j?Object.assign({}, j, {_id:it.id, by:it.updBy||it.by||'', at:it.upd||it.at||''}):null; }
+const ydDests=m=>ydRec(m).dests.filter(d=>d&&String(d.t||'').trim());
+function ydAnaState(m){
+  const D=ydDests(m); if(!D.length) return {n:0, pend:0, blank:0, D};
+  let pend=0, blank=0; D.forEach(d=>{ const a=ydAna(m,d.t); if(!a) pend++; else if(['smv','alc','ta','aa'].some(k=>ydN(a[k])===null)) blank++; });
+  return {n:D.length, pend, blank, D};
+}
+/* 上槽済でも表に残すか（上槽の翌日まで／分析がまだなら上槽から7日まで） */
+function ydKeep(m, T, today){
+  const t=(T||{})[m.no]||{}; if(t.state!=='上槽済') return true;
+  const j=m.joso; if(!j) return false;
+  if(today<=dadd(j,1)) return true;
+  try{ if(today<=dadd(j,7) && ydAnaState(m).pend>0) return true; }catch(e){}
+  return false;
+}
+/* 醪の最終値（🍶の分析の最新） */
+function ydLast(m){
+  const b=RC.bun&&RC.bun[m.no]; const o={smv:null, alc:null, ta:null, aa:null, day:null, date:''};
+  if(!b||!b.days) return o;
+  for(let i=b.days.length-1;i>=0;i--){ const d=b.days[i], c=(b.calc||{})[d.day]||{};
+    if(o.smv===null && ydN(c.smv)!==null){ o.smv=ydN(c.smv); o.day=d.day; o.date=d.date; }
+    if(o.alc===null && ydN(d.alc)!==null) o.alc=ydN(d.alc);
+    if(o.ta===null && ydN(d.ta)!==null) o.ta=ydN(d.ta);
+    if(o.aa===null && ydN(d.aa)!==null) o.aa=ydN(d.aa); }
+  return o;
+}
+/* 尺(mm)→量(L)。照合できていない容器・範囲外は null */
+function ydVol(T, mm){
+  const x=ydN(mm); if(!T||x===null||typeof tankByNo!=='function') return null;
+  const t=tankByNo(String(T).replace(/^T/i,'')); if(!t||t.verify||t.blocked||!t.checked) return null;
+  const v=volAt(t,x); return v===null?null:Math.round(v);
+}
+/* 予想値（アル添計算と同じ式） */
+function ydPre(m, R){
+  const L=ydLast(m);
+  const smv=ydN(R.lsmv)!==null?ydN(R.lsmv):L.smv, alc=ydN(R.lalc)!==null?ydN(R.lalc):L.alc, ta=ydN(R.lta)!==null?ydN(R.lta):L.ta, aa=ydN(R.laa)!==null?ydN(R.laa):L.aa;
+  const moL=ydN(R.mL0), yL=ydN(R.hL)!==null?ydN(R.hL):ydN(R.yL), t=ydN(R.tgt);
+  if(moL===null||smv===null||t===null) return {last:{smv,alc,ta,aa}, G:null};
+  const yl=yL||0, ySM=ydN(R.hbe)!==null?-ydN(R.hbe)*10:YD_YON_SM;
+  const G=((moL+yl)*t-(smv*moL+ySM*yl))/(YD_ALC_SM-t);
+  const used=ydN(R.alcL)!==null?ydN(R.alcL):G, tot=moL+yl+used;
+  const pre={ smv:((smv*moL+ySM*yl+YD_ALC_SM*used)/tot), alc:alc===null?null:((moL*alc+yl*YD_YON_ALC+YD_ALC_PCT*used)/tot), ta:ta===null?null:ta*moL/tot, aa:aa===null?null:aa*moL/tot };
+  return {last:{smv,alc,ta,aa}, G:Math.max(0,G), tot, used, pre};
+}
+/* 合算（量で重み付け。量が無いタンクは同じ重み） */
+function ydSum(m){
+  const D=ydDests(m), o={}; let any=false;
+  ['smv','alc','ta','aa'].forEach(k=>{ let s=0,w=0; D.forEach(d=>{ const a=ydAna(m,d.t); const v=a?ydN(a[k]):null; if(v===null) return; const L=ydN(d.L)||1; s+=v*L; w+=L; });
+    o[k]=w?Math.round(s/w*10)/10:null; if(w) any=true; });
+  o.L=D.reduce((a,d)=>a+(ydN(d.L)||0),0); o.any=any; return o;
+}
+
+/* ---------- ① 日付を押した窓：作業を選ぶ ---------- */
+const YD_NM={sen:'四洗', shi:'四仕', sa:'四アル添', soe:'四添', alc:'アル添', jo:'上槽'};
+function ydAt(m, s, d){ const o=[]; if(s){ if(s.sen===d) o.push('sen'); if(s.shi===d) o.push('shi'); if(!s.split&&s.soe===d) o.push('sa'); if(s.split&&s.soe===d) o.push('soe'); if(s.split&&s.alc===d) o.push('alc'); }
+  if((m.joso||'')===d) o.push('jo'); return o; }
+function ydApply(m, k, d, base, chain){
+  if(!base){
+    if(k==='sen') return {sen:d, shi:dadd(d,1), soe:dadd(d,2), alc:dadd(d,2), jo:dadd(d,3), split:false};
+    if(k==='shi') return {sen:dadd(d,-1), shi:d, soe:dadd(d,1), alc:dadd(d,1), jo:dadd(d,2), split:false};
+    if(k==='sa')  return {sen:dadd(d,-2), shi:dadd(d,-1), soe:d, alc:d, jo:dadd(d,1), split:false};
+    if(k==='jo')  return {jo:d, only:true};
+    return null;
+  }
+  const s=Object.assign({}, base), dd=(a,b)=>rcDays(a,b), sh=(keys,n)=>{ if(!chain||!n) return; keys.forEach(x=>{ s[x]=dadd(s[x],n); }); };
+  if(k==='sen'){ const n=dd(s.sen,d); s.sen=d; sh(['shi','soe','alc','jo'],n); if(s.shi<=d) return 'err:四仕より前の日を選んでください'; }
+  else if(k==='shi'){ const n=dd(s.shi,d); s.shi=d; sh(['soe','alc','jo'],n); if(s.sen>=d) s.sen=dadd(d,-1); if(s.soe<=d) return 'err:四添より前の日を選んでください'; }
+  else if(k==='sa'){ if(d<=s.shi) return 'err:四仕より後の日を選んでください'; const n=dd(s.soe,d); s.split=false; s.soe=d; s.alc=d; sh(['jo'],n); }
+  else if(k==='soe'){ if(d<=s.shi) return 'err:四仕より後の日を選んでください'; const n=dd(s.soe,d); s.soe=d; if(!s.split){ s.split=true; if(s.alc<=d) s.alc=dadd(d,1); } else { sh(['alc','jo'],n); } }
+  else if(k==='alc'){ if(d<s.soe) return 'err:四添より前にはできません'; const n=dd(s.alc,d); s.alc=d; s.split=(d!==s.soe); sh(['jo'],n); }
+  else if(k==='jo'){ const last=s.split?s.alc:s.soe; if(d<=last) return 'err:アル添より後の日を選んでください'; s.jo=d; }
+  const last=s.split?s.alc:s.soe; if(!s.jo||s.jo<=last) s.jo=dadd(last,1);
+  if(!s.split) s.alc=s.soe;
+  return s;
+}
+function ydPv(s){
+  if(!s) return '<span class="yd-sm">（まだ日程なし）</span>';
+  if(s.only) return `<span class="yd-pvi"><span class="yd-tg yd-jo">上槽</span><b>${ydMD(s.jo)}</b></span>`;
+  const o=[['sen','四洗','sen'],['shi','四仕','shi']].concat(s.split?[['soe','四添','soe'],['alc','アル添','alc']]:[['soe','四アル添','sa']]).concat([['jo','上槽','jo']]);
+  return o.map(([k,l,c])=>`<span class="yd-pvi"><span class="yd-tg yd-${c}">${l}</span><b>${rcMD(s[k])}</b></span>`).join('<span class="yd-ar">›</span>');
+}
+function ydMenu(m, d){
+  const w=document.createElement('div'); w.className='o2-mask yd-mask'; document.body.appendChild(w);
+  const close=()=>w.remove(); w.onclick=e=>{ if(e.target===w) close(); };
+  let picked=null;
+  const draw=()=>{
+    const s=ydSch(m), base=s?Object.assign({}, s):null, now=ydAt(m, s, d);
+    const res=picked?ydApply(m, picked, d, base, YD.chain):null, err=typeof res==='string'?res.slice(4):'';
+    const p=jsPlan(m), wd=dparse(d);
+    const B=(k,cls,sub)=>`<button type="button" class="yd-mb yd-${k==='sa'?'sa':k}${picked===k?' pk':''}${now.indexOf(k)>=0?' cur':''}${cls?' '+cls:''}" data-k="${k}">${YD_NM[k]}${sub?`<small>${sub}</small>`:''}</button>`;
+    w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div>
+      <div class="yd-hd"><b>${wd.getMonth()+1}/${wd.getDate()}（${WD[wd.getDay()]}）</b>　${esc(String(m.no))}号 ${esc(m.liquid||'')}　<span class="yd-tk">T${esc(String(m.tank||''))}</span><button type="button" class="yd-x" data-a="close">✕</button></div>
+      <div class="yd-sub">${now.length?`この日は今「${now.map(k=>YD_NM[k]).join('・')}」。`:''}${s?'この日に移す作業を選んでください':'この日に入れる作業を選んでください'}</div>
+      <div class="yd-menu${picked?' haspk':''}">${B('sen','main', s?'この日に移す':'このあと 四仕 → 四アル添 → 上槽 を自動で入れる')}${B('shi','')}${B('sa','','四段＋アル添')}${B('jo','')}${s?B('soe','','四段だけ先に')+B('alc','','後日に'):''}</div>
+      ${s?`<label class="yd-chk"><input type="checkbox" id="ydChain"${YD.chain?' checked':''}> 後ろの工程も一緒にずらす</label>`:''}
+      <div class="yd-pvb"><div class="yd-sm">${picked?'変更後':'いまの日程'}</div><div class="yd-pvl">${err?`<span class="yd-er">${esc(err)}</span>`:ydPv(picked?res:(s||{jo:m.joso||p, only:true}))}</div>
+        ${m.josoSel&&m.joso!==p?`<div class="yd-sm" style="margin-top:3px">上槽の計画：${ydMD(p)}</div>`:''}</div>
+      <div class="yd-row">${s?'<button type="button" class="yd-b ng" data-a="del">日程を消す</button>':''}<button type="button" class="yd-b" data-a="close">やめる</button><button type="button" class="yd-b go" data-a="ok"${!picked||err?' disabled':''}>決定</button></div>
+      <div class="yd-row"><button type="button" class="yd-b rec" data-a="rec">📝 四段・アル添・上槽の記録 ›</button>${m.josoSel&&m.joso!==p?`<button type="button" class="yd-b sm" data-a="back">上槽を計画に戻す（${rcMD(p)}）</button>`:''}</div>
+      <div class="yd-msg"></div></div>`;
+    w.querySelectorAll('.yd-mb').forEach(b=>b.onclick=()=>{ picked=b.dataset.k; draw(); });
+    const ch=w.querySelector('#ydChain'); if(ch) ch.onchange=()=>{ YD.chain=ch.checked; draw(); };
+    w.querySelectorAll('[data-a="close"]').forEach(b=>b.onclick=close);
+    w.querySelector('[data-a="rec"]').onclick=()=>{ close(); ydRecOpen(m.no, d); };
+    const say=t=>{ const x=w.querySelector('.yd-msg'); if(x) x.textContent=t; };
+    const busy=on=>w.querySelectorAll('button').forEach(b=>b.disabled=on);
+    const bk=w.querySelector('[data-a="back"]'); if(bk) bk.onclick=async()=>{ busy(true); say('保存しています…');
+      try{ const j=await ydSaveJo(m, p); close(); rcToast(j.calErr?('保存しました（カレンダーに入れられませんでした：'+j.calErr+'）'):`${m.no}号の上槽日を ${ydMD(p)} に戻しました`, !!j.calErr, j.calErr?8000:3000); moromiHome(); }
+      catch(e){ say('保存できませんでした：'+(e.message||e)); busy(false); } };
+    const del=w.querySelector('[data-a="del"]'); if(del) del.onclick=async()=>{ if(!confirm('四洗〜アル添の日程を消しますか？（上槽日はそのまま）')) return; busy(true); say('消しています…');
+      try{ const it=ydItem(YD_SCH, m.no); if(it) mwKeep(await mwApi({action:'delete', id:it.id})); close(); ydRepaint(); rcToast(`${m.no}号の四段の日程を消しました`); }
+      catch(e){ say('消せませんでした：'+(e.message||e)); busy(false); } };
+    w.querySelector('[data-a="ok"]').onclick=async()=>{
+      if(!picked||err) return; const r=ydApply(m, picked, d, ydSch(m), YD.chain); if(!r||typeof r==='string') return;
+      busy(true); say('保存しています…');
+      try{
+        let joCh=false, calErr='';
+        if(!r.only){ const it=ydItem(YD_SCH, m.no);
+          mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:YD_SCH, kind:'日程', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:r.soe, memo:JSON.stringify({sen:r.sen, shi:r.shi, soe:r.soe, alc:r.split?r.alc:r.soe})}})); }
+        if(r.jo && r.jo!==(m.joso||p)){ const j=await ydSaveJo(m, r.jo); joCh=true; calErr=j.calErr||''; }
+        close();
+        rcToast(calErr?('保存しました（カレンダーに入れられませんでした：'+calErr+'）'):`${m.no}号の日程を保存しました`, !!calErr, calErr?8000:2500);
+        if(joCh) moromiHome(); else ydRepaint();
+      }catch(e){ say('保存できませんでした：'+(e.message||e)); busy(false); }
+    };
+  };
+  draw();
+}
+async function ydSaveJo(m, d){
+  const p=jsPlan(m), o=rkRow('上槽', m.no);
+  const j=await rkApi({action:'save', item:{id:o?o.id:'', name:'上槽', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:d, memo:'計画 '+p}});
+  rkKeep(j); return j;
+}
+/* 日付の行のマスを押したとき（joso の「上槽日にしますか」より先に受け取る） */
+document.addEventListener('click', e=>{
+  const td=e.target.closest&&e.target.closest('.kg-home .kg-t tr.top td[data-i]'); if(!td) return;
+  if(!document.getElementById('kgHd')) return;   // 🍶仕込みの画面だけ
+  if(e.target.closest('input,select,textarea,a,.yd-box')) return;
+  const tr=td.closest('tr[data-kg]'); const m=tr&&rcMaster(tr.dataset.kg); if(!m||!m.tome) return;
+  const i=Number(td.dataset.i); if(!(i>=1)) return;
+  e.stopImmediatePropagation(); e.preventDefault();
+  ydMenu(m, dadd(m.tome, i-1));
+  mwLoad(false).then(()=>ydRepaint()).catch(()=>{});
+}, true);
+
+/* ---------- 表に札と「上槽後の分析」の枠を描く ---------- */
+function ydBoxHTML(m){
+  const S=ydAnaState(m);
+  if(!S.n) return `<button type="button" class="yd-box wait" data-ydno="${esc(String(m.no))}"><span class="ah">🧪 上槽後の分析</span><span class="yd-sm2">上槽先 未入力</span><span class="tap">押して入力 ›</span></button>`;
+  const rows=S.D.map(d=>{ const a=ydAna(m,d.t);
+    if(!a) return `<span class="ar"><b>T${esc(String(d.t))}</b><i class="pill">未</i></span>`;
+    const v=[a.smv,a.alc].map((x,k)=>ydN(x)===null?'':(k?ydF1(x):ydSg(x))).filter(Boolean).join(' / ');
+    return `<span class="ar"><b>T${esc(String(d.t))}</b><span class="vv${v?'':' e'}">${v||'空欄'}</span></span>`; }).join('');
+  const cls=S.pend?'wait':S.blank?'part':'done', sm=ydSum(m);
+  const foot=S.pend?'<span class="tap">押して入力 ›</span>':(sm.any?`<span class="sumv">${S.n>1?'合算 ':''}${ydSg(sm.smv)} / ${ydF1(sm.alc)}</span>`:'');
+  return `<button type="button" class="yd-box ${cls}" data-ydno="${esc(String(m.no))}"><span class="ah">🧪 上槽後の分析</span>${rows}${foot}</button>`;
+}
+function ydPaint(box){
+  try{
+    box=box||document.querySelector('.kg-home[data-mk]')||document.querySelector('.kg-home'); if(!box) return;
+    box.querySelectorAll('.yd-tg.yd-in').forEach(x=>x.remove());
+    box.querySelectorAll('.yd-box').forEach(x=>x.remove());
+    box.querySelectorAll('td.yd-has').forEach(x=>x.classList.remove('yd-has'));
+    box.querySelectorAll('.kg-i.yd-hide').forEach(x=>x.classList.remove('yd-hide'));
+    const today=dtoday();
+    box.querySelectorAll('.kg-t tr.top[data-kg]').forEach(tr=>{
+      const m=rcMaster(tr.dataset.kg); if(!m||!m.tome) return;
+      const s=ydSch(m);
+      if(s){ [['sen','四洗','sen'],['shi','四仕','shi']].concat(s.split?[['soe','四添','soe'],['alc','アル添','alc']]:[['soe','四アル添','sa']]).forEach(([k,l,c])=>{
+        const i=rcDays(m.tome, s[k])+1, td=tr.querySelector(`td[data-i="${i}"]`); if(!td) return;
+        td.insertAdjacentHTML('beforeend', `<span class="yd-tg yd-in yd-${c}">${l}</span>`); td.classList.add('yd-has'); }); }
+      if(m.joso && today>=m.joso){
+        const i=rcDays(m.tome, m.joso)+2, rows=box.querySelectorAll(`.kg-t tr[data-kg="${CSS.escape(String(m.no))}"]`), r2=rows[1]; if(!r2) return;
+        const td=r2.querySelector(`td[data-i="${i}"]`); if(!td) return;
+        const inp=td.querySelector('.kg-i'); if(inp && !inp.value) inp.classList.add('yd-hide');
+        td.insertAdjacentHTML('afterbegin', ydBoxHTML(m)); td.classList.add('yd-cell');
+      }
+    });
+  }catch(e){ console.log('yd paint', e); }
+}
+function ydRepaint(){ try{ ydPaint(); ydHomeApply(); }catch(e){} }
+(function(){
+  const o=window.kgBox; if(typeof o!=='function') return;
+  window.kgBox=function(box, fields, rows, opt, open){
+    const r=o.apply(this, arguments);
+    try{ if(box && box.classList && box.classList.contains('kg-home') && document.getElementById('kgHd') && (fields===kgFieldsMoromi || fields===kgFieldsMoromiNow)) ydPaint(box); }catch(e){ console.log('yd', e); }
+    return r;
+  };
+})();
+(function(){ const o=window.moromiHome; if(typeof o!=='function') return;
+  window.moromiHome=async function(...a){ const r=await o.apply(this, a);
+    try{ mwLoad(false).then(()=>ydPaint()).catch(()=>{}); if(!TANKS) loadTanks().catch(()=>{}); }catch(e){}
+    return r; }; })();
+document.addEventListener('click', e=>{
+  const b=e.target.closest && e.target.closest('.yd-box[data-ydno]'); if(!b) return;
+  e.stopPropagation(); e.preventDefault();
+  const m=rcMaster(b.dataset.ydno); if(!m) return;
+  if(!ydDests(m).length) ydRecOpen(m.no, m.joso, '5'); else ydAnaOpen(m.no);
+  mwLoad(true).then(()=>ydRepaint()).catch(()=>{});
+}, true);
+
+/* ---------- ホームの🍶に「上槽後 ◯」、🧪分析アイコンは出さない ---------- */
+function ydHomeCount(){
+  const st=RC.state; if(!st||!st.master) return 0; const today=dtoday(); let n=0;
+  st.master.forEach(m=>{ try{ if(!m.joso||today<m.joso) return; if(today>dadd(m.joso,14)) return; if(ydAnaState(m).pend>0) n++; }catch(e){} });
+  return n;
+}
+function ydHomeApply(){
+  const b=document.getElementById('bShk'); if(!b) return;
+  const n=ydHomeCount(); b.classList.toggle('yd-home', n>0);
+  let g=b.querySelector('.yd-htg');
+  if(n>0){ const t=`上槽後 ${n}`; if(!g) b.insertAdjacentHTML('beforeend', `<span class="yd-htg">${t}</span>`); else if(g.textContent!==t) g.textContent=t; }
+  else if(g) g.remove();
+}
+(function(){ const o=window.home; if(typeof o!=='function') return;
+  window.home=function(){ const r=o.apply(this, arguments); try{ ydHomeApply(); mwLoad(false).then(ydHomeApply).catch(()=>{}); }catch(e){} return r; }; })();
+
+/* ---------- ③ 上槽後の分析：その仕込みの上槽先タンク → リール ---------- */
+function ydAnaOpen(no, focusT){
+  const m=rcMaster(no); if(!m) return;
+  const w=document.createElement('div'); w.className='o2-mask yd-mask'; document.body.appendChild(w);
+  const close=()=>{ w.remove(); ydRepaint(); }; w.onclick=e=>{ if(e.target===w) close(); };
+  const list=(note)=>{
+    const D=ydDests(m), R=ydRec(m), P=ydPre(m,R), sm=ydSum(m), S=ydAnaState(m);
+    const cell=(v,k)=>`<div>${{smv:'度',alc:'alc',ta:'酸',aa:'ｱﾐﾉ'}[k]}<b class="${ydN(v)===null?'e':''}">${ydN(v)===null?(v===undefined?'—':'空欄'):(k==='smv'?ydSg(v):ydF1(v))}</b></div>`;
+    w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div>
+      <div class="yd-hd"><b>🧪 ${esc(String(m.no))}号 ${esc(m.liquid||'')}　上槽後の分析</b><button type="button" class="yd-x" data-a="close">✕</button></div>
+      <div class="yd-sub">${ydMD(m.joso)}上槽・T${esc(String(m.tank||''))} → ${D.map(d=>'T'+esc(String(d.t))).join('・')}（空欄のままも可）</div>
+      ${D.map(d=>{ const a=ydAna(m,d.t); return `<button type="button" class="yd-tc${a?'':' wait'}" data-t="${esc(String(d.t))}"><span class="t">T${esc(String(d.t))}</span><span class="fr">${ydL(d.L)}L</span><span class="vals">${['smv','alc','ta','aa'].map(k=>cell(a?a[k]:undefined,k)).join('')}</span><span class="st ${a?'ok':'no'}">${a?'済':'未'}</span></button>`; }).join('')}
+      ${P.pre?`<div class="yd-gp">添加後の予想（目安）</div><div class="yd-tc pre"><span class="t">予想</span><span class="vals">${['smv','alc','ta','aa'].map(k=>cell(P.pre[k],k)).join('')}</span></div>`:''}
+      <div class="yd-sumr"><span>${D.length>1?`合算（${D.map(d=>'T'+esc(String(d.t))).join('＋')} ${ydL(sm.L)}L）`:'上槽後'}</span><b>${S.pend?'入力がそろうと自動':(sm.any?`${ydSg(sm.smv)} / ${ydF1(sm.alc)} / ${ydF1(sm.ta)} / ${ydF1(sm.aa)}`:'空欄')}</b></div>
+      <div class="yd-row"><button type="button" class="yd-b" data-a="close">閉じる</button><button type="button" class="yd-b rec" data-a="rec">📝 上槽先・記録を直す</button></div>${note?`<div class="yd-ok">${esc(note)}</div>`:''}</div>`;
+    w.querySelectorAll('[data-a="close"]').forEach(b=>b.onclick=close);
+    w.querySelector('[data-a="rec"]').onclick=()=>{ w.remove(); ydRecOpen(m.no, m.joso, '5'); };
+    w.querySelectorAll('.yd-tc[data-t]').forEach(b=>b.onclick=()=>reel(b.dataset.t));
+  };
+  const reel=(t,note)=>{
+    const D=ydDests(m), d=D.find(x=>String(x.t)===String(t))||{t}, a=ydAna(m,t), R=ydRec(m), P=ydPre(m,R), last=P.last||{};
+    const init=k=>{ if(a) return ydN(a[k]); if(P.pre&&ydN(P.pre[k])!==null) return Math.round(P.pre[k]*10)/10; return ydN(last[k]); };
+    const pre=k=>P.pre&&P.pre[k]!=null?(k==='smv'?ydSg(P.pre[k]):ydF1(P.pre[k])):'';
+    const col=(k,l)=>`<div><div class="yd-colh">${l}${pre(k)?`<small>予想 ${pre(k)}</small>`:''}</div>${ydWheelHTML('yw_'+k)}</div>`;
+    w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div>
+      <div class="yd-hd"><span class="yd-big">T${esc(String(t))}</span><span class="yd-sm">← ${esc(String(m.no))}号 ${esc(m.liquid||'')}　${rcMD(m.joso)}上槽　${ydL(d.L)}L</span><span class="yd-who">入力者 ${esc(String(ST.name||''))}</span></div>
+      <div class="yd-smv"><div class="yd-smvh"><b>日本酒度</b>${pre('smv')?`<span class="pv">予想 ${pre('smv')}</span>`:''}<span class="now" id="ydSmvNow"></span></div>
+        <div class="yd-smvg"><div><div class="yd-dl">符号</div>${ydWheelHTML('yw_s')}</div><div><div class="yd-dl">十の位</div>${ydWheelHTML('yw_t')}</div><div><div class="yd-dl">一の位</div>${ydWheelHTML('yw_o')}</div><div class="yd-dot">.</div><div><div class="yd-dl">小数第1位</div>${ydWheelHTML('yw_d')}</div></div></div>
+      <div class="yd-cols3">${col('alc','alc')}${col('ta','酸度')}${col('aa','ｱﾐﾉ')}</div>
+      <div class="yd-picked" id="ydPk"></div>
+      <div class="yd-row"><button type="button" class="yd-b sm" data-a="blank">このタンクは分析しない（全部 空欄）</button><button type="button" class="yd-b sm" data-a="pre">${P.pre?'予想値に戻す':'元に戻す'}</button></div>
+      <div class="yd-row"><button type="button" class="yd-b" data-a="back">‹ 一覧</button><button type="button" class="yd-b ana" data-a="save">保存</button></div><div class="yd-msg">${note?`<span class="yd-ok">${esc(note)}</span>`:''}</div></div>`;
+    const D10=[0,1,2,3,4,5,6,7,8,9].map(n=>({v:String(n), t:String(n)}));
+    const W={ s:ydWheel(w.querySelector('#yw_s'), [{v:'',t:'空欄',c:'bl'},{v:'+',t:'＋'},{v:'-',t:'−'}]),
+      t:ydWheel(w.querySelector('#yw_t'), D10), o:ydWheel(w.querySelector('#yw_o'), D10), d:ydWheel(w.querySelector('#yw_d'), D10) };
+    ['alc','ta','aa'].forEach(k=>{ const [lo,hi]=YD_RANGE[k], it=[{v:'',t:'空欄',c:'bl'}]; for(let x=Math.round(lo*10);x<=Math.round(hi*10);x++){ const s=(x/10).toFixed(1); it.push({v:s,t:s,c:(P.pre&&P.pre[k]!=null&&Math.round(P.pre[k]*10)===x)?'pre':''}); } W[k]=ydWheel(w.querySelector('#yw_'+k), it); });
+    const smvVal=()=>{ const sg=W.s.val(); if(!sg) return null; const n=Number(W.t.val())*10+Number(W.o.val())+Number(W.d.val())/10; return Math.round((sg==='-'?-n:n)*10)/10; };
+    const setSmv=v=>{ if(v===null||v===undefined){ W.s.set(0); return; } W.s.set(v<0?2:1); const x=Math.min(999,Math.round(Math.abs(v)*10)); W.t.set(Math.floor(x/100)); W.o.set(Math.floor(x/10)%10); W.d.set(x%10); };
+    const setK=(k,v)=>{ if(v===null||v===undefined){ W[k].set(0); return; } const [lo,hi]=YD_RANGE[k]; const x=Math.min(Math.round(hi*10),Math.max(Math.round(lo*10),Math.round(v*10))); W[k].set(1+x-Math.round(lo*10)); };
+    const show=()=>{ const sv=smvVal(), blank=sv===null; ['t','o','d'].forEach(x=>W[x].el.classList.toggle('dim',blank));
+      const nw=w.querySelector('#ydSmvNow'); if(nw){ nw.textContent=blank?'空欄':ydSg(sv); nw.classList.toggle('e',blank); }
+      const pk=w.querySelector('#ydPk'); if(pk) pk.innerHTML=[['日本酒度',blank?'':ydSg(sv)],['alc',W.alc.val()],['酸度',W.ta.val()],['ｱﾐﾉ',W.aa.val()]].map(([l,v])=>`<div>${l}<b class="${v?'':'e'}">${v||'空欄'}</b></div>`).join(''); };
+    Object.values(W).forEach(x=>x.onChange=show);
+    const fill=(useA)=>{ setSmv(useA?init('smv'):(P.pre?Math.round(P.pre.smv*10)/10:ydN(last.smv))); ['alc','ta','aa'].forEach(k=>setK(k, useA?init(k):(P.pre&&P.pre[k]!=null?Math.round(P.pre[k]*10)/10:ydN(last[k])))); setTimeout(show,60); };
+    requestAnimationFrame(()=>fill(true));
+    w.querySelector('[data-a="blank"]').onclick=()=>{ setSmv(null); ['alc','ta','aa'].forEach(k=>setK(k,null)); setTimeout(show,60); };
+    w.querySelector('[data-a="pre"]').onclick=()=>fill(false);
+    w.querySelector('[data-a="back"]').onclick=list;
+    w.querySelector('[data-a="save"]').onclick=async()=>{
+      const sv=smvVal(), val={ smv:sv===null?'':sv, alc:W.alc.val(), ta:W.ta.val(), aa:W.aa.val() };
+      const blank=['smv','alc','ta','aa'].some(k=>val[k]===''||val[k]===null);
+      const say=x=>{ const e=w.querySelector('.yd-msg'); if(e) e.textContent=x; };
+      w.querySelectorAll('button').forEach(b=>b.disabled=true); say('保存しています…');
+      try{ const it=ydItem(YD_ANA, m.no, t);
+        mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:YD_ANA, kind:blank?'空欄あり':'済', no:String(m.no), tank:String(t), liquid:m.liquid||'', plan:m.joso||'', date:dtoday(), memo:JSON.stringify(val)}}));
+        ydJosoAna(m);
+        const nx=ydDests(m).find(x=>!ydAna(m,x.t)), note=`✓ T${t} を保存しました`; if(nx) reel(nx.t, note); else list(note);
+      }catch(e){ say('保存できませんでした：'+(e.message||e)); w.querySelectorAll('button').forEach(b=>b.disabled=false); }
+    };
+  };
+  if(focusT) reel(focusT); else { const S=ydAnaState(m); const nx=S.D.find(x=>!ydAna(m,x.t)); if(S.D.length===1&&nx) reel(nx.t); else list(); }
+}
+/* 全タンクそろったら 合算を醸造記録の上槽に（裏で） */
+function ydJosoAna(m){
+  try{ const S=ydAnaState(m); if(S.pend) return; const sm=ydSum(m); const v={};
+    if(sm.smv!==null) v['上槽 日本酒度']=String(sm.smv); if(sm.alc!==null) v['上槽 alc']=String(sm.alc); if(sm.ta!==null) v['上槽 酸度']=String(sm.ta); if(sm.aa!==null) v['上槽 アミノ酸度']=String(sm.aa);
+    if(!Object.keys(v).length) return;
+    recApi({action:'joso_save', no:m.no, values:v}, 40000).then(r=>{ if(!(r&&r.ok)) rcToast('仕込カルテへの書き込みができませんでした：'+((r&&r.err)||''), true, 6000); else if(RC.karte) RC.karte[m.no]=null; }).catch(()=>{});
+  }catch(e){}
+}
+/* リール（1本）：items=[{v,t,c}]、高さ40px×3段 */
+function ydWheelHTML(id){ return `<div class="yd-pk"><div class="yd-band"></div><div class="yd-fd t"></div><div class="yd-fd b"></div><div class="yd-wh" id="${id}"></div></div>`; }
+function ydWheel(el, items){
+  const H=40; el.innerHTML='<div class="pad"></div>'+items.map((x,i)=>`<div class="${x.c||''}" data-i="${i}">${esc(x.t)}</div>`).join('')+'<div class="pad"></div>';
+  const o={ el, onChange:null, idx:()=>Math.max(0,Math.min(items.length-1,Math.round(el.scrollTop/H))), val:()=>items[o.idx()].v, set:i=>{ el.scrollTop=Math.max(0,Math.min(items.length-1,i))*H; } };
+  let tm; el.addEventListener('scroll',()=>{ clearTimeout(tm); tm=setTimeout(()=>{ if(o.onChange) o.onChange(); },80); }, {passive:true});
+  el.querySelectorAll('div[data-i]').forEach(c=>c.onclick=()=>el.scrollTo({top:Number(c.dataset.i)*H, behavior:'smooth'}));
+  return o;
+}
+
+/* ---------- ② 四段・アル添・上槽の記録（案A改） ---------- */
+function ydRecOpen(no, date, step){
+  const m=rcMaster(no); if(!m) return;
+  if(!TANKS) loadTanks().then(()=>{ try{ calc(); }catch(e){} }).catch(()=>{});
+  const s=ydSch(m), R0=ydRec(m), R=JSON.parse(JSON.stringify(R0)); delete R._id;
+  if(!R.dests.length) R.dests=[{t:'',L:''}];
+  const L0=ydLast(m);
+  if(R.tgt===undefined||R.tgt==='') R.tgt='';
+  ['smv','alc','ta','aa'].forEach(k=>{ const kk='l'+k; if(R[kk]===undefined||R[kk]==='') R[kk]=L0[k]===null?'':String(L0[k]); });
+  if(!step){ step = s&&date===s.shi?'1' : s&&date===s.soe?'2' : s&&date===s.alc?'3' : date===m.joso?'5' : (m.joso&&date>m.joso)?'6' : '1'; }
+  const open={}; open[step]=true; if(step==='2'&&s&&!s.split) open['3']=true; if(step==='5') open['6']=true;
+  const w=document.createElement('div'); w.className='o2-mask yd-mask'; document.body.appendChild(w);
+  let dirty=false; const close=()=>{ if(dirty&&!confirm('保存していない入力があります。閉じますか？')) return; w.remove(); ydRepaint(); };
+  w.onclick=e=>{ if(e.target===w) close(); };
+  const fi=(lab,key,o)=>{ o=o||{}; return `<label class="yd-fi${o.auto?' auto':''}"><span>${lab}${o.auto?' <i>自動</i>':''}</span><input type="text" inputmode="${o.txt?'text':'decimal'}" data-k="${key}" value="${esc(R[key]===undefined||R[key]===null?'':String(R[key]))}" placeholder="${o.ph||'—'}" autocomplete="off"></label>`; };
+  const st=(id,nm,dd,cls,sm,body,who)=>`<div class="yd-st ${cls}${open[id]?' open':''}" data-st="${id}"><div class="yd-dot2"></div><div class="yd-sth" data-tg="${id}"><span class="nm">${nm}</span>${who?`<span class="who ${who[1]}">${who[0]}</span>`:''}<span class="dd">${dd||''}</span><span class="sm" data-sum="${id}">${sm}</span></div><div class="yd-stb">${body}</div></div>`;
+  const T4=()=>String(R.ytank||'').replace(/^T/i,''), TM=String(m.tank||'');
+  const sumText=()=>{ const P=ydPre(m,R), A=ydAnaState(m), cP=R.kasu&&m.soumai?(ydN(R.kasu)/Number(m.soumai)*100):null, D=R.dests.filter(d=>String(d.t||'').trim());
+    return { '1':R.yL?`T${esc(T4()||'—')}　${ydL(R.yL)}L　${R.ytemp?ydF1(R.ytemp)+'℃':''}`:'',
+      '2':R.mL1?`払出 ${ydL(R.hL)}L → 醪 ${ydL(R.mL1)}L`:'',
+      '3':R.alcL?`${ydL(R.alcL)}L（目標 ${ydSg(R.tgt)}）`:(P.G!==null?`計算 ${ydL(P.G)}L`:''),
+      '4':P.pre?`${ydSg(P.pre.smv)}　${ydF1(P.pre.alc)}%`:'',
+      '5':D.length?`${D.map(d=>'T'+esc(String(d.t))).join('・')}　計 ${ydL(D.reduce((a,d)=>a+(ydN(d.L)||0),0))}L`:'',
+      '6':cP!==null?`${ydL(R.kasu)}kg　${cP.toFixed(1)}%`:'',
+      '7':A.n?(A.pend?`<span style="color:#0f7c80">分析待ち ${A.pend}</span>`:'済'):'' }; };
+  const draw=()=>{
+    const P=ydPre(m,R), A=ydAnaState(m), today=dtoday(), cls=(id,done,d)=>done?'done':(d&&d===today?'now':'');
+    const D=R.dests;
+    const tgtBox=`<div class="yd-tgt"><div><div class="lb">目標の日本酒度</div><div class="yd-stp"><button type="button" data-a="t-">−</button><b data-v="tgt">${R.tgt===''?'—':ydSg(R.tgt)}</b><button type="button" data-a="t+">＋</button></div></div><div class="res">アルコール（${YD_ALC_PCT}%）<b data-v="G">${P.G!==null?ydL(P.G)+' L':'—'}</b><span data-v="tot">${P.G!==null?'添加後 '+ydL(P.tot)+' L':'合併前の量・醪の最終値を入れると計算'}</span></div></div>`;
+    const anaT=`<div class="yd-ana4"><div></div><div class="h">日本酒度</div><div class="h">alc</div><div class="h">酸度</div><div class="h">ｱﾐﾉ</div>
+      <div class="r">醪 最終</div>${['smv','alc','ta','aa'].map(k=>`<input type="text" inputmode="decimal" data-k="l${k}" value="${esc(String(R['l'+k]||''))}" placeholder="—">`).join('')}
+      <div class="r">添加後予想</div>${['smv','alc','ta','aa'].map(k=>`<div class="v pre" data-v="p${k}">${P.pre?(k==='smv'?ydSg(P.pre[k]):ydF1(P.pre[k])):'—'}</div>`).join('')}</div>
+      <div class="yd-sm" style="margin-top:4px">醪の最終値は 🍶の分析の最新${L0.date?'（'+rcMD(L0.date)+'）':''}。直すこともできます</div>`;
+    const dests=D.map((d,i)=>`<div class="yd-dest"><span class="tg">→ T<input type="text" inputmode="numeric" data-d="${i}" data-f="t" value="${esc(String(d.t||''))}" placeholder="番号"></span><input type="text" inputmode="decimal" data-d="${i}" data-f="L" value="${esc(String(d.L||''))}" placeholder="量 L"><button type="button" class="del" data-del="${i}" aria-label="消す">✕</button></div>`).join('')+'<button type="button" class="yd-add" data-a="add">＋ 上槽先のタンクを追加</button>';
+    const cP=R.kasu&&m.soumai?(ydN(R.kasu)/Number(m.soumai)*100):null;
+    const sm=sumText();
+    let h=`<div class="yd-sheet tall"><div class="yd-grab"></div>
+      <div class="yd-hd"><b>${esc(String(m.no))}号</b> ${esc(m.liquid||'')}　<span class="yd-tk">T${esc(TM)}</span><span class="yd-sm">　${esc(m.yeast||'')}${m.soumai?'・総米'+(Number(m.soumai)/1000).toFixed(2)+'t':''}</span><button type="button" class="yd-x" data-a="close">✕</button></div>
+      <div class="yd-sub">📅 ${ydMD(date||today)}　留 ${rcMD(m.tome)}／上槽 ${rcMD(m.joso)}</div><div class="yd-body"><div class="yd-tl">`;
+    h+=st('1','① 四段仕込み', s?rcMD(s.shi):'', cls('1',!!R.yL,s&&s.shi), sm['1'],
+      `<div class="yd-f">${fi('タンク','ytank',{ph:'284'})}${fi('尺 mm','ysk')}${fi('量 L','yL',{auto:1})}${fi('温度 ℃','ytemp')}${fi('Be','ybe')}</div>`);
+    h+=st('2','② 四段添加・合併', s?rcMD(s.soe):'', cls('2',!!R.mL1,s&&s.soe), sm['2'],
+      `<div class="yd-gp">四段の払出（T${esc(T4()||'—')}）</div><div class="yd-f">${fi('尺 mm','hsk')}${fi('量 L','hL',{auto:1})}${fi('Be','hbe')}</div>
+       <div class="yd-gp">醪タンク T${esc(TM)}</div><div class="yd-f">${fi('合併前 尺','msk0')}${fi('合併前 L','mL0',{auto:1})}${fi('合併後 尺','msk1')}${fi('合併後 L','mL1',{auto:1})}</div>`);
+    h+=st('3','③ アルコール添加', s?rcMD(s.alc):'', cls('3',!!R.alcL,s&&s.alc), sm['3'],
+      tgtBox+`<div class="yd-f">${fi('入れた量 L','alcL')}${fi('添加後 尺','jsk')}${fi('添加後 L','jL',{auto:1})}</div>`);
+    h+=st('4','④ 添加後の予想値', '', P.pre?'done':'', sm['4'], anaT);
+    h+=st('5','⑤ 上槽先', rcMD(m.joso), cls('5',D.some(d=>String(d.t||'').trim()&&ydN(d.L)!==null),m.joso), sm['5'],
+      dests+`<div class="yd-tot"><span>上槽先の合計</span><b data-v="dL">${ydL(D.reduce((a,d)=>a+(ydN(d.L)||0),0))} L</b></div>`);
+    h+=st('6','⑥ 粕', '', cls('6',ydN(R.kasu)!==null,''), sm['6'],
+      `<div class="yd-kasu"><label class="yd-fi big"><span>粕（kg）</span><input type="text" inputmode="decimal" data-k="kasu" value="${esc(String(R.kasu||''))}" placeholder="—"></label><div class="pct"><b data-v="kasuP">${cP!==null?cP.toFixed(1)+'%':'—'}</b><span>粕歩合（粕÷総米${m.soumai?ydL(m.soumai)+'kg':''}）</span></div></div>`, ['仕込み・粕','w-shi']);
+    h+=st('7','⑦ 上槽後の分析', m.joso?rcMD(dadd(m.joso,1)):'', A.n&&!A.pend?'done':(A.pend?'wait':''), sm['7'],
+      A.n?`<div class="yd-wait">${A.D.map(d=>{ const a=ydAna(m,d.t); return `<div class="wt"><b>T${esc(String(d.t))}</b><span class="yd-sm">${ydL(d.L)}L</span><span class="st ${a?'ok':'no'}">${a?'済':'未'}</span></div>`; }).join('')}</div><button type="button" class="yd-b ana" data-a="ana" style="width:100%;margin-top:6px">🧪 上槽後の分析を入力する ›</button>`:`<div class="yd-sm">⑤の上槽先を保存すると、表の上槽の翌日のマスに「🧪 上槽後の分析」が出ます。</div>`, ['分析担当','w-bun']);
+    h+=`</div></div><div class="yd-row foot"><button type="button" class="yd-b" data-a="close">閉じる</button><button type="button" class="yd-b go" data-a="save">保存</button></div><div class="yd-msg"></div></div>`;
+    const sc=w.querySelector('.yd-body'), top=sc?sc.scrollTop:0;
+    w.innerHTML=h; const sc2=w.querySelector('.yd-body'); if(sc2) sc2.scrollTop=top;
+    bind();
+  };
+  /* 尺→量、予想値など（描き直さずにその場で） */
+  const setAuto=(key,val)=>{ if(val===null||val===undefined) return; const el=w.querySelector(`input[data-k="${key}"]`); R[key]=String(val); if(el && document.activeElement!==el) el.value=String(val); };
+  const calc=()=>{
+    if(R._a_ysk!==R.ysk){ R._a_ysk=R.ysk; setAuto('yL', ydVol(T4(), R.ysk)); }
+    if(R._a_hsk!==R.hsk){ R._a_hsk=R.hsk; setAuto('hL', ydVol(T4(), R.hsk)); }
+    if(R._a_msk0!==R.msk0){ R._a_msk0=R.msk0; setAuto('mL0', ydVol(TM, R.msk0)); }
+    if(R._a_msk1!==R.msk1){ R._a_msk1=R.msk1; setAuto('mL1', ydVol(TM, R.msk1)); }
+    if(R._a_jsk!==R.jsk){ R._a_jsk=R.jsk; setAuto('jL', ydVol(TM, R.jsk)); }
+    const P=ydPre(m,R), V=(k,t)=>{ const e=w.querySelector(`[data-v="${k}"]`); if(e) e.innerHTML=t; };
+    V('tgt', R.tgt===''?'—':ydSg(R.tgt)); V('G', P.G!==null?ydL(P.G)+' L':'—'); V('tot', P.G!==null?'添加後 '+ydL(P.tot)+' L':'合併前の量・醪の最終値を入れると計算');
+    ['smv','alc','ta','aa'].forEach(k=>V('p'+k, P.pre?(k==='smv'?ydSg(P.pre[k]):ydF1(P.pre[k])):'—'));
+    V('dL', ydL(R.dests.reduce((a,d)=>a+(ydN(d.L)||0),0))+' L');
+    const cP=R.kasu&&m.soumai?(ydN(R.kasu)/Number(m.soumai)*100):null; V('kasuP', cP!==null?cP.toFixed(1)+'%':'—');
+    const sm=sumText(); Object.keys(sm).forEach(id=>{ const e=w.querySelector(`[data-sum="${id}"]`); if(e) e.innerHTML=sm[id]; });
+  };
+  const bind=()=>{
+    w.querySelectorAll('[data-a="close"]').forEach(b=>b.onclick=close);
+    w.querySelectorAll('[data-tg]').forEach(h=>h.onclick=()=>{ const id=h.dataset.tg; open[id]=!open[id]; h.parentNode.classList.toggle('open', !!open[id]); });
+    w.querySelectorAll('input[data-k]').forEach(el=>{ el.addEventListener('input',()=>{ R[el.dataset.k]=el.value; dirty=true; if(el.dataset.k==='ytank'){ R._a_ysk=R._a_hsk=null; } calc(); });
+      el.addEventListener('keydown',e=>{ if(e.key==='Enter') el.blur(); }); });
+    w.querySelectorAll('input[data-d]').forEach(el=>el.addEventListener('input',()=>{ const d=R.dests[Number(el.dataset.d)]; if(d){ d[el.dataset.f]=el.value; dirty=true; calc(); } }));
+    w.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ R.dests.splice(Number(b.dataset.del),1); if(!R.dests.length) R.dests.push({t:'',L:''}); dirty=true; draw(); });
+    const add=w.querySelector('[data-a="add"]'); if(add) add.onclick=()=>{ R.dests.push({t:'',L:''}); dirty=true; open['5']=true; draw(); };
+    w.querySelectorAll('[data-a="t+"],[data-a="t-"]').forEach(b=>b.onclick=()=>{ let v=ydN(R.tgt); if(v===null){ const P=ydPre(m,R); v=P.last&&P.last.smv!==null?Math.round(P.last.smv):5; } v=Math.round((v+(b.dataset.a==='t+'?0.5:-0.5))*10)/10; R.tgt=String(v); dirty=true; calc(); });
+    const an=w.querySelector('[data-a="ana"]'); if(an) an.onclick=()=>{ if(dirty&&!confirm('保存していない入力があります。分析の画面へ進みますか？')) return; w.remove(); ydAnaOpen(m.no); };
+    w.querySelector('[data-a="save"]').onclick=save;
+  };
+  const save=async()=>{
+    const say=t=>{ const e=w.querySelector('.yd-msg'); if(e) e.textContent=t; };
+    const out={}; ['ytank','ysk','yL','ytemp','ybe','hsk','hL','hbe','msk0','mL0','msk1','mL1','tgt','alcL','jsk','jL','lsmv','lalc','lta','laa','kasu'].forEach(k=>{ const v=R[k]; if(v!==undefined&&v!==null&&String(v).trim()!=='') out[k]=String(v).trim(); });
+    ['smv','alc','ta','aa'].forEach(k=>{ const kk='l'+k; if(out[kk]!==undefined && R0[kk]===undefined && L0[k]!==null && ydN(out[kk])===L0[k]) delete out[kk]; });   // 醪の最終値は直したときだけ残す（直さなければ最新の分析を使う）
+    out.dests=R.dests.filter(d=>String(d.t||'').trim()).map(d=>({t:String(d.t).trim().replace(/^T/i,''), L:String(d.L||'').trim()}));
+    const bad=out.dests.find((d,i)=>out.dests.findIndex(x=>x.t===d.t)!==i); if(bad){ say(`上槽先 T${bad.t} が2回入っています`); return; }
+    w.querySelectorAll('button').forEach(b=>b.disabled=true); say('保存しています…');
+    try{
+      const it=ydItem(YD_REC, m.no);
+      mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:YD_REC, kind:'記録', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:dtoday(), memo:JSON.stringify(out)}}));
+      dirty=false; rcToast(`${m.no}号の四段・アル添・上槽の記録を保存しました`);
+      /* 醸造記録の上槽（仕込カルテ・解析）にも（裏で） */
+      const v={}, S=ydSch(m);
+      if(S&&S.shi) v['四段仕込日']=S.shi; if(out.hL||out.yL) v['四段払出L']=out.hL||out.yL; if(out.alcL) v['アル添L(40%)']=out.alcL; if(out.jL) v['上槽前容量L']=out.jL; if(out.kasu) v['粕重量kg']=out.kasu;
+      if(out.dests.length && m.joso && dtoday()>=m.joso) v['上槽日']=m.joso;
+      if(Object.keys(v).length) recApi({action:'joso_save', no:m.no, values:v}, 40000).then(r=>{ if(!(r&&r.ok)) rcToast('仕込カルテへの書き込みができませんでした：'+((r&&r.err)||''), true, 6000); else if(RC.karte) RC.karte[m.no]=null; }).catch(()=>{});
+      w.remove(); ydRepaint();
+    }catch(e){ say('保存できませんでした：'+(e.message||e)); w.querySelectorAll('button').forEach(b=>b.disabled=false); }
+  };
+  draw(); setTimeout(calc, 0);
+}
+(function(){ const s=document.createElement('style'); s.textContent=`
+.yd-mask .yd-sheet{background:var(--card,#fff);width:100%;max-width:540px;max-height:92vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;overflow:auto;padding:10px 14px calc(14px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.yd-sheet.tall{overflow:hidden;padding-bottom:0}
+.yd-sheet.tall .yd-body{overflow:auto;-webkit-overflow-scrolling:touch;flex:1;min-height:0;padding:2px 0 8px}
+.yd-sheet.tall .yd-row.foot{padding:8px 0 calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line);margin-top:0}
+.yd-grab{width:40px;height:4px;border-radius:9px;background:#d6d0c2;margin:0 auto 8px;flex:none}
+.yd-hd{display:flex;align-items:baseline;gap:4px;flex-wrap:wrap;font-size:15px;color:var(--navy)}
+.yd-hd b{font-size:17px}.yd-tk{color:#8a5a2b;font-weight:800;font-size:17px}
+.yd-x{margin-left:auto;border:0;background:#f1ede2;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:pointer;color:var(--navy);flex:none}
+.yd-sub{font-size:12px;color:var(--sub);margin:2px 0 8px}
+.yd-sm{font-size:12px;color:var(--sub)}.yd-sm2{display:block;font-size:11px;font-weight:700}
+.yd-big{font-size:24px;font-weight:800;color:#8a5a2b}.yd-who{margin-left:auto;font-size:12px;color:var(--sub)}
+.yd-menu{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.yd-mb{border:0;border-radius:14px;padding:12px 4px;color:#fff;font:inherit;font-weight:800;font-size:16px;cursor:pointer;line-height:1.25;position:relative}
+.yd-mb small{display:block;font-size:11px;font-weight:600;opacity:.92}
+.yd-mb.main{grid-column:1/-1;font-size:19px;padding:13px}
+.yd-menu.haspk .yd-mb{opacity:.5}.yd-menu .yd-mb.pk{opacity:1;box-shadow:0 0 0 3px #fff,0 0 0 6px var(--navy)}
+.yd-mb.cur::before{content:'いま';display:block;font-size:10px;background:rgba(255,255,255,.3);border-radius:5px;margin:0 auto 2px;width:34px}
+.yd-sen{background:#2b8cbe}.yd-shi{background:#6a51a3}.yd-soe{background:#8e44ad}.yd-alc{background:#b03a8c}.yd-sa{background:linear-gradient(90deg,#8e44ad,#b03a8c)}.yd-jo{background:#c62828}
+.yd-chk{display:flex;align-items:center;gap:8px;font-size:13px;margin:8px 2px 0}
+.yd-chk input{width:18px;height:18px}
+.yd-pvb{background:#f6f4ee;border-radius:12px;padding:7px 10px;margin-top:8px}
+.yd-pvl{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:2px}
+.yd-pvi{display:inline-flex;align-items:center;gap:3px}.yd-pvi b{font-size:14px}.yd-ar{color:#aaa}
+.yd-er{color:var(--ng,#d32f2f);font-weight:800;font-size:13px}
+.yd-tg{display:inline-block;color:#fff;font-size:11px;font-weight:800;border-radius:6px;padding:1px 5px;line-height:1.4}
+.kg-t td .yd-tg.yd-in{display:block;font-size:9px;line-height:1.25;border-radius:3px;padding:0 2px;margin-top:1px;white-space:nowrap}
+.yd-row{display:flex;gap:8px;margin-top:10px}
+.yd-b{flex:1;border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:12px;padding:11px 6px;font:inherit;font-weight:700;font-size:14px;cursor:pointer}
+.yd-b.go{background:var(--blue,#1f6fa8);border-color:var(--blue,#1f6fa8);color:#fff}.yd-b.go:disabled{opacity:.35}
+.yd-b.ng{color:#d32f2f;border-color:#f0b4b4;background:#fdecec;flex:.7}
+.yd-b.rec{background:#f8f3ff;border-color:#e3d6f3;color:#6a3fa0}
+.yd-b.ana{background:#0f7c80;border-color:#0f7c80;color:#fff}
+.yd-b.sm{font-size:12.5px;padding:8px 6px;border-style:dashed;color:#555}
+.yd-msg{font-size:12px;color:#b31b14;margin-top:6px;min-height:1em}
+.yd-ok{display:block;font-size:12.5px;color:#2f7d5d;font-weight:700;margin-top:6px}
+/* 表の「上槽後の分析」の枠 */
+.kg-t td.yd-cell{vertical-align:top;padding:3px!important;width:118px;min-width:118px;max-width:118px}
+.kg-t .kg-i.yd-hide{display:none}
+.yd-box{display:block;width:100%;text-align:left;border-radius:11px;padding:5px 6px;font:inherit;font-size:11.5px;line-height:1.35;cursor:pointer;white-space:normal}
+.yd-box .ah{display:block;font-weight:800;font-size:11px;margin-bottom:1px;white-space:nowrap;letter-spacing:-.02em}
+.yd-box.wait{background:#e9f6f6;border:2px solid #0f7c80;color:#0f7c80;box-shadow:0 2px 6px rgba(15,124,128,.18)}
+.yd-box.done{background:#f1f8f4;border:1.5px solid #c9e3d4;color:#2f7d5d}
+.yd-box.part{background:#fff8ea;border:1.5px solid #f0c27a;color:#9a6200}
+.yd-box .ar{display:flex;align-items:center;gap:5px;white-space:nowrap}.yd-box .ar b{color:#8a5a2b;font-size:14px;min-width:26px}
+.yd-box .pill{font-style:normal;font-size:10.5px;font-weight:800;border-radius:999px;padding:0 7px;background:#0f7c80;color:#fff}
+.yd-box .vv{font-weight:800;color:var(--ink);font-size:11.5px;letter-spacing:-.02em}.yd-box .vv.e{color:#999;font-weight:600}
+.yd-box .sumv{display:block;font-size:11px;margin-top:1px;font-weight:700}
+.yd-box .tap{display:block;margin-top:3px;text-align:center;background:#0f7c80;color:#fff;border-radius:7px;font-weight:800;font-size:11px;padding:2px 0}
+#bShk.yd-home .ico{box-shadow:0 0 0 3px rgba(15,124,128,.45)}
+.dp-ic .yd-htg{background:#0f7c80;color:#fff;font-size:9.5px;font-weight:700;border-radius:4px;padding:1px 4px;margin-top:-2px}
+/* 分析の一覧・リール */
+.yd-tc{display:flex;align-items:center;gap:8px;width:100%;border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:8px 10px;margin-bottom:6px;font:inherit;text-align:left;cursor:pointer}
+.yd-tc.wait{border-color:#8cc7c9;background:#f6fcfc}.yd-tc.pre{background:#f4f8fb;border-style:dashed;cursor:default}
+.yd-tc .t{font-size:20px;font-weight:800;color:#8a5a2b;min-width:44px}.yd-tc.pre .t{font-size:14px;color:var(--blue,#1f6fa8)}
+.yd-tc .fr{font-size:12px;color:#444}
+.yd-tc .vals{display:flex;gap:4px;margin-left:auto}
+.yd-tc .vals div{text-align:center;font-size:9.5px;color:var(--sub);min-width:34px}
+.yd-tc .vals b{display:block;font-size:14px;color:var(--ink)}.yd-tc .vals b.e{color:#aaa;font-weight:500}
+.yd-tc.pre .vals b{color:var(--blue,#1f6fa8)}
+.yd-tc .st,.yd-wait .st{font-size:11px;font-weight:800;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.yd-tc .st.no,.yd-wait .st.no{background:#0f7c80;color:#fff}.yd-tc .st.ok,.yd-wait .st.ok{background:#e3f2ea;color:#2f7d5d}
+.yd-gp{font-size:12px;font-weight:800;color:var(--navy);margin:8px 2px 4px;display:flex;align-items:center;gap:6px}
+.yd-gp::after{content:'';flex:1;height:1px;background:var(--line)}
+.yd-sumr{background:#eef7f1;border:1px solid #c9e3d4;border-radius:12px;padding:6px 10px;font-size:12px;display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.yd-sumr b{color:#2f7d5d;font-size:13px}
+.yd-smv{border:1.5px solid #8cc7c9;border-radius:14px;background:#f8fdfd;padding:6px 6px 4px;margin-top:8px}
+.yd-smvh{display:flex;align-items:baseline;gap:8px;padding:0 4px 2px}.yd-smvh b{color:var(--navy);font-size:14px}.yd-smvh .pv{font-size:11px;color:var(--blue,#1f6fa8)}
+.yd-smvh .now{margin-left:auto;font-size:24px;font-weight:800;color:var(--ink)}.yd-smvh .now.e{color:#999;font-size:16px}
+.yd-smvg{display:grid;grid-template-columns:1fr 1fr 1fr 14px 1fr;gap:4px;align-items:end}
+.yd-dot{font-size:30px;font-weight:800;text-align:center;padding-bottom:38px}
+.yd-dl{text-align:center;font-size:11px;color:var(--sub);font-weight:700}
+.yd-cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.yd-colh{text-align:center;font-size:12px;font-weight:800;color:var(--navy)}.yd-colh small{display:block;font-size:10px;color:var(--blue,#1f6fa8);font-weight:600}
+.yd-pk{position:relative;height:120px;overflow:hidden;border-radius:12px;background:#fff;-webkit-user-select:none;user-select:none}
+.yd-pk .yd-band{position:absolute;left:3px;right:3px;top:40px;height:40px;background:#e9f6f6;border:1.5px solid #8cc7c9;border-radius:9px}
+.yd-pk .yd-fd{position:absolute;left:0;right:0;height:40px;z-index:3;pointer-events:none}
+.yd-pk .yd-fd.t{top:0;background:linear-gradient(#fff,rgba(255,255,255,.45))}.yd-pk .yd-fd.b{bottom:0;background:linear-gradient(rgba(255,255,255,.45),#fff)}
+.yd-wh{position:relative;z-index:1;height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.yd-wh::-webkit-scrollbar{display:none}
+.yd-wh div{height:40px;line-height:40px;scroll-snap-align:center;text-align:center;font-size:21px;font-weight:700;color:var(--ink);cursor:pointer}
+.yd-wh .pad{scroll-snap-align:none;cursor:default}
+.yd-wh .bl{font-size:14px;color:#999;letter-spacing:.05em}
+.yd-wh .pre{color:var(--blue,#1f6fa8)}.yd-wh .pre::after{content:'予';font-size:9px;vertical-align:super;margin-left:1px}
+.yd-wh.dim div{color:#ccc}
+.yd-picked{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:6px;text-align:center;font-size:11px;color:var(--sub)}
+.yd-picked b{display:block;font-size:14px;color:var(--ink)}.yd-picked b.e{color:#999}
+/* 記録（案A改） */
+.yd-tl{position:relative;padding-left:24px}
+.yd-tl::before{content:'';position:absolute;left:9px;top:8px;bottom:8px;width:2px;background:var(--line)}
+.yd-st{position:relative;margin-bottom:8px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.yd-st .yd-dot2{position:absolute;left:-22px;top:12px;width:15px;height:15px;border-radius:50%;background:#fff;border:3px solid #cfc9bb}
+.yd-st.done .yd-dot2{background:#2f7d5d;border-color:#2f7d5d}.yd-st.now .yd-dot2{background:#f2c94c;border-color:#e0a800}
+.yd-st.wait .yd-dot2{border-color:#0f7c80;box-shadow:0 0 0 4px rgba(15,124,128,.18)}
+.yd-sth{display:flex;align-items:center;gap:6px;padding:9px 10px;cursor:pointer;flex-wrap:wrap}
+.yd-sth .nm{font-weight:800;color:var(--navy);font-size:14px}.yd-sth .dd{font-size:12px;color:var(--sub)}
+.yd-sth .sm{margin-left:auto;font-size:12.5px;font-weight:700;color:#444;text-align:right}
+.yd-sth .who{font-size:10.5px;font-weight:800;border-radius:999px;padding:1px 7px}.who.w-shi{background:#efe9dc;color:#6b5a2b}.who.w-bun{background:#e0f2f1;color:#0f7c80}
+.yd-stb{display:none;padding:0 10px 10px}.yd-st.open .yd-stb{display:block}.yd-st.open{border-color:#9cc0dc}
+.yd-f{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.yd-fi{display:block;border:1px solid var(--line);border-radius:10px;padding:3px 7px 4px;background:#fff;min-width:0}
+.yd-fi span{display:block;font-size:11px;color:var(--sub)}.yd-fi span i{font-style:normal;color:var(--blue,#1f6fa8);font-weight:700}
+.yd-fi input{width:100%;border:0;font:inherit;font-size:17px;font-weight:700;padding:0;background:transparent;color:var(--ink);outline:none;min-width:0}
+.yd-fi.auto{background:#f4f8fb;border-style:dashed}.yd-fi.auto input{color:var(--blue,#1f6fa8)}
+.yd-fi:focus-within{border-color:var(--blue,#1f6fa8);box-shadow:0 0 0 2px rgba(31,111,168,.15)}
+.yd-fi.big input{font-size:22px}
+.yd-tgt{display:flex;align-items:center;gap:8px;background:#f8f3ff;border:1px solid #e3d6f3;border-radius:12px;padding:6px 10px;margin:0 0 6px}
+.yd-tgt .lb{font-size:12px;color:#7b4bb3;font-weight:800}
+.yd-stp{display:flex;align-items:center;gap:4px}.yd-stp button{width:34px;height:34px;border-radius:50%;border:1px solid #d9cbee;background:#fff;color:#7b4bb3;font-size:18px;font-weight:800;cursor:pointer}
+.yd-stp b{font-size:21px;min-width:58px;text-align:center;color:#7b4bb3}
+.yd-tgt .res{margin-left:auto;text-align:right;font-size:11.5px;color:var(--sub)}.yd-tgt .res b{display:block;font-size:19px;color:#7b4bb3}
+.yd-ana4{display:grid;grid-template-columns:64px repeat(4,1fr);gap:3px;font-size:13px;align-items:center}
+.yd-ana4 .h{font-size:11px;color:var(--sub);text-align:center}.yd-ana4 .r{font-size:11.5px;font-weight:700;color:var(--navy)}
+.yd-ana4 input{width:100%;border:1px solid var(--line);border-radius:7px;text-align:center;font:inherit;font-size:15px;font-weight:700;padding:3px 0;min-width:0}
+.yd-ana4 .v{text-align:center;font-weight:700;font-size:15px;padding:3px 0;border-radius:7px}.yd-ana4 .v.pre{background:#f4f8fb;color:var(--blue,#1f6fa8);border:1px dashed #b9d0e3}
+.yd-dest{display:grid;grid-template-columns:96px 1fr 28px;gap:5px;align-items:center;margin-bottom:5px}
+.yd-dest .tg{font-weight:800;color:#8a5a2b;font-size:15px;white-space:nowrap}
+.yd-dest .tg input{width:52px;border:0;border-bottom:1.5px solid var(--line);font:inherit;font-size:16px;font-weight:800;color:#8a5a2b;padding:2px;outline:none}
+.yd-dest>input{width:100%;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:16px;font-weight:700;padding:6px 8px;min-width:0}
+.yd-dest .del{border:0;background:none;color:#bbb;font-size:18px;cursor:pointer}
+.yd-add{border:1px dashed #c9c3b5;background:#fff;border-radius:10px;padding:7px 10px;font:inherit;font-size:13px;color:var(--sub);cursor:pointer;width:100%}
+.yd-tot{display:flex;justify-content:space-between;font-size:13px;margin-top:6px;padding:6px 8px;background:#f6f4ee;border-radius:8px}.yd-tot b{font-size:15px}
+.yd-kasu{display:flex;align-items:center;gap:10px;background:#faf5ec;border:1px solid #eadbc2;border-radius:12px;padding:8px 10px}
+.yd-kasu .yd-fi{width:120px}.yd-kasu .pct{margin-left:auto;text-align:right}.yd-kasu .pct b{font-size:24px;color:#9a7b4f}.yd-kasu .pct span{display:block;font-size:11px;color:var(--sub)}
+.yd-wait{border:1.5px dashed #8cc7c9;background:#f3fbfb;border-radius:12px;padding:6px 10px}
+.yd-wait .wt{display:flex;align-items:center;gap:8px;padding:4px 0}.yd-wait .wt b{color:#8a5a2b;font-size:16px;min-width:42px}.yd-wait .wt .st{margin-left:auto}
+`; document.head.appendChild(s); })();
+</script>
+<!-- /yodan1102 -->
 </body>
 </html>
