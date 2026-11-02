@@ -5711,6 +5711,8 @@ body.hm .dp-ics{margin:clamp(6px,1.6dvh,16px) 0 0;gap:clamp(4px,1.3dvh,12px) 6px
 @keyframes dpBl{50%{opacity:.45}}
 .dp-al{display:block;width:100%;box-sizing:border-box;background:#fdecec;border:1px solid #d62b22;color:#b31b14;border-radius:10px;padding:7px 10px;margin:0 0 6px;font-family:inherit;font-size:13px;font-weight:800;text-align:left;cursor:pointer;animation:dpBl 1.4s ease-in-out infinite}
 .dp-al small{display:block;font-weight:400;font-size:11px;color:#b31b14}
+.szo-chips{margin:0 0 6px}
+.dp-al.szo-chip{display:inline-block;width:auto;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin:0 4px 0 0;line-height:1.4}
 .dp-bn{font-size:11px;color:var(--sub);margin:-2px 2px 4px}
 .dp-bn b{color:var(--navy)}.dp-bn b.ov{color:#b31b14}
 .dp-g .ln.m2{font-size:8.5px;line-height:1.05;letter-spacing:-.04em}.dp-g .ln.m3{font-size:7px;line-height:1;letter-spacing:-.05em}
@@ -9361,6 +9363,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-02-1','🛢','ホーム','本日の予定の上に出るA重油の通知（発注・点検）を、長い文章の帯から「A重油 約〇〇ℓ 発注」「A重油 点検」の小さな札にしました。押すと今までどおり資材 › A重油 が開きます。'],
   ['2026-11-01-3','🟫','仕込み','白夜・清麗の種麹を使った麹が入った醪に、茶色の札「黒粕」を出すようにしました（🍶仕込みの表の順号の下・📊解析のカード・📋仕込カルテの上）。酛・添・仲・留のどれか1つでも白夜・清麗を使っていれば出ます。札を押すと、どの麹に何を使ったか（まだ引込んでいない麹は「予定」）と、麹米に占める割合が見られます。黒粕は製品として普通に出荷できないので、粕の扱いに注意してください。'],
   ['2026-11-01-2','🍶','仕込み・酒母','表を開いたとき、最新の内容が何回にも分けて反映されて元の位置に戻ってしまうのを直しました。裏で最新を全部取り終えてから1回だけ反映し、見ている位置はそのままです。仕込みの表は画面にぴったり収め、画面全体は動かないようにしたので、表の上の日数（何日目か）と左の順号がいつも見えます。表の下の予定と説明書きはなくしました（上槽済は上のアイコンから開けます）。'],
   ['2026-11-01-1','💾','酒母・仕込み・麹','保存を速くしました。入力した値を1件ずつ順番に送っていたのを、全部一斉に送るようにしたので、何本まとめて入れても1件分の時間で保存が終わります。また、保存のあとすぐにスマホ・iPadの画面を消しても、送信が止まらないようにしました（画面を消す瞬間に残りをまとめて送り、画面に戻ったときにもう一度確かめます。二重には入りません）。'],
@@ -10411,9 +10414,12 @@ function szoBandHTML(){
   try{
     szoAlcAlerts().forEach(s=>{ h+=`<button type="button" class="dp-al" data-szoal="alc">⚠ 添加アルコール 発注（${rcMD(s.plan)} ${esc(s.vendor)} 入荷分）<small>入荷の1か月前（${rcMD(s.alertFrom)}〜）です。発注したら 資材 › アルコール で「発注した」を押してください</small></button>`; });
     const f=szoOilAlert();
-    if(f) h+=`<button type="button" class="dp-al" data-szoal="oil">⚠ A重油 発注（${dtoday()>=f.cross?'3,000Lを切っています':rcMD(f.cross)+'に3,000Lを切る見込み'}）<small>今 約${sziF(f.est,0)}L。発注目安 ${rcMD(f.order)}・${sziF(SZO_OIL_LOT,0)}L。発注したら 資材 › A重油 で「発注した」を押してください</small></button>`;
+    /* 2026-11-02 泰広さん指示：A重油の通知は小さな札（「A重油 約〇〇ℓ」程度）に */
+    let oc='';
+    if(f) oc+=`<button type="button" class="dp-al szo-chip" data-szoal="oil">A重油 約${sziF(f.est,0)}ℓ 発注</button>`;
     const c=szoOilChkAlert();
-    if(c) h+=`<button type="button" class="dp-al" data-szoal="oil">⚠ A重油の点検がされていません<small>${c.last?`最後の点検 ${rcMD(c.last.date)}。`:''}地下タンクの在庫は1週間に1回以上たしかめて記録します。資材 › A重油 で残量を入れてください</small></button>`;
+    if(c) oc+=`<button type="button" class="dp-al szo-chip" data-szoal="oil">A重油 点検</button>`;
+    if(oc) h+=`<div class="szo-chips">${oc}</div>`;
     const k=szoTankInfo();
     if(k.alert) h+=`<button type="button" class="dp-al" data-szoal="oil">⚠ 地下タンクの定期点検（3年に1回）${k.over?'の期限を過ぎています':`：${+k.due.slice(0,4)}年${+k.due.slice(5,7)}月までに`}<small>前回 ${esc(k.last.date)}。点検業者に依頼し、終わったら 資材 › A重油 で「点検した日を記録」を押してください</small></button>`;
   }catch(e){}
