@@ -616,6 +616,7 @@ function home(){
     /* 2026-11-02 泰広さん指示：🧪分析アイコンは削除（酒母・仕込みの表に直接入力するため） */
     {id:'bShubo',e:'🧫', lb:'酒母',               c:['#dac862','#c4b048'], t:'ho', tag:(typeof o2AreaAlert==='function'&&o2AreaAlert('shubo'))?'O₂未測定':''},
     {id:'bShk',  e:'🍶', lb:'仕込み',             c:['#d9cc6a','#c2b44f'], t:'momi', tag:(typeof mzHomeTag==='function'&&mzHomeTag())||((typeof o2AreaAlert==='function'&&o2AreaAlert('shikomi'))?'O₂未測定':'')},
+    {id:'bKasu', e:(typeof KX_SVG!=='undefined'?KX_SVG:'🟫'), lb:'粕', c:['#d8cc6b','#c1b44f'], t:'momi'},   /* 2026-11-02 粕（仕込みと濾過・火入の間） */
     {id:'bRoka', e:'🧴', lb:'濾過・火入',         c:['#d7cd6c','#bfb550'], t:'momi', tag:(typeof rkHomeTag==='function'?rkHomeTag():'')},
     {id:'bKaiseki', e:'📊', lb:'解析',            c:['#d5ce6f','#bdb553'], t:'momi'},
     {id:'bShizai', e:'🧰', lb:'資材', c:['#d3cf72','#bab656'], t:'momi', tag:(typeof sziHomeTag==='function'?sziHomeTag():'')},
@@ -643,6 +644,7 @@ function home(){
   $('#bShubo').onclick=()=>go(()=>shuboHome());
   { const b=$('#bBun'); if(b) b.onclick=()=>go(()=>bunHome(dtoday())); }
   $('#bShk').onclick=()=>go(()=>moromiHome());
+  { const b=$('#bKasu'); if(b) b.onclick=()=>go(()=>kasuScreen()); }
   { const b=$('#bRoka'); if(b) b.onclick=()=>go(()=>rokaScreen()); }
   { const b=$('#bKaiseki'); if(b) b.onclick=()=>go(()=>kaisekiHome()); }
   $('#bWash').onclick=()=>{ WS.filter='now'; go(washScreen); };  // ホームから開くときは必ず「現在まで」（2026-10-11）
@@ -9363,6 +9365,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-02-6','🟫','粕','ホームの🍶仕込みと🧴濾過・火入の間に「粕」アイコン。きょうの粕（作業者・手袋/ヘラ/穴開け用道具の数・箱/袋/端数の数量→合計と粕歩合）を保存。未検定→検定済（伊藤さんのみ）で事務所へ送信（1件・まとめて。送り先は後で設定）。液種ごとの粕歩合の表、チェック履歴（CSVで書き出し）。'],
   ['2026-11-02-5','🧪','ホーム','ホームの「🧪 分析」アイコンをなくしました（酒母・仕込みの表に直接入力できるため）。上槽後の分析が残っているときは🍶仕込みに「上槽後 ◯」と出ます。'],
   ['2026-11-02-4','🧪','仕込み','上槽後の分析：仕込みの表の「上槽の翌日」のマスに「🧪 上槽後の分析」の枠が出ます。押すと上槽先タンクごとにリールで入力（日本酒度は 符号・十の位・一の位・小数第1位）。いちばん上の「空欄」で飛ばせます。'],
   ['2026-11-02-3','📝','仕込み','四段・アル添・上槽の記録：日付を押した窓の「📝 記録」から、四段仕込み・添加・合併の尺と量（自動）、アル添（目標の日本酒度から添加量と予想値を計算）、上槽先タンク、粕（粕歩合）を入れられます。'],
@@ -14614,7 +14617,7 @@ document.addEventListener('click', e=>{ const td=e.target.closest&&e.target.clos
       ・上槽日は今までどおり「濾過火入」表の 工程＝上槽（カレンダー・本日の予定・出勤表につながる）。それ以外の日程は「醪作業」表の 作業＝四段日程
       ・旧：日付を押すと「この日を上槽日にしますか」（joso ブロックの jsDialog）→ この窓に置きかえ（上槽・計画に戻す はこの窓から）
    ② 窓の「📝 四段・アル添・上槽の記録」（案A改）：①四段仕込み ②四段添加・合併 ③アル添（目標の日本酒度→添加量）④添加後の予想値
-      ⑤上槽先（タンク・量） ⑥粕（粕歩合） ⑦上槽後の分析（分析担当）。尺→量は早見表で自動
+      ⑤上槽先（タンク・量） ⑥粕（2026-11-02〜 粕アイコンで入力・ここは表示だけ） ⑦上槽後の分析（分析担当）。尺→量は早見表で自動
       ・記録先：「醪作業」表 作業＝上槽記録（1仕込1行・メモにJSON）。醸造記録 R8BY の 上槽（joso_save）にも 四段仕込日・四段払出L・アル添L(40%)・上槽前容量L・粕重量kg、
         上槽先を入れて上槽日を過ぎていれば 上槽日 も書く（仕込カルテ・解析・タンク洗浄管理と同じ値になる）
    ③ 上槽後の分析：表の「上槽の翌日」のマスに、やや大きめの「🧪 上槽後の分析」の枠（未＝緑の枠／済＝値と合算／空欄あり＝黄）
@@ -14954,7 +14957,7 @@ function ydRecOpen(no, date, step){
   if(R.tgt===undefined||R.tgt==='') R.tgt='';
   ['smv','alc','ta','aa'].forEach(k=>{ const kk='l'+k; if(R[kk]===undefined||R[kk]==='') R[kk]=L0[k]===null?'':String(L0[k]); });
   if(!step){ step = s&&date===s.shi?'1' : s&&date===s.soe?'2' : s&&date===s.alc?'3' : date===m.joso?'5' : (m.joso&&date>m.joso)?'6' : '1'; }
-  const open={}; open[step]=true; if(step==='2'&&s&&!s.split) open['3']=true; if(step==='5') open['6']=true;
+  const open={}; open[step]=true; if(step==='2'&&s&&!s.split) open['3']=true;
   const w=document.createElement('div'); w.className='o2-mask yd-mask'; document.body.appendChild(w);
   let dirty=false; const close=()=>{ if(dirty&&!confirm('保存していない入力があります。閉じますか？')) return; w.remove(); ydRepaint(); };
   w.onclick=e=>{ if(e.target===w) close(); };
@@ -14967,7 +14970,7 @@ function ydRecOpen(no, date, step){
       '3':R.alcL?`${ydL(R.alcL)}L（目標 ${ydSg(R.tgt)}）`:(P.G!==null?`計算 ${ydL(P.G)}L`:''),
       '4':P.pre?`${ydSg(P.pre.smv)}　${ydF1(P.pre.alc)}%`:'',
       '5':D.length?`${D.map(d=>'T'+esc(String(d.t))).join('・')}　計 ${ydL(D.reduce((a,d)=>a+(ydN(d.L)||0),0))}L`:'',
-      '6':cP!==null?`${ydL(R.kasu)}kg　${cP.toFixed(1)}%`:'',
+      '6':(()=>{ const kr=typeof kxRec==='function'?kxRec(m.no):null; if(!kr||kr.total==null) return ''; const p=m.soumai?Number(kr.total)/Number(m.soumai)*100:null; return `${ydL(kr.total)}kg　${p!==null?p.toFixed(1)+'%':''}`; })(),
       '7':A.n?(A.pend?`<span style="color:#0f7c80">分析待ち ${A.pend}</span>`:'済'):'' }; };
   const draw=()=>{
     const P=ydPre(m,R), A=ydAnaState(m), today=dtoday(), cls=(id,done,d)=>done?'done':(d&&d===today?'now':'');
@@ -14993,8 +14996,9 @@ function ydRecOpen(no, date, step){
     h+=st('4','④ 添加後の予想値', '', P.pre?'done':'', sm['4'], anaT);
     h+=st('5','⑤ 上槽先', rcMD(m.joso), cls('5',D.some(d=>String(d.t||'').trim()&&ydN(d.L)!==null),m.joso), sm['5'],
       dests+`<div class="yd-tot"><span>上槽先の合計</span><b data-v="dL">${ydL(D.reduce((a,d)=>a+(ydN(d.L)||0),0))} L</b></div>`);
-    h+=st('6','⑥ 粕', '', cls('6',ydN(R.kasu)!==null,''), sm['6'],
-      `<div class="yd-kasu"><label class="yd-fi big"><span>粕（kg）</span><input type="text" inputmode="decimal" data-k="kasu" value="${esc(String(R.kasu||''))}" placeholder="—"></label><div class="pct"><b data-v="kasuP">${cP!==null?cP.toFixed(1)+'%':'—'}</b><span>粕歩合（粕÷総米${m.soumai?ydL(m.soumai)+'kg':''}）</span></div></div>`, ['仕込み・粕','w-shi']);
+    { const kr=typeof kxRec==='function'?kxRec(m.no):null, kt=kr?kr.total:null, kp=(kt!=null&&m.soumai)?(Number(kt)/Number(m.soumai)*100):null;
+      h+=st('6','⑥ 粕', kr&&kr.date?rcMD(kr.date):(m.joso?rcMD(dadd(m.joso,1)):''), kt!=null?'done':'', kt!=null?`${ydL(kt)}kg　${kp!==null?kp.toFixed(1)+'%':''}`:'',
+        `<div class="yd-kasu"><div><b style="font-size:20px">${kt!=null?ydL(kt)+' kg':'—'}</b><div class="yd-sm">${kr&&typeof kxQText==='function'?esc(kxQText(kr.q)):'粕アイコンで入力'}</div></div><div class="pct"><b>${kp!==null?kp.toFixed(1)+'%':'—'}</b><span>粕歩合（粕÷総米${m.soumai?ydL(m.soumai)+'kg':''}）</span></div></div><button type="button" class="yd-b rec" data-a="kasu" style="width:100%;margin-top:6px">粕アイコンで入力する ›</button>`, ['粕','w-shi']); }
     h+=st('7','⑦ 上槽後の分析', m.joso?rcMD(dadd(m.joso,1)):'', A.n&&!A.pend?'done':(A.pend?'wait':''), sm['7'],
       A.n?`<div class="yd-wait">${A.D.map(d=>{ const a=ydAna(m,d.t); return `<div class="wt"><b>T${esc(String(d.t))}</b><span class="yd-sm">${ydL(d.L)}L</span><span class="st ${a?'ok':'no'}">${a?'済':'未'}</span></div>`; }).join('')}</div><button type="button" class="yd-b ana" data-a="ana" style="width:100%;margin-top:6px">🧪 上槽後の分析を入力する ›</button>`:`<div class="yd-sm">⑤の上槽先を保存すると、表の上槽の翌日のマスに「🧪 上槽後の分析」が出ます。</div>`, ['分析担当','w-bun']);
     h+=`</div></div><div class="yd-row foot"><button type="button" class="yd-b" data-a="close">閉じる</button><button type="button" class="yd-b go" data-a="save">保存</button></div><div class="yd-msg"></div></div>`;
@@ -15026,6 +15030,7 @@ function ydRecOpen(no, date, step){
     w.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ R.dests.splice(Number(b.dataset.del),1); if(!R.dests.length) R.dests.push({t:'',L:''}); dirty=true; draw(); });
     const add=w.querySelector('[data-a="add"]'); if(add) add.onclick=()=>{ R.dests.push({t:'',L:''}); dirty=true; open['5']=true; draw(); };
     w.querySelectorAll('[data-a="t+"],[data-a="t-"]').forEach(b=>b.onclick=()=>{ let v=ydN(R.tgt); if(v===null){ const P=ydPre(m,R); v=P.last&&P.last.smv!==null?Math.round(P.last.smv):5; } v=Math.round((v+(b.dataset.a==='t+'?0.5:-0.5))*10)/10; R.tgt=String(v); dirty=true; calc(); });
+    const kz=w.querySelector('[data-a="kasu"]'); if(kz) kz.onclick=()=>{ if(dirty&&!confirm('保存していない入力があります。粕の画面へ進みますか？')) return; w.remove(); if(typeof kasuScreen==='function'){ KX.tab='today'; KX.extra=[String(m.no)]; go(()=>kasuScreen()); } };
     const an=w.querySelector('[data-a="ana"]'); if(an) an.onclick=()=>{ if(dirty&&!confirm('保存していない入力があります。分析の画面へ進みますか？')) return; w.remove(); ydAnaOpen(m.no); };
     w.querySelector('[data-a="save"]').onclick=save;
   };
@@ -15179,5 +15184,397 @@ function ydRecOpen(no, date, step){
 `; document.head.appendChild(s); })();
 </script>
 <!-- /yodan1102 -->
+<!-- kasu1102 -->
+<script>
+/* ================= 粕（ホームの🍶仕込み と 🧴濾過・火入 の間）2026-11-02 泰広さん指示 =================
+   ・アイコン：クリーム色の板を2枚重ねた絵（B案）
+   ・きょうの粕（案A：仕込みごとのカード）：上槽の翌日（粕の日）の仕込みが並ぶ
+       作業者（出勤者が先頭＋ほかの人・タイミー1・タイミー2・応援＝名前を入力）／道具の数（手袋・ヘラ・穴開け用道具 の作業前→作業後、合わないと赤）
+       数量（20kg箱・10kg箱・5kg箱・20kg袋 の個数＋端数kg → 合計kg・粕歩合＝合計÷総米）／備考 →「保存」
+   ・検定：保存すると「未検定」。伊藤さんだけがタップで「検定済」にできる（ほかの人は表示だけ）
+   ・事務所へ送信（アイコン）：未検定は灰色🔒、検定済は青。1件ずつ／報告タブでまとめて1通。※送り先のメールアドレスは後で設定（未設定のあいだは送れない）
+   ・粕歩合の表（案2：液種ごと）：今年の各仕込みの点と、昨年（R7BY）の同じ液種の平均（縦線）・幅（帯）
+   ・チェック履歴：紙のチェックシートと同じ並び。CSV で書き出し（提出用）。記録そのものはスプレッドシートに残る
+   ・記録先：製造ツール 共有データ「醪作業」（サーバー変更なし）
+       name＝粕記録（1仕込1行・memo＝JSON）／粕検定（kind＝検定済）／粕報告（kind＝送信済）／粕設定（送り先）
+     保存すると醸造記録 R8BY の上槽（joso_save）に 粕重量kg も書く（仕込カルテ・解析と同じ値）
+   控え：seishu-workbook_github\_src_kasu1102.js　差し込み：_粕アイコン_20261102.py */
+const KX_REC='粕記録', KX_KEN='粕検定', KX_REP='粕報告', KX_CFG='粕設定';
+const KX_Q=[['b20','20kg箱',20,'個'],['b10','10kg箱',10,'個'],['b5','5kg箱',5,'個'],['f20','20kg袋',20,'袋'],['frac','端数',1,'kg']];
+const KX_T=[['glove','手袋'],['hera','ヘラ'],['ana','穴開け用道具']];
+const KX_PREV={'伝辛':27.86,'超辛':29.53,'やわらか':23.58,'遠雷':40.50,'ユキノシタ':35.40,'金雲母':35.60,'ながれぼし':34.30,'kagayaki':45.63,'ぽたり':40.00};   // R7BY 粕歩合シートの液種平均（ZN が無いとき）
+const KX={ tab:lsGet('kx.tab','today'), more:{}, month:'' };
+const kxBoss=()=>/伊藤/.test(String((ST&&ST.name)||''));
+const kxN=v=>{ if(v===''||v===null||v===undefined) return null; const n=typeof pnum==='function'?pnum(String(v)):Number(v); return (n===null||isNaN(n))?null:n; };
+const kxL=v=>{ const n=kxN(v); return n===null?'—':Math.round(n).toLocaleString('ja-JP'); };
+const kxMD=d=>{ if(!d) return '—'; const x=dparse(d); return `${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`; };
+const KX_SVG=`<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><defs><linearGradient id="kxCr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffaea"/><stop offset="1" stop-color="#efe3c2"/></linearGradient></defs><rect x="5" y="11" width="30" height="22" rx="3" fill="#e9dbb5" stroke="#b9a479" stroke-width="1"/><rect x="3" y="6" width="30" height="22" rx="3" fill="url(#kxCr)" stroke="#b9a479" stroke-width="1.2"/></svg>`;
+function kxItem(name, no){ const L=(MW.items||[]).filter(x=>!x.deleted&&x.name===name&&(no===undefined||String(x.no)===String(no))); L.sort((a,b)=>String(a.upd||a.at||'').localeCompare(String(b.upd||b.at||''))); return L.length?L[L.length-1]:null; }
+function kxJ(it){ try{ return it&&it.memo?JSON.parse(String(it.memo)):null; }catch(e){ return null; } }
+function kxRec(no){ const it=kxItem(KX_REC,no), j=kxJ(it); return j?Object.assign(j,{_id:it.id, by:it.updBy||it.by||'', at:it.upd||it.at||''}):null; }
+function kxKen(no){ const it=kxItem(KX_KEN,no); return it&&it.kind==='検定済'?it:null; }
+function kxRep(no){ const it=kxItem(KX_REP,no); return it&&it.kind==='送信済'?it:null; }
+function kxCfg(){ return kxJ(kxItem(KX_CFG))||{}; }
+function kxTotal(q){ q=q||{}; let s=0, any=false; KX_Q.forEach(([k,,w])=>{ const n=kxN(q[k]); if(n!==null){ s+=n*w; any=true; } }); return any?Math.round(s*10)/10:null; }
+function kxPct(m, kg){ const s=Number(m&&m.soumai); return (kg!==null&&kg!==undefined&&s>0)?Math.round(kg/s*1000)/10:null; }
+function kxQText(q){ q=q||{}; const a=[]; KX_Q.forEach(([k,l,,u])=>{ const n=kxN(q[k]); if(n) a.push(k==='frac'?`端数 ${n}kg`:`${l} ${n}`); }); return a.join('・')||'—'; }
+function kxDay(m){ return m&&m.joso?dadd(m.joso,1):''; }
+/* 昨年の同じ液種：{avg,min,max,n} */
+function kxPrev(liq){
+  try{ const D=ZN.data; if(D&&D.moromi){ const v=D.moromi.filter(x=>znSameLiq(x.lq,liq)).map(x=>x.jo&&kxN(x.jo.kasuP)).filter(x=>x!==null&&x>0);
+      if(v.length) return {avg:v.reduce((a,b)=>a+b,0)/v.length, min:Math.min(...v), max:Math.max(...v), n:v.length}; } }catch(e){}
+  const k=Object.keys(KX_PREV).find(x=>String(liq||'').normalize('NFKC').toLowerCase().indexOf(x.toLowerCase())>=0 || x.indexOf(String(liq||''))>=0&&String(liq||''));
+  return k?{avg:KX_PREV[k], min:null, max:null, n:0}:null;
+}
+/* 作業者の候補 */
+function kxStaff(){ let S={all:[],work:[]}; try{ S=o2Staff(); }catch(e){}
+  const all=(S.all||[]).filter(n=>!/研修/.test(n)), work=(S.work||[]).filter(n=>all.indexOf(n)>=0);
+  return { work, other:all.filter(n=>work.indexOf(n)<0) }; }
+function kxOuenNames(){ const s=new Set(); (MW.items||[]).forEach(x=>{ if(x.deleted||x.name!==KX_REC) return; const j=kxJ(x); (j&&j.workers||[]).forEach(w=>{ if(/^応援[:：]/.test(w)) s.add(w.replace(/^応援[:：]/,'')); }); }); return [...s]; }
+/* 対象の仕込み */
+function kxList(){
+  const st=RC.state; if(!st||!st.master) return {today:[], all:[]};
+  const td=dtoday(), all=st.master.filter(m=>m.joso).slice().sort((a,b)=>String(b.joso).localeCompare(String(a.joso))||b.no-a.no);
+  const today=all.filter(m=>{ const d=kxDay(m); if(!d) return false; const r=kxRec(m.no);
+    if(d>dadd(td,1)) return false;   // 明日の分まで
+    if(d>=dadd(td,-3)) return true;
+    if(r && !kxRep(m.no) && d>=dadd(td,-30)) return true;   // 保存したが送っていない
+    return false; });
+  return {today, all};
+}
+function kxHomeTag(){
+  try{ const td=dtoday(); const L=kxList().today.filter(m=>kxDay(m)===td && !kxRec(m.no)); if(L.length) return '粕放し '+L.map(m=>m.no+'号').join('・');
+    const n=kxList().today.filter(m=>kxRec(m.no)&&kxKen(m.no)&&!kxRep(m.no)).length; return n?`報告まだ ${n}`:''; }catch(e){ return ''; }
+}
+
+/* ---------- 画面 ---------- */
+async function kasuScreen(){
+  head('粕','');
+  app.innerHTML='<div class="muted" style="text-align:center;margin-top:30px">読み込んでいます…</div>';
+  try{ await recState(); }catch(e){}
+  try{ await mwLoad(false); }catch(e){}
+  try{ znLoad(false).then(()=>{ if(KX.tab==='table'&&document.getElementById('kxRoot')) kxDraw(); }).catch(()=>{}); }catch(e){}
+  kxDraw();
+  mwLoad(true).then(()=>{ if(document.getElementById('kxRoot')&&!document.querySelector('#kxRoot .kx-dirty')) kxDraw(); }).catch(()=>{});
+}
+function kxDraw(){
+  const tabs=[['today','きょうの粕'],['table','粕歩合の表'],['rep','報告'],['hist','チェック履歴']];
+  let h=`<div id="kxRoot"><div class="kx-tabs">${tabs.map(([k,l])=>`<button type="button" class="${KX.tab===k?'on':''}" data-kxt="${k}">${l}</button>`).join('')}</div>`;
+  if(KX.tab==='today') h+=kxTodayHTML();
+  else if(KX.tab==='table') h+=kxTableHTML();
+  else if(KX.tab==='rep') h+=kxRepHTML();
+  else h+=kxHistHTML();
+  h+='</div>';
+  app.innerHTML=h;
+  app.querySelectorAll('[data-kxt]').forEach(b=>b.onclick=()=>{ KX.tab=b.dataset.kxt; lsSet('kx.tab',KX.tab); kxDraw(); });
+  kxBind();
+}
+/* きょうの粕：カード */
+function kxTodayHTML(){
+  const L=kxList(); let h='';
+  if(!L.today.length) h+=`<p class="muted" style="text-align:center;padding:14px 0">きょうの粕放しはありません</p>`;
+  L.today.forEach(m=>{ h+=kxCardHTML(m); });
+  const rest=L.all.filter(m=>L.today.indexOf(m)<0).slice(0,40);
+  if(rest.length) h+=`<div class="kx-pick"><select id="kxPick"><option value="">ほかの仕込みを開く ▾</option>${rest.map(m=>`<option value="${esc(String(m.no))}">${esc(String(m.no))}号 ${esc(m.liquid||'')}（上槽 ${rcMD(m.joso)}）</option>`).join('')}</select></div>`;
+  (KX.extra||[]).forEach(no=>{ const m=rcMaster(no); if(m&&L.today.indexOf(m)<0) h=h.replace('<div class="kx-pick">', kxCardHTML(m)+'<div class="kx-pick">'); });
+  return h;
+}
+function kxDraft(m){
+  const r=kxRec(m.no);
+  if(KX.more['d'+m.no]) return KX.more['d'+m.no];
+  const last=(()=>{ const L=(MW.items||[]).filter(x=>!x.deleted&&x.name===KX_REC).sort((a,b)=>String(a.at||'').localeCompare(String(b.at||''))); return L.length?kxJ(L[L.length-1]):null; })();
+  const d=r?JSON.parse(JSON.stringify(r)):{ date:kxDay(m)||dtoday(), workers:[], tools:{}, q:{}, biko:'' };
+  if(!r){ KX_T.forEach(([k])=>{ const b=last&&last.tools&&last.tools[k]?last.tools[k][0]:(k==='ana'?1:2); d.tools[k]=[b,'']; }); }
+  ['_id','by','at'].forEach(k=>delete d[k]);
+  d.tools=d.tools||{}; d.q=d.q||{}; d.workers=d.workers||[];
+  KX.more['d'+m.no]=d; return d;
+}
+function kxCardHTML(m){
+  const no=String(m.no), d=kxDraft(m), r=kxRec(no), ken=kxKen(no), rep=kxRep(no), boss=kxBoss();
+  const kg=kxTotal(d.q), pc=kxPct(m,kg), pv=kxPrev(m.liquid);
+  const S=kxStaff(), ouen=d.workers.filter(w=>/^応援[:：]/.test(w)), sel=n=>d.workers.indexOf(n)>=0;
+  const chip=(n,cls,lab)=>`<button type="button" class="kx-chip ${cls||''}${sel(n)?' on':''}" data-kxw="${esc(n)}" data-no="${esc(no)}">${esc(lab||n)}${/^応援/.test(n)&&sel(n)?' ✕':''}</button>`;
+  const others=S.other.filter(n=>sel(n)||KX.more['o'+no]);
+  const dirty=!!KX.more['x'+no];
+  let toolAlert=[];
+  const tools=KX_T.map(([k,l])=>{ const t=d.tools[k]||['','']; const b=kxN(t[0]), a=kxN(t[1]); const ng=a!==null&&b!==null&&a!==b; if(ng) toolAlert.push(`${l}が 作業前${b} → 作業後${a}`);
+    const sp=(i,v,cls)=>`<span class="kx-sp ${cls||''}"><button type="button" data-kxtl="${k}" data-i="${i}" data-v="-1" data-no="${esc(no)}">−</button><input type="text" inputmode="numeric" value="${v===null?'':v}" data-kxtl="${k}" data-i="${i}" data-no="${esc(no)}" placeholder="—"><button type="button" data-kxtl="${k}" data-i="${i}" data-v="1" data-no="${esc(no)}">＋</button></span>`;
+    return `<span class="l">${l}</span>${sp(0,b,'')}${sp(1,a,a===null?'':ng?'ng':'ok')}`; }).join('');
+  const qty=KX_Q.map(([k,l,w,u])=>{ const n=kxN(d.q[k]); return `<div class="kx-qr${n?' on':''}"><span class="nm">${l}</span><span class="kx-sp big"><button type="button" data-kxq="${k}" data-v="-1" data-no="${esc(no)}">−</button><input type="text" inputmode="decimal" value="${n===null?'':n}" data-kxq="${k}" data-no="${esc(no)}" placeholder="0"><button type="button" data-kxq="${k}" data-v="1" data-no="${esc(no)}">＋</button></span><span class="un">${u}</span><span class="kg" data-kxkg="${k}">${n?kxL(n*w)+' kg':''}</span></div>`; }).join('');
+  const sendCls=!r?'off':rep?'done':ken?'on':'off';
+  const sendLab=!r?'事務所へ':rep?`送信済 ${String(rep.date||rep.upd||rep.at||'').slice(5,16).replace('-','/')}`:ken?'事務所へ送信':'事務所へ';
+  const envB=`<svg viewBox="0 0 40 40" width="32" height="32"><rect x="5" y="10" width="30" height="21" rx="3" fill="${sendCls==='off'?'#f4f3ef':'#fff'}"/><path d="M6 12l14 10 14-10" fill="none" stroke="${sendCls==='off'?'#b5b2aa':'#1f6fa8'}" stroke-width="2.2" stroke-linejoin="round"/></svg>`;
+  return `<div class="kx-card${dirty?' kx-dirty':''}" data-kxcard="${esc(no)}">
+    <div class="kx-ch"><span class="no">${esc(no)}号</span><span class="lq">${esc(m.liquid||'')}</span><span class="tk">T${esc(String(m.tank||''))}</span><span class="sm">上槽 ${rcMD(m.joso)}・総米 ${kxL(m.soumai)}kg</span>
+      <span class="st ${r?(dirty?'w':'s'):'n'}">${r?(dirty?'未保存':'保存済'):'未入力'}</span></div>
+    <div class="kx-dt">粕放し日 <input type="date" value="${esc(d.date||'')}" data-kxdate="${esc(no)}"></div>
+    <div class="kx-sec">作業者</div>
+    <div class="kx-chips">${S.work.map(n=>chip(n)).join('')}${others.map(n=>chip(n)).join('')}${S.other.length?`<button type="button" class="kx-chip more" data-kxmore="${esc(no)}">${KX.more['o'+no]?'ほかの人をたたむ ▴':'ほかの人 ▾'}</button>`:''}${chip('タイミー1','tm')}${chip('タイミー2','tm')}${ouen.map(n=>chip(n,'ou',n.replace(/^応援[:：]/,'応援：'))).join('')}<button type="button" class="kx-chip ou add" data-kxouen="${esc(no)}">＋応援</button></div>
+    <div class="kx-sec">道具の数（作業前 → 作業後）</div>
+    <div class="kx-tools"><span></span><span class="h">作業前</span><span class="h">作業後</span>${tools}</div>
+    ${toolAlert.length?`<div class="kx-alert">⚠ ${esc(toolAlert.join('、'))}。粕・袋の中を確認してください</div>`:''}
+    <div class="kx-sec">数量（酒粕数量報告）</div>
+    <div class="kx-qty">${qty}</div>
+    <div class="kx-tot"><div><span>合計</span><b data-kxtot="${esc(no)}">${kg===null?'—':kxL(kg)}</b> kg</div><div class="pp"><span>粕歩合（合計÷総米）</span><b data-kxpct="${esc(no)}">${pc===null?'—':pc.toFixed(1)+'%'}</b><small data-kxpv="${esc(no)}">${pv?`昨年の${esc(m.liquid||'')} ${pv.avg.toFixed(1)}%${pc!==null?`（${pc-pv.avg>=0?'＋':'−'}${Math.abs(pc-pv.avg).toFixed(1)}）`:''}`:''}</small></div></div>
+    <label class="kx-biko"><span>備考</span><input type="text" value="${esc(d.biko||'')}" data-kxbiko="${esc(no)}" placeholder="（任意）"></label>
+    <div class="kx-foot"><button type="button" class="kx-save" data-kxsave="${esc(no)}">保存</button>
+      <button type="button" class="kx-ken ${ken?'ok':'no'}${boss&&r&&!rep?' can':''}" data-kxken="${esc(no)}"${boss&&r&&!rep?'':' aria-disabled="true"'}>${ken?`✓ 検定済 ${String(ken.date||'').slice(5).replace('-','/')}`:'未検定'}</button>
+      <button type="button" class="kx-send ${sendCls}" data-kxsend="${esc(no)}" aria-label="事務所へ送信"><span class="sq">${envB}${sendCls==='off'?'<i class="lk">🔒</i>':sendCls==='done'?'<i class="ck">✓</i>':''}</span><span class="t">${esc(sendLab)}</span></button></div>
+    ${r?`<div class="kx-by">保存 ${esc(r.by||'')} ${esc(String(r.at||'').slice(5,16))}${ken?`／検定済 ${esc(ken.updBy||ken.by||'')}`:''}</div>`:''}
+    <div class="kx-msg" data-kxmsg="${esc(no)}"></div></div>`;
+}
+function kxBind(){
+  const R=document.getElementById('kxRoot'); if(!R) return;
+  const D=no=>KX.more['d'+no], mark=no=>{ KX.more['x'+no]=1; };
+  const redraw=()=>{ const sc=window.scrollY; kxDraw(); window.scrollTo(0,sc); };
+  const upd=no=>{ const m=rcMaster(no), d=D(no); if(!m||!d) return; const kg=kxTotal(d.q), pc=kxPct(m,kg), pv=kxPrev(m.liquid);
+    const t=R.querySelector(`[data-kxtot="${no}"]`); if(t) t.textContent=kg===null?'—':kxL(kg);
+    const p=R.querySelector(`[data-kxpct="${no}"]`); if(p) p.textContent=pc===null?'—':pc.toFixed(1)+'%';
+    const v=R.querySelector(`[data-kxpv="${no}"]`); if(v&&pv) v.textContent=`昨年の${m.liquid||''} ${pv.avg.toFixed(1)}%${pc!==null?`（${pc-pv.avg>=0?'＋':'−'}${Math.abs(pc-pv.avg).toFixed(1)}）`:''}`;
+    KX_Q.forEach(([k,,w])=>{ const e=R.querySelector(`.kx-card[data-kxcard="${no}"] [data-kxkg="${k}"]`); const n=kxN(d.q[k]); if(e) e.textContent=n?kxL(n*w)+' kg':''; });
+    const st=R.querySelector(`.kx-card[data-kxcard="${no}"] .kx-ch .st`); if(st&&kxRec(no)){ st.className='st w'; st.textContent='未保存'; } };
+  R.querySelectorAll('[data-kxw]').forEach(b=>b.onclick=()=>{ const no=b.dataset.no, d=D(no), n=b.dataset.kxw; const i=d.workers.indexOf(n); if(i>=0) d.workers.splice(i,1); else d.workers.push(n); mark(no); redraw(); });
+  R.querySelectorAll('[data-kxmore]').forEach(b=>b.onclick=()=>{ const no=b.dataset.kxmore; KX.more['o'+no]=!KX.more['o'+no]; redraw(); });
+  R.querySelectorAll('[data-kxouen]').forEach(b=>b.onclick=()=>{ const no=b.dataset.kxouen, d=D(no); const cand=kxOuenNames(); const v=prompt('応援の名前（例：佐藤（製品））'+(cand.length?'\n前に入れた名前：'+cand.join('、'):''), ''); const n=String(v||'').trim(); if(!n) return; const w='応援:'+n; if(d.workers.indexOf(w)<0) d.workers.push(w); mark(no); redraw(); });
+  R.querySelectorAll('button[data-kxtl]').forEach(b=>b.onclick=()=>{ const no=b.dataset.no, d=D(no), k=b.dataset.kxtl, i=Number(b.dataset.i); const t=d.tools[k]||(d.tools[k]=['','']); let v=kxN(t[i]); if(v===null) v=i===1?(kxN(t[0])||0):0; else v=Math.max(0,v+Number(b.dataset.v)); t[i]=v; mark(no); redraw(); });
+  R.querySelectorAll('input[data-kxtl]').forEach(el=>el.onchange=()=>{ const no=el.dataset.no, d=D(no), k=el.dataset.kxtl, i=Number(el.dataset.i); const t=d.tools[k]||(d.tools[k]=['','']); t[i]=kxN(el.value); mark(no); redraw(); });
+  R.querySelectorAll('button[data-kxq]').forEach(b=>b.onclick=()=>{ const no=b.dataset.no, d=D(no), k=b.dataset.kxq; const v=Math.max(0,(kxN(d.q[k])||0)+Number(b.dataset.v)); d.q[k]=v||''; const inp=R.querySelector(`input[data-kxq="${k}"][data-no="${no}"]`); if(inp) inp.value=v||''; inp&&inp.closest('.kx-qr').classList.toggle('on',!!v); mark(no); upd(no); });
+  R.querySelectorAll('input[data-kxq]').forEach(el=>el.oninput=()=>{ const no=el.dataset.no, d=D(no); d.q[el.dataset.kxq]=el.value; el.closest('.kx-qr').classList.toggle('on',!!kxN(el.value)); mark(no); upd(no); });
+  R.querySelectorAll('[data-kxdate]').forEach(el=>el.onchange=()=>{ const no=el.dataset.kxdate; D(no).date=el.value; mark(no); });
+  R.querySelectorAll('[data-kxbiko]').forEach(el=>el.oninput=()=>{ const no=el.dataset.kxbiko; D(no).biko=el.value; mark(no); });
+  R.querySelectorAll('[data-kxsave]').forEach(b=>b.onclick=()=>kxSave(b.dataset.kxsave));
+  R.querySelectorAll('[data-kxken]').forEach(b=>b.onclick=()=>kxKenTap(b.dataset.kxken));
+  R.querySelectorAll('[data-kxsend]').forEach(b=>b.onclick=()=>kxSendOpen([b.dataset.kxsend]));
+  const pk=R.querySelector('#kxPick'); if(pk) pk.onchange=()=>{ if(!pk.value) return; KX.extra=(KX.extra||[]).filter(x=>x!==pk.value).concat([pk.value]); redraw(); };
+  R.querySelectorAll('[data-kxrow]').forEach(b=>b.onclick=()=>{ KX.tab='today'; KX.extra=(KX.extra||[]).concat([b.dataset.kxrow]); kxDraw(); const c=document.querySelector(`.kx-card[data-kxcard="${b.dataset.kxrow}"]`); if(c) c.scrollIntoView({block:'start'}); });
+  const rs=R.querySelector('#kxRepSend'); if(rs) rs.onclick=()=>{ const L=[...R.querySelectorAll('.kx-rc:checked')].map(x=>x.value); if(!L.length){ rcToast('送る仕込みを選んでください'); return; } kxSendOpen(L); };
+  const cs=R.querySelector('#kxCsv'); if(cs) cs.onclick=kxCsv;
+  const ms=R.querySelector('#kxMonth'); if(ms) ms.onchange=()=>{ KX.month=ms.value; kxDraw(); };
+  const cf=R.querySelector('#kxCfg'); if(cf) cf.onclick=kxCfgOpen;
+}
+async function kxSave(no){
+  const m=rcMaster(no), d=KX.more['d'+no]; if(!m||!d) return;
+  const msg=t=>{ const e=document.querySelector(`[data-kxmsg="${no}"]`); if(e) e.textContent=t; };
+  const ng=KX_T.filter(([k])=>{ const t=d.tools[k]||[]; const b=kxN(t[0]), a=kxN(t[1]); return a!==null&&b!==null&&a!==b; }).map(x=>x[1]);
+  if(ng.length && !confirm(`${ng.join('・')} の数が作業前と作業後で合っていません。このまま保存しますか？`)) return;
+  if(kxRep(no) && !confirm('この仕込みは事務所へ送信済みです。直すと訂正の連絡が必要です。保存しますか？')) return;
+  const kg=kxTotal(d.q);
+  const out={ date:d.date||kxDay(m)||dtoday(), workers:d.workers.slice(), tools:{}, q:{}, biko:String(d.biko||'').trim(), total:kg, pct:kxPct(m,kg) };
+  KX_T.forEach(([k])=>{ const t=d.tools[k]||['','']; out.tools[k]=[kxN(t[0]), kxN(t[1])]; });
+  KX_Q.forEach(([k])=>{ const n=kxN(d.q[k]); if(n!==null) out.q[k]=n; });
+  document.querySelectorAll(`.kx-card[data-kxcard="${no}"] button`).forEach(b=>b.disabled=true); msg('保存しています…');
+  try{ const it=kxItem(KX_REC,no);
+    mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:KX_REC, kind:'保存', no:String(no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:out.date, memo:JSON.stringify(out)}}));
+    delete KX.more['x'+no]; delete KX.more['d'+no];
+    rcToast(`${no}号の粕を保存しました`);
+    if(kg!==null) recApi({action:'joso_save', no:m.no, values:{'粕重量kg':String(kg)}}, 40000).then(r=>{ if(!(r&&r.ok)) rcToast('仕込カルテへの書き込みができませんでした：'+((r&&r.err)||''), true, 6000); else if(RC.karte) RC.karte[m.no]=null; }).catch(()=>{});
+    const sc=window.scrollY; kxDraw(); window.scrollTo(0,sc);
+  }catch(e){ msg('保存できませんでした：'+(e.message||e)); document.querySelectorAll(`.kx-card[data-kxcard="${no}"] button`).forEach(b=>b.disabled=false); }
+}
+async function kxKenTap(no){
+  if(!kxBoss()) return;   // 伊藤さんだけ
+  const m=rcMaster(no); if(!m||!kxRec(no)||kxRep(no)) return;
+  if(KX.more['x'+no]){ rcToast('先に「保存」してください', true); return; }
+  const ken=kxKen(no), it=kxItem(KX_KEN,no);
+  if(!ken && !confirm(`${no}号 ${m.liquid||''} を「検定済」にしますか？`)) return;
+  if(ken && !confirm(`${no}号 を「未検定」に戻しますか？`)) return;
+  try{ mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:KX_KEN, kind:ken?'未検定':'検定済', no:String(no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:ken?'':dtoday(), memo:''}}));
+    const sc=window.scrollY; kxDraw(); window.scrollTo(0,sc);
+  }catch(e){ rcToast('保存できませんでした：'+(e.message||e), true, 5000); }
+}
+/* 事務所へ送信（1件・まとめて） */
+function kxMailText(nos){
+  const L=nos.map(no=>{ const m=rcMaster(no)||{}, r=kxRec(no)||{}; return {no, m, r}; });
+  const sub=L.length===1?`【酒粕数量報告】${kxMD(L[0].r.date).replace(/（.*）/,'')} 仕${L[0].no}号（${L[0].m.liquid||''}） ${kxQText(L[0].r.q)}`:`【酒粕数量報告】${L.length}件（${L.map(x=>'仕'+x.no+'号').join('・')}）`;
+  let body='事務所 ご担当者様\n\n酒粕数量を報告します。\n';
+  L.forEach(({no,m,r})=>{ const q=r.q||{}; body+=`\n日付　　　${kxMD(r.date)}\n仕込　　　仕${no}号（${m.liquid||''}）　上槽 ${rcMD(m.joso)}\n`+KX_Q.map(([k,l])=>`${l}　　${kxN(q[k])===null?0:kxN(q[k])}${k==='frac'?' kg':(k==='f20'?' 袋':' 個')}`).join('\n')+`\n合計　　　${kxL(r.total)} kg\n`; });
+  body+=`\n生産本部製造　送信：${ST.name||''}\n（製造ツールから自動送信）`;
+  return {sub, body};
+}
+function kxSendOpen(nos){
+  nos=nos.filter(no=>kxRec(no));
+  const bad=nos.filter(no=>!kxKen(no)||kxRep(no)||KX.more['x'+no]);
+  if(!nos.length) return;
+  const one=nos.length===1, no0=nos[0];
+  if(one && bad.length){ const no=no0; if(kxRep(no)) rcToast(`${no}号は送信済みです`); else if(KX.more['x'+no]) rcToast('先に「保存」してください', true); else rcToast(`${no}号は未検定のため送れません（検定済になると送れます）`, true, 4000); return; }
+  nos=nos.filter(no=>bad.indexOf(no)<0); if(!nos.length){ rcToast('検定済の仕込みがありません', true); return; }
+  const cfg=kxCfg(), T=kxMailText(nos);
+  const w=document.createElement('div'); w.className='o2-mask yd-mask'; document.body.appendChild(w);
+  const close=()=>w.remove(); w.onclick=e=>{ if(e.target===w) close(); };
+  w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div><div class="yd-hd"><b>✉ 酒粕数量を事務所へ送信</b><button type="button" class="yd-x" data-a="close">✕</button></div>
+    <div class="kx-mail"><div class="mh"><span>宛先</span>${cfg.to?esc(cfg.to):'<b class="ng">未設定</b>'}${cfg.cc?`<br><span>CC</span>${esc(cfg.cc)}`:''}<br><span>件名</span>${esc(T.sub)}</div><pre>${esc(T.body)}</pre></div>
+    ${cfg.to?'':'<div class="kx-alert" style="margin:8px 0 0">送り先のメールアドレスがまだ設定されていないため、送れません（報告タブの「⚙ 送り先」で設定）。</div>'}
+    <div class="yd-row"><button type="button" class="yd-b" data-a="close">やめる</button><button type="button" class="yd-b go" data-a="send"${cfg.to?'':' disabled'}>送信する</button></div><div class="yd-msg"></div></div>`;
+  w.querySelectorAll('[data-a="close"]').forEach(b=>b.onclick=close);
+  w.querySelector('[data-a="send"]').onclick=async()=>{
+    if(!cfg.to) return;
+    const say=t=>{ const e=w.querySelector('.yd-msg'); if(e) e.textContent=t; };
+    w.querySelectorAll('button').forEach(b=>b.disabled=true); say('送信しています…');
+    try{
+      const j=await kxMailSend(cfg, T);   // サーバー（共有データ）にメール送信の処理が入ったら送れる
+      if(!j||!j.ok) throw new Error((j&&j.error)||'送信できませんでした');
+      for(const no of nos){ const m=rcMaster(no)||{}, it=kxItem(KX_REP,no);
+        mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:KX_REP, kind:'送信済', no:String(no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:dtoday()+' '+new Date().toTimeString().slice(0,5), memo:T.sub}})); }
+      close(); rcToast('事務所へ送信しました'); const sc=window.scrollY; kxDraw(); window.scrollTo(0,sc);
+    }catch(e){ say('送信できませんでした：'+(e.message||e)); w.querySelectorAll('button').forEach(b=>b.disabled=false); }
+  };
+}
+async function kxMailSend(cfg, T){
+  const r=await fetch(SHARED_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'mail', table:'醪作業', who:{id:String(ST.id||''),name:String(ST.name||'')}, to:cfg.to, cc:cfg.cc||'', subject:T.sub, body:T.body}),redirect:'follow'});
+  const j=await r.json(); if(j&&!j.ok&&/unknown|action/i.test(String(j.error||''))) throw new Error('サーバー側のメール送信がまだ準備できていません'); return j;
+}
+function kxCfgOpen(){
+  if(!kxBoss()){ rcToast('送り先は伊藤さんが設定します'); return; }
+  const c=kxCfg(); const to=prompt('事務所の担当のメールアドレス', c.to||''); if(to===null) return;
+  const cc=prompt('CC（なければ空のまま）', c.cc||''); if(cc===null) return;
+  const it=kxItem(KX_CFG);
+  mwApi({action:'save', item:{id:it?it.id:'', name:KX_CFG, kind:'設定', no:'0', memo:JSON.stringify({to:String(to).trim(), cc:String(cc).trim()})}}).then(j=>{ mwKeep(j); rcToast('送り先を保存しました'); kxDraw(); }).catch(e=>rcToast('保存できませんでした：'+(e.message||e), true));
+}
+/* 報告タブ */
+function kxRepHTML(){
+  const st=RC.state; const M=((st&&st.master)||[]).filter(m=>kxRec(m.no)).sort((a,b)=>String(b.joso).localeCompare(String(a.joso)));
+  const wait=M.filter(m=>!kxRep(m.no)), sent=M.filter(m=>kxRep(m.no)).slice(0,30), cfg=kxCfg();
+  const row=(m,ok,lk)=>{ const r=kxRec(m.no), ken=kxKen(m.no), rep=kxRep(m.no);
+    return `<label class="kx-li${lk?' lk':''}${rep?' sent':''}">${rep?'<span class="cb s">✓</span>':`<input type="checkbox" class="kx-rc" value="${esc(String(m.no))}"${lk?' disabled':' checked'}>`}
+      <span><span class="n">${esc(String(m.no))}号 ${esc(m.liquid||'')}</span><br>${rep?`<span class="pill s">送信 ${esc(String(rep.date||'').slice(5).replace('-','/'))}</span>`:ken?`<span class="pill k">検定済 ${esc(String(ken.date||'').slice(5).replace('-','/'))}</span>`:'<span class="pill w">未検定</span>'}</span>
+      <span class="q"><b>${esc(kxQText(r.q))}</b><br>${kxL(r.total)}kg</span></label>`; };
+  const nK=wait.filter(m=>kxKen(m.no)).length;
+  return `<div class="kx-rh"><span>送信待ち ${wait.length}件（検定済 ${nK}・未検定 ${wait.length-nK}）</span>${kxBoss()?'<button type="button" id="kxCfg" class="kx-cfg">⚙ 送り先</button>':''}</div>
+    <div class="kx-sm">送り先：${cfg.to?esc(cfg.to):'未設定（後で設定）'}</div>
+    ${wait.map(m=>row(m,true,!kxKen(m.no)||!!KX.more['x'+m.no])).join('')||'<p class="muted" style="text-align:center">送信待ちはありません</p>'}
+    ${nK?`<button type="button" id="kxRepSend" class="kx-bigsend"><span class="sq"><svg viewBox="0 0 40 40" width="26" height="26"><rect x="5" y="10" width="30" height="21" rx="3" fill="#fff"/><path d="M6 12l14 10 14-10" fill="none" stroke="#1f6fa8" stroke-width="2.4" stroke-linejoin="round"/></svg></span>選んだ検定済をまとめて1通で送信</button>`:''}
+    ${sent.length?`<div class="kx-sm" style="margin-top:10px">送信済</div>${sent.map(m=>row(m,false,false)).join('')}`:''}`;
+}
+/* 粕歩合の表（案2：液種ごと） */
+function kxTableHTML(){
+  const st=RC.state; const M=((st&&st.master)||[]).filter(m=>{ const r=kxRec(m.no); return r&&kxN(r.total)!==null; });
+  if(!M.length) return '<p class="muted" style="text-align:center;padding:14px 0">まだ粕の数量がありません</p>';
+  const G={}; M.forEach(m=>{ const k=String(m.liquid||'—'); (G[k]=G[k]||[]).push(m); });
+  const X=v=>Math.max(0,Math.min(100,v/50*100));
+  let h='<table class="kx-kp">';
+  Object.keys(G).forEach(liq=>{ const L=G[liq].sort((a,b)=>String(a.joso).localeCompare(String(b.joso))), pv=kxPrev(liq);
+    const ps=L.map(m=>kxPct(m,kxN(kxRec(m.no).total))).filter(v=>v!==null), av=ps.length?ps.reduce((a,b)=>a+b,0)/ps.length:null;
+    h+=`<tr><td class="gh" colspan="4">${esc(liq)}<small>今年 ${L.length}本${av!==null?` 平均${av.toFixed(1)}%`:''}${pv?`／昨年 ${pv.avg.toFixed(1)}%`:''}</small></td></tr>`;
+    h+=`<tr><td colspan="4"><div class="kx-dots">${pv&&pv.min!==null?`<s style="left:${X(pv.min)}%;width:${Math.max(1,X(pv.max)-X(pv.min))}%"></s>`:''}${pv?`<u style="left:${X(pv.avg)}%"></u>`:''}${ps.map(v=>`<i style="left:${X(v)}%"></i>`).join('')}</div></td></tr>`;
+    L.forEach(m=>{ const r=kxRec(m.no), p=kxPct(m,kxN(r.total)); h+=`<tr class="kx-tr" data-kxrow="${esc(String(m.no))}"><td>${esc(String(m.no))}号</td><td>${rcMD(m.joso)}</td><td>${kxL(r.total)}kg</td><td class="p">${p===null?'—':p.toFixed(1)+'%'}${pv&&p!==null?`<small class="${p-pv.avg>=0?'up':'dn'}">${p-pv.avg>=0?'＋':'−'}${Math.abs(p-pv.avg).toFixed(1)}</small>`:''}</td></tr>`; });
+  });
+  return h+'</table><div class="kx-sm">● 今年の各仕込み／縦線＝昨年の平均／うすい帯＝昨年の幅（最小〜最大）。目盛りは 0〜50%。行を押すとその仕込みの粕のカード</div>';
+}
+/* チェック履歴（紙のチェックシートと同じ並び） */
+function kxHistRows(month){
+  const st=RC.state; return ((st&&st.master)||[]).map(m=>({m, r:kxRec(m.no)})).filter(x=>x.r&&String(x.r.date||'').slice(0,7)===month).sort((a,b)=>String(a.r.date).localeCompare(String(b.r.date))||a.m.no-b.m.no);
+}
+function kxMonths(){ const s=new Set(); (MW.items||[]).forEach(x=>{ if(!x.deleted&&x.name===KX_REC){ const j=kxJ(x); if(j&&j.date) s.add(String(j.date).slice(0,7)); } }); s.add(dtoday().slice(0,7)); return [...s].sort().reverse(); }
+function kxHistHTML(){
+  const ms=kxMonths(); if(!KX.month||ms.indexOf(KX.month)<0) KX.month=ms[0];
+  const L=kxHistRows(KX.month), wk=w=>esc(w.replace(/^応援[:：]/,'').replace(/^タイミー/,'ﾀｲﾐｰ'));
+  const T=(r,k,i)=>{ const t=(r.tools||{})[k]||[]; return t[i]===null||t[i]===undefined?'':t[i]; };
+  const ng=(r,k)=>{ const t=(r.tools||{})[k]||[]; return t[0]!=null&&t[1]!=null&&t[0]!==t[1]; };
+  let h=`<div class="kx-rh"><select id="kxMonth">${ms.map(x=>`<option value="${x}"${x===KX.month?' selected':''}>${x.replace('-','年')}月</option>`).join('')}</select><button type="button" id="kxCsv" class="kx-cfg">📄 CSVで書き出す（提出用）</button></div>`;
+  if(!L.length) return h+'<p class="muted" style="text-align:center">この月の記録はありません</p>';
+  h+=`<div class="kx-sw"><table class="kx-sheet"><tr><th colspan="2">月日</th>${L.map(x=>`<th>${rcMD(x.r.date)}</th>`).join('')}</tr>`;
+  h+=`<tr><td class="l" colspan="2">仕込No</td>${L.map(x=>`<td><b>${esc(String(x.m.no))}</b><br><small>${esc(x.m.liquid||'')}</small></td>`).join('')}</tr>`;
+  h+=`<tr><td class="l" colspan="2">作業者</td>${L.map(x=>`<td class="nm">${(x.r.workers||[]).map(wk).join('<br>')}</td>`).join('')}</tr>`;
+  KX_T.forEach(([k,l])=>{ h+=`<tr><td class="l" rowspan="2">${l}</td><td class="l">作業前</td>${L.map(x=>`<td>${T(x.r,k,0)}</td>`).join('')}</tr><tr><td class="l">作業後</td>${L.map(x=>`<td class="${ng(x.r,k)?'ng':''}">${T(x.r,k,1)}</td>`).join('')}</tr>`; });
+  h+=`<tr><td class="l" rowspan="2">粕の数量</td><td class="l">内訳</td>${L.map(x=>`<td class="nm">${esc(kxQText(x.r.q))}</td>`).join('')}</tr><tr><td class="l">合計</td>${L.map(x=>`<td>${kxL(x.r.total)}kg</td>`).join('')}</tr>`;
+  h+=`<tr><td class="l" colspan="2">粕歩合</td>${L.map(x=>{ const p=kxPct(x.m,kxN(x.r.total)); return `<td>${p===null?'—':p.toFixed(1)+'%'}</td>`; }).join('')}</tr>`;
+  h+=`<tr><td class="l" colspan="2">検定</td>${L.map(x=>`<td>${kxKen(x.m.no)?'✓ 済':'未'}</td>`).join('')}</tr>`;
+  h+=`<tr><td class="l" colspan="2">事務所へ報告</td>${L.map(x=>`<td>${kxRep(x.m.no)?'✓ 送信':''}</td>`).join('')}</tr>`;
+  h+=`<tr><td class="l" colspan="2">備考</td>${L.map(x=>`<td class="nm">${esc(x.r.biko||'')}</td>`).join('')}</tr></table></div>`;
+  return h+'<div class="kx-sm">記録は「製造ツール 共有データ」のスプレッドシート（醪作業・作業＝粕記録）に残っています</div>';
+}
+function kxCsv(){
+  const L=kxHistRows(KX.month); if(!L.length){ rcToast('この月の記録がありません'); return; }
+  const q=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+  const head=['月日','仕込No','液種','上槽日','作業者','手袋 作業前','手袋 作業後','ヘラ 作業前','ヘラ 作業後','穴開け用道具 作業前','穴開け用道具 作業後','20kg箱','10kg箱','5kg箱','20kg袋','端数kg','合計kg','総米kg','粕歩合%','検定','事務所へ報告','備考','入力者','入力日時'];
+  const rows=L.map(({m,r})=>{ const t=k=>(r.tools||{})[k]||[]; const p=kxPct(m,kxN(r.total)); const ken=kxKen(m.no), rep=kxRep(m.no);
+    return [r.date, m.no, m.liquid||'', m.joso||'', (r.workers||[]).map(w=>w.replace(/^応援[:：]/,'応援 ')).join('・'), t('glove')[0], t('glove')[1], t('hera')[0], t('hera')[1], t('ana')[0], t('ana')[1],
+      (r.q||{}).b20||'', (r.q||{}).b10||'', (r.q||{}).b5||'', (r.q||{}).f20||'', (r.q||{}).frac||'', r.total==null?'':r.total, m.soumai||'', p===null?'':p.toFixed(1), ken?('済 '+(ken.date||'')):'未', rep?('送信 '+(rep.date||'')):'', r.biko||'', r.by||'', r.at||''].map(q).join(','); });
+  const csv='﻿'+[head.map(q).join(',')].concat(rows).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=`酒粕放し作業チェックシート_${KX.month}.csv`; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+/* ホームの札（あとから付け直す） */
+function kxHomeApply(){ const b=document.getElementById('bKasu'); if(!b) return; const t=kxHomeTag(); let g=b.querySelector('.kx-htg');
+  if(t){ if(!g) b.insertAdjacentHTML('beforeend',`<span class="kx-htg">${esc(t)}</span>`); else if(g.textContent!==t) g.textContent=t; } else if(g) g.remove(); }
+(function(){ const o=window.home; if(typeof o!=='function') return;
+  window.home=function(){ const r=o.apply(this, arguments); try{ kxHomeApply(); mwLoad(false).then(kxHomeApply).catch(()=>{}); }catch(e){} return r; }; })();
+(function(){ const s=document.createElement('style'); s.textContent=`
+#bKasu .ico svg{display:block}
+.dp-ic .kx-htg{background:#9a7b4f;color:#fff;font-size:9.5px;font-weight:700;border-radius:4px;padding:1px 4px;margin-top:-2px}
+.kx-tabs{display:grid;grid-template-columns:repeat(4,1fr);background:#f1ede2;border-radius:12px;padding:3px;gap:3px;margin:8px 0 10px}
+.kx-tabs button{border:0;background:transparent;border-radius:9px;padding:8px 2px;font:inherit;font-size:13px;font-weight:800;color:var(--sub);cursor:pointer}
+.kx-tabs button.on{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.kx-card{border:1.5px solid #c9b48c;border-radius:14px;margin:0 0 12px;overflow:hidden;background:var(--card,#fff)}
+.kx-ch{background:#faf5ec;padding:7px 10px;display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.kx-ch .no{font-size:19px;font-weight:800;color:var(--navy)}.kx-ch .lq{font-weight:800}.kx-ch .tk{color:#8a5a2b;font-weight:800}.kx-ch .sm{font-size:11px;color:var(--sub)}
+.kx-ch .st{margin-left:auto;font-size:11px;font-weight:800;border-radius:999px;padding:1px 9px}.kx-ch .st.n{background:#efefef;color:#888}.kx-ch .st.s{background:#e3f2ea;color:#2f7d5d}.kx-ch .st.w{background:#fff1d6;color:#9a6200}
+.kx-dt{font-size:12px;color:var(--sub);padding:6px 10px 0}.kx-dt input{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:7px;padding:2px 6px}
+.kx-sec{font-size:12px;font-weight:800;color:var(--navy);margin:9px 10px 5px;display:flex;align-items:center;gap:6px}.kx-sec::after{content:'';flex:1;height:1px;background:var(--line)}
+.kx-chips{display:flex;flex-wrap:wrap;gap:5px;padding:0 10px}
+.kx-chip{border:1px solid var(--line);border-radius:999px;padding:5px 11px;font:inherit;font-size:13px;background:#fff;color:#333;cursor:pointer}
+.kx-chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.kx-chip.more{color:#999}
+.kx-chip.tm{border-color:#c9b3e6;color:#6a3fa0;background:#faf6ff}.kx-chip.tm.on{background:#6a3fa0;border-color:#6a3fa0;color:#fff}
+.kx-chip.ou{border-color:#d4a24c;color:#9a6200;background:#fffaf0}.kx-chip.ou.on{background:#d48a1c;border-color:#d48a1c;color:#fff}.kx-chip.ou.add{border-style:dashed}
+.kx-tools{display:grid;grid-template-columns:96px 1fr 1fr;gap:5px 6px;padding:0 10px;align-items:center;font-size:12.5px}
+.kx-tools .h{text-align:center;font-size:11px;color:var(--sub)}.kx-tools .l{color:var(--sub);font-weight:700}
+.kx-sp{display:flex;align-items:center;justify-content:center;gap:4px}
+.kx-sp button{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:16px;font-weight:800;color:var(--navy);cursor:pointer;flex:none;padding:0}
+.kx-sp input{width:40px;text-align:center;border:0;border-bottom:1.5px solid var(--line);font:inherit;font-size:18px;font-weight:800;padding:1px 0;background:transparent;min-width:0}
+.kx-sp.ok input{color:#2f7d5d}.kx-sp.ng input{color:#d32f2f}
+.kx-sp.big button{width:34px;height:34px}.kx-sp.big input{width:52px;font-size:21px}
+.kx-alert{margin:7px 10px 0;background:#fdecec;border:1px solid #f0b4b4;color:#d32f2f;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700}
+.kx-qty{padding:0 10px}
+.kx-qr{display:grid;grid-template-columns:62px 1fr 22px 66px;align-items:center;gap:5px;border:1px solid var(--line);border-radius:12px;padding:4px 8px;margin-bottom:5px}
+.kx-qr.on{border-color:#c9b48c;background:#faf5ec}.kx-qr .nm{font-weight:800;color:var(--navy);font-size:13px}.kx-qr .un{font-size:11.5px;color:var(--sub)}.kx-qr .kg{text-align:right;font-size:12px;color:#555;font-weight:700}
+.kx-tot{display:flex;align-items:center;gap:10px;margin:6px 10px 0;background:#faf5ec;border:1px solid #eadbc2;border-radius:12px;padding:7px 12px}
+.kx-tot span{display:block;font-size:11px;color:var(--sub)}.kx-tot b{font-size:24px}.kx-tot .pp{margin-left:auto;text-align:right}.kx-tot .pp b{color:#9a7b4f}.kx-tot .pp small{display:block;font-size:11px;color:var(--sub)}
+.kx-biko{display:flex;align-items:center;gap:8px;margin:8px 10px 0;font-size:12px;color:var(--sub)}.kx-biko input{flex:1;font:inherit;font-size:14px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-width:0}
+.kx-foot{display:flex;align-items:center;gap:10px;padding:10px}
+.kx-save{flex:1;border:0;border-radius:12px;background:#9a7b4f;color:#fff;font:inherit;font-weight:800;font-size:15px;padding:12px;cursor:pointer}
+.kx-ken{border:0;border-radius:999px;padding:5px 12px;font:inherit;font-size:12.5px;font-weight:800;cursor:default}
+.kx-ken.no{background:#fff1d6;color:#9a6200;border:1.5px dashed #d9a441}.kx-ken.ok{background:#e8f1fa;color:#1f6fa8}.kx-ken.can{cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.kx-send{border:0;background:none;padding:0;width:78px;text-align:center;font:inherit;cursor:pointer}
+.kx-send .sq{position:relative;width:56px;height:56px;margin:0 auto 2px;border-radius:16px;display:flex;align-items:center;justify-content:center}
+.kx-send .t{display:block;font-size:10.5px;font-weight:800;line-height:1.2}
+.kx-send.off .sq{background:#e7e5df}.kx-send.off .t{color:#aaa}
+.kx-send.on .sq{background:linear-gradient(#3b8fd0,#1f6fa8);box-shadow:0 3px 6px rgba(31,111,168,.35);animation:kxP 1.6s ease-in-out infinite}.kx-send.on .t{color:#1f6fa8}
+@keyframes kxP{0%,100%{box-shadow:0 3px 6px rgba(31,111,168,.35)}50%{box-shadow:0 0 0 5px rgba(31,111,168,.18),0 3px 6px rgba(31,111,168,.35)}}
+.kx-send.done .sq{background:linear-gradient(#5aa883,#2f7d5d)}.kx-send.done .t{color:#2f7d5d}
+.kx-send .lk{position:absolute;right:-4px;bottom:-4px;font-style:normal;font-size:14px;background:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.kx-send .ck{position:absolute;right:-4px;bottom:-4px;font-style:normal;font-size:12px;color:#fff;background:#2f7d5d;border:2px solid #fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:800}
+.kx-by{font-size:11px;color:var(--sub);padding:0 10px 4px}.kx-msg{font-size:12px;color:#b31b14;padding:0 10px 8px;min-height:2px}
+.kx-pick select{width:100%;font:inherit;font-size:14px;padding:9px;border:1px dashed #c9c3b5;border-radius:10px;background:#fff;color:var(--sub)}
+.kx-rh{display:flex;align-items:center;gap:8px;justify-content:space-between;margin:2px 0 4px;font-size:12.5px;color:var(--sub)}
+.kx-rh select{font:inherit;font-size:14px;padding:6px;border:1px solid var(--line);border-radius:8px}
+.kx-cfg{border:1px solid var(--line);background:#fff;border-radius:10px;padding:6px 10px;font:inherit;font-size:12.5px;font-weight:700;color:var(--navy);cursor:pointer}
+.kx-sm{font-size:11.5px;color:var(--sub);margin:4px 2px}
+.kx-li{display:flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;margin:6px 0;font-size:12.5px;background:#fff}
+.kx-li input{width:20px;height:20px;flex:none}.kx-li .cb.s{color:#2f7d5d;font-weight:800;width:20px;text-align:center}
+.kx-li .n{font-weight:800;font-size:14px;color:var(--navy)}.kx-li .q{margin-left:auto;text-align:right}.kx-li .q b{font-size:13px}
+.kx-li.lk{background:#faf9f6;color:#999}.kx-li.lk .n{color:#999}.kx-li.sent{background:#f6fbf8}
+.kx-li .pill,.kx-kp .pill{font-size:10.5px;font-weight:800;border-radius:999px;padding:0 7px}.pill.w{background:#fff1d6;color:#9a6200}.pill.k{background:#e8f1fa;color:#1f6fa8}.pill.s{background:#e3f2ea;color:#2f7d5d}
+.kx-bigsend{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;border:0;border-radius:14px;background:linear-gradient(#3b8fd0,#1f6fa8);color:#fff;font:inherit;font-weight:800;font-size:15px;padding:10px;margin-top:6px;cursor:pointer}
+.kx-bigsend .sq{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center}
+.kx-kp{border-collapse:collapse;width:100%;font-size:13px}
+.kx-kp td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:center}
+.kx-kp td.gh{background:#faf5ec;font-weight:800;color:var(--navy);text-align:left;padding:7px 8px}.kx-kp td.gh small{font-weight:600;color:var(--sub);margin-left:6px}
+.kx-kp td.p{font-weight:800;font-size:15px;color:#9a7b4f}.kx-kp td.p small{display:block;font-size:10.5px}.kx-kp small.up{color:#d32f2f}.kx-kp small.dn{color:#1f6fa8}
+.kx-kp tr.kx-tr{cursor:pointer}
+.kx-dots{position:relative;height:26px;margin:0 6px;background:#f3efe6;border-radius:6px}
+.kx-dots i{position:absolute;top:8px;width:10px;height:10px;border-radius:50%;background:#9a7b4f;margin-left:-5px}
+.kx-dots u{position:absolute;top:2px;bottom:2px;width:2px;background:var(--navy);text-decoration:none}
+.kx-dots s{position:absolute;top:2px;bottom:2px;background:rgba(27,42,65,.08);text-decoration:none}
+.kx-sw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.kx-sheet{border-collapse:collapse;font-size:12px;margin:4px 0 6px}
+.kx-sheet th,.kx-sheet td{border:1px solid #c9c2b2;padding:3px 5px;text-align:center;white-space:nowrap}
+.kx-sheet th{background:#f1ede2;color:var(--navy)}.kx-sheet td.l{background:#faf8f2;font-weight:700;text-align:left}
+.kx-sheet td.nm{font-size:11px;line-height:1.3}.kx-sheet td.ng{color:#d32f2f;font-weight:800;background:#fdecec}
+.kx-mail{border:1px solid #d6d0c2;border-radius:10px;font-size:12.5px;margin-top:4px}
+.kx-mail .mh{background:#f6f4ee;padding:6px 10px;border-bottom:1px solid var(--line);line-height:1.6}.kx-mail .mh span{color:var(--sub);display:inline-block;width:46px}.kx-mail .ng{color:#d32f2f}
+.kx-mail pre{margin:0;padding:8px 10px;font-family:inherit;white-space:pre-wrap;line-height:1.55;max-height:40vh;overflow:auto}
+`; document.head.appendChild(s); })();
+</script>
+<!-- /kasu1102 -->
 </body>
 </html>
