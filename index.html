@@ -9365,6 +9365,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-04-1','🍶','仕込み','仕込みの表：日本酒度（メーターが−から0を越えたあと）に「＋」を表示。四段・アル添・上槽の記録：四段仕込みのBeを削除、アル添の目標の日本酒度をリールで（伝辛は+8.0から）、四段添加〜アル添〜予想値を1画面に。'],
   ['2026-11-02-7','📅','仕込み','日付を押して選ぶ日程を訂正：四洗 → 四仕 → 四ア上（四段添加・アル添・上槽が同じ日）。四段だけ先に入れるときは、後日のマスで「ア上」（アル添・上槽）を選ぶと「四添」と「ア上」に分かれます。'],
   ['2026-11-02-6','🟫','粕','ホームの🍶仕込みと🧴濾過・火入の間に「粕」アイコン。きょうの粕（作業者・手袋/ヘラ/穴開け用道具の数・箱/袋/端数の数量→合計と粕歩合）を保存。未検定→検定済（伊藤さんのみ）で事務所へ送信（1件・まとめて。送り先は後で設定）。液種ごとの粕歩合の表、チェック履歴（CSVで書き出し）。'],
   ['2026-11-02-5','🧪','ホーム','ホームの「🧪 分析」アイコンをなくしました（酒母・仕込みの表に直接入力できるため）。上槽後の分析が残っているときは🍶仕込みに「上槽後 ◯」と出ます。'],
@@ -14810,6 +14811,32 @@ document.addEventListener('click', e=>{
   mwLoad(false).then(()=>ydRepaint()).catch(()=>{});
 }, true);
 
+/* 目標の日本酒度の初期値（2026-11-04 泰広さん：伝辛は +8.0 が基準）。ほかの液種は同じ液種で前に入れた値、無ければ +5.0 */
+const YD_TGT={'伝辛':8.0};
+function ydTgtDefault(m){
+  const lq=String(m&&m.liquid||''); const k=Object.keys(YD_TGT).find(x=>lq.indexOf(x)>=0); if(k) return YD_TGT[k];
+  try{ const L=(MW.items||[]).filter(x=>!x.deleted&&x.name===YD_REC&&String(x.no)!==String(m.no)&&x.liquid===m.liquid).map(ydJ).filter(j=>j&&ydN(j.tgt)!==null); if(L.length) return ydN(L[L.length-1].tgt); }catch(e){}
+  return 5.0;
+}
+/* 仕込みの表：Be → メーター（−）に入ったあと 0 を越えた値に「＋」を付ける（2026-11-04 泰広さん） */
+function ydPlusRow(tr){
+  if(!tr) return; let meter=false;
+  [...tr.querySelectorAll('td[data-i]')].sort((a,b)=>a.dataset.i-b.dataset.i).forEach(td=>{
+    td.querySelectorAll('.yd-pl').forEach(x=>x.remove()); td.classList.remove('yd-plus');
+    if(Number(td.dataset.i)<2) return;
+    const inp=td.querySelector('input.kg-i'); const raw=inp?inp.value:(td.querySelector('.dv')||td).textContent;
+    const v=ydN(String(raw||'').replace(/[^\d.\-−－+]/g,'')); if(v===null) return;
+    if(v<0){ meter=true; return; }
+    if(meter && v>0 && !/^\s*\+/.test(String(raw))){ td.classList.add('yd-plus'); td.insertAdjacentHTML('afterbegin','<span class="yd-pl">+</span>'); }
+  });
+}
+function ydPlusAll(box){
+  box.querySelectorAll('.kg-t tr.top[data-kg]').forEach(tr=>{
+    const rows=box.querySelectorAll(`.kg-t tr[data-kg="${CSS.escape(String(tr.dataset.kg))}"]`), r2=rows[1]; if(!r2) return;
+    ydPlusRow(r2);
+    r2.querySelectorAll('input.kg-i').forEach(el=>{ if(el._ydpl) return; el._ydpl=1; el.addEventListener('input',()=>ydPlusRow(r2)); });
+  });
+}
 /* ---------- 表に札と「上槽後の分析」の枠を描く ---------- */
 function ydBoxHTML(m){
   const S=ydAnaState(m);
@@ -14843,6 +14870,7 @@ function ydPaint(box){
         td.insertAdjacentHTML('afterbegin', ydBoxHTML(m)); td.classList.add('yd-cell');
       }
     });
+    ydPlusAll(box);
   }catch(e){ console.log('yd paint', e); }
 }
 function ydRepaint(){ try{ ydPaint(); ydHomeApply(); }catch(e){} }
@@ -14969,10 +14997,10 @@ function ydRecOpen(no, date, step){
   const s=ydSch(m), R0=ydRec(m), R=JSON.parse(JSON.stringify(R0)); delete R._id;
   if(!R.dests.length) R.dests=[{t:'',L:''}];
   const L0=ydLast(m);
-  if(R.tgt===undefined||R.tgt==='') R.tgt='';
+  if(R.tgt===undefined||R.tgt==='') R.tgt=String(ydTgtDefault(m));
   ['smv','alc','ta','aa'].forEach(k=>{ const kk='l'+k; if(R[kk]===undefined||R[kk]==='') R[kk]=L0[k]===null?'':String(L0[k]); });
   if(!step){ step = s&&date===s.shi?'1' : s&&date===s.soe?'2' : s&&date===s.alc?'3' : date===m.joso?'5' : (m.joso&&date>m.joso)?'6' : '1'; }
-  const open={}; open[step]=true; if(step==='2'&&s&&s.alc===s.soe) open['3']=true; if((step==='2'||step==='3')&&s&&m.joso===(step==='2'?s.soe:s.alc)&&(step==='3'||s.alc===s.soe)) open['5']=true;
+  const open={}; open[step]=true; if(step==='2'||step==='3'||step==='4'){ open['2']=open['3']=open['4']=true; }   // 2026-11-04 四段添加〜アル添〜予想値を1画面に
   const w=document.createElement('div'); w.className='o2-mask yd-mask'; document.body.appendChild(w);
   let dirty=false; const close=()=>{ if(dirty&&!confirm('保存していない入力があります。閉じますか？')) return; w.remove(); ydRepaint(); };
   w.onclick=e=>{ if(e.target===w) close(); };
@@ -14990,7 +15018,9 @@ function ydRecOpen(no, date, step){
   const draw=()=>{
     const P=ydPre(m,R), A=ydAnaState(m), today=dtoday(), cls=(id,done,d)=>done?'done':(d&&d===today?'now':'');
     const D=R.dests;
-    const tgtBox=`<div class="yd-tgt"><div><div class="lb">目標の日本酒度</div><div class="yd-stp"><button type="button" data-a="t-">−</button><b data-v="tgt">${R.tgt===''?'—':ydSg(R.tgt)}</b><button type="button" data-a="t+">＋</button></div></div><div class="res">アルコール（${YD_ALC_PCT}%）<b data-v="G">${P.G!==null?ydL(P.G)+' L':'—'}</b><span data-v="tot">${P.G!==null?'添加後 '+ydL(P.tot)+' L':'合併前の量・醪の最終値を入れると計算'}</span></div></div>`;
+    const tgtBox=`<div class="yd-tgt"><div class="yd-tgr"><div class="lb">目標の日本酒度 <b data-v="tgt">${R.tgt===''?'—':ydSg(R.tgt)}</b></div>
+      <div class="yd-tgw"><div><div class="yd-dl">符号</div>${ydWheelHTML('ytg_s')}</div><div><div class="yd-dl">十</div>${ydWheelHTML('ytg_t')}</div><div><div class="yd-dl">一</div>${ydWheelHTML('ytg_o')}</div><div class="yd-dot">.</div><div><div class="yd-dl">小数</div>${ydWheelHTML('ytg_d')}</div></div></div>
+      <div class="res">アルコール（${YD_ALC_PCT}%）<b data-v="G">${P.G!==null?ydL(P.G)+' L':'—'}</b><span data-v="tot">${P.G!==null?'添加後 '+ydL(P.tot)+' L':'合併前の量・醪の最終値を入れると計算'}</span></div></div>`;
     const anaT=`<div class="yd-ana4"><div></div><div class="h">日本酒度</div><div class="h">alc</div><div class="h">酸度</div><div class="h">ｱﾐﾉ</div>
       <div class="r">醪 最終</div>${['smv','alc','ta','aa'].map(k=>`<input type="text" inputmode="decimal" data-k="l${k}" value="${esc(String(R['l'+k]||''))}" placeholder="—">`).join('')}
       <div class="r">添加後予想</div>${['smv','alc','ta','aa'].map(k=>`<div class="v pre" data-v="p${k}">${P.pre?(k==='smv'?ydSg(P.pre[k]):ydF1(P.pre[k])):'—'}</div>`).join('')}</div>
@@ -15002,10 +15032,10 @@ function ydRecOpen(no, date, step){
       <div class="yd-hd"><b>${esc(String(m.no))}号</b> ${esc(m.liquid||'')}　<span class="yd-tk">T${esc(TM)}</span><span class="yd-sm">　${esc(m.yeast||'')}${m.soumai?'・総米'+(Number(m.soumai)/1000).toFixed(2)+'t':''}</span><button type="button" class="yd-x" data-a="close">✕</button></div>
       <div class="yd-sub">📅 ${ydMD(date||today)}　留 ${rcMD(m.tome)}／上槽 ${rcMD(m.joso)}</div><div class="yd-body"><div class="yd-tl">`;
     h+=st('1','① 四段仕込み', s?rcMD(s.shi):'', cls('1',!!R.yL,s&&s.shi), sm['1'],
-      `<div class="yd-f">${fi('タンク','ytank',{ph:'284'})}${fi('尺 mm','ysk')}${fi('量 L','yL',{auto:1})}${fi('温度 ℃','ytemp')}${fi('Be','ybe')}</div>`);
+      `<div class="yd-f">${fi('タンク','ytank',{ph:'284'})}${fi('尺 mm','ysk')}${fi('量 L','yL',{auto:1})}${fi('温度 ℃','ytemp')}</div>`);
     h+=st('2','② 四段添加・合併', s?rcMD(s.soe):'', cls('2',!!R.mL1,s&&s.soe), sm['2'],
       `<div class="yd-gp">四段の払出（T${esc(T4()||'—')}）</div><div class="yd-f">${fi('尺 mm','hsk')}${fi('量 L','hL',{auto:1})}${fi('Be','hbe')}</div>
-       <div class="yd-gp">醪タンク T${esc(TM)}</div><div class="yd-f">${fi('合併前 尺','msk0')}${fi('合併前 L','mL0',{auto:1})}${fi('合併後 尺','msk1')}${fi('合併後 L','mL1',{auto:1})}</div>`);
+       <div class="yd-gp">醪タンク T${esc(TM)}</div><div class="yd-f yd-f4">${fi('合併前 尺','msk0')}${fi('合併前 L','mL0',{auto:1})}${fi('合併後 尺','msk1')}${fi('合併後 L','mL1',{auto:1})}</div>`);
     h+=st('3','③ アルコール添加', s?rcMD(s.alc):'', cls('3',!!R.alcL,s&&s.alc), sm['3'],
       tgtBox+`<div class="yd-f">${fi('入れた量 L','alcL')}${fi('添加後 尺','jsk')}${fi('添加後 L','jL',{auto:1})}</div>`);
     h+=st('4','④ 添加後の予想値', '', P.pre?'done':'', sm['4'], anaT);
@@ -15019,7 +15049,8 @@ function ydRecOpen(no, date, step){
     h+=`</div></div><div class="yd-row foot"><button type="button" class="yd-b" data-a="close">閉じる</button><button type="button" class="yd-b go" data-a="save">保存</button></div><div class="yd-msg"></div></div>`;
     const sc=w.querySelector('.yd-body'), top=sc?sc.scrollTop:0;
     w.innerHTML=h; const sc2=w.querySelector('.yd-body'); if(sc2) sc2.scrollTop=top;
-    bind();
+    bind(); tgtReel();
+    if(!w._scrolled){ w._scrolled=1; const f=w.querySelector('.yd-st.open'); if(f&&sc2) requestAnimationFrame(()=>{ sc2.scrollTop=Math.max(0,f.offsetTop-4); }); }
   };
   /* 尺→量、予想値など（描き直さずにその場で） */
   const setAuto=(key,val)=>{ if(val===null||val===undefined) return; const el=w.querySelector(`input[data-k="${key}"]`); R[key]=String(val); if(el && document.activeElement!==el) el.value=String(val); };
@@ -15035,6 +15066,15 @@ function ydRecOpen(no, date, step){
     V('dL', ydL(R.dests.reduce((a,d)=>a+(ydN(d.L)||0),0))+' L');
     const cP=R.kasu&&m.soumai?(ydN(R.kasu)/Number(m.soumai)*100):null; V('kasuP', cP!==null?cP.toFixed(1)+'%':'—');
     const sm=sumText(); Object.keys(sm).forEach(id=>{ const e=w.querySelector(`[data-sum="${id}"]`); if(e) e.innerHTML=sm[id]; });
+  };
+  const tgtReel=()=>{
+    const E=id=>w.querySelector('#'+id); if(!E('ytg_s')) return;
+    const D10=[0,1,2,3,4,5,6,7,8,9].map(n=>({v:String(n),t:String(n)}));
+    const W={ s:ydWheel(E('ytg_s'),[{v:'+',t:'＋'},{v:'-',t:'−'}]), t:ydWheel(E('ytg_t'),D10), o:ydWheel(E('ytg_o'),D10), d:ydWheel(E('ytg_d'),D10) };
+    const v0=ydN(R.tgt)===null?0:ydN(R.tgt), x=Math.min(999,Math.round(Math.abs(v0)*10));
+    requestAnimationFrame(()=>{ W.s.set(v0<0?1:0); W.t.set(Math.floor(x/100)); W.o.set(Math.floor(x/10)%10); W.d.set(x%10);
+      const rd=()=>{ const n=Number(W.t.val())*10+Number(W.o.val())+Number(W.d.val())/10; const v=Math.round((W.s.val()==='-'?-n:n)*10)/10; if(String(v)!==String(ydN(R.tgt))){ R.tgt=String(v); dirty=true; } calc(); };
+      setTimeout(()=>{ Object.values(W).forEach(o=>o.onChange=rd); },150); });
   };
   const bind=()=>{
     w.querySelectorAll('[data-a="close"]').forEach(b=>b.onclick=close);
@@ -15133,7 +15173,7 @@ function ydRecOpen(no, date, step){
 .yd-tc.pre .vals b{color:var(--blue,#1f6fa8)}
 .yd-tc .st,.yd-wait .st{font-size:11px;font-weight:800;border-radius:999px;padding:1px 8px;white-space:nowrap}
 .yd-tc .st.no,.yd-wait .st.no{background:#0f7c80;color:#fff}.yd-tc .st.ok,.yd-wait .st.ok{background:#e3f2ea;color:#2f7d5d}
-.yd-gp{font-size:12px;font-weight:800;color:var(--navy);margin:8px 2px 4px;display:flex;align-items:center;gap:6px}
+.yd-gp{font-size:12px;font-weight:800;color:var(--navy);margin:4px 2px 3px;display:flex;align-items:center;gap:6px}
 .yd-gp::after{content:'';flex:1;height:1px;background:var(--line)}
 .yd-sumr{background:#eef7f1;border:1px solid #c9e3d4;border-radius:12px;padding:6px 10px;font-size:12px;display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
 .yd-sumr b{color:#2f7d5d;font-size:13px}
@@ -15165,19 +15205,25 @@ function ydRecOpen(no, date, step){
 .yd-st .yd-dot2{position:absolute;left:-22px;top:12px;width:15px;height:15px;border-radius:50%;background:#fff;border:3px solid #cfc9bb}
 .yd-st.done .yd-dot2{background:#2f7d5d;border-color:#2f7d5d}.yd-st.now .yd-dot2{background:#f2c94c;border-color:#e0a800}
 .yd-st.wait .yd-dot2{border-color:#0f7c80;box-shadow:0 0 0 4px rgba(15,124,128,.18)}
-.yd-sth{display:flex;align-items:center;gap:6px;padding:9px 10px;cursor:pointer;flex-wrap:wrap}
+.yd-sth{display:flex;align-items:center;gap:6px;padding:7px 10px;cursor:pointer;flex-wrap:wrap}
 .yd-sth .nm{font-weight:800;color:var(--navy);font-size:14px}.yd-sth .dd{font-size:12px;color:var(--sub)}
 .yd-sth .sm{margin-left:auto;font-size:12.5px;font-weight:700;color:#444;text-align:right}
 .yd-sth .who{font-size:10.5px;font-weight:800;border-radius:999px;padding:1px 7px}.who.w-shi{background:#efe9dc;color:#6b5a2b}.who.w-bun{background:#e0f2f1;color:#0f7c80}
-.yd-stb{display:none;padding:0 10px 10px}.yd-st.open .yd-stb{display:block}.yd-st.open{border-color:#9cc0dc}
-.yd-f{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.yd-fi{display:block;border:1px solid var(--line);border-radius:10px;padding:3px 7px 4px;background:#fff;min-width:0}
+.yd-stb{display:none;padding:0 8px 8px}.yd-st.open .yd-stb{display:block}.yd-st.open{border-color:#9cc0dc}
+.yd-f{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.yd-f.yd-f4{grid-template-columns:repeat(4,1fr)}
+.yd-f4 .yd-fi span{font-size:10px}.yd-f4 .yd-fi input{font-size:15px}
+.kg-t td.yd-plus{position:relative}.kg-t td .yd-pl{position:absolute;left:3px;top:50%;transform:translateY(-50%);font-weight:800;font-size:13px;color:var(--ink);pointer-events:none;z-index:2}
+.yd-tgr{flex:none}.yd-tgr .lb b{font-size:15px;margin-left:4px}
+.yd-tgw{display:grid;grid-template-columns:34px 30px 30px 8px 34px;gap:2px;align-items:end;margin-top:2px}
+.yd-tgw .yd-pk{height:96px;background:transparent}.yd-tgw .yd-wh{height:96px}.yd-tgw .yd-pk .yd-band{top:28px;height:40px}.yd-tgw .yd-pk .yd-fd{height:28px}
+.yd-tgw .yd-wh .pad{height:28px}.yd-tgw .yd-wh div{font-size:19px}.yd-tgw .yd-dot{padding-bottom:30px;font-size:22px}.yd-tgw .yd-dl{font-size:9.5px}
+.yd-fi{display:block;border:1px solid var(--line);border-radius:9px;padding:2px 6px 3px;background:#fff;min-width:0}
 .yd-fi span{display:block;font-size:11px;color:var(--sub)}.yd-fi span i{font-style:normal;color:var(--blue,#1f6fa8);font-weight:700}
 .yd-fi input{width:100%;border:0;font:inherit;font-size:17px;font-weight:700;padding:0;background:transparent;color:var(--ink);outline:none;min-width:0}
 .yd-fi.auto{background:#f4f8fb;border-style:dashed}.yd-fi.auto input{color:var(--blue,#1f6fa8)}
 .yd-fi:focus-within{border-color:var(--blue,#1f6fa8);box-shadow:0 0 0 2px rgba(31,111,168,.15)}
 .yd-fi.big input{font-size:22px}
-.yd-tgt{display:flex;align-items:center;gap:8px;background:#f8f3ff;border:1px solid #e3d6f3;border-radius:12px;padding:6px 10px;margin:0 0 6px}
+.yd-tgt{display:flex;align-items:center;gap:8px;background:#f8f3ff;border:1px solid #e3d6f3;border-radius:12px;padding:4px 8px;margin:0 0 5px}
 .yd-tgt .lb{font-size:12px;color:#7b4bb3;font-weight:800}
 .yd-stp{display:flex;align-items:center;gap:4px}.yd-stp button{width:34px;height:34px;border-radius:50%;border:1px solid #d9cbee;background:#fff;color:#7b4bb3;font-size:18px;font-weight:800;cursor:pointer}
 .yd-stp b{font-size:21px;min-width:58px;text-align:center;color:#7b4bb3}
@@ -15193,6 +15239,10 @@ function ydRecOpen(no, date, step){
 .yd-dest .del{border:0;background:none;color:#bbb;font-size:18px;cursor:pointer}
 .yd-add{border:1px dashed #c9c3b5;background:#fff;border-radius:10px;padding:7px 10px;font:inherit;font-size:13px;color:var(--sub);cursor:pointer;width:100%}
 .yd-tot{display:flex;justify-content:space-between;font-size:13px;margin-top:6px;padding:6px 8px;background:#f6f4ee;border-radius:8px}.yd-tot b{font-size:15px}
+.yd-sheet.tall .yd-fi{padding:1px 6px 2px}.yd-sheet.tall .yd-fi span{font-size:10px}.yd-sheet.tall .yd-fi input{font-size:15.5px}
+.yd-sheet.tall .yd-sth{padding:5px 10px}.yd-sheet.tall .yd-sth .nm{font-size:13.5px}.yd-sheet.tall .yd-st{margin-bottom:6px}
+.yd-sheet.tall .yd-ana4 input,.yd-sheet.tall .yd-ana4 .v{font-size:14px;padding:2px 0}.yd-sheet.tall .yd-ana4 .r{font-size:11px}
+.yd-sheet.tall .yd-st .yd-dot2{top:9px}
 .yd-kasu{display:flex;align-items:center;gap:10px;background:#faf5ec;border:1px solid #eadbc2;border-radius:12px;padding:8px 10px}
 .yd-kasu .yd-fi{width:120px}.yd-kasu .pct{margin-left:auto;text-align:right}.yd-kasu .pct b{font-size:24px;color:#9a7b4f}.yd-kasu .pct span{display:block;font-size:11px;color:var(--sub)}
 .yd-wait{border:1.5px dashed #8cc7c9;background:#f3fbfb;border-radius:12px;padding:6px 10px}
