@@ -1505,11 +1505,36 @@ const MFG_PROD_COLORS = { // 洗米予定表と同じ液種の色（背景／文
   '伝辛':['#fdefc0','#276b12'], 'ぽたり五百万':['#d9f0d2','#176a2c'], '金雲母':['#e6cdba','#9c1f16'],
   'ながれぼし':['#dae7fc','#16428f'], '超辛':['#d9e6e5','#0f4a48']
 };
-const MFG_RATIO_COLORS = {65:'#333',60:'#1b7f3b',55:'#1f5fa8',50:'#6a3fa0',45:'#c62828',40:'#b8570b'};
+const MFG_RATIO_COLORS = {70:'#7a5c2e',65:'#333',60:'#1b7f3b',55:'#1f5fa8',50:'#6a3fa0',45:'#c62828',40:'#b8570b'};
 let MFG = lsGet('mfg.cache', null), MFG_ERR = '', MFG_LOADING = null, MFG_STALE = false;
+/* ===== 品種受払にまだ無い品種を足す（2026-11-04 乾田直播五百万石70%） =====
+   造りexの品種受払に列ができるまでのつなぎ。洗米予定表のその日の洗米量を「払出」とし、
+   在庫欄＝前日在庫＋受入−払出（受入は引取予定・増減で入れる）。品種受払に列ができたら自動でそちらを使う。 */
+const RICE_EXTRA = ['乾五70%'];
+function mfgRiceExtra(M){
+  const Z = M && M.zaiko, S = M && M.senmai;
+  if(!Z || !Z.vars || !Z.days) return M;
+  const add = RICE_EXTRA.filter(v=>!Z.vars.includes(v));
+  if(!add.length) return M;
+  const ks = Object.keys(Z.days).sort();
+  const run = add.map(()=>0);
+  ks.forEach(d=>{
+    const x = Z.days[d];
+    const e = (S && S.days && S.days[d] && S.days[d].e) || [];
+    add.forEach((v,j)=>{
+      let o = 0; e.forEach(r=>{ if(r[1]+r[2]+'%'===v) o += Number(r[6]||0); });
+      run[j] -= o;
+      (x.i=x.i||[]).push(0); (x.o=x.o||[]).push(o); (x.s=x.s||[]).push(run[j]);
+    });
+  });
+  Z.vars = Z.vars.concat(add);
+  Z.extra = (Z.extra||[]).concat(add);
+  return M;
+}
 /* 製造ツールの返事かどうか（清酒学習帳の受信窓口が返す {ok:true,msg:…} を取り違えないため） */
 function mfgValid(j){ return !!(j && j.ok && (j.mfg || j.kinds || j.meta || j.shukkin || j.senmai || j.zaiko)); }
 if(MFG && !mfgValid(MFG)) { MFG=null; try{ localStorage.removeItem('mfg.cache'); }catch(e){} }
+if(MFG) mfgRiceExtra(MFG);
 
 function dstr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function dparse(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
@@ -1538,7 +1563,7 @@ function mfgRefresh(){
   MFG_LOADING = (async()=>{
     try{
       const j = await apiT({action:'mfg_get', token:ST.token}, 20000);
-      if(mfgValid(j)){ MFG=j; MFG._at=Date.now(); MFG_ERR=''; MFG_STALE=false; lsSet('mfg.cache', MFG); }
+      if(mfgValid(j)){ MFG=mfgRiceExtra(j); MFG._at=Date.now(); MFG_ERR=''; MFG_STALE=false; lsSet('mfg.cache', MFG); }
       else if(j && j.ok){ /* 学習帳の受信窓口が答えている＝製造ツールの処理が動いていない。前の内容は消さない */
         MFG_ERR='サーバー側の製造ツール機能が動いていません（Apps Script を「新バージョン」でデプロイし直してください）。'; MFG_STALE=true; }
       else MFG_ERR = (j&&j.err==='bad_token') ? 'ログイン情報を確認できませんでした。いったんログアウトしてログインし直してください。'
@@ -9365,6 +9390,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-04-2','🌾','米管理','在庫管理に「乾五70%」（乾田直播 五百万石 70%）を追加。造りexの品種受払に列ができるまでは、洗米予定表の洗米量を払出として計算します。引取予定・増減の入力・不足チェックも他の品種と同じように使えます。'],
   ['2026-11-04-1','🍶','仕込み','仕込みの表：日本酒度（メーターが−から0を越えたあと）に「＋」を表示。四段・アル添・上槽の記録：四段仕込みのBeを削除、アル添の目標の日本酒度をリールで（伝辛は+8.0から）、四段添加〜アル添〜予想値を1画面に。'],
   ['2026-11-02-7','📅','仕込み','日付を押して選ぶ日程を訂正：四洗 → 四仕 → 四ア上（四段添加・アル添・上槽が同じ日）。四段だけ先に入れるときは、後日のマスで「ア上」（アル添・上槽）を選ぶと「四添」と「ア上」に分かれます。'],
   ['2026-11-02-6','🟫','粕','ホームの🍶仕込みと🧴濾過・火入の間に「粕」アイコン。きょうの粕（作業者・手袋/ヘラ/穴開け用道具の数・箱/袋/端数の数量→合計と粕歩合）を保存。未検定→検定済（伊藤さんのみ）で事務所へ送信（1件・まとめて。送り先は後で設定）。液種ごとの粕歩合の表、チェック履歴（CSVで書き出し）。'],
