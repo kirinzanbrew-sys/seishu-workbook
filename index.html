@@ -2581,12 +2581,13 @@ function calendarScreen(tab){
   const t = tab || 'kinmu';
   if(t==='cal'){ calendarGoogle(); return; }
   if(t==='tsume'){ tsumeScreen(); return; }
+  if(t==='plan'){ planScreen(); return; }
   kinmuScreen();
 }
 /* 2026-10-15 泰広さん指示：上部の 出勤表・カレンダー・振休依頼・出勤表を直す を小さなアイコン風に。詰予定も足す */
 function calTabs(on){
   const adm=((MFG&&MFG.me)||{}).admin, B=(t,e,l)=>`<button type="button" data-t="${t}" class="${on===t?'on':''}"><i>${e}</i>${l}</button>`;
-  return `<div class="ct-ic">${B('kinmu','📋','出勤表')}${B('cal','📅','カレンダー')}${B('tsume','🍶','詰予定')}<button type="button" id="bReq" class="rq"><i>✋</i>振休依頼</button>${adm?`<button type="button" id="bEdit"><i>✏️</i>出勤表を直す</button>`:''}</div>`;
+  return `<div class="ct-ic">${B('kinmu','📋','出勤表')}${B('cal','📅','カレンダー')}${B('tsume','🍶','詰予定')}${B('plan','🗂️','仕込み計画')}${adm?`<button type="button" id="bEdit"><i>✏️</i>出勤表を直す</button>`:''}</div>`;
 }
 function bindCalTabs(){
   app.querySelectorAll('.ct-ic [data-t]').forEach(b=>b.onclick=()=>calendarScreen(b.dataset.t));
@@ -9390,6 +9391,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-05-1','🗂️','製造カレンダー','上の「✋振休依頼」アイコンを「🗂️仕込み計画」に変更。造りexの仕込計画表（今年度）から、今日・明日の酛立・添・留・アル添・上槽・検定と、順号ごとの予定日・いまの段階（酒母◯日目・醪◯日目など）を表示します。振休依頼は出勤表の日を押した所の「この日で振休依頼」から出せます。'],
+  ['2026-11-04-3','🍶','仕込み','アル添：目標ごとのパターン表（狙い＝計算−1。伝辛は狙い+7→計算+8）。四段Beは15.0を基準にリールで変更でき、払出のBeが違うときは「今回」と差も並べて表示。マスを押すと入れた量に入ります。'],
   ['2026-11-04-2','🌾','米管理','在庫管理に「乾五70%」（乾田直播 五百万石 70%）を追加。造りexの品種受払に列ができるまでは、洗米予定表の洗米量を払出として計算します。引取予定・増減の入力・不足チェックも他の品種と同じように使えます。'],
   ['2026-11-04-1','🍶','仕込み','仕込みの表：日本酒度（メーターが−から0を越えたあと）に「＋」を表示。四段・アル添・上槽の記録：四段仕込みのBeを削除、アル添の目標の日本酒度をリールで（伝辛は+8.0から）、四段添加〜アル添〜予想値を1画面に。'],
   ['2026-11-02-7','📅','仕込み','日付を押して選ぶ日程を訂正：四洗 → 四仕 → 四ア上（四段添加・アル添・上槽が同じ日）。四段だけ先に入れるときは、後日のマスで「ア上」（アル添・上槽）を選ぶと「四添」と「ア上」に分かれます。'],
@@ -14716,11 +14719,31 @@ function ydPre(m, R){
   const smv=ydN(R.lsmv)!==null?ydN(R.lsmv):L.smv, alc=ydN(R.lalc)!==null?ydN(R.lalc):L.alc, ta=ydN(R.lta)!==null?ydN(R.lta):L.ta, aa=ydN(R.laa)!==null?ydN(R.laa):L.aa;
   const moL=ydN(R.mL0), yL=ydN(R.hL)!==null?ydN(R.hL):ydN(R.yL), t=ydN(R.tgt);
   if(moL===null||smv===null||t===null) return {last:{smv,alc,ta,aa}, G:null};
-  const yl=yL||0, ySM=ydN(R.hbe)!==null?-ydN(R.hbe)*10:YD_YON_SM;
+  const yl=yL||0, ySM=-ydYbe(R)*10;   // 計算はいつも「通常の四段Be」（リール、基準15.0）
   const G=((moL+yl)*t-(smv*moL+ySM*yl))/(YD_ALC_SM-t);
   const used=ydN(R.alcL)!==null?ydN(R.alcL):G, tot=moL+yl+used;
   const pre={ smv:((smv*moL+ySM*yl+YD_ALC_SM*used)/tot), alc:alc===null?null:((moL*alc+yl*YD_YON_ALC+YD_ALC_PCT*used)/tot), ta:ta===null?null:ta*moL/tot, aa:aa===null?null:aa*moL/tot };
   return {last:{smv,alc,ta,aa}, G:Math.max(0,G), tot, used, pre};
+}
+/* 四段Be：計算に使う通常の値（リール。基準15.0） */
+function ydYbe(R){ const v=ydN(R.ybec); return v===null?-YD_YON_SM/10:v; }
+/* アル添パターン（Aｌｃ添加.xlsx 伝辛と同じ式）。目標tgt(計算)、四段Be be */
+function ydPat(m, R, t, be){
+  const L=ydLast(m), smv=ydN(R.lsmv)!==null?ydN(R.lsmv):L.smv, alc=ydN(R.lalc)!==null?ydN(R.lalc):L.alc;
+  const moL=ydN(R.mL0), yl=(ydN(R.hL)!==null?ydN(R.hL):ydN(R.yL))||0;
+  if(moL===null||smv===null||t===null||be===null) return null;
+  const g=Math.max(0,((moL+yl)*t-(smv*moL+(-be*10)*yl))/(YD_ALC_SM-t)), tot=moL+yl+g;
+  return {g, tot, a:alc===null?null:(moL*alc+yl*YD_YON_ALC+YD_ALC_PCT*g)/tot};
+}
+function ydPatHTML(m, R){
+  const t0=ydN(R.tgt), nb=ydYbe(R), kb=ydN(R.hbe), two=kb!==null&&Math.abs(kb-nb)>=0.05;
+  if(t0===null||!ydPat(m,R,t0,nb)) return `<div class="yd-sm">合併前の量（②）と醪の最終値（④）を入れると、目標ごとのパターンが出ます</div>`;
+  const used=ydN(R.alcL), f1=v=>(Math.round(v*10)/10).toFixed(1);
+  const cell=(r,cl)=>{ const v=Math.round(r.g), on=used!==null&&Math.round(used)===v; return `<td class="L ${cl}${on?' sel':''}" data-pg="${v}"><b>${ydL(v)}</b> L<small>${r.a!==null?'alc '+r.a.toFixed(1)+'%・':''}${ydL(r.tot)}L</small></td>`; };
+  let h=`<table class="yd-pt"><tr><th>狙い<small>（計算）</small></th><th class="n">${two?'通常':'アルコール'}<small>四段Be ${f1(nb)}</small></th>${two?`<th class="k">今回<small>四段Be ${f1(kb)}</small></th><th>差</th>`:''}</tr>`;
+  [-1,-0.5,0,0.5,1].forEach(d=>{ const t=Math.round((t0+d)*10)/10, n=ydPat(m,R,t,nb), k=two?ydPat(m,R,t,kb):null;
+    h+=`<tr class="${d===0?'base':''}"><td class="tg">${ydSg(t-1)}<small>計算 ${ydSg(t)}</small></td>${cell(n,'n')}${two?cell(k,'k')+`<td class="d">${(n.g-k.g)>=0?'−':'＋'}${ydL(Math.abs(Math.round(n.g)-Math.round(k.g)))}</td>`:''}</tr>`; });
+  return h+`</table><div class="yd-sm">マスを押すと、その量が「入れた量」に入ります${two?'。差＝今回の四段Beが通常と違うぶんの量':''}</div>`;
 }
 /* 合算（量で重み付け。量が無いタンクは同じ重み） */
 function ydSum(m){
@@ -15044,9 +15067,11 @@ function ydRecOpen(no, date, step){
   const draw=()=>{
     const P=ydPre(m,R), A=ydAnaState(m), today=dtoday(), cls=(id,done,d)=>done?'done':(d&&d===today?'now':'');
     const D=R.dests;
-    const tgtBox=`<div class="yd-tgt"><div class="yd-tgr"><div class="lb">目標の日本酒度 <b data-v="tgt">${R.tgt===''?'—':ydSg(R.tgt)}</b></div>
+    const tgtBox=`<div class="yd-tgt"><div class="yd-tgr"><div class="lb">目標（計算） <b data-v="tgt">${R.tgt===''?'—':ydSg(R.tgt)}</b><span class="nr" data-v="nrai">${R.tgt===''?'':'狙い '+ydSg(ydN(R.tgt)-1)}</span></div>
       <div class="yd-tgw"><div><div class="yd-dl">符号</div>${ydWheelHTML('ytg_s')}</div><div><div class="yd-dl">十</div>${ydWheelHTML('ytg_t')}</div><div><div class="yd-dl">一</div>${ydWheelHTML('ytg_o')}</div><div class="yd-dot">.</div><div><div class="yd-dl">小数</div>${ydWheelHTML('ytg_d')}</div></div></div>
-      <div class="res">アルコール（${YD_ALC_PCT}%）<b data-v="G">${P.G!==null?ydL(P.G)+' L':'—'}</b><span data-v="tot">${P.G!==null?'添加後 '+ydL(P.tot)+' L':'合併前の量・醪の最終値を入れると計算'}</span></div></div>`;
+      <div class="yd-tgr yd-ber"><div class="lb">四段Be（計算用） <b data-v="ybec">${ydYbe(R).toFixed(1)}</b></div>
+      <div class="yd-tgw be"><div><div class="yd-dl">十</div>${ydWheelHTML('ybc_t')}</div><div><div class="yd-dl">一</div>${ydWheelHTML('ybc_o')}</div><div class="yd-dot">.</div><div><div class="yd-dl">小数</div>${ydWheelHTML('ybc_d')}</div></div></div></div>
+      <div data-pt>${ydPatHTML(m,R)}</div>`;
     const anaT=`<div class="yd-ana4"><div></div><div class="h">日本酒度</div><div class="h">alc</div><div class="h">酸度</div><div class="h">ｱﾐﾉ</div>
       <div class="r">醪 最終</div>${['smv','alc','ta','aa'].map(k=>`<input type="text" inputmode="decimal" data-k="l${k}" value="${esc(String(R['l'+k]||''))}" placeholder="—">`).join('')}
       <div class="r">添加後予想</div>${['smv','alc','ta','aa'].map(k=>`<div class="v pre" data-v="p${k}">${P.pre?(k==='smv'?ydSg(P.pre[k]):ydF1(P.pre[k])):'—'}</div>`).join('')}</div>
@@ -15087,7 +15112,8 @@ function ydRecOpen(no, date, step){
     if(R._a_msk1!==R.msk1){ R._a_msk1=R.msk1; setAuto('mL1', ydVol(TM, R.msk1)); }
     if(R._a_jsk!==R.jsk){ R._a_jsk=R.jsk; setAuto('jL', ydVol(TM, R.jsk)); }
     const P=ydPre(m,R), V=(k,t)=>{ const e=w.querySelector(`[data-v="${k}"]`); if(e) e.innerHTML=t; };
-    V('tgt', R.tgt===''?'—':ydSg(R.tgt)); V('G', P.G!==null?ydL(P.G)+' L':'—'); V('tot', P.G!==null?'添加後 '+ydL(P.tot)+' L':'合併前の量・醪の最終値を入れると計算');
+    V('tgt', R.tgt===''?'—':ydSg(R.tgt)); V('nrai', R.tgt===''?'':'狙い '+ydSg(ydN(R.tgt)-1)); V('ybec', ydYbe(R).toFixed(1));
+    { const pt=w.querySelector('[data-pt]'); if(pt){ pt.innerHTML=ydPatHTML(m,R); pt.querySelectorAll('[data-pg]').forEach(c=>c.onclick=()=>{ R.alcL=c.dataset.pg; dirty=true; const el=w.querySelector('input[data-k="alcL"]'); if(el) el.value=R.alcL; calc(); }); } }
     ['smv','alc','ta','aa'].forEach(k=>V('p'+k, P.pre?(k==='smv'?ydSg(P.pre[k]):ydF1(P.pre[k])):'—'));
     V('dL', ydL(R.dests.reduce((a,d)=>a+(ydN(d.L)||0),0))+' L');
     const cP=R.kasu&&m.soumai?(ydN(R.kasu)/Number(m.soumai)*100):null; V('kasuP', cP!==null?cP.toFixed(1)+'%':'—');
@@ -15101,6 +15127,10 @@ function ydRecOpen(no, date, step){
     requestAnimationFrame(()=>{ W.s.set(v0<0?1:0); W.t.set(Math.floor(x/100)); W.o.set(Math.floor(x/10)%10); W.d.set(x%10);
       const rd=()=>{ const n=Number(W.t.val())*10+Number(W.o.val())+Number(W.d.val())/10; const v=Math.round((W.s.val()==='-'?-n:n)*10)/10; if(String(v)!==String(ydN(R.tgt))){ R.tgt=String(v); dirty=true; } calc(); };
       setTimeout(()=>{ Object.values(W).forEach(o=>o.onChange=rd); },150); });
+    if(E('ybc_t')){ const B={ t:ydWheel(E('ybc_t'),D10), o:ydWheel(E('ybc_o'),D10), d:ydWheel(E('ybc_d'),D10) }, b0=Math.min(999,Math.round(ydYbe(R)*10));
+      requestAnimationFrame(()=>{ B.t.set(Math.floor(b0/100)); B.o.set(Math.floor(b0/10)%10); B.d.set(b0%10);
+        const rb=()=>{ const v=Math.round((Number(B.t.val())*10+Number(B.o.val())+Number(B.d.val())/10)*10)/10; if(v!==ydYbe(R)){ R.ybec=String(v); dirty=true; } calc(); };
+        setTimeout(()=>{ Object.values(B).forEach(o=>o.onChange=rb); },150); }); }
   };
   const bind=()=>{
     w.querySelectorAll('[data-a="close"]').forEach(b=>b.onclick=close);
@@ -15117,7 +15147,7 @@ function ydRecOpen(no, date, step){
   };
   const save=async()=>{
     const say=t=>{ const e=w.querySelector('.yd-msg'); if(e) e.textContent=t; };
-    const out={}; ['ytank','ysk','yL','ytemp','ybe','hsk','hL','hbe','msk0','mL0','msk1','mL1','tgt','alcL','jsk','jL','lsmv','lalc','lta','laa','kasu'].forEach(k=>{ const v=R[k]; if(v!==undefined&&v!==null&&String(v).trim()!=='') out[k]=String(v).trim(); });
+    const out={}; ['ytank','ysk','yL','ytemp','ybe','hsk','hL','hbe','msk0','mL0','msk1','mL1','tgt','ybec','alcL','jsk','jL','lsmv','lalc','lta','laa','kasu'].forEach(k=>{ const v=R[k]; if(v!==undefined&&v!==null&&String(v).trim()!=='') out[k]=String(v).trim(); });
     ['smv','alc','ta','aa'].forEach(k=>{ const kk='l'+k; if(out[kk]!==undefined && R0[kk]===undefined && L0[k]!==null && ydN(out[kk])===L0[k]) delete out[kk]; });   // 醪の最終値は直したときだけ残す（直さなければ最新の分析を使う）
     out.dests=R.dests.filter(d=>String(d.t||'').trim()).map(d=>({t:String(d.t).trim().replace(/^T/i,''), L:String(d.L||'').trim()}));
     const bad=out.dests.find((d,i)=>out.dests.findIndex(x=>x.t===d.t)!==i); if(bad){ say(`上槽先 T${bad.t} が2回入っています`); return; }
@@ -15253,6 +15283,17 @@ function ydRecOpen(no, date, step){
 .yd-tgt .lb{font-size:12px;color:#7b4bb3;font-weight:800}
 .yd-stp{display:flex;align-items:center;gap:4px}.yd-stp button{width:34px;height:34px;border-radius:50%;border:1px solid #d9cbee;background:#fff;color:#7b4bb3;font-size:18px;font-weight:800;cursor:pointer}
 .yd-stp b{font-size:21px;min-width:58px;text-align:center;color:#7b4bb3}
+.yd-tgt .nr{font-size:11px;color:var(--sub);margin-left:6px;font-weight:700}
+.yd-ber{margin-left:auto}.yd-tgw.be{grid-template-columns:30px 30px 8px 34px}
+table.yd-pt{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 4px}
+.yd-pt th{background:#f1ede2;color:var(--navy);font-size:11px;padding:3px 2px;border-bottom:1px solid var(--line)}.yd-pt th small{display:block;font-size:10px;font-weight:600}
+.yd-pt th.n{background:#eef3f8;color:var(--blue,#1f6fa8)}.yd-pt th.k{background:#fff3e0;color:#c77700}
+.yd-pt td{border-bottom:1px solid var(--line);text-align:center;padding:3px 2px;line-height:1.15}
+.yd-pt td.tg{font-weight:800;color:var(--navy);font-size:14px}.yd-pt td.tg small{display:block;font-size:10px;color:#7b4bb3;font-weight:600}
+.yd-pt td.L{cursor:pointer}.yd-pt td.L b{font-size:16px}.yd-pt td.L small{display:block;font-size:10px;color:var(--sub)}
+.yd-pt tr.base{background:#fffbe6}.yd-pt tr.base td.tg small::after{content:' 基準';color:#fff;background:#7b4bb3;border-radius:4px;padding:0 3px;margin-left:2px}
+.yd-pt td.sel{outline:2.5px solid #7b4bb3;outline-offset:-3px;border-radius:6px;background:#f3ecfb}
+.yd-pt td.d{font-size:11.5px;color:#c0392b;font-weight:700}
 .yd-tgt .res{margin-left:auto;text-align:right;font-size:11.5px;color:var(--sub)}.yd-tgt .res b{display:block;font-size:19px;color:#7b4bb3}
 .yd-ana4{display:grid;grid-template-columns:64px repeat(4,1fr);gap:3px;font-size:13px;align-items:center}
 .yd-ana4 .h{font-size:11px;color:var(--sub);text-align:center}.yd-ana4 .r{font-size:11.5px;font-weight:700;color:var(--navy)}
@@ -15668,5 +15709,88 @@ function kxHomeApply(){ const b=document.getElementById('bKasu'); if(!b) return;
 `; document.head.appendChild(s); })();
 </script>
 <!-- /kasu1102 -->
+<!-- shplan1105 -->
+<script>
+const SHP_SRC="造りex 仕込計画表 2026.xls（2026/11/05 07:38 作成）";
+const SHP=[{"n":1,"lq":"伝辛","k":"イ","soe":"2026-10-12","tome":"2026-10-15","alc":"2026-11-04","jo":"2026-11-04","ken":"2026-11-05","mk":"イ","mn":1,"moto":"2026-09-30"},{"n":2,"lq":"伝辛","k":"イ","soe":"2026-10-13","tome":"2026-10-16","alc":"2026-11-05","jo":"2026-11-05","ken":"2026-11-06","mk":"イ","mn":2,"moto":"2026-10-01"},{"n":3,"lq":"ぽたりぽたり五百万石","k":"チ","soe":"2026-10-14","tome":"2026-10-17","alc":"","jo":"2026-11-09","ken":"2026-11-10","mk":"ロ","mn":3,"moto":"2026-10-02"},{"n":4,"lq":"ぽたりぽたり五百万石","k":"リ","soe":"2026-10-17","tome":"2026-10-20","alc":"","jo":"2026-11-12","ken":"2026-11-13","mk":"ニ","mn":4,"moto":"2026-10-05"},{"n":5,"lq":"ぽたりぽたり五百万石","k":"チ","soe":"2026-10-17","tome":"2026-10-20","alc":"","jo":"2026-11-12","ken":"2026-11-13","mk":"ロ","mn":5,"moto":"2026-10-05"},{"n":6,"lq":"ぽたりぽたり五百万石","k":"リ","soe":"2026-10-19","tome":"2026-10-22","alc":"","jo":"2026-11-14","ken":"2026-11-15","mk":"ニ","mn":6,"moto":"2026-10-07"},{"n":7,"lq":"ぽたりぽたり五百万石","k":"チ","soe":"2026-10-19","tome":"2026-10-22","alc":"","jo":"2026-11-14","ken":"2026-11-15","mk":"ロ","mn":7,"moto":"2026-10-07"},{"n":8,"lq":"ぽたりぽたり五百万石","k":"チ","soe":"2026-10-20","tome":"2026-10-23","alc":"","jo":"2026-11-15","ken":"2026-11-16","mk":"ロ","mn":8,"moto":"2026-10-08"},{"n":9,"lq":"金雲母","k":"ホ","soe":"2026-10-21","tome":"2026-10-24","alc":"","jo":"2026-11-15","ken":"2026-11-16","mk":"ロ","mn":9,"moto":"2026-10-09"},{"n":10,"lq":"金雲母","k":"ホ","soe":"2026-10-24","tome":"2026-10-27","alc":"","jo":"2026-11-18","ken":"2026-11-19","mk":"ロ","mn":10,"moto":"2026-10-12"},{"n":11,"lq":"ながれぼし","k":"ニ","soe":"2026-10-26","tome":"2026-10-29","alc":"","jo":"2026-11-21","ken":"2026-11-22","mk":"ハ","mn":11,"moto":"2026-10-14"},{"n":12,"lq":"ながれぼし","k":"ニ","soe":"2026-10-27","tome":"2026-10-30","alc":"","jo":"2026-11-22","ken":"2026-11-23","mk":"ハ","mn":12,"moto":"2026-10-15"},{"n":13,"lq":"ながれぼし","k":"ニ","soe":"2026-10-28","tome":"2026-10-31","alc":"","jo":"2026-11-23","ken":"2026-11-24","mk":"ハ","mn":13,"moto":"2026-10-16"},{"n":14,"lq":"超辛","k":"ロ","soe":"2026-10-31","tome":"2026-11-03","alc":"2026-11-25","jo":"2026-11-25","ken":"2026-11-26","mk":"イ","mn":14,"moto":"2026-10-19"},{"n":15,"lq":"超辛","k":"ロ","soe":"2026-11-02","tome":"2026-11-05","alc":"2026-11-27","jo":"2026-11-27","ken":"2026-11-28","mk":"イ","mn":15,"moto":"2026-10-21"},{"n":16,"lq":"伝辛","k":"イ","soe":"2026-11-04","tome":"2026-11-07","alc":"2026-11-27","jo":"2026-11-27","ken":"2026-11-28","mk":"イ","mn":16,"moto":"2026-10-23"},{"n":17,"lq":"伝辛","k":"イ","soe":"2026-11-07","tome":"2026-11-10","alc":"2026-11-30","jo":"2026-11-30","ken":"2026-12-01","mk":"イ","mn":17,"moto":"2026-10-26"},{"n":18,"lq":"伝辛","k":"イ","soe":"2026-11-09","tome":"2026-11-12","alc":"2026-12-02","jo":"2026-12-02","ken":"2026-12-03","mk":"イ","mn":18,"moto":"2026-10-28"},{"n":19,"lq":"伝辛","k":"イ","soe":"2026-11-11","tome":"2026-11-14","alc":"2026-12-04","jo":"2026-12-04","ken":"2026-12-05","mk":"イ","mn":19,"moto":"2026-10-30"},{"n":20,"lq":"普通純米試醸","k":"マ","soe":"2026-11-14","tome":"2026-11-17","alc":"","jo":"2026-12-08","ken":"2026-12-09","mk":"マ","mn":20,"moto":"2026-11-03"},{"n":21,"lq":"麹仕込純米","k":"オ","soe":"2026-11-16","tome":"2026-11-19","alc":"","jo":"2026-12-08","ken":"2026-12-09","mk":"ヱ","mn":21,"moto":"2026-11-06"},{"n":22,"lq":"伝辛","k":"イ","soe":"2026-11-17","tome":"2026-11-20","alc":"2026-12-10","jo":"2026-12-10","ken":"2026-12-11","mk":"イ","mn":22,"moto":"2026-11-05"},{"n":23,"lq":"伝辛","k":"イ","soe":"2026-11-18","tome":"2026-11-21","alc":"2026-12-11","jo":"2026-12-11","ken":"2026-12-12","mk":"イ","mn":23,"moto":"2026-11-06"},{"n":24,"lq":"一片氷心","k":"ヲ","soe":"2026-11-21","tome":"2026-11-24","alc":"2026-12-16","jo":"2026-12-16","ken":"2026-12-17","mk":"レ","mn":24,"moto":"2026-11-09"},{"n":25,"lq":"はでっぱの香","k":"レ","soe":"2026-11-23","tome":"2026-11-26","alc":"2026-12-16","jo":"2026-12-16","ken":"2026-12-17","mk":"ト","mn":25,"moto":"2026-11-11"},{"n":26,"lq":"超辛","k":"ロ","soe":"2026-11-24","tome":"2026-11-27","alc":"2026-12-19","jo":"2026-12-19","ken":"2026-12-20","mk":"イ","mn":26,"moto":"2026-11-12"},{"n":27,"lq":"超辛","k":"ロ","soe":"2026-11-25","tome":"2026-11-28","alc":"2026-12-20","jo":"2026-12-20","ken":"2026-12-21","mk":"イ","mn":27,"moto":"2026-11-13"},{"n":28,"lq":"伝辛","k":"イ","soe":"2026-11-28","tome":"2026-12-01","alc":"2026-12-21","jo":"2026-12-21","ken":"2026-12-22","mk":"イ","mn":28,"moto":"2026-11-16"},{"n":29,"lq":"伝辛","k":"イ","soe":"2026-11-30","tome":"2026-12-03","alc":"2026-12-23","jo":"2026-12-23","ken":"2026-12-24","mk":"イ","mn":29,"moto":"2026-11-18"},{"n":30,"lq":"伝辛","k":"タ","soe":"2026-12-01","tome":"2026-12-04","alc":"2026-12-24","jo":"2026-12-24","ken":"2026-12-25","mk":"イ","mn":30,"moto":"2026-11-19"},{"n":31,"lq":"kagayaki","k":"カ","soe":"2026-12-09","tome":"2026-12-12","alc":"2027-01-10","jo":"2027-01-10","ken":"2027-01-11","mk":"チ","mn":31,"moto":"2026-11-27"},{"n":32,"lq":"kagayaki","k":"カ","soe":"2026-12-12","tome":"2026-12-15","alc":"2027-01-13","jo":"2027-01-13","ken":"2027-01-14","mk":"チ","mn":32,"moto":"2026-11-30"},{"n":33,"lq":"伝辛","k":"イ","soe":"2026-12-15","tome":"2026-12-18","alc":"2027-01-07","jo":"2027-01-07","ken":"2027-01-08","mk":"イ","mn":33,"moto":"2026-12-03"},{"n":34,"lq":"ぽたりぽたり越淡麗","k":"ル","soe":"2026-12-16","tome":"2026-12-19","alc":"","jo":"2027-01-11","ken":"2027-01-12","mk":"ニ","mn":34,"moto":"2026-12-04"},{"n":35,"lq":"ぽたりぽたり越淡麗","k":"ワ","soe":"2026-12-19","tome":"2026-12-22","alc":"","jo":"2027-01-14","ken":"2027-01-15","mk":"リ","mn":35,"moto":"2026-12-07"},{"n":36,"lq":"ぽたりぽたり越淡麗","k":"ヌ","soe":"2026-12-21","tome":"2026-12-24","alc":"","jo":"2027-01-16","ken":"2027-01-17","mk":"ロ","mn":36,"moto":"2026-12-09"},{"n":37,"lq":"ぽたりぽたり越淡麗","k":"ヌ","soe":"2026-12-22","tome":"2026-12-25","alc":"","jo":"2027-01-17","ken":"2027-01-18","mk":"ロ","mn":37,"moto":"2026-12-10"},{"n":38,"lq":"ぽたりぽたり越淡麗","k":"ヌ","soe":"2026-12-23","tome":"2026-12-26","alc":"","jo":"2027-01-18","ken":"2027-01-19","mk":"ロ","mn":38,"moto":"2026-12-11"},{"n":39,"lq":"伝辛","k":"ノ","soe":"2027-01-16","tome":"2027-01-19","alc":"2027-02-08","jo":"2027-02-08","ken":"2027-02-09","mk":"イ","mn":43,"moto":"2027-01-07"},{"n":40,"lq":"なごり雪","k":"ツ","soe":"2027-01-18","tome":"2027-01-21","alc":"","jo":"2027-02-09","ken":"2027-02-10","mk":"ヨ","mn":45,"moto":"2027-01-07"},{"n":41,"lq":"純米辛口","k":"ハ","soe":"2027-01-19","tome":"2027-01-22","alc":"","jo":"2027-02-13","ken":"2027-02-14","mk":"ヲ","mn":46,"moto":"2027-01-07"},{"n":42,"lq":"なごり雪","k":"ツ","soe":"2027-01-20","tome":"2027-01-23","alc":"","jo":"2027-02-11","ken":"2027-02-12","mk":"ヨ","mn":47,"moto":"2027-01-08"},{"n":43,"lq":"kagayaki","k":"カ","soe":"2027-01-23","tome":"2027-01-26","alc":"2027-02-24","jo":"2027-02-24","ken":"2027-02-25","mk":"チ","mn":48,"moto":"2027-01-11"},{"n":44,"lq":"kagayaki","k":"カ","soe":"2027-01-25","tome":"2027-01-28","alc":"2027-02-26","jo":"2027-02-26","ken":"2027-02-27","mk":"チ","mn":49,"moto":"2027-01-13"},{"n":45,"lq":"kagayaki","k":"カ","soe":"2027-01-27","tome":"2027-01-30","alc":"2027-02-28","jo":"2027-02-28","ken":"2027-03-01","mk":"チ","mn":50,"moto":"2027-01-15"},{"n":46,"lq":"遠雷","k":"ト","soe":"2027-01-30","tome":"2027-02-02","alc":"2027-02-25","jo":"2027-02-25","ken":"2027-02-26","mk":"ロ","mn":51,"moto":"2027-01-18"},{"n":47,"lq":"遠雷","k":"ト","soe":"2027-02-01","tome":"2027-02-04","alc":"2027-02-27","jo":"2027-02-27","ken":"2027-02-28","mk":"ロ","mn":52,"moto":"2027-01-20"}];
+/* ================= 🗂️ 仕込み計画（製造カレンダーのタブ）2026-11-05 =================
+   泰広さん指示：製造カレンダーの「✋振休依頼」アイコンを削除し、代わりに「仕込み計画」を作成。
+   造りex\仕込計画表 の今年度ファイル（2026.xls）を当てはめる。
+   データ（SHP）は _仕込計画_20261105.py が xls から作って入れる（計画が変わったら再実行→GitHubへ）。
+   控え：_src_shplan1105.js（画面）
+   ================================================================================== */
+const SHP_W='日月火水木金土';
+function shpMD(d){ return d?(+d.slice(5,7))+'/'+(+d.slice(8,10)):'—'; }
+function shpAdd(d,n){ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return dstr(x); }
+function shpDays(a,b){ return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
+function shpStage(p,t){
+  if(p.jo&&t>p.jo) return {c:'end',l:'上槽済'};
+  if(p.jo===t) return {c:'jo',l:'上槽'};
+  if(p.tome&&t>=p.tome) return {c:'mo',l:'醪 '+(shpDays(p.tome,t)+1)+'日目'};
+  if(p.soe&&t>=p.soe) return {c:'mo',l:'添〜留'};
+  if(p.moto&&t>=p.moto) return {c:'sh',l:'酒母 '+(shpDays(p.moto,t)+1)+'日目'};
+  return {c:'fu',l:'これから'};
+}
+function shpEvents(d){
+  const a=[];
+  SHP.forEach(p=>{
+    if(p.moto===d) a.push([p,'酛立']);
+    if(p.soe===d) a.push([p,'添']);
+    if(p.tome===d) a.push([p,'留']);
+    const al=p.alc===d, jo=p.jo===d;
+    if(al&&jo) a.push([p,'アル添・上槽']); else { if(al) a.push([p,'アル添']); if(jo) a.push([p,'上槽']); }
+    if(p.ken===d) a.push([p,'検定']);
+  });
+  return a;
+}
+function planScreen(){
+  app.dataset.mfg='plan';
+  head('製造カレンダー','仕込み計画');
+  const t=dtoday(), tm=shpAdd(t,1), f=lsGet('shp.f','now');
+  const evBox=(d,lb)=>{ const e=shpEvents(d), w=new Date(d+'T00:00:00').getDay();
+    return `<div class="shp-ev"><div class="h">${lb} ${shpMD(d)}（${SHP_W[w]}）</div>${e.length?e.map(([p,k])=>`<span class="shp-chip k-${k==='酛立'?'sh':k==='添'||k==='留'?'mo':k==='検定'?'ke':'jo'}"><b>${p.n}号</b>${esc(p.lq)}<i>${k}</i></span>`).join(''):'<span class="muted" style="font-size:12px">予定なし</span>'}</div>`; };
+  let h=calTabs('plan');
+  h+=`<div class="shp-evs">${evBox(t,'今日')}${evBox(tm,'明日')}</div>`;
+  h+=`<div class="tl-seg"><button data-f="now" class="${f==='now'?'on':''}">これから・仕込み中</button><button data-f="all" class="${f==='all'?'on':''}">全部（${SHP.length}本）</button></div>`;
+  const list=SHP.filter(p=>f==='all'||!p.jo||p.jo>=t);
+  let ym='';
+  const dt=(lb,d,cls)=>d?`<span class="${d===t?'td':''}${cls?' '+cls:''}">${lb} ${shpMD(d)}</span>`:'';
+  for(const p of list){
+    const m=(p.soe||'').slice(0,7);
+    if(m!==ym){ ym=m; h+=`<div class="shp-mon">${+m.slice(0,4)}年${+m.slice(5,7)}月 添仕込</div>`; }
+    const st=shpStage(p,t), aj=p.alc&&p.alc===p.jo;
+    h+=`<div class="shp-row s-${st.c}"><span class="st"></span>
+      <span class="no">${p.n}<small>号</small></span>
+      <span class="mid"><span class="b">${esc(p.lq)}</span><span class="k">仕込 ${esc(p.k)}・酒母 ${esc(p.mk)}</span><br>
+        <span class="d">${dt('酛',p.moto)}${dt('添',p.soe)}${dt('留',p.tome)}${aj?dt('アル添・上槽',p.jo,'j'):dt('アル添',p.alc)+dt('上槽',p.jo,'j')}${dt('検定',p.ken)}</span></span>
+      <span class="sg">${st.l}</span></div>`;
+  }
+  if(!list.length) h+=`<div class="card" style="color:var(--sub)">これからの仕込みはありません</div>`;
+  h+=`<p class="tl-note">${esc(SHP_SRC)} より。酛＝酒母仕込日／添＝仕込日（初添）／アル添・上槽・検定は予定日。計画が変わったら、造りexで仕込計画表を書き出し直して Claude に「仕込み計画を更新して」。</p>`;
+  app.innerHTML=h; bindCalTabs();
+  app.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{ lsSet('shp.f',b.dataset.f); planScreen(); });
+}
+(function(){ const s=document.createElement('style'); s.textContent=`
+.shp-evs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 10px}
+.shp-ev{background:var(--card,#fff);border:1px solid var(--line);border-radius:10px;padding:6px 7px;min-width:0}
+.shp-ev .h{font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px}
+.shp-chip{display:flex;align-items:baseline;gap:4px;font-size:12px;line-height:1.35;padding:2px 0;border-top:1px dashed #eceef2;min-width:0}
+.shp-chip:first-of-type{border-top:none}
+.shp-chip b{color:var(--navy);flex:0 0 auto}.shp-chip i{font-style:normal;margin-left:auto;flex:0 0 auto;border-radius:6px;padding:0 5px;font-size:11px;font-weight:700}
+.shp-chip.k-sh i{background:#fff1d6;color:#9a6200}.shp-chip.k-mo i{background:#e6f0fb;color:#1f5fa8}.shp-chip.k-jo i{background:#efe6fb;color:#6b3fa0}.shp-chip.k-ke i{background:#eef0f3;color:#555}
+.shp-mon{font-size:12px;font-weight:700;color:var(--sub);margin:12px 2px 5px}
+.shp-row{background:var(--card,#fff);border:1px solid var(--line);border-radius:12px;margin-bottom:6px;display:grid;grid-template-columns:6px 44px 1fr auto;gap:0 8px;align-items:center;padding:7px 9px 7px 0;overflow:hidden}
+.shp-row .st{align-self:stretch;border-radius:12px 0 0 12px;background:var(--line)}
+.shp-row.s-sh .st{background:#e0a030}.shp-row.s-mo .st{background:#2a78d6}.shp-row.s-jo .st{background:#8e5cc8}.shp-row.s-end{opacity:.55}
+.shp-row .no{font-size:19px;font-weight:800;color:var(--navy);text-align:center;line-height:1}.shp-row .no small{font-size:10px;font-weight:600}
+.shp-row .mid{min-width:0}.shp-row .b{font-weight:700;font-size:14px}.shp-row .k{font-size:11px;color:var(--sub);margin-left:6px;white-space:nowrap;display:inline-block}
+.shp-row .d{display:flex;flex-wrap:wrap;gap:1px 8px;font-size:11.5px;color:var(--sub);margin-top:2px}
+.shp-row .d span{white-space:nowrap}.shp-row .d .j{color:#6b3fa0}.shp-row .d .td{color:#c0392b;font-weight:800}
+.shp-row .sg{font-size:11px;font-weight:700;color:var(--sub);white-space:nowrap;text-align:right}
+.shp-row.s-mo .sg{color:#1f5fa8}.shp-row.s-sh .sg{color:#9a6200}.shp-row.s-jo .sg{color:#6b3fa0}
+`; document.head.appendChild(s); })();
+
+</script>
+<!-- /shplan1105 -->
 </body>
 </html>
