@@ -9396,6 +9396,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-05-21','💾','保存','未送信が残る件その2：保存は書けているのに返事だけ遅れていたので、送り直す前（返事が来なかったとき）に読み直して、入っていれば「保存済み」として外すように。返事が遅いときは1件ずつ、間隔を伸ばして送り直します。未送信の一覧を開くと、保存済みの分は自動で外れます。'],
   ['2026-11-05-5','📦','資材','資材に「酒粕箱」タブ：酒粕ダンボール（20K・10K・5K）の在庫を、粕の記録の箱数から自動で減らします。残り100箱を切ると知らせます（発注済なら出ません）。発注（サクラパックス・電話、最低ロット300箱）・入荷・棚卸を記録。粕の画面の上にも箱の残りを表示。'],
   ['2026-11-05-4','💾','保存','「未送信」がずっと残る件：たくさん一度に送るとサーバーの返事が遅れて打ち切り→送り直しを繰り返していたので、同時に送るのを3件までに。未送信があると右下に「未送信 ◯件」が出て、押すと理由の確認・1件ずつ送る・捨てるができます。'],
   ['2026-11-05-3','🟫','粕','「きょうの粕」に明日の分（今日上槽した仕込み）が出ていたのを直しました。上槽の翌日になってから出ます。'],
@@ -14305,7 +14306,19 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
   /* 端末の保存分（PC）を捨てる：1件ずつ送ったとき（recApi の中）と同じ決まり */
   function pcDrop(b){ try{ const no=b&&b.no; if((b.action==='bunseki_save'||b.action==='shubo_save') && no!=null && no!==''){ ['bunseki_get','shubo_get','karte'].forEach(x=>PC.delPrefix('rec:'+x+':'+no+':')); } else PC.delPrefix('rec:'); }catch(e){} }
   const BGS=window.BGS={run:false, again:false, hidAt:0, stale:new Set(), sent:0};
-  const QE=window.QE={kind:'', at:0, items:{}};
+  const QE=window.QE={kind:'', at:0, items:{}, streak:0};
+  /* 2026-11-05 書けたかどうかを読んで確かめる（醪の分析：bunseki_save の値／酒母：shubo_save の値）。確かめられないものは false */
+  const qvSame=(a,b)=>{ const e=x=>x===''||x===null||x===undefined; if(e(a)&&e(b)) return true; if(e(a)||e(b)) return false; const na=Number(a), nb=Number(b); return (isFinite(na)&&isFinite(nb))?Math.abs(na-nb)<1e-6:String(a)===String(b); };
+  async function qvVerify(b){
+    try{ if(!b||b.setup||b.oro||!b.values||b.no==null||b.day==null) return false;
+      const A=b.action==='bunseki_save'?'bunseki_get':b.action==='shubo_save'?'shubo_get':''; if(!A) return false;
+      if(A==='shubo_get' && ('motooroshi' in b || 'biko' in b)) return false;
+      const r=await recApi({action:A,no:b.no},40000); if(!r||!r.ok||!r.days) return false;
+      const d=r.days.find(x=>Number(x.day)===Number(b.day)); if(!d) return false;
+      const ks=Object.keys(b.values); if(!ks.length) return false;
+      return ks.every(f=>(f in d) && qvSame(b.values[f],d[f]));
+    }catch(e){ return false; } }
+  window.qvVerify=qvVerify;
   /* 2026-11-05 未送信があるとき、右下に「未送信 ◯件」。押すと一覧（理由・1件ずつ送る・捨てる） */
   const KN={slow:'返事が遅い（90秒）',bad:'返事が読めない',net:'つながらない'};
   const qvDesc=b=>{ b=b||{}; const v=b.values?Object.keys(b.values).slice(0,4).join('・'):''; return [b.action,b.no!=null&&b.no!==''?b.no+'号':'',b.date||'',b.stage||'',v].filter(Boolean).join('　'); };
@@ -14339,7 +14352,10 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
         try{ const res=await recApi(it.body,120000); const s=Math.round((Date.now()-t0)/1000);
           if(res&&res.ok){ qRemove(it); r.style.color='#2e7d32'; r.textContent=`✓ 保存しました（${s}秒）`; try{ recAfterSave(it,res); }catch(e){} setTimeout(()=>{ draw(); qvBadge(); },900); }
           else { r.style.color='#b23b3b'; r.textContent=`✕ サーバー：${(res&&res.err)||'不明'}（${s}秒）`; b.disabled=false; } }
-        catch(e){ r.style.color='#b23b3b'; r.textContent=`✕ ${e&&e.name==='AbortError'?'120秒で返事なし':e instanceof SyntaxError?'返事が読めない':'つながらない'}：${(e&&e.message)||e}`; b.disabled=false; } });
+        catch(e){ if(await qvVerify(it.body)){ qRemove(it); r.style.color='#2e7d32'; r.textContent='✓ 返事は来ませんでしたが、読み直したら保存されていました'; setTimeout(()=>{ draw(); qvBadge(); },1200); return; }
+          r.style.color='#b23b3b'; r.textContent=`✕ ${e&&e.name==='AbortError'?'120秒で返事なし':e instanceof SyntaxError?'返事が読めない':'つながらない'}：${(e&&e.message)||e}`; b.disabled=false; } });
+      /* 開いたとき、読んで確かめて保存済みの分は外す */
+      if(!w._chk){ w._chk=1; (async()=>{ let m=0; for(const it of recQ()){ if(await qvVerify(it.body)){ qRemove(it); m++; } } if(m){ rcToast(`${m}件は保存済みでした（一覧から外しました）`); if(document.body.contains(w)) draw(); qvBadge(); } })(); }
       w.querySelectorAll('[data-a="del"]').forEach(b=>b.onclick=()=>{ const it=recQ()[+b.dataset.i]; if(!it) return;
         if(!confirm(`「${it.label}」を送らずに捨てます。よろしいですか？`)) return; qRemove(it); draw(); qvBadge(); });
     };
@@ -14365,8 +14381,12 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
         q.forEach(it=>{ const k=shapeOf(it.body||{}); if(!G[k]){ G[k]={items:[],body:null}; order.push(k); } const g=G[k]; g.items.push(it); g.body=mergeBody(g.body,it.body||{}); });
         const one=async k=>{ const g=G[k], it0=g.items[0], n=g.items.length;
           const it={body:g.body, label:n>1?`${it0.label} ほか${n-1}件`:it0.label, at:it0.at}; let res=null;
+          /* 2026-11-05 前に打ち切られた分は、送る前に読んで確かめる（書けていれば送らずに外す） */
+          if(QE.items[k] && await qvVerify(g.body)){ delete QE.items[k]; g.items.forEach(qRemove); BGS.sent+=n; okN+=n; return; }
           try{ res=await waitRes(recApi(g.body,90000)); }
-          catch(e){ if(e&&e.stale){ BGS.again=true; return; } netFail=true;
+          catch(e){ if(e&&e.stale){ BGS.again=true; return; }
+            if(await qvVerify(g.body)){ delete QE.items[k]; g.items.forEach(qRemove); BGS.sent+=n; okN+=n; return; }   // 返事は来なかったが書けていた
+            netFail=true;
             /* 2026-11-05 打ち切りの理由を残す（slow＝90秒で返事なし／bad＝返事が読めない／net＝つながらない） */
             const kind=(e&&e.name==='AbortError')?'slow':(e instanceof SyntaxError)?'bad':'net';
             QE.kind=kind; QE.at=Date.now(); QE.items[k]={label:it.label, kind, msg:String((e&&e.message)||e||''), at:Date.now()}; return; }
@@ -14395,7 +14415,7 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
         }
         /* 2026-11-05 一斉に送ると醪管理R8BYの再計算が重なって1件60秒を超え、打ち切り→全部送り直しを繰り返したので、同時は3件まで */
         if(!netFail){ const L=order.filter(k=>!G[k].sent); let p=0; const lane=async()=>{ while(p<L.length){ const k=L[p++]; await one(k); } };
-          await Promise.all([...Array(Math.min(3,L.length))].map(lane)); }
+          await Promise.all([...Array(Math.min(QE.kind==='slow'?1:3,L.length))].map(lane)); }   // 返事が遅いときは1件ずつ
         /* 同じ順号の醪を何日分も同時に送ったときは、返事の順が前後するので最後に取り直して画面の控えをそろえる */
         const cnt={}; if(!doneBatch) order.forEach(k=>{ const b=G[k].body; if(b.action==='bunseki_save') cnt[b.no]=(cnt[b.no]||0)+1; });
         Object.keys(cnt).filter(n=>cnt[n]>1).forEach(n=>{ recApi({action:'bunseki_get',no:Number(n)||n},40000).then(r=>{ if(r&&r.ok){ RC.bun[n]=recOverlay('bunseki_get',n,r); RC.at=0; } }).catch(()=>{}); });
@@ -14412,7 +14432,8 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
     if(!recQ().length && RC.shDirty && Object.keys(RC.shDirty).length){ const nos=Object.keys(RC.shDirty); RC.shDirty={};
       try{ await shFetchMany(nos,'shubo_get',RC.shubo,()=>{}); }catch(e){}
       try{ if(typeof KGE!=='undefined' && KGE.draw && document.querySelector('.kg-sbar') && !Object.keys(KGE.dirty||{}).length) KGE.draw(); }catch(e){} }
-    if(netFail){ clearTimeout(RC.qRetry); RC.qRetry=setTimeout(recFlush,QE.kind==='slow'?10000:30000); }
+    if(!netFail) QE.streak=0;
+    if(netFail){ QE.streak=(QE.streak||0)+1; clearTimeout(RC.qRetry); RC.qRetry=setTimeout(recFlush,QE.kind==='slow'?Math.min(300000,20000*Math.pow(2,QE.streak-1)):30000); }   // 遅いときは 20秒→40秒→…最大5分
     else if(recQ().length && !BGS.run) setTimeout(recFlush,500);
     qvBadge();
   };
