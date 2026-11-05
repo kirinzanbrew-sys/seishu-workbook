@@ -9396,6 +9396,9 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-05-28','📅','仕込み','日程の窓：その日の作業（四洗・四仕・四添・ア上・四ア上）を押すと、その作業だけを前後の日へ移したり「空欄」にしたりできます。四ア上の日は「四添だけ」「アル添・上槽だけ」も選べるので、四段添加のあとアル添・上槽を翌日・翌々日へ自由に動かせます。空欄はその作業だけ消え、ほかは残ります。'],
+  ['2026-11-05-27','🍶','仕込み','仕込みの表：上槽の翌日のマスの「🧪 上槽後の分析」の枠を小さな札（🧪未／🧪済）にして、Beの行の高さを元に戻しました。押すと今までどおり入力の窓が開きます。'],
+  ['2026-11-05-26','⚡','仕込み','四洗・四仕・四ア上・四添・ア上・空欄など日程を決めたら、すぐ窓が閉じて次の作業に移れるように（保存は裏で送ります。送れなかったときだけ赤い知らせが出ます）。'],
   ['2026-11-05-25','🧪','仕込み','上槽後の分析：リールをやめて数字を打つ入力に。日本酒度は「＋」「−」を押して選び、数字を打ちます（−を打っても−になります）。空欄のままでも保存できます。'],
   ['2026-11-05-24','📅','仕込み','日程の窓：四洗ボタンをほかと同じ大きさに。「空欄（作業なし）」を選べるように（四添やア上の日を空欄にすると四ア上に戻る／四洗・四仕・四ア上の日を空欄にすると四段の日程を消す。上槽日はそのまま）。'],
   ['2026-11-05-23','📅','仕込み','日程の「四添（四段だけ先に）」を選んでも反映されなかったのを直しました。四添の日だけが動き、アル添・上槽はそのまま（同じ日以降を選んだときは翌日へ）。'],
@@ -14759,11 +14762,11 @@ function ydItem(name, no, tank){
 }
 function ydJ(it){ try{ return it&&it.memo?JSON.parse(String(it.memo)):null; }catch(e){ return null; } }
 /* 日程：{sen,shi,soe,alc,split,jo}（上槽は m.joso＝選んだ上槽日／計画） */
-function ydSch(m){
-  const it=ydItem(YD_SCH, m.no), j=ydJ(it);
-  if(!j||!j.sen||!j.soe) return null;
-  const alc=j.alc||j.soe;
-  return { sen:j.sen, shi:j.shi||dadd(j.sen,1), soe:j.soe, alc, jo:m.joso||jsPlan(m), _id:it.id };
+function ydSch(m){   // 2026-11-05 各作業は空欄（''）もあり（空欄＝その作業だけ消した）
+  const it=ydItem(YD_SCH, m.no), j=ydJ(it); if(!j) return null;
+  const sen=j.sen||'', shi=j.shi===undefined?(sen?dadd(sen,1):''):(j.shi||''), soe=j.soe||'', alc=j.alc===undefined?soe:(j.alc||'');
+  if(!sen&&!shi&&!soe&&!alc) return null;
+  return { sen, shi, soe, alc, jo:m.joso||jsPlan(m), _id:it.id };
 }
 function ydRec(m){ const it=ydItem(YD_REC, m.no), j=ydJ(it)||{}; if(!Array.isArray(j.dests)) j.dests=[]; j._id=it?it.id:''; return j; }
 function ydAna(m, t){ const it=ydItem(YD_ANA, m.no, t), j=ydJ(it); return j?Object.assign({}, j, {_id:it.id, by:it.updBy||it.by||'', at:it.upd||it.at||''}):null; }
@@ -14847,40 +14850,58 @@ function ydCombo(ks){ const h=k=>ks.indexOf(k)>=0;
 /* 日程を日付ごとの札に：[{d,k,c,l}] */
 function ydTags(s){
   if(!s) return [];
-  const out=[{d:s.sen,c:'sen',l:'四洗'},{d:s.shi,c:'shi',l:'四仕'}], by={};
-  [['soe',s.soe],['alc',s.alc||s.soe],['jo',s.jo]].forEach(([k,d])=>{ if(!d) return; (by[d]=by[d]||[]).push(k); });
+  const out=[], by={};
+  if(s.sen) out.push({d:s.sen,c:'sen',l:'四洗'}); if(s.shi) out.push({d:s.shi,c:'shi',l:'四仕'});
+  [['soe',s.soe],['alc',s.alc],['jo',s.jo]].forEach(([k,d])=>{ if(!d) return; (by[d]=by[d]||[]).push(k); });
   Object.keys(by).sort().forEach(d=>{ const c=ydCombo(by[d]); if(c) out.push({d,c:c[0],l:c[1],ks:by[d]}); });
-  return out;
+  return out.sort((a,b)=>String(a.d).localeCompare(String(b.d)));
 }
 function ydAt(m, s, d){ const o=[]; if(s){ if(s.sen===d) o.push('sen'); if(s.shi===d) o.push('shi');
-    const ks=[]; if(s.soe===d) ks.push('soe'); if((s.alc||s.soe)===d) ks.push('alc'); if((m.joso||'')===d) ks.push('jo');
+    const ks=[]; if(s.soe===d) ks.push('soe'); if(s.alc===d) ks.push('alc'); if((m.joso||'')===d) ks.push('jo');
     const c=ydCombo(ks); if(c){ if(c[0]==='sau'&&ks.length===3) o.push('sau'); else if(c[0]==='au') o.push('au'); else ks.forEach(k=>o.push(k)); } }
   else if((m.joso||'')===d) o.push('jo');
   return o; }
 function ydApply(m, k, d, base, chain){
-  if(k==='blank'){   // 2026-11-05 泰広さん：この日の作業を空欄に
-    if(!base) return 'err:この日には四段の作業がありません';
-    const s=Object.assign({}, base); s.alc=s.alc||s.soe;
-    if(s.sen===d||s.shi===d||(s.soe===d&&s.alc===d)) return {del:true};
-    if(s.soe===d) s.soe=s.alc; else if(s.alc===d) s.alc=s.soe; else return 'err:この日には四段の作業がありません';
-    s.jo=s.alc; return s;
-  }
   if(!base){
     if(k==='sen') return {sen:d, shi:dadd(d,1), soe:dadd(d,2), alc:dadd(d,2), jo:dadd(d,2)};
     if(k==='shi') return {sen:dadd(d,-1), shi:d, soe:dadd(d,1), alc:dadd(d,1), jo:dadd(d,1)};
     if(k==='sau') return {sen:dadd(d,-2), shi:dadd(d,-1), soe:d, alc:d, jo:d};
     return null;
   }
-  const s=Object.assign({}, base); s.alc=s.alc||s.soe; if(!s.jo) s.jo=s.alc;
-  const dd=(a,b)=>rcDays(a,b), sh=(keys,n)=>{ if(!chain||!n) return; keys.forEach(x=>{ s[x]=dadd(s[x],n); }); };
-  if(k==='sen'){ const n=dd(s.sen,d); s.sen=d; sh(['shi','soe','alc','jo'],n); if(s.shi<=d) return 'err:四仕より前の日を選んでください'; }
-  else if(k==='shi'){ const n=dd(s.shi,d); s.shi=d; sh(['soe','alc','jo'],n); if(s.sen>=d) s.sen=dadd(d,-1); if(s.soe<=d) return 'err:四添より前の日を選んでください'; }
-  else if(k==='sau'){ if(d<=s.shi) return 'err:四仕より後の日を選んでください'; s.soe=d; s.alc=d; s.jo=d; }
-  else if(k==='soe'){ if(d<=s.shi) return 'err:四仕より後の日を選んでください'; s.soe=d; if(s.alc<=d) s.alc=dadd(d,1); }   // 2026-11-05 四段だけ先に：アル添・上槽は動かさない（同じ日以降なら翌日へ）
-  else if(k==='au'){ if(d<s.soe) return 'err:四添より前にはできません'; s.alc=d; s.jo=d; }
-  else if(k==='alc'){ if(d<s.soe) return 'err:四添より前にはできません'; const n=dd(s.alc,d); s.alc=d; sh(['jo'],n); }
-  else if(k==='jo'){ if(d<s.alc) return 'err:アル添より前にはできません'; s.jo=d; }
-  if(s.alc<s.soe) s.alc=s.soe; s.jo=s.alc;   // アル添と上槽はセット（2026-11-02 泰広さん）
+  const s=Object.assign({}, base); ['sen','shi','soe','alc'].forEach(x=>{ s[x]=s[x]||''; }); if(!s.jo) s.jo=s.alc||m.joso||'';
+  const dd=(a,b)=>a?rcDays(a,b):0, sh=(keys,n)=>{ if(!chain||!n) return; keys.forEach(x=>{ if(s[x]) s[x]=dadd(s[x],n); }); };
+  if(k==='sen'){ const n=dd(s.sen,d); s.sen=d; sh(['shi','soe','alc','jo'],n); if(s.shi&&s.shi<=d) return 'err:四仕より前の日を選んでください'; }
+  else if(k==='shi'){ const n=dd(s.shi,d); s.shi=d; sh(['soe','alc','jo'],n); if(s.sen&&s.sen>=d) s.sen=dadd(d,-1); const nx=s.soe||s.alc; if(nx&&nx<=d) return 'err:四添より前の日を選んでください'; }
+  else if(k==='sau'){ if(s.shi&&d<=s.shi) return 'err:四仕より後の日を選んでください'; s.soe=d; s.alc=d; s.jo=d; }
+  else if(k==='soe'){ if(s.shi&&d<=s.shi) return 'err:四仕より後の日を選んでください'; s.soe=d; if(s.alc&&s.alc<=d) s.alc=dadd(d,1); }
+  else if(k==='au'){ if(s.soe&&d<s.soe) return 'err:四添より前にはできません'; if(!s.soe&&s.shi&&d<=s.shi) return 'err:四仕より後の日を選んでください'; s.alc=d; s.jo=d; }
+  else return null;
+  if(s.soe&&s.alc&&s.alc<s.soe) s.alc=s.soe; if(s.alc) s.jo=s.alc;   // アル添と上槽はセット（2026-11-02 泰広さん）
+  return s;
+}
+/* 2026-11-05 泰広さん：日付の作業をタップして、その作業だけを別の日へ／空欄に。四ア上の日は「四添だけ」「ア上だけ」も選べる */
+function ydUnits(m, s, d){
+  const U=[]; if(!s){ if((m.joso||'')===d) U.push({u:'jo', l:'上槽', c:'jo'}); return U; }
+  if(s.sen===d) U.push({u:'sen', l:'四洗', c:'sen'}); if(s.shi===d) U.push({u:'shi', l:'四仕', c:'shi'});
+  const so=s.soe===d, al=s.alc===d, jo=(m.joso||s.jo||'')===d;
+  if(so&&al){ U.push({u:'sau', l:jo?'四ア上':'四アル添', c:'sau', sub:'まとめて'}); U.push({u:'soe', l:'四添', c:'soe', sub:'四添だけ'}); U.push({u:'au', l:jo?'ア上':'アル添', c:'au', sub:jo?'アル添・上槽だけ':'アル添だけ'}); }
+  else { if(so) U.push({u:'soe', l:'四添', c:'soe'}); if(al) U.push({u:'au', l:jo?'ア上':'アル添', c:'au'}); else if(jo) U.push({u:'jo', l:'上槽', c:'jo'}); }
+  return U;
+}
+function ydMove(m, s0, u, to){
+  const jo0=m.joso||jsPlan(m);
+  const s=s0?{sen:s0.sen||'', shi:s0.shi||'', soe:s0.soe||'', alc:s0.alc||'', jo:jo0}:{sen:'', shi:'', soe:'', alc:'', jo:jo0, only:true};
+  if(to===''){
+    if(u==='jo') return 'err:上槽日は空欄にできません（「上槽を計画に戻す」を使ってください）';
+    if(u==='sen') s.sen=''; else if(u==='shi') s.shi=''; else if(u==='soe') s.soe=''; else if(u==='au') s.alc=''; else if(u==='sau'){ s.soe=''; s.alc=''; }
+    return s;   // 上槽日はそのまま
+  }
+  if(u==='sen'){ if(s.shi&&to>=s.shi) return 'err:四仕より前の日を選んでください'; s.sen=to; }
+  else if(u==='shi'){ if(s.sen&&to<=s.sen) return 'err:四洗より後の日を選んでください'; const nx=s.soe||s.alc; if(nx&&to>=nx) return 'err:四添・アル添より前の日を選んでください'; s.shi=to; }
+  else if(u==='soe'){ if(s.shi&&to<=s.shi) return 'err:四仕より後の日を選んでください'; if(s.alc&&to>s.alc) return 'err:アル添より後にはできません（先にアル添・上槽を後ろへ）'; s.soe=to; }
+  else if(u==='au'){ if(s.soe&&to<s.soe) return 'err:四添より前にはできません'; if(!s.soe&&s.shi&&to<=s.shi) return 'err:四仕より後の日を選んでください'; s.alc=to; s.jo=to; }
+  else if(u==='sau'){ if(s.shi&&to<=s.shi) return 'err:四仕より後の日を選んでください'; s.soe=to; s.alc=to; s.jo=to; }
+  else if(u==='jo'){ if(s.alc&&to<s.alc) return 'err:アル添より前にはできません'; s.jo=to; }
   return s;
 }
 function ydPv(s){
@@ -14889,52 +14910,81 @@ function ydPv(s){
   if(s.only) return `<span class="yd-pvi"><span class="yd-tg yd-jo">上槽</span><b>${ydMD(s.jo)}</b></span>`;
   return ydTags(s).map(t=>`<span class="yd-pvi"><span class="yd-tg yd-${t.c}">${t.l}</span><b>${rcMD(t.d)}</b></span>`).join('<span class="yd-ar">›</span>');
 }
+/* 2026-11-05 泰広さん：日程（四洗〜上槽）の保存を待たずに次の作業へ。先に端末の表を書き換え、送信は裏で順番に（失敗は3回まで送り直し） */
+const YDQ={ p:Promise.resolve(), mw:{}, rk:{} };
+function ydPut(L, key, it){ const i=L.findIndex(x=>!x.deleted&&x.name===it.name&&String(x.no)===String(it.no)); if(it._del){ if(i>=0) L.splice(i,1); } else if(i>=0) L[i]=Object.assign({}, L[i], it); else L.push(it); }
+function ydReapply(){ try{ Object.values(YDQ.mw).forEach(it=>ydPut(MW.items, 0, it)); lsSet('mw.items', MW.items); }catch(e){}
+  try{ Object.values(YDQ.rk).forEach(it=>ydPut(RK.items, 0, it)); lsSet('rk.items', RK.items); }catch(e){} }
+function ydLocal(kind, it){ const k=it.name+'|'+it.no, now=new Date().toISOString(); const x=Object.assign({upd:now, at:now, updBy:String(ST.name||'')}, it); YDQ[kind][k]=x; ydReapply(); return k; }
+function ydBg(label, fn, keys){
+  const run=async()=>{ for(let n=0;;n++){ try{ const r=await fn(); keys.forEach(([kd,k])=>{ delete YDQ[kd][k]; }); ydReapply(); return r; }
+      catch(e){ if(n>=2){ keys.forEach(([kd,k])=>{ delete YDQ[kd][k]; }); rcToast(label+'を保存できませんでした：'+(e.message||e)+'\nもう一度入れてください', true, 9000);
+          try{ await Promise.all([mwLoad(true), rkLoad(true)]); try{ jsApply(RC.state); }catch(_){} ydRepaint(); }catch(_){} return null; }
+        await new Promise(r=>setTimeout(r, n?15000:5000)); } } };
+  YDQ.p=YDQ.p.then(run, run); return YDQ.p;
+}
+function ydAfterJo(){ try{ jsApply(RC.state); }catch(e){} try{ moromiHome(); }catch(e){} }
 function ydMenu(m, d){
   const w=document.createElement('div'); w.className='o2-mask yd-mask'; document.body.appendChild(w);
   const close=()=>w.remove(); w.onclick=e=>{ if(e.target===w) close(); };
-  let picked=null;
+  let picked=null, mv=null;   // picked＝この日に入れる作業／mv＝{u, to}（この日の作業を移す・空欄）
   const draw=()=>{
-    const s=ydSch(m), base=s?Object.assign({}, s):null, now=ydAt(m, s, d);
-    const res=picked?ydApply(m, picked, d, base, YD.chain):null, err=typeof res==='string'?res.slice(4):'';
+    const s=ydSch(m), base=s?Object.assign({}, s):null, now=ydAt(m, s, d), U=ydUnits(m, s, d);
+    const res=mv&&mv.to!==undefined?ydMove(m, s, mv.u, mv.to):(picked?ydApply(m, picked, d, base, YD.chain):null), err=typeof res==='string'?res.slice(4):'';
+    const ok=res&&typeof res==='object';
     const p=jsPlan(m), wd=dparse(d);
     const B=(k,cls,sub)=>`<button type="button" class="yd-mb yd-${k}${picked===k?' pk':''}${now.indexOf(k)>=0?' cur':''}${cls?' '+cls:''}" data-k="${k}">${YD_NM[k]}${sub?`<small>${sub}</small>`:''}</button>`;
+    const mu=mv&&U.find(x=>x.u===mv.u);
+    let days='';
+    if(mu){ for(let i=-3;i<=5;i++){ if(!i) continue; const x=dadd(d,i), xd=dparse(x), at=ydAt(m, s, x).map(k=>YD_NM[k]).join('・');
+        days+=`<button type="button" class="yd-dy${mv.to===x?' pk':''}" data-to="${x}"><b>${xd.getMonth()+1}/${xd.getDate()}</b><small>${WD[xd.getDay()]}${i===1?'・翌日':i===2?'・翌々日':i===-1?'・前日':''}</small><i>${esc(at)}</i></button>`; }
+      days+=`<button type="button" class="yd-dy bl${mv.to===''?' pk':''}" data-to=""><b>空欄</b><small>この作業だけ消す</small></button>`; }
+    const pv=ok?ydPv(res.sen||res.shi||res.soe||res.alc||res.only?res:null):null;
     w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div>
       <div class="yd-hd"><b>${wd.getMonth()+1}/${wd.getDate()}（${WD[wd.getDay()]}）</b>　${esc(String(m.no))}号 ${esc(m.liquid||'')}　<span class="yd-tk">T${esc(String(m.tank||''))}</span><button type="button" class="yd-x" data-a="close">✕</button></div>
-      <div class="yd-sub">${now.length?`この日は今「${now.map(k=>YD_NM[k]).join('・')}」。`:''}${s?'この日に移す作業を選んでください':'この日に入れる作業を選んでください'}</div>
-      <div class="yd-menu${picked?' haspk':''}">${B('sen','', s?'':'続きも自動')}${B('shi','')}${B('sau','','四段・アル添・上槽')}${s?B('soe','','四段だけ先に')+B('au','','アル添・上槽を後日に')+B('blank','','作業なし'):''}</div>
-      ${s?`<label class="yd-chk"><input type="checkbox" id="ydChain"${YD.chain?' checked':''}> 後ろの工程も一緒にずらす</label>`:''}
-      <div class="yd-pvb"><div class="yd-sm">${picked?'変更後':'いまの日程'}</div><div class="yd-pvl">${err?`<span class="yd-er">${esc(err)}</span>`:ydPv(picked?res:(s||{jo:m.joso||p, only:true}))}</div>
+      ${U.length?`<div class="yd-gp">この日の作業（押して、移す日を選ぶ）</div><div class="yd-units">${U.map(x=>`<button type="button" class="yd-un yd-${x.c}${mv&&mv.u===x.u?' pk':''}" data-u="${x.u}">${x.l}${x.sub?`<small>${x.sub}</small>`:''}</button>`).join('')}</div>
+        ${mu?`<div class="yd-sm" style="margin:6px 2px 3px">「${esc(mu.l)}」${mu.sub?`（${esc(mu.sub)}）`:''}をどの日に？</div><div class="yd-days">${days}</div>`:''}`:''}
+      <div class="yd-gp" style="margin-top:8px">${U.length?'この日に入れる作業':'この日に入れる作業を選んでください'}</div>
+      <div class="yd-menu${picked?' haspk':''}">${B('sen','', s?'':'続きも自動')}${B('shi','')}${B('sau','','四段・アル添・上槽')}${s?B('soe','','四段だけ先に')+B('au','','アル添・上槽'):''}</div>
+      ${s&&picked?`<label class="yd-chk"><input type="checkbox" id="ydChain"${YD.chain?' checked':''}> 後ろの工程も一緒にずらす</label>`:''}
+      <div class="yd-pvb"><div class="yd-sm">${ok?'変更後':'いまの日程'}</div><div class="yd-pvl">${err?`<span class="yd-er">${esc(err)}</span>`:(ok?(pv||'<span class="yd-sm">四段の日程はなくなります（上槽日はそのまま）</span>'):ydPv(s||{jo:m.joso||p, only:true}))}</div>
         ${m.josoSel&&m.joso!==p?`<div class="yd-sm" style="margin-top:3px">上槽の計画：${ydMD(p)}</div>`:''}</div>
-      <div class="yd-row">${s?'<button type="button" class="yd-b ng" data-a="del">日程を消す</button>':''}<button type="button" class="yd-b" data-a="close">やめる</button><button type="button" class="yd-b go" data-a="ok"${!picked||err?' disabled':''}>決定</button></div>
+      <div class="yd-row">${s?'<button type="button" class="yd-b ng" data-a="del">日程を全部消す</button>':''}<button type="button" class="yd-b" data-a="close">やめる</button><button type="button" class="yd-b go" data-a="ok"${!ok?' disabled':''}>決定</button></div>
       <div class="yd-row"><button type="button" class="yd-b rec" data-a="rec">📝 四段・アル添・上槽の記録 ›</button>${m.josoSel&&m.joso!==p?`<button type="button" class="yd-b sm" data-a="back">上槽を計画に戻す（${rcMD(p)}）</button>`:''}</div>
       <div class="yd-msg"></div></div>`;
-    w.querySelectorAll('.yd-mb').forEach(b=>b.onclick=()=>{ picked=b.dataset.k; draw(); });
+    w.querySelectorAll('.yd-mb').forEach(b=>b.onclick=()=>{ picked=b.dataset.k; mv=null; draw(); });
+    w.querySelectorAll('.yd-un').forEach(b=>b.onclick=()=>{ mv={u:b.dataset.u}; picked=null; draw(); });
+    w.querySelectorAll('.yd-dy').forEach(b=>b.onclick=()=>{ mv.to=b.dataset.to; draw(); });
     const ch=w.querySelector('#ydChain'); if(ch) ch.onchange=()=>{ YD.chain=ch.checked; draw(); };
     w.querySelectorAll('[data-a="close"]').forEach(b=>b.onclick=close);
     w.querySelector('[data-a="rec"]').onclick=()=>{ close(); ydRecOpen(m.no, d); };
-    const say=t=>{ const x=w.querySelector('.yd-msg'); if(x) x.textContent=t; };
-    const busy=on=>w.querySelectorAll('button').forEach(b=>b.disabled=on);
-    const bk=w.querySelector('[data-a="back"]'); if(bk) bk.onclick=async()=>{ busy(true); say('保存しています…');
-      try{ const j=await ydSaveJo(m, p); close(); rcToast(j.calErr?('保存しました（カレンダーに入れられませんでした：'+j.calErr+'）'):`${m.no}号の上槽日を ${ydMD(p)} に戻しました`, !!j.calErr, j.calErr?8000:3000); moromiHome(); }
-      catch(e){ say('保存できませんでした：'+(e.message||e)); busy(false); } };
-    const del=w.querySelector('[data-a="del"]'); if(del) del.onclick=async()=>{ if(!confirm('四洗〜アル添の日程を消しますか？（上槽日はそのまま）')) return; busy(true); say('消しています…');
-      try{ const it=ydItem(YD_SCH, m.no); if(it) mwKeep(await mwApi({action:'delete', id:it.id})); close(); ydRepaint(); rcToast(`${m.no}号の四段の日程を消しました`); }
-      catch(e){ say('消せませんでした：'+(e.message||e)); busy(false); } };
-    w.querySelector('[data-a="ok"]').onclick=async()=>{
-      if(!picked||err) return; const r=ydApply(m, picked, d, ydSch(m), YD.chain); if(!r||typeof r==='string') return;
-      if(r.del){ busy(true); say('消しています…');
-        try{ const it=ydItem(YD_SCH, m.no); if(it) mwKeep(await mwApi({action:'delete', id:it.id})); close(); ydRepaint(); rcToast(`${m.no}号の四段の日程を消しました`); }
-        catch(e){ say('消せませんでした：'+(e.message||e)); busy(false); } return; }
-      busy(true); say('保存しています…');
-      try{
-        let joCh=false, calErr='';
-        if(!r.only){ const it=ydItem(YD_SCH, m.no);
-          mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:YD_SCH, kind:'日程', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:r.soe, memo:JSON.stringify({sen:r.sen, shi:r.shi, soe:r.soe, alc:r.alc||r.soe})}})); }
-        if(r.jo && r.jo!==(m.joso||p)){ const j=await ydSaveJo(m, r.jo); joCh=true; calErr=j.calErr||''; }
-        close();
-        rcToast(calErr?('保存しました（カレンダーに入れられませんでした：'+calErr+'）'):`${m.no}号の日程を保存しました`, !!calErr, calErr?8000:2500);
-        if(joCh) moromiHome(); else ydRepaint();
-      }catch(e){ say('保存できませんでした：'+(e.message||e)); busy(false); }
+    const bk=w.querySelector('[data-a="back"]'); if(bk) bk.onclick=()=>{
+      const k=ydLocal('rk', {name:'上槽', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:p, memo:'計画 '+p});
+      close(); rcToast(`${m.no}号の上槽日を ${ydMD(p)} に戻しました`); ydAfterJo();
+      ydBg('上槽日', async()=>{ const j=await ydSaveJo(m, p); if(j&&j.calErr) rcToast('カレンダーに入れられませんでした：'+j.calErr, true, 8000); return j; }, [['rk',k]]); };
+    const ydDelSch=()=>{ const k=ydLocal('mw', {name:YD_SCH, no:String(m.no), _del:true});
+      close(); ydRepaint(); rcToast(`${m.no}号の四段の日程を消しました`);
+      ydBg('四段の日程の削除', async()=>{ const it=(MW.items||[]).concat([]).find(x=>!x.deleted&&x.name===YD_SCH&&String(x.no)===String(m.no)&&x.id) || null;
+        let id=it&&it.id; if(!id){ const j0=await mwApi({action:'list'}); const f=(j0.items||[]).filter(x=>!x.deleted&&x.name===YD_SCH&&String(x.no)===String(m.no)).pop(); id=f&&f.id; }
+        if(id) mwKeep(await mwApi({action:'delete', id})); return true; }, [['mw',k]]); };
+    const del=w.querySelector('[data-a="del"]'); if(del) del.onclick=()=>{ if(!confirm('四洗〜アル添の日程を全部消しますか？（上槽日はそのまま）')) return; ydDelSch(); };
+    w.querySelector('[data-a="ok"]').onclick=()=>{
+      const r=mv&&mv.to!==undefined?ydMove(m, ydSch(m), mv.u, mv.to):(picked?ydApply(m, picked, d, ydSch(m), YD.chain):null); if(!r||typeof r==='string') return;
+      const joCh=!!(r.jo && r.jo!==(m.joso||p));
+      const empty=!r.only && !r.sen && !r.shi && !r.soe && !r.alc;
+      const keys=[], item=(r.only||empty)?null:{name:YD_SCH, kind:'日程', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:r.soe||r.alc||r.shi||r.sen, memo:JSON.stringify({sen:r.sen||'', shi:r.shi||'', soe:r.soe||'', alc:r.alc||''})};
+      if(empty && s){ if(!joCh){ ydDelSch(); return; } }
+      if(item) keys.push(['mw', ydLocal('mw', item)]);
+      if(empty && s) keys.push(['mw', ydLocal('mw', {name:YD_SCH, no:String(m.no), _del:true})]);
+      if(joCh) keys.push(['rk', ydLocal('rk', {name:'上槽', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:r.jo, memo:'計画 '+p})]);
+      close(); rcToast(`${m.no}号の日程を保存しました`);
+      if(joCh) ydAfterJo(); else ydRepaint();
+      ydBg('日程', async()=>{   // 送る直前に今の id を引く（前の保存の返事を待ってから）
+        const it=(MW.items||[]).find(x=>!x.deleted&&x.name===YD_SCH&&String(x.no)===String(m.no)&&x.id);
+        if(item){ mwKeep(await mwApi({action:'save', item:Object.assign({}, item, {id:it?it.id:''})})); ydReapply(); }
+        else if(empty && it){ mwKeep(await mwApi({action:'delete', id:it.id})); ydReapply(); }
+        if(joCh){ const j=await ydSaveJo(m, r.jo); if(j&&j.calErr) rcToast('日程は保存しました（カレンダーに入れられませんでした：'+j.calErr+'）', true, 8000); }
+        return true; }, keys);
     };
   };
   draw();
@@ -14985,14 +15035,16 @@ function ydPlusAll(box){
 /* ---------- 表に札と「上槽後の分析」の枠を描く ---------- */
 function ydBoxHTML(m){
   const S=ydAnaState(m);
-  if(!S.n) return `<button type="button" class="yd-box wait" data-ydno="${esc(String(m.no))}"><span class="ah">🧪 上槽後の分析</span><span class="yd-sm2">上槽先 未入力</span><span class="tap">押して入力 ›</span></button>`;
+  if(!S.n) return `<button type="button" class="yd-box yd-mini wait" data-ydno="${esc(String(m.no))}">🧪<b>未</b></button>`;
   const rows=S.D.map(d=>{ const a=ydAna(m,d.t);
     if(!a) return `<span class="ar"><b>T${esc(String(d.t))}</b><i class="pill">未</i></span>`;
     const v=[a.smv,a.alc].map((x,k)=>ydN(x)===null?'':(k?ydF1(x):ydSg(x))).filter(Boolean).join(' / ');
     return `<span class="ar"><b>T${esc(String(d.t))}</b><span class="vv${v?'':' e'}">${v||'空欄'}</span></span>`; }).join('');
   const cls=S.pend?'wait':S.blank?'part':'done', sm=ydSum(m);
   const foot=S.pend?'<span class="tap">押して入力 ›</span>':(sm.any?`<span class="sumv">${S.n>1?'合算 ':''}${ydSg(sm.smv)} / ${ydF1(sm.alc)}</span>`:'');
-  return `<button type="button" class="yd-box ${cls}" data-ydno="${esc(String(m.no))}"><span class="ah">🧪 上槽後の分析</span>${rows}${foot}</button>`;
+  if(window.YD_BIGBOX) return `<button type="button" class="yd-box ${cls}" data-ydno="${esc(String(m.no))}"><span class="ah">🧪 上槽後の分析</span>${rows}${foot}</button>`;
+  /* 2026-11-05 泰広さん：Beの行が大きくなるので、表の中は小さな1行の札に（中身は押して開く窓で） */
+  return `<button type="button" class="yd-box yd-mini ${cls}" data-ydno="${esc(String(m.no))}">🧪<b>${S.pend?'未':S.blank?'空欄有':'済'}</b></button>`;
 }
 function ydPaint(box){
   try{
@@ -15079,7 +15131,7 @@ function ydAnaOpen(no, focusT){
     const init=k=>a?ydN(a[k]):null;   // 2026-11-05 泰広さん：入力していない項目は空欄から（予想値は入れない）
     const pre=k=>'';   // 2026-11-05 予想値は表示しない
     /* 2026-11-05 泰広さん：リール → 数字を打つ入力に。日本酒度は ＋／− を選ぶ */
-    const box=(k,l)=>`<label class="yd-in"><span>${l}</span><input type="text" inputmode="decimal" enterkeyhint="next" id="yi_${k}" placeholder="空欄" autocomplete="off"></label>`;
+    const box=(k,l)=>`<label class="yd-ain"><span>${l}</span><input type="text" inputmode="decimal" enterkeyhint="next" id="yi_${k}" placeholder="空欄" autocomplete="off"></label>`;
     w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div>
       <div class="yd-hd"><span class="yd-big">T${esc(String(t))}</span><span class="yd-sm">← ${esc(String(m.no))}号 ${esc(m.liquid||'')}　${rcMD(m.joso)}上槽　${ydL(d.L)}L</span><span class="yd-who">入力者 ${esc(String(ST.name||''))}</span></div>
       <div class="yd-smv"><div class="yd-smvh"><b>日本酒度</b><span class="now" id="ydSmvNow"></span></div>
@@ -15288,6 +15340,15 @@ function ydRecOpen(no, date, step){
 .yd-sub{font-size:12px;color:var(--sub);margin:2px 0 8px}
 .yd-sm{font-size:12px;color:var(--sub)}.yd-sm2{display:block;font-size:11px;font-weight:700}
 .yd-big{font-size:24px;font-weight:800;color:#8a5a2b}.yd-who{margin-left:auto;font-size:12px;color:var(--sub)}
+.yd-units{display:flex;flex-wrap:wrap;gap:6px}
+.yd-un{border:0;border-radius:12px;padding:8px 12px;color:#fff;font:inherit;font-weight:800;font-size:16px;cursor:pointer;line-height:1.2}
+.yd-un small{display:block;font-size:10px;font-weight:600;opacity:.92}
+.yd-units .yd-un.pk{box-shadow:0 0 0 3px #fff,0 0 0 6px var(--navy)}
+.yd-days{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.yd-dy{border:1.5px solid #c9d3da;background:#fff;border-radius:10px;padding:5px 2px;font:inherit;cursor:pointer;line-height:1.2;color:var(--ink)}
+.yd-dy b{display:block;font-size:15px}.yd-dy small{display:block;font-size:10px;color:var(--sub)}.yd-dy i{display:block;font-style:normal;font-size:10px;color:#8e44ad;min-height:12px}
+.yd-dy.pk{background:var(--navy,#1d3557);border-color:var(--navy,#1d3557);color:#fff}.yd-dy.pk small,.yd-dy.pk i{color:#fff}
+.yd-dy.bl{background:#f3f4f5;border-style:dashed}.yd-dy.bl.pk{background:#6b737a;border-color:#6b737a}
 .yd-menu{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .yd-mb{border:0;border-radius:14px;padding:12px 4px;color:#fff;font:inherit;font-weight:800;font-size:16px;cursor:pointer;line-height:1.25;position:relative}
 .yd-mb small{display:block;font-size:11px;font-weight:600;opacity:.92}
@@ -15317,6 +15378,7 @@ function ydRecOpen(no, date, step){
 /* 表の「上槽後の分析」の枠 */
 .kg-t td.yd-cell{vertical-align:top;padding:3px!important;width:118px;min-width:118px;max-width:118px}
 .kg-t .kg-i.yd-hide{display:none}
+.yd-box.yd-mini{display:inline-block;width:auto;padding:0 4px;font-size:10px;line-height:1.3;border-radius:6px;box-shadow:none;white-space:nowrap;vertical-align:middle;margin:0 1px}.yd-box.yd-mini b{margin-left:1px;font-weight:800}
 .yd-box{display:block;width:100%;text-align:left;border-radius:11px;padding:5px 6px;font:inherit;font-size:11.5px;line-height:1.35;cursor:pointer;white-space:normal}
 .yd-box .ah{display:block;font-weight:800;font-size:11px;margin-bottom:1px;white-space:nowrap;letter-spacing:-.02em}
 .yd-box.wait{background:#e9f6f6;border:2px solid #0f7c80;color:#0f7c80;box-shadow:0 2px 6px rgba(15,124,128,.18)}
@@ -15348,9 +15410,9 @@ function ydRecOpen(no, date, step){
 .yd-sgn{display:grid;grid-template-columns:56px 56px 1fr;gap:6px;align-items:center;margin-top:4px}
 .yd-sg{border:1.5px solid #b8c6cf;background:#fff;border-radius:10px;font:inherit;font-size:22px;font-weight:800;height:48px;color:#556;cursor:pointer}
 .yd-sg.on{background:var(--navy,#1d3557);border-color:var(--navy,#1d3557);color:#fff}
-.yd-sgn input,.yd-in input{width:100%;box-sizing:border-box;height:48px;border:1.5px solid #b8c6cf;border-radius:10px;font:inherit;font-size:22px;font-weight:700;text-align:center;background:#fff}
-.yd-sgn input.bad,.yd-in input.bad{border-color:#d33;background:#fff4f4}
-.yd-in{display:block;text-align:center}.yd-in span{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:2px}
+.yd-sgn input,.yd-ain input{width:100%;box-sizing:border-box;height:48px;border:1.5px solid #b8c6cf;border-radius:10px;font:inherit;font-size:22px;font-weight:700;text-align:center;background:#fff}
+.yd-sgn input.bad,.yd-ain input.bad{border-color:#d33;background:#fff4f4}
+.yd-ain{display:block;text-align:center}.yd-ain span{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:2px}
 .yd-smv{border:1.5px solid #8cc7c9;border-radius:14px;background:#f8fdfd;padding:6px 6px 4px;margin-top:8px}
 .yd-smvh{display:flex;align-items:baseline;gap:8px;padding:0 4px 2px}.yd-smvh b{color:var(--navy);font-size:14px}.yd-smvh .pv{font-size:11px;color:var(--blue,#1f6fa8)}
 .yd-smvh .now{margin-left:auto;font-size:24px;font-weight:800;color:var(--ink)}.yd-smvh .now.e{color:#999;font-size:16px}
