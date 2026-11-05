@@ -9396,6 +9396,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-05-5','📦','資材','資材に「酒粕箱」タブ：酒粕ダンボール（20K・10K・5K）の在庫を、粕の記録の箱数から自動で減らします。残り100箱を切ると知らせます（発注済なら出ません）。発注（サクラパックス・電話、最低ロット300箱）・入荷・棚卸を記録。粕の画面の上にも箱の残りを表示。'],
   ['2026-11-05-4','💾','保存','「未送信」がずっと残る件：たくさん一度に送るとサーバーの返事が遅れて打ち切り→送り直しを繰り返していたので、同時に送るのを3件までに。未送信があると右下に「未送信 ◯件」が出て、押すと理由の確認・1件ずつ送る・捨てるができます。'],
   ['2026-11-05-3','🟫','粕','「きょうの粕」に明日の分（今日上槽した仕込み）が出ていたのを直しました。上槽の翌日になってから出ます。'],
   ['2026-11-05-2','🟫','本日の予定','本日の予定の「粕」を、出勤表の粕欄ではなく仕込みの上槽日の翌日から自動で出すようにしました（仕込みの表で上槽日を変えると粕の日も一緒に動きます）。押すと粕の画面が開きます。'],
@@ -15849,5 +15850,161 @@ function planScreen(){
 
 </script>
 <!-- /shplan1105 -->
+<!-- kasubox1105 -->
+<script>
+/* ================= 📦 酒粕ダンボール（資材 › 酒粕箱）2026-11-05 泰広さん指示 =================
+   ・酒粕ダンボール 20kg入・10kg入・5kg入（サクラパックス・電話で注文）の在庫と発注を 資材 の「酒粕箱」タブで管理
+   ・在庫＝棚卸（表「資材在庫」区分 棚卸）＋入荷 − 粕アイコンの記録（粕記録の 20kg箱・10kg箱・5kg箱。棚卸の日から）
+   ・最低ロット 300箱。発注の既定 20K 300・10K 300・5K 500（2026-11-05 の電話注文の数）
+   ・どれかの残りが100箱を切り、発注済が無いとき：ホームの本日の予定に小さな札・資材アイコンの札・タブの赤い点
+   ・発注は表「資材発注」に 資材名「酒粕ダンボール」1行（数量＝合計箱、メモに「20K 300・10K 300・5K 500」）。入荷予定日を入れると部署カレンダーへ
+   ・昨年度の販売数量（社用含む・事務所 漆原さん）：20K 260箱・10K 210箱・5K 400箱
+   ・2026-11-05 時点の在庫 各80箱（泰広さん）・同日 電話で発注 20K 300・10K 300・5K 500（入荷日は未定）→ KB_PRE（記録が入ればそちらが優先）
+   控え：seishu-workbook_github\_src_kasubox1105.js　差し込み：_酒粕箱_20261105.py（<!-- kasubox1105 --> ブロック、</body> の直前） */
+const KB_NAME='酒粕ダンボール', KB_VENDOR='サクラパックス', KB_MIN=100, KB_LOT=300;
+const KB_ITEMS=[ {k:'b20', lb:'20K', name:'酒粕ダンボール 20kg入', def:300, last:260},
+                 {k:'b10', lb:'10K', name:'酒粕ダンボール 10kg入', def:300, last:210},
+                 {k:'b5',  lb:'5K',  name:'酒粕ダンボール 5kg入',  def:500, last:400} ];
+const KB_PRE_TANA={ date:'2026-11-05', qty:80, pre:1 };
+const KB_PRE_ORD={ slot:'kasu-2026-11-05', name:KB_NAME, kind:'発注済', date:'2026-11-05', plan:'', vendor:KB_VENDOR, qty:'1100', unit:'箱', memo:'20K 300・10K 300・5K 500（電話注文）', pre:1 };
+const KB={ sec:'', edit:null };
+const kbQ=(memo,lb)=>{ const m=String(memo||'').match(new RegExp(lb+'\\s*([0-9,]+)')); return m?Number(m[1].replace(/,/g,'')):0; };
+const kbMemo=q=>KB_ITEMS.map(it=>`${it.lb} ${q[it.k]||0}`).join('・');
+/* 発注（発注済・入荷済）：表「資材発注」＋ KB_PRE_ORD */
+function kbOrders(){
+  const L=(SZO.items||[]).filter(x=>x.name===KB_NAME);
+  if(!L.some(x=>x.slot===KB_PRE_ORD.slot)) L.push(Object.assign({}, KB_PRE_ORD));
+  return L.map(x=>{ const q={}; KB_ITEMS.forEach(it=>q[it.k]=kbQ(x.memo,it.lb)); return Object.assign({}, x, { q }); })
+    .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+}
+function kbPending(){ return kbOrders().filter(x=>x.kind==='発注済'); }
+/* 粕記録（粕アイコン）の箱の数：仕込みごとに最新の記録 */
+function kbUses(){
+  const out=[]; if(typeof KX_REC==='undefined'||typeof kxRec!=='function') return out;
+  const nos=[...new Set((MW.items||[]).filter(x=>!x.deleted&&x.name===KX_REC).map(x=>String(x.no)))];
+  nos.forEach(no=>{ const j=kxRec(no); if(!j||!j.date) return; const q={}; let any=false;
+    KB_ITEMS.forEach(it=>{ const n=Number((j.q||{})[it.k])||0; q[it.k]=n; if(n) any=true; }); if(any) out.push({ no, date:String(j.date).slice(0,10), q }); });
+  return out.sort((a,b)=>b.date.localeCompare(a.date)||(+b.no)-(+a.no));
+}
+function kbStock(){
+  const today=dtoday(), uses=kbUses();
+  return KB_ITEMS.map(it=>{
+    const L=(ZAI.items||[]).filter(x=>x.name===it.name&&x.date);
+    const tana=L.filter(x=>x.kind==='棚卸').sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.at||'').localeCompare(String(a.at||'')))[0]||KB_PRE_TANA;
+    const from=String(tana.date);
+    const inq=L.filter(x=>x.kind==='入荷'&&String(x.date)>=from).reduce((a,x)=>a+(Number(x.qty)||0),0);
+    const used=uses.filter(u=>u.date>=from&&u.date<=today).reduce((a,u)=>a+(u.q[it.k]||0),0);
+    const pend=kbPending().reduce((a,o)=>a+(o.q[it.k]||0),0);
+    const stock=(Number(tana.qty)||0)+inq-used;
+    return Object.assign({}, it, { tana, inq, used, stock, pend, low:stock<KB_MIN, need:stock<KB_MIN&&!pend });
+  });
+}
+function kbAlert(){ try{ return kbStock().filter(r=>r.need); }catch(e){ return []; } }
+
+function kbHTML(){
+  const S=kbStock(), P=kbPending(), today=dtoday();
+  let h='';
+  const ng=S.filter(r=>r.need);
+  if(ng.length) h+=`<div class="szi-alert"><b>${ng.map(r=>r.lb).join('・')} の残りが${KB_MIN}箱を切りました。</b>${KB_VENDOR}に電話で発注して「📦 発注した」を押してください（最低ロット${KB_LOT}箱）。</div>`;
+  h+=`<table class="szi-t"><tr><th>酒粕ダンボール</th><th>在庫</th><th>発注済</th><th>昨年度</th></tr>
+    ${S.map(r=>`<tr class="${r.need?'ng':''}"><td><b>${r.lb}</b><small>棚卸 ${rcMD(r.tana.date)} ${sziF(r.tana.qty,0)}${r.inq?`＋入荷 ${sziF(r.inq,0)}`:''}${r.used?`−使用 ${sziF(r.used,0)}`:''}</small></td>
+      <td class="${r.low?'ng':'ok'}">${sziF(r.stock,0)}</td><td>${r.pend?'＋'+sziF(r.pend,0):'—'}</td><td>${sziF(r.last,0)}</td></tr>`).join('')}</table>
+    <p class="szo-s">単位：箱。使った数は 粕アイコンの記録（20kg箱・10kg箱・5kg箱）から自動で引きます。残り${KB_MIN}箱を切ると知らせます（発注済があれば知らせません）。昨年度＝販売数量（社用含む）。</p>`;
+  /* 発注 */
+  h+=`<div class="szo-box ${ng.length?'ng':''}" style="margin-top:10px"><div class="szo-t">📦 発注<small>${KB_VENDOR}（電話）・最低ロット${KB_LOT}箱</small></div>`;
+  if(SZO.err) h+=`<div class="szi-msg ng">${esc(SZO.err)}</div>`;
+  P.forEach(p=>{ const key=p.id||p.slot;
+    h+=`<div class="szo-pend"><b>${p.plan?`📅 ${rcMD(p.plan)} 入荷予定`:'入荷日 未定'}</b>　${esc(kbMemo(p.q))}<br><small style="color:var(--sub)">${p.date?rcMD(p.date)+' 発注':''}・${esc(p.vendor||KB_VENDOR)}</small>
+      <div class="szi-btns" style="margin-top:6px"><button type="button" class="szi-btn" data-kbin="${esc(key)}">入荷を記録</button><button type="button" class="szi-btn sub" data-kbed="${esc(key)}">日付・数を直す</button><button type="button" class="szi-btn sub" data-kbcx="${esc(key)}">取り消す</button></div></div>`; });
+  if(KB.edit){ const e=KB.edit==='new'?null:P.find(p=>(p.id||p.slot)===KB.edit);
+    h+=`<div class="szi-form" style="margin-top:6px">
+      <div class="r"><label>発注日</label><input type="date" id="kbOd" value="${esc(e?e.date:today)}"></div>
+      <div class="r"><label>入荷予定日</label><input type="date" id="kbOp" value="${esc(e?e.plan||'':'')}"><small style="color:var(--sub)">未定なら空欄</small></div>
+      ${KB_ITEMS.map(it=>`<div class="r"><label style="width:3em">${it.lb}</label><input type="text" inputmode="numeric" class="big" id="kbO_${it.k}" value="${e?e.q[it.k]:it.def}"><span class="u">箱</span></div>`).join('')}
+      <div class="r"><label>発注先</label><input type="text" id="kbOv" value="${esc(e?e.vendor||KB_VENDOR:KB_VENDOR)}" style="flex:1"></div>
+      <div class="szi-btns"><button type="button" class="szi-btn" id="kbOok">${e?'直す':'登録'}</button><button type="button" class="szi-btn sub" id="kbOno">やめる</button></div>
+      <div class="szi-msg" id="kbOmsg"></div></div>`; }
+  else h+=`<button type="button" class="szi-btn ${ng.length?'':'sub'}" id="kbOgo" style="width:100%;margin-top:6px">📦 発注した</button>`;
+  h+=`<div class="szi-msg" id="kbPmsg"></div></div>`;
+  /* 棚卸 */
+  if(KB.sec==='tana') h+=`<div class="szi-form"><div class="szi-h" style="margin-top:0">棚卸（今ある数）</div>
+      <div class="r"><label>日付</label><input type="date" id="kbTd" value="${today}"></div>
+      ${KB_ITEMS.map(it=>`<div class="r"><label style="width:3em">${it.lb}</label><input type="text" inputmode="numeric" class="big" id="kbT_${it.k}" placeholder="数えていなければ空欄"><span class="u">箱</span></div>`).join('')}
+      <div class="szi-btns"><button type="button" class="szi-btn" id="kbTok">棚卸を記録</button><button type="button" class="szi-btn sub" id="kbTno">やめる</button></div><div class="szi-msg" id="kbTmsg"></div></div>`;
+  else h+=`<button type="button" class="szi-btn sub" id="kbTgo" style="width:100%">📝 棚卸（今ある数）を入れる</button>`;
+  /* 入荷・棚卸の記録と使用 */
+  const log=(ZAI.items||[]).filter(x=>KB_ITEMS.some(it=>it.name===x.name)).sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.at||'').localeCompare(String(a.at||'')));
+  h+=`<div class="szi-h">入荷・棚卸の記録</div>`+(log.length?`<table class="szi-t"><tr><th>日付</th><th>箱</th><th>区分</th><th>数</th><th></th></tr>${log.map(x=>`<tr><td>${rcMD(x.date)}<small>${esc(x.memo||'')}</small></td><td>${esc((KB_ITEMS.find(it=>it.name===x.name)||{}).lb||'')}</td><td>${esc(x.kind)}<small>${esc(x.updBy||x.by||'')}</small></td><td>${sziF(x.qty,0)}</td><td><button type="button" class="del" data-zdel="${esc(x.id)}">消す</button></td></tr>`).join('')}</table>`
+    :`<div class="szi-none">まだありません（${rcMD(KB_PRE_TANA.date)} の在庫 各${KB_PRE_TANA.qty}箱から数えています）</div>`);
+  const U=kbUses().slice(0,15);
+  h+=`<div class="szi-h">使った数（粕の記録）<small>新しい順</small></div>`+(U.length?`<table class="szi-t"><tr><th>粕放し日</th>${KB_ITEMS.map(it=>`<th>${it.lb}</th>`).join('')}</tr>${U.map(u=>`<tr><td>${rcMD(u.date)}<small>${esc(u.no)}号</small></td>${KB_ITEMS.map(it=>`<td>${u.q[it.k]||''}</td>`).join('')}</tr>`).join('')}</table>`:`<div class="szi-none">まだありません</div>`);
+  return h;
+}
+function kbBind(draw){
+  const msg=(id,t,ok)=>{ const m=document.getElementById(id); if(m){ m.className='szi-msg '+(ok?'ok':'ng'); m.textContent=t; } };
+  const find=key=>kbPending().find(p=>(p.id||p.slot)===key);
+  const strip=p=>{ const o=Object.assign({}, p); delete o.q; delete o.pre; return o; };
+  const g=$('#kbOgo'); if(g) g.onclick=()=>{ KB.edit='new'; draw(); };
+  const n=$('#kbOno'); if(n) n.onclick=()=>{ KB.edit=null; draw(); };
+  app.querySelectorAll('[data-kbed]').forEach(b=>b.onclick=()=>{ KB.edit=b.dataset.kbed; draw(); });
+  const ok=$('#kbOok'); if(ok) ok.onclick=async()=>{
+    const q={}; let bad='', tot=0;
+    KB_ITEMS.forEach(it=>{ const v=pnum($('#kbO_'+it.k).value); const x=v===null?0:Math.round(v); q[it.k]=x; tot+=x; if(x>0&&x<KB_LOT) bad=`${it.lb} は最低ロット${KB_LOT}箱です`; if(x<0) bad='数がマイナスです'; });
+    const d=$('#kbOd').value||dtoday(), p=$('#kbOp').value||'';
+    if(bad){ msg('kbOmsg',bad); return; } if(!tot){ msg('kbOmsg','数を入れてください'); return; }
+    const e=KB.edit==='new'?null:find(KB.edit);
+    ok.disabled=true; msg('kbOmsg','送っています…',true);
+    try{ await szoSave(Object.assign({}, e?strip(e):{ slot:'kasu-'+d+'-'+Date.now() }, { name:KB_NAME, kind:'発注済', date:d, plan:p, qty:String(tot), unit:'箱', vendor:$('#kbOv').value.trim()||KB_VENDOR, memo:kbMemo(q)+'（電話注文）' })); KB.edit=null; draw(); }
+    catch(err){ ok.disabled=false; msg('kbOmsg',String(err.message||err)); } };
+  app.querySelectorAll('[data-kbcx]').forEach(b=>b.onclick=async()=>{ if(b.dataset.s!=='1'){ b.dataset.s='1'; b.textContent='本当に取り消す'; return; }
+    const p=find(b.dataset.kbcx); if(!p) return; b.disabled=true;
+    try{ if(p.pre) await szoSave(Object.assign(strip(p), { kind:'取消' })); else szoKeep(await szoApi({action:'delete', id:p.id})); draw(); }catch(err){ b.textContent='失敗'; } });
+  app.querySelectorAll('[data-kbin]').forEach(b=>b.onclick=async()=>{ const p=find(b.dataset.kbin); if(!p) return;
+    if(b.dataset.s!=='1'){ b.dataset.s='1'; b.textContent=`${kbMemo(p.q)} を入荷`; return; }
+    b.disabled=true; msg('kbPmsg','送っています…',true);
+    try{ const t=dtoday();
+      for(const it of KB_ITEMS){ const x=p.q[it.k]||0; if(x>0) zaiKeep(await zaiApi({action:'save', item:{ name:it.name, kind:'入荷', qty:String(x), unit:'箱', date:t, memo:`${p.vendor||KB_VENDOR} ${p.date?rcMD(p.date)+'発注分':''}` }})); }
+      await szoSave(Object.assign(strip(p), { kind:'入荷済', plan:t })); draw(); }
+    catch(err){ msg('kbPmsg',String(err.message||err)); b.disabled=false; } });
+  const tg=$('#kbTgo'); if(tg) tg.onclick=()=>{ KB.sec='tana'; draw(); };
+  const tn=$('#kbTno'); if(tn) tn.onclick=()=>{ KB.sec=''; draw(); };
+  const tk=$('#kbTok'); if(tk) tk.onclick=async()=>{ const d=$('#kbTd').value||dtoday(), L=[];
+    KB_ITEMS.forEach(it=>{ const v=pnum($('#kbT_'+it.k).value); if(v!==null&&v>=0) L.push([it,Math.round(v)]); });
+    if(!L.length){ msg('kbTmsg','数を入れてください'); return; }
+    tk.disabled=true; msg('kbTmsg','送っています…',true);
+    try{ for(const [it,v] of L) zaiKeep(await zaiApi({action:'save', item:{ name:it.name, kind:'棚卸', qty:String(v), unit:'箱', date:d, memo:'' }})); KB.sec=''; draw(); }
+    catch(err){ tk.disabled=false; msg('kbTmsg',String(err.message||err)); } };
+}
+/* 酒粕ダンボールは「酵素剤・他」「仕込み › 資材の在庫」の一覧には出さない（このタブだけで扱う） */
+if(typeof zaiCalc==='function'){ const _zc=zaiCalc; zaiCalc=function(st){ return _zc(st).filter(r=>!String(r.name).startsWith(KB_NAME)); }; }
+/* 資材の画面にタブ「酒粕箱」 */
+if(typeof sziHTML==='function'){ const _sh=sziHTML; sziHTML=function(st){
+  const kasu=SZI.tab==='kasu'; if(kasu) SZI.tab='__kb';
+  let h; try{ h=_sh(st); } finally{ if(kasu) SZI.tab='kasu'; }
+  const i=h.indexOf('<div class="szi-tabs">'); if(i<0) return h;
+  const j=h.indexOf('</div>', i);
+  const btn=`<button type="button" data-szt="kasu" class="${kasu?'on':''}">酒粕箱${kbAlert().length?'<span class="d"></span>':''}</button>`;
+  return h.slice(0,j)+btn+'</div>'+(kasu?kbHTML():h.slice(j+6)); }; }
+if(typeof sziBind==='function'){ const _sb=sziBind; sziBind=function(st, draw){ _sb(st, draw); if(SZI.tab==='kasu') kbBind(draw); }; }
+if(typeof sziScreen==='function'){ const _ss=sziScreen; sziScreen=async function(tab){ const p=_ss(tab);
+  try{ mwLoad(false).then(()=>{ if(SZI.tab==='kasu' && typeof SZI.redraw==='function'){ const ae=document.activeElement; if(!(ae&&ae.closest&&ae.closest('#app')&&ae.matches('input,textarea,select'))) SZI.redraw(); } }).catch(()=>{}); }catch(e){}
+  return p; }; }
+/* アラート：資材アイコンの札・ホームの本日の予定の小さな札 */
+if(typeof sziHomeTag==='function'){ const _ht=sziHomeTag; sziHomeTag=function(){ const t=_ht(); if(t) return t; return kbAlert().length?'粕箱発注':''; }; }
+if(typeof szoBandHTML==='function'){ const _bh=szoBandHTML; szoBandHTML=function(){ let h=_bh(); const a=kbAlert();
+  if(a.length) h+=`<div class="szo-chips"><button type="button" class="dp-al szo-chip" data-szoal="kasu">酒粕箱 発注（${a.map(r=>`${r.lb} 残${sziF(r.stock,0)}`).join('・')}）</button></div>`;
+  return h; }; }
+/* 粕の画面（きょうの粕）の上に箱の残りを小さく */
+if(typeof kxTodayHTML==='function'){ const _kt=kxTodayHTML; kxTodayHTML=function(){ let s='';
+  try{ const S=kbStock(); s=`<button type="button" class="kb-line ${S.some(r=>r.need)?'ng':''}" onclick="go(()=>sziScreen('kasu'))">📦 箱の残り ${S.map(r=>`${r.lb} <b>${sziF(r.stock,0)}</b>`).join('・')}${S.some(r=>r.pend)?'（発注済あり）':''} ›</button>`; }catch(e){}
+  return s+_kt(); }; }
+(function(){ const s=document.createElement('style'); s.textContent=`
+.szi-tabs{grid-template-columns:repeat(5,1fr)}
+.kb-line{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 10px;margin:0 0 10px;font:inherit;font-size:12.5px;color:var(--sub);cursor:pointer}
+.kb-line b{color:var(--ink)}.kb-line.ng{border-color:#e3b4b4;background:#fff5f4}.kb-line.ng b{color:#b23b3b}
+`; document.head.appendChild(s); })();
+
+</script>
+<!-- /kasubox1105 -->
 </body>
 </html>
