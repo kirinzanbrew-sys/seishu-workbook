@@ -9396,6 +9396,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-05-29','📅','仕込み','日程の窓をシンプルに：押した日・翌日・翌々日が横に並び、日付の下のマスを押して作業（空欄・四洗・四仕・四添・ア上・四ア上）を選ぶだけ。下の「入力する」には、その日の作業に合わせて 仕込み情報・分析値・アル添・上槽先・粕 のマスが出て、押すとその入力画面が開きます。'],
   ['2026-11-05-28','📅','仕込み','日程の窓：その日の作業（四洗・四仕・四添・ア上・四ア上）を押すと、その作業だけを前後の日へ移したり「空欄」にしたりできます。四ア上の日は「四添だけ」「アル添・上槽だけ」も選べるので、四段添加のあとアル添・上槽を翌日・翌々日へ自由に動かせます。空欄はその作業だけ消え、ほかは残ります。'],
   ['2026-11-05-27','🍶','仕込み','仕込みの表：上槽の翌日のマスの「🧪 上槽後の分析」の枠を小さな札（🧪未／🧪済）にして、Beの行の高さを元に戻しました。押すと今までどおり入力の窓が開きます。'],
   ['2026-11-05-26','⚡','仕込み','四洗・四仕・四ア上・四添・ア上・空欄など日程を決めたら、すぐ窓が閉じて次の作業に移れるように（保存は裏で送ります。送れなかったときだけ赤い知らせが出ます）。'],
@@ -14924,69 +14925,104 @@ function ydBg(label, fn, keys){
   YDQ.p=YDQ.p.then(run, run); return YDQ.p;
 }
 function ydAfterJo(){ try{ jsApply(RC.state); }catch(e){} try{ moromiHome(); }catch(e){} }
-function ydMenu(m, d){
+function ydMenu(m, d){   // 2026-11-05 泰広さん：押した日・翌日・翌々日を横に並べ、日付の下のマスを押して作業を選ぶだけ。下に「入力する」マス
   const w=document.createElement('div'); w.className='o2-mask yd-mask'; document.body.appendChild(w);
   const close=()=>w.remove(); w.onclick=e=>{ if(e.target===w) close(); };
-  let picked=null, mv=null;   // picked＝この日に入れる作業／mv＝{u, to}（この日の作業を移す・空欄）
-  const draw=()=>{
-    const s=ydSch(m), base=s?Object.assign({}, s):null, now=ydAt(m, s, d), U=ydUnits(m, s, d);
-    const res=mv&&mv.to!==undefined?ydMove(m, s, mv.u, mv.to):(picked?ydApply(m, picked, d, base, YD.chain):null), err=typeof res==='string'?res.slice(4):'';
-    const ok=res&&typeof res==='object';
-    const p=jsPlan(m), wd=dparse(d);
-    const B=(k,cls,sub)=>`<button type="button" class="yd-mb yd-${k}${picked===k?' pk':''}${now.indexOf(k)>=0?' cur':''}${cls?' '+cls:''}" data-k="${k}">${YD_NM[k]}${sub?`<small>${sub}</small>`:''}</button>`;
-    const mu=mv&&U.find(x=>x.u===mv.u);
-    let days='';
-    if(mu){ for(let i=-3;i<=5;i++){ if(!i) continue; const x=dadd(d,i), xd=dparse(x), at=ydAt(m, s, x).map(k=>YD_NM[k]).join('・');
-        days+=`<button type="button" class="yd-dy${mv.to===x?' pk':''}" data-to="${x}"><b>${xd.getMonth()+1}/${xd.getDate()}</b><small>${WD[xd.getDay()]}${i===1?'・翌日':i===2?'・翌々日':i===-1?'・前日':''}</small><i>${esc(at)}</i></button>`; }
-      days+=`<button type="button" class="yd-dy bl${mv.to===''?' pk':''}" data-to=""><b>空欄</b><small>この作業だけ消す</small></button>`; }
-    const pv=ok?ydPv(res.sen||res.shi||res.soe||res.alc||res.only?res:null):null;
+  const DAYS=[0,1,2].map(i=>dadd(d,i));
+  const OPS=[['bl','空欄','作業なし'],['sen','四洗','四段の洗米'],['shi','四仕','四段仕込み'],['soe','四添','四段添加だけ'],['au','ア上','アル添・上槽'],['sau','四ア上','四段添加・アル添・上槽']];
+  const NM={bl:'空欄', sen:'四洗', shi:'四仕', soe:'四添', au:'ア上', sau:'四ア上', jo:'上槽', alc:'アル添'};
+  const p=jsPlan(m);
+  const kindOf=(s, x)=>{ if(!s) return (m.joso||'')===x?'jo':'bl';
+    if(s.sen===x) return 'sen'; if(s.shi===x) return 'shi';
+    const so=s.soe===x, al=s.alc===x, jo=(m.joso||'')===x;
+    if(so&&al) return 'sau'; if(so) return 'soe'; if(al) return jo?'au':'alc'; if(jo) return 'jo'; return 'bl'; };
+  const s0=ydSch(m), cur={}; DAYS.forEach(x=>cur[x]=kindOf(s0, x));
+  const sel=Object.assign({}, cur);
+  /* 選んだ3日分を全体の日程に当てはめる */
+  const build=()=>{
+    const s=ydSch(m), r={sen:s?s.sen:'', shi:s?s.shi:'', soe:s?s.soe:'', alc:s?s.alc:'', jo:m.joso||p};
+    const cnt={};
+    DAYS.forEach(x=>{ ['sen','shi','soe','alc'].forEach(k=>{ if(r[k]===x) r[k]=''; }); });
+    for(const x of DAYS){ const k=sel[x]; if(k==='bl'||k==='jo') continue;
+      if(k==='alc'){ r.alc=x; continue; }
+      const ks=k==='sau'?['soe','alc']:k==='au'?['alc']:[k];
+      for(const kk of ks){ if(cnt[kk]) return 'err:'+(kk==='alc'?'アル添（ア上・四ア上）':NM[kk])+'が2つあります'; cnt[kk]=1; r[kk]=x; }
+      if(k==='au'||k==='sau') r.jo=x; }
+    const seq=[['sen','四洗'],['shi','四仕'],['soe','四添'],['alc','アル添']].filter(([k])=>r[k]);
+    for(let i=1;i<seq.length;i++){ const [a,al]=seq[i-1], [b,bl]=seq[i]; const ok=(a==='soe'&&b==='alc')?r[b]>=r[a]:r[b]>r[a]; if(!ok) return `err:順番がおかしいです（${al} → ${bl} の順に）`; }
+    if(r.alc&&r.jo<r.alc) return 'err:上槽がアル添より前になります';
+    return r;
+  };
+  const changed=()=>DAYS.some(x=>sel[x]!==cur[x]);
+  const IN={ shi:[['仕込み情報','四段仕込み','1']], soe:[['仕込み情報','四段添加・合併','2']],
+    au:[['分析値','上槽前（醪の最終値）','4'],['アル添','目標の日本酒度・量','3'],['上槽先','タンク・尺・量','5']],
+    alc:[['分析値','上槽前（醪の最終値）','4'],['アル添','目標の日本酒度・量','3']],
+    jo:[['上槽先','タンク・尺・量','5']],
+    sau:[['仕込み情報','四段添加・合併','2'],['分析値','上槽前（醪の最終値）','4'],['アル添','目標の日本酒度・量','3'],['上槽先','タンク・尺・量','5']] };
+  const draw=(msg)=>{
+    const r=build(), err=typeof r==='string'?r.slice(4):'', ch=changed();
+    const joD=typeof r==='object'?r.jo:(m.joso||p);
+    const ins=x=>{ const L=(IN[sel[x]]||[]).map(a=>a.concat([x]));
+      if(joD && dadd(joD,1)===x){ L.push(['分析値','上槽後（分析担当）','ana',x]); L.push(['粕','粕放し・数量','kasu',x]); }
+      return `<div class="yd-inc">${L.length?L.map(([a,b,k,dd])=>`<button type="button" class="yd-inb" data-in="${k}" data-d="${dd}">${a}<small>${b}</small></button>`).join(''):'<span class="yd-inn">—</span>'}</div>`; };
     w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div>
-      <div class="yd-hd"><b>${wd.getMonth()+1}/${wd.getDate()}（${WD[wd.getDay()]}）</b>　${esc(String(m.no))}号 ${esc(m.liquid||'')}　<span class="yd-tk">T${esc(String(m.tank||''))}</span><button type="button" class="yd-x" data-a="close">✕</button></div>
-      ${U.length?`<div class="yd-gp">この日の作業（押して、移す日を選ぶ）</div><div class="yd-units">${U.map(x=>`<button type="button" class="yd-un yd-${x.c}${mv&&mv.u===x.u?' pk':''}" data-u="${x.u}">${x.l}${x.sub?`<small>${x.sub}</small>`:''}</button>`).join('')}</div>
-        ${mu?`<div class="yd-sm" style="margin:6px 2px 3px">「${esc(mu.l)}」${mu.sub?`（${esc(mu.sub)}）`:''}をどの日に？</div><div class="yd-days">${days}</div>`:''}`:''}
-      <div class="yd-gp" style="margin-top:8px">${U.length?'この日に入れる作業':'この日に入れる作業を選んでください'}</div>
-      <div class="yd-menu${picked?' haspk':''}">${B('sen','', s?'':'続きも自動')}${B('shi','')}${B('sau','','四段・アル添・上槽')}${s?B('soe','','四段だけ先に')+B('au','','アル添・上槽'):''}</div>
-      ${s&&picked?`<label class="yd-chk"><input type="checkbox" id="ydChain"${YD.chain?' checked':''}> 後ろの工程も一緒にずらす</label>`:''}
-      <div class="yd-pvb"><div class="yd-sm">${ok?'変更後':'いまの日程'}</div><div class="yd-pvl">${err?`<span class="yd-er">${esc(err)}</span>`:(ok?(pv||'<span class="yd-sm">四段の日程はなくなります（上槽日はそのまま）</span>'):ydPv(s||{jo:m.joso||p, only:true}))}</div>
-        ${m.josoSel&&m.joso!==p?`<div class="yd-sm" style="margin-top:3px">上槽の計画：${ydMD(p)}</div>`:''}</div>
-      <div class="yd-row">${s?'<button type="button" class="yd-b ng" data-a="del">日程を全部消す</button>':''}<button type="button" class="yd-b" data-a="close">やめる</button><button type="button" class="yd-b go" data-a="ok"${!ok?' disabled':''}>決定</button></div>
-      <div class="yd-row"><button type="button" class="yd-b rec" data-a="rec">📝 四段・アル添・上槽の記録 ›</button>${m.josoSel&&m.joso!==p?`<button type="button" class="yd-b sm" data-a="back">上槽を計画に戻す（${rcMD(p)}）</button>`:''}</div>
-      <div class="yd-msg"></div></div>`;
-    w.querySelectorAll('.yd-mb').forEach(b=>b.onclick=()=>{ picked=b.dataset.k; mv=null; draw(); });
-    w.querySelectorAll('.yd-un').forEach(b=>b.onclick=()=>{ mv={u:b.dataset.u}; picked=null; draw(); });
-    w.querySelectorAll('.yd-dy').forEach(b=>b.onclick=()=>{ mv.to=b.dataset.to; draw(); });
-    const ch=w.querySelector('#ydChain'); if(ch) ch.onchange=()=>{ YD.chain=ch.checked; draw(); };
+      <div class="yd-hd"><b>${esc(String(m.no))}号 ${esc(m.liquid||'')}</b>　<span class="yd-tk">T${esc(String(m.tank||''))}</span><button type="button" class="yd-x" data-a="close">✕</button></div>
+      <div class="yd-3d">${DAYS.map((x,i)=>{ const xd=dparse(x), c=sel[x]!==cur[x];
+        return `<div class="yd-dc"><b>${xd.getMonth()+1}/${xd.getDate()}</b><span class="w">（${WD[xd.getDay()]}）${i===0?'押した日':i===1?'翌日':'翌々日'}</span><span class="cg">${c?'変更':''}</span>
+          <button type="button" class="yd-bx${sel[x]!=='bl'?' has yd-'+(sel[x]==='alc'?'alc':sel[x]):''}${c?' ch':''}" data-d="${x}">${NM[sel[x]]}</button></div>`; }).join('')}</div>
+      <div class="yd-inh">入力する（その日の作業に合わせて出ます）</div>
+      <div class="yd-3d">${DAYS.map(ins).join('')}</div>
+      <div class="yd-sm" style="margin-top:6px">ア上＝アル添・上槽（同じ日）／四ア上＝四段添加・アル添・上槽（同じ日）</div>
+      <div class="yd-er" style="min-height:18px;margin:4px 2px">${esc(err||msg||'')}</div>
+      <div class="yd-row"><button type="button" class="yd-b" data-a="close">やめる</button><button type="button" class="yd-b go" data-a="ok"${err||!ch?' disabled':''}>決定</button></div>
+      <div class="yd-row"><button type="button" class="yd-b rec sm" data-a="rec">📝 記録 ›</button>${m.josoSel&&m.joso!==p?`<button type="button" class="yd-b sm" data-a="back">上槽を計画に戻す（${rcMD(p)}）</button>`:''}${s0?'<button type="button" class="yd-b ng sm" data-a="del">日程を全部消す</button>':''}</div></div>`;
     w.querySelectorAll('[data-a="close"]').forEach(b=>b.onclick=close);
-    w.querySelector('[data-a="rec"]').onclick=()=>{ close(); ydRecOpen(m.no, d); };
+    w.querySelectorAll('.yd-bx').forEach(b=>b.onclick=()=>pick(b.dataset.d));
+    w.querySelectorAll('.yd-inb').forEach(b=>b.onclick=()=>openIn(b.dataset.in, b.dataset.d));
+    w.querySelector('[data-a="rec"]').onclick=()=>{ if(!saveIf()) return; close(); ydRecOpen(m.no, d); };
     const bk=w.querySelector('[data-a="back"]'); if(bk) bk.onclick=()=>{
       const k=ydLocal('rk', {name:'上槽', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:p, memo:'計画 '+p});
       close(); rcToast(`${m.no}号の上槽日を ${ydMD(p)} に戻しました`); ydAfterJo();
       ydBg('上槽日', async()=>{ const j=await ydSaveJo(m, p); if(j&&j.calErr) rcToast('カレンダーに入れられませんでした：'+j.calErr, true, 8000); return j; }, [['rk',k]]); };
-    const ydDelSch=()=>{ const k=ydLocal('mw', {name:YD_SCH, no:String(m.no), _del:true});
-      close(); ydRepaint(); rcToast(`${m.no}号の四段の日程を消しました`);
-      ydBg('四段の日程の削除', async()=>{ const it=(MW.items||[]).concat([]).find(x=>!x.deleted&&x.name===YD_SCH&&String(x.no)===String(m.no)&&x.id) || null;
-        let id=it&&it.id; if(!id){ const j0=await mwApi({action:'list'}); const f=(j0.items||[]).filter(x=>!x.deleted&&x.name===YD_SCH&&String(x.no)===String(m.no)).pop(); id=f&&f.id; }
-        if(id) mwKeep(await mwApi({action:'delete', id})); return true; }, [['mw',k]]); };
-    const del=w.querySelector('[data-a="del"]'); if(del) del.onclick=()=>{ if(!confirm('四洗〜アル添の日程を全部消しますか？（上槽日はそのまま）')) return; ydDelSch(); };
-    w.querySelector('[data-a="ok"]').onclick=()=>{
-      const r=mv&&mv.to!==undefined?ydMove(m, ydSch(m), mv.u, mv.to):(picked?ydApply(m, picked, d, ydSch(m), YD.chain):null); if(!r||typeof r==='string') return;
-      const joCh=!!(r.jo && r.jo!==(m.joso||p));
-      const empty=!r.only && !r.sen && !r.shi && !r.soe && !r.alc;
-      const keys=[], item=(r.only||empty)?null:{name:YD_SCH, kind:'日程', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:r.soe||r.alc||r.shi||r.sen, memo:JSON.stringify({sen:r.sen||'', shi:r.shi||'', soe:r.soe||'', alc:r.alc||''})};
-      if(empty && s){ if(!joCh){ ydDelSch(); return; } }
-      if(item) keys.push(['mw', ydLocal('mw', item)]);
-      if(empty && s) keys.push(['mw', ydLocal('mw', {name:YD_SCH, no:String(m.no), _del:true})]);
-      if(joCh) keys.push(['rk', ydLocal('rk', {name:'上槽', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:r.jo, memo:'計画 '+p})]);
-      close(); rcToast(`${m.no}号の日程を保存しました`);
-      if(joCh) ydAfterJo(); else ydRepaint();
-      ydBg('日程', async()=>{   // 送る直前に今の id を引く（前の保存の返事を待ってから）
-        const it=(MW.items||[]).find(x=>!x.deleted&&x.name===YD_SCH&&String(x.no)===String(m.no)&&x.id);
-        if(item){ mwKeep(await mwApi({action:'save', item:Object.assign({}, item, {id:it?it.id:''})})); ydReapply(); }
-        else if(empty && it){ mwKeep(await mwApi({action:'delete', id:it.id})); ydReapply(); }
-        if(joCh){ const j=await ydSaveJo(m, r.jo); if(j&&j.calErr) rcToast('日程は保存しました（カレンダーに入れられませんでした：'+j.calErr+'）', true, 8000); }
-        return true; }, keys);
-    };
+    const del=w.querySelector('[data-a="del"]'); if(del) del.onclick=()=>{ if(!confirm('四洗〜アル添の日程を全部消しますか？（上槽日はそのまま）')) return; delSch(); close(); ydRepaint(); rcToast(`${m.no}号の四段の日程を消しました`); };
+    w.querySelector('[data-a="ok"]').onclick=()=>{ if(save()){ close(); } };
   };
+  const pick=x=>{
+    const xd=dparse(x), pk=document.createElement('div'); pk.className='o2-mask yd-mask yd-pkm';
+    pk.innerHTML=`<div class="yd-sheet"><div class="yd-hd"><b>${xd.getMonth()+1}/${xd.getDate()}（${WD[xd.getDay()]}）の作業</b></div>
+      <div class="yd-pkl">${OPS.map(([k,l,sub])=>`<button type="button" class="yd-pki yd-${k}${sel[x]===k?' on':''}" data-k="${k}">${l}<small>${sub}</small></button>`).join('')}</div></div>`;
+    pk.onclick=e=>{ if(e.target===pk) pk.remove(); };
+    pk.querySelectorAll('.yd-pki').forEach(b=>b.onclick=()=>{ sel[x]=b.dataset.k; pk.remove(); draw(); });
+    document.body.appendChild(pk);
+  };
+  const delSch=()=>{ const k=ydLocal('mw', {name:YD_SCH, no:String(m.no), _del:true});
+    ydBg('四段の日程の削除', async()=>{ const it=(MW.items||[]).find(x=>!x.deleted&&x.name===YD_SCH&&String(x.no)===String(m.no)&&x.id) || null;
+      let id=it&&it.id; if(!id){ const j0=await mwApi({action:'list'}); const f=(j0.items||[]).filter(x=>!x.deleted&&x.name===YD_SCH&&String(x.no)===String(m.no)).pop(); id=f&&f.id; }
+      if(id) mwKeep(await mwApi({action:'delete', id})); return true; }, [['mw',k]]); };
+  /* 保存（端末を先に書き換え、送信は裏で）。成功で true */
+  const save=()=>{
+    const r=build(); if(typeof r==='string'){ draw(r.slice(4)); return false; }
+    if(!changed()) return true;
+    const joCh=!!(r.jo && r.jo!==(m.joso||p)), empty=!r.sen&&!r.shi&&!r.soe&&!r.alc;
+    const keys=[], item=empty?null:{name:YD_SCH, kind:'日程', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:r.soe||r.alc||r.shi||r.sen, memo:JSON.stringify({sen:r.sen||'', shi:r.shi||'', soe:r.soe||'', alc:r.alc||''})};
+    if(empty){ if(ydSch(m)) delSch(); }
+    else keys.push(['mw', ydLocal('mw', item)]);
+    if(joCh) keys.push(['rk', ydLocal('rk', {name:'上槽', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:r.jo, memo:'計画 '+p})]);
+    rcToast(`${m.no}号の日程を保存しました`);
+    if(joCh) ydAfterJo(); else ydRepaint();
+    if(item||joCh) ydBg('日程', async()=>{   // 送る直前に今の id を引く
+      if(item){ const it=(MW.items||[]).find(x=>!x.deleted&&x.name===YD_SCH&&String(x.no)===String(m.no)&&x.id);
+        mwKeep(await mwApi({action:'save', item:Object.assign({}, item, {id:it?it.id:''})})); ydReapply(); }
+      if(joCh){ const j=await ydSaveJo(m, r.jo); if(j&&j.calErr) rcToast('日程は保存しました（カレンダーに入れられませんでした：'+j.calErr+'）', true, 8000); }
+      return true; }, keys);
+    DAYS.forEach(x=>cur[x]=sel[x]);
+    return true;
+  };
+  const saveIf=()=>{ if(!changed()) return true; return save(); };
+  const openIn=(k, x)=>{ if(!saveIf()) return; close();
+    if(k==='ana') ydAnaOpen(m.no);
+    else if(k==='kasu'){ if(typeof kasuScreen==='function'){ try{ KX.tab='today'; KX.extra=[String(m.no)]; }catch(e){} go(()=>kasuScreen()); } }
+    else ydRecOpen(m.no, x, k); };
   draw();
 }
 async function ydSaveJo(m, d){
@@ -15349,6 +15385,18 @@ function ydRecOpen(no, date, step){
 .yd-dy b{display:block;font-size:15px}.yd-dy small{display:block;font-size:10px;color:var(--sub)}.yd-dy i{display:block;font-style:normal;font-size:10px;color:#8e44ad;min-height:12px}
 .yd-dy.pk{background:var(--navy,#1d3557);border-color:var(--navy,#1d3557);color:#fff}.yd-dy.pk small,.yd-dy.pk i{color:#fff}
 .yd-dy.bl{background:#f3f4f5;border-style:dashed}.yd-dy.bl.pk{background:#6b737a;border-color:#6b737a}
+.yd-3d{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+.yd-dc{text-align:center;line-height:1.2}.yd-dc b{display:block;font-size:17px}.yd-dc .w{display:block;font-size:11px;color:var(--sub)}.yd-dc .cg{display:block;font-size:10px;color:#e08a00;min-height:12px}
+.yd-bx{width:100%;max-width:110px;margin-top:3px;border:1.5px solid #d9e0e6;border-radius:8px;background:#fff;padding:5px 0;font:inherit;font-size:14px;font-weight:800;color:#999;cursor:pointer}
+.yd-bx.has{color:#fff;border-color:transparent}.yd-bx.ch{box-shadow:0 0 0 2px #fff,0 0 0 4px #f0a020}.yd-bx.yd-jo{background:#c62828}
+.yd-inh{font-size:12px;font-weight:800;color:var(--navy);margin:10px 2px 0;border-top:1px solid #d9e0e6;padding-top:8px}
+.yd-inc{display:flex;flex-direction:column;gap:5px;align-items:center}
+.yd-inb{width:100%;max-width:110px;border:1.5px solid #9cc3d6;background:#f3f9fc;color:#1d5b7a;border-radius:8px;padding:5px 2px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;line-height:1.2}
+.yd-inb small{display:block;font-size:9.5px;font-weight:600;color:#5b7f92}.yd-inn{color:#bbb}
+.yd-pkm{z-index:10000}.yd-pkl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.yd-pki{border:0;border-radius:12px;padding:12px 6px;font:inherit;font-size:17px;font-weight:800;color:#fff;cursor:pointer;line-height:1.25}
+.yd-pki small{display:block;font-size:11px;font-weight:600;opacity:.9}.yd-pki.yd-bl{background:#eef1f4;color:#555}
+.yd-pki.on{box-shadow:0 0 0 3px #fff,0 0 0 5px var(--navy,#1d3557)}
 .yd-menu{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .yd-mb{border:0;border-radius:14px;padding:12px 4px;color:#fff;font:inherit;font-weight:800;font-size:16px;cursor:pointer;line-height:1.25;position:relative}
 .yd-mb small{display:block;font-size:11px;font-weight:600;opacity:.92}
