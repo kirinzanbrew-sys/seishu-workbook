@@ -9403,6 +9403,7 @@ async function kiDialog(no, kind){
    ================================================================================== */
 const UPDATES=[
   ['2026-11-05-31','🚚','米管理（在庫管理）','米の入荷を手で入れられるように。在庫管理の表の下「米の入荷（手入力）」→「＋ 入荷を入力する」で、品種・入荷した日・袋数（端数はkg）を入れて保存。表の「受入」に「手入力」として入り、在庫と不足チェックにも反映されます。引取予定に無い乾五70%などの入荷に使えます。入れ間違いは「消す」で取り消せます。'],
+  ['2026-11-05-32','📅','仕込み','日程の窓で「上槽がアル添より前になります」と出て決定できなかったのを直しました。上槽日はいつもアル添の日にそろえます（アル添と上槽はセット）。上槽日が古いまま表示されて、変えても上槽日が保存されないことがあったのも直しました。'],
   ['2026-11-05-30','🧪','仕込み','上槽後の分析の表示：上槽の翌日の列を緑の帯にし、「T261｜T262｜合算」のように分けて（日付は上の真ん中）、今ある Be/度・alc・酸・ｱﾐﾉ の行にタンクごとの上槽後の値と合算（量で重み付け）を表示。追水の行に上槽先の尺を入れると、品温AMの行に量（L・早見表で自動）と合計が出ます。未入力のタンクは Be/度 の行に「未 ›」、押すとそのタンクの入力。'],
   ['2026-11-05-29','📅','仕込み','日程の窓をシンプルに：押した日・翌日・翌々日が横に並び、日付の下のマスを押して作業（空欄・四洗・四仕・四添・ア上・四ア上）を選ぶだけ。下の「入力する」には、その日の作業に合わせて 仕込み情報・分析値・アル添・上槽先・粕 のマスが出て、押すとその入力画面が開きます。'],
   ['2026-11-05-28','📅','仕込み','日程の窓：その日の作業（四洗・四仕・四添・ア上・四ア上）を押すと、その作業だけを前後の日へ移したり「空欄」にしたりできます。四ア上の日は「四添だけ」「アル添・上槽だけ」も選べるので、四段添加のあとアル添・上槽を翌日・翌々日へ自由に動かせます。空欄はその作業だけ消え、ほかは残ります。'],
@@ -15028,25 +15029,26 @@ function ydMenu(m, d){   // 2026-11-05 泰広さん：押した日・翌日・�
   const OPS=[['bl','空欄','作業なし'],['sen','四洗','四段の洗米'],['shi','四仕','四段仕込み'],['soe','四添','四段添加だけ'],['au','ア上','アル添・上槽'],['sau','四ア上','四段添加・アル添・上槽']];
   const NM={bl:'空欄', sen:'四洗', shi:'四仕', soe:'四添', au:'ア上', sau:'四ア上', jo:'上槽', alc:'アル添'};
   const p=jsPlan(m);
-  const kindOf=(s, x)=>{ if(!s) return (m.joso||'')===x?'jo':'bl';
+  const jo0=(()=>{ try{ const o=rkRow('上槽', m.no); if(o&&o.plan) return o.plan; }catch(e){} return m.joso||p; })();   // 2026-11-06 上槽日は濾過火入の表（RK）を正に（m.joso が古いままのことがあった）
+  const kindOf=(s, x)=>{ if(!s) return jo0===x?'jo':'bl';
     if(s.sen===x) return 'sen'; if(s.shi===x) return 'shi';
-    const so=s.soe===x, al=s.alc===x, jo=(m.joso||'')===x;
+    const so=s.soe===x, al=s.alc===x, jo=jo0===x;
     if(so&&al) return 'sau'; if(so) return 'soe'; if(al) return jo?'au':'alc'; if(jo) return 'jo'; return 'bl'; };
   const s0=ydSch(m), cur={}; DAYS.forEach(x=>cur[x]=kindOf(s0, x));
   const sel=Object.assign({}, cur);
   /* 選んだ3日分を全体の日程に当てはめる */
   const build=()=>{
-    const s=ydSch(m), r={sen:s?s.sen:'', shi:s?s.shi:'', soe:s?s.soe:'', alc:s?s.alc:'', jo:m.joso||p};
+    const s=ydSch(m), r={sen:s?s.sen:'', shi:s?s.shi:'', soe:s?s.soe:'', alc:s?s.alc:'', jo:jo0};
     const cnt={};
     DAYS.forEach(x=>{ ['sen','shi','soe','alc'].forEach(k=>{ if(r[k]===x) r[k]=''; }); });
     for(const x of DAYS){ const k=sel[x]; if(k==='bl'||k==='jo') continue;
-      if(k==='alc'){ r.alc=x; continue; }
+      if(k==='alc'){ if(cnt.alc) return 'err:アル添（ア上・四ア上）が2つあります'; cnt.alc=1; r.alc=x; r.jo=x; continue; }   // アル添と上槽はセット
       const ks=k==='sau'?['soe','alc']:k==='au'?['alc']:[k];
       for(const kk of ks){ if(cnt[kk]) return 'err:'+(kk==='alc'?'アル添（ア上・四ア上）':NM[kk])+'が2つあります'; cnt[kk]=1; r[kk]=x; }
       if(k==='au'||k==='sau') r.jo=x; }
     const seq=[['sen','四洗'],['shi','四仕'],['soe','四添'],['alc','アル添']].filter(([k])=>r[k]);
     for(let i=1;i<seq.length;i++){ const [a,al]=seq[i-1], [b,bl]=seq[i]; const ok=(a==='soe'&&b==='alc')?r[b]>=r[a]:r[b]>r[a]; if(!ok) return `err:順番がおかしいです（${al} → ${bl} の順に）`; }
-    if(r.alc&&r.jo<r.alc) return 'err:上槽がアル添より前になります';
+    if(r.alc) r.jo=r.alc;   // 2026-11-05 アル添と上槽はセット：上槽日はアル添の日にそろえる（前は「上槽がアル添より前」で決定できなかった）
     return r;
   };
   const changed=()=>DAYS.some(x=>sel[x]!==cur[x]);
@@ -15057,7 +15059,7 @@ function ydMenu(m, d){   // 2026-11-05 泰広さん：押した日・翌日・�
     sau:[['仕込み情報','四段添加・合併','2'],['分析値','上槽前（醪の最終値）','4'],['アル添','目標の日本酒度・量','3'],['上槽先','タンク・尺・量','5']] };
   const draw=(msg)=>{
     const r=build(), err=typeof r==='string'?r.slice(4):'', ch=changed();
-    const joD=typeof r==='object'?r.jo:(m.joso||p);
+    const joD=typeof r==='object'?r.jo:jo0;
     const ins=x=>{ const L=(IN[sel[x]]||[]).map(a=>a.concat([x]));
       if(joD && dadd(joD,1)===x){ L.push(['分析値','上槽後（分析担当）','ana',x]); L.push(['粕','粕放し・数量','kasu',x]); }
       return `<div class="yd-inc">${L.length?L.map(([a,b,k,dd])=>`<button type="button" class="yd-inb" data-in="${k}" data-d="${dd}">${a}<small>${b}</small></button>`).join(''):'<span class="yd-inn">—</span>'}</div>`; };
@@ -15099,7 +15101,7 @@ function ydMenu(m, d){   // 2026-11-05 泰広さん：押した日・翌日・�
   const save=()=>{
     const r=build(); if(typeof r==='string'){ draw(r.slice(4)); return false; }
     if(!changed()) return true;
-    const joCh=!!(r.jo && r.jo!==(m.joso||p)), empty=!r.sen&&!r.shi&&!r.soe&&!r.alc;
+    const joCh=!!(r.jo && (r.jo!==jo0 || r.jo!==(m.joso||p))), empty=!r.sen&&!r.shi&&!r.soe&&!r.alc;
     const keys=[], item=empty?null:{name:YD_SCH, kind:'日程', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:r.soe||r.alc||r.shi||r.sen, memo:JSON.stringify({sen:r.sen||'', shi:r.shi||'', soe:r.soe||'', alc:r.alc||''})};
     if(empty){ if(ydSch(m)) delSch(); }
     else keys.push(['mw', ydLocal('mw', item)]);
@@ -15109,7 +15111,7 @@ function ydMenu(m, d){   // 2026-11-05 泰広さん：押した日・翌日・�
     if(item||joCh) ydBg('日程', async()=>{   // 送る直前に今の id を引く
       if(item){ const it=(MW.items||[]).find(x=>!x.deleted&&x.name===YD_SCH&&String(x.no)===String(m.no)&&x.id);
         mwKeep(await mwApi({action:'save', item:Object.assign({}, item, {id:it?it.id:''})})); ydReapply(); }
-      if(joCh){ const j=await ydSaveJo(m, r.jo); if(j&&j.calErr) rcToast('日程は保存しました（カレンダーに入れられませんでした：'+j.calErr+'）', true, 8000); }
+      if(joCh){ const j=await ydSaveJo(m, r.jo); if(j&&j.calErr) rcToast('日程は保存しました（カレンダーに入れられませんでした：'+j.calErr+'）', true, 8000); ydReapply(); try{ jsApply(RC.state); }catch(e){} ydRepaint(); }
       return true; }, keys);
     DAYS.forEach(x=>cur[x]=sel[x]);
     return true;
