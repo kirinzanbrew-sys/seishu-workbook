@@ -2268,12 +2268,15 @@ function riceCalc(){
   zk.forEach(d=>{ if(!R || d>R) dates[d]=1; });
   if(H && H.days) Object.keys(H.days).forEach(d=>{ if(!R || d>R) dates[d]=1; });
   Object.keys(need).forEach(d=>{ if(!R || d>R) dates[d]=1; });
+  const RK = (typeof rkItems==='function') ? rkItems() : [];   // 2026-11-05 手入力の入荷
+  RK.forEach(x=>{ if(!R || x.date>R) dates[x.date]=1; });
   const ds = Object.keys(dates).sort();
 
   const bal = {}, cur = base.slice();
   ds.forEach(d=>{
     const hk = (H && H.days && H.days[d]) || {};
     Object.keys(hk).forEach(v=>{ if(idx[v]!==undefined) cur[idx[v]] += hk[v]*bag; });
+    RK.forEach(x=>{ if(x.date===d && idx[x.name]!==undefined) cur[idx[x.name]] += rzNum(x); });
     const zd = Z.days[d];
     if(zd) (zd.o||[]).forEach((v,i)=>{ cur[i] -= (v||0); });
     bal[d] = cur.slice();
@@ -2402,9 +2405,10 @@ function zaikoScreen(day){
       const m=v.match(/^(.+?)(\d+)%$/); const lab = m?`<b>${esc(m[1])}</b>${ratioBadge(Number(m[2]))}`:esc(v);
       const raw=st[i]||0, mi = mib ? (mib[i]||0) : null;
       const rzc = rzCum(v, ZAI_DAY), rzd = rzVal(v, ZAI_DAY);   // 増減（累計／この日の分）
-      const s = ((mi===null) ? raw : mi) + rzc;            // 表に出すのは「引取予定と増減を入れた在庫」
-      const dim = !s && !raw && !inn[i] && !out[i] && !fut[i] && !rzd;
-      tS+=s; tI+=inn[i]||0; tO+=out[i]||0; tF+=rzd; tM+=raw;
+      const rkd = rkDay(v, ZAI_DAY), rkc = (mi===null) ? rkCum(v, ZAI_DAY) : 0;   // 手入力の入荷（見通しには riceCalc で入っている）
+      const s = ((mi===null) ? raw : mi) + rzc + rkc;      // 表に出すのは「引取予定・手入力の入荷・増減を入れた在庫」
+      const dim = !s && !raw && !inn[i] && !out[i] && !fut[i] && !rzd && !rkd;
+      tS+=s; tI+=(inn[i]||0)+rkd; tO+=out[i]||0; tF+=rzd; tM+=raw;
       const dq = difMap[v];
       const gap = (mi!==null && Math.abs(mi-raw)>0.05);
       const zr = zv[v];
@@ -2418,7 +2422,7 @@ function zaikoScreen(day){
           ${gap?`<div style="font-size:10.5px;font-weight:400;color:var(--sub);white-space:nowrap">受払欄 ${kgfmt(raw)}</div>`:''}
           ${Math.abs(rzc)>=0.05?`<div style="font-size:10.5px;font-weight:400;color:var(--sub);white-space:nowrap">増減 ${rzc>0?'＋':''}${kgfmt(rzc)}込み</div>`:''}</td>
         <td class="${s<0?'mf-neg':''}" style="white-space:nowrap;font-size:12px">${s?bags(s):'—'}</td>
-        <td>${inn[i]?kgfmt(inn[i]):''}</td><td>${out[i]?kgfmt(out[i]):''}</td><td class="rzc">${dim?'':`<input class="rzin" type="text" inputmode="text" enterkeyhint="next" autocomplete="off" data-rz="${esc(v)}" value="${rzd?((rzd>0?'+':'')+(Math.round(rzd*10)/10)):''}" placeholder="±">`}</td>
+        <td>${(inn[i]||rkd)?kgfmt((inn[i]||0)+rkd):''}${rkd?`<div style="font-size:10px;color:#1b7f3b;white-space:nowrap">手入力</div>`:''}</td><td>${out[i]?kgfmt(out[i]):''}</td><td class="rzc">${dim?'':`<input class="rzin" type="text" inputmode="text" enterkeyhint="next" autocomplete="off" data-rz="${esc(v)}" value="${rzd?((rzd>0?'+':'')+(Math.round(rzd*10)/10)):''}" placeholder="±">`}</td>
         <td class="zvc">${btn}</td></tr>`;
     });
     h += `<tr class="tot"><td>合計</td><td class="${tS<0?'mf-neg':''}">${kgfmt(tS)}</td><td></td><td>${tI?kgfmt(tI):''}</td><td>${tO?kgfmt(tO):''}</td><td>${Math.abs(tF)>=0.05?(tF>0?'＋':'')+kgfmt(tF):''}</td><td></td></tr></tbody></table></div>
@@ -2435,6 +2439,7 @@ function zaikoScreen(day){
     const restOk = rest.filter(v=>!difMap[v]);
     const since = zaiSince() || {};
     const ngNow = live.filter(v=>difMap[v]);
+    h += rkView(ZAI_DAY, Z);
     h += `<div class="mf-sec">在庫チェック<span>${doneN?doneN+'品種すんでいます':'まだ確認されていません'}</span></div>`;
     h += `<div class="card" style="font-size:13px;line-height:1.7">
       表のいちばん右で、<b>品種ごとに1つずつ</b>確認します。<br>
@@ -2453,6 +2458,7 @@ function zaikoScreen(day){
     app.innerHTML = h + mfgSrcInfo('zaiko','造りex 仕込調整 品種受払');
     bindDayNav(zaikoScreen);
     rzBind(render);
+    rkBind(render);
     $('#zHist').onclick=()=>go(zcheckScreen);
     const hall=$('#hkAll'); if(hall) hall.onclick=()=>go(()=>hikitoriScreen());
     app.querySelectorAll('[data-zdif]').forEach(b=>b.onclick=()=>{
@@ -9396,6 +9402,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-05-31','🚚','米管理（在庫管理）','米の入荷を手で入れられるように。在庫管理の表の下「米の入荷（手入力）」→「＋ 入荷を入力する」で、品種・入荷した日・袋数（端数はkg）を入れて保存。表の「受入」に「手入力」として入り、在庫と不足チェックにも反映されます。引取予定に無い乾五70%などの入荷に使えます。入れ間違いは「消す」で取り消せます。'],
   ['2026-11-05-30','🧪','仕込み','上槽後の分析の表示：上槽の翌日の列を緑の帯にし、「T261｜T262｜合算」のように分けて（日付は上の真ん中）、今ある Be/度・alc・酸・ｱﾐﾉ の行にタンクごとの上槽後の値と合算（量で重み付け）を表示。追水の行に上槽先の尺を入れると、品温AMの行に量（L・早見表で自動）と合計が出ます。未入力のタンクは Be/度 の行に「未 ›」、押すとそのタンクの入力。'],
   ['2026-11-05-29','📅','仕込み','日程の窓をシンプルに：押した日・翌日・翌々日が横に並び、日付の下のマスを押して作業（空欄・四洗・四仕・四添・ア上・四ア上）を選ぶだけ。下の「入力する」には、その日の作業に合わせて 仕込み情報・分析値・アル添・上槽先・粕 のマスが出て、押すとその入力画面が開きます。'],
   ['2026-11-05-28','📅','仕込み','日程の窓：その日の作業（四洗・四仕・四添・ア上・四ア上）を押すと、その作業だけを前後の日へ移したり「空欄」にしたりできます。四ア上の日は「四添だけ」「アル添・上槽だけ」も選べるので、四段添加のあとアル添・上槽を翌日・翌々日へ自由に動かせます。空欄はその作業だけ消え、ほかは残ります。'],
@@ -9900,11 +9907,15 @@ async function rzApi(body){
   if(!j||!j.ok) throw new Error((j&&/その表はありません/.test(j.error||''))?'サーバー側の更新（Apps Script「製造ツール 共有データ」の新バージョン）がまだです':((j&&j.error)||'受け取れませんでした'));
   return j;
 }
-function rzKeep(j){ const a=JSON.stringify(RZ.items); RZ.items=(j.items||[]); lsSet('rz.items', RZ.items); return a!==JSON.stringify(RZ.items); }
+function rzKeep(j){ const a=JSON.stringify(RZ.items); RZ.items=(j.items||[]); lsSet('rz.items', RZ.items); const ch=a!==JSON.stringify(RZ.items); if(ch) RICE=null; return ch; }
 async function rzFetch(){ return rzKeep(await rzApi({action:'list'})); }
 function rzNum(x){ const n=Number(x&&x.qty); return isFinite(n)?n:0; }
-function rzVal(v,d){ const x=RZ.items.find(x=>x.name===v && x.date===d); return x?rzNum(x):0; }
-function rzCum(v,d){ return Math.round(RZ.items.filter(x=>x.name===v && x.date && x.date<=d).reduce((a,x)=>a+rzNum(x),0)*10)/10; }
+function rzVal(v,d){ const x=RZ.items.find(x=>x.name===v && x.date===d && x.kind!=='入荷'); return x?rzNum(x):0; }
+function rzCum(v,d){ return Math.round(RZ.items.filter(x=>x.name===v && x.date && x.date<=d && x.kind!=='入荷').reduce((a,x)=>a+rzNum(x),0)*10)/10; }
+/* 2026-11-05 入荷の手入力（区分＝入荷。1件ずつ別の行） */
+function rkItems(){ return RZ.items.filter(x=>x.kind==='入荷' && x.date); }
+function rkDay(v,d){ return Math.round(rkItems().filter(x=>x.name===v && x.date===d).reduce((a,x)=>a+rzNum(x),0)*10)/10; }
+function rkCum(v,d){ return Math.round(rkItems().filter(x=>x.name===v && x.date<=d).reduce((a,x)=>a+rzNum(x),0)*10)/10; }
 /* 2026-10-08 泰広さん指示：＋（多い）を入れても保存されない件を直す／保存したら次の作業へ
    ・type=number だと「+0.3」が空扱いになり保存されなかった → 文字入力にして ＋/－・全角も読む
    ・Enter（次へ）で次の品種の欄へ移る。保存は裏で行い、結果は画面の下に出す（alertで止めない） */
@@ -9914,7 +9925,7 @@ function rzNext(inp){ const a=[...app.querySelectorAll('.rzin')]; const i=a.inde
 function rzRedraw(render){
   const a=document.activeElement;
   if(app.dataset.mfg!=='zaiRender') return;
-  if(a && a.classList && a.classList.contains('rzin')){ RZ.pending=true; return; }   // 入力中は描き直さない
+  if(a && a.classList && (a.classList.contains('rzin')||a.classList.contains('rkin'))){ RZ.pending=true; return; }   // 入力中は描き直さない
   RZ.pending=false; render();
 }
 function rzBind(render){
@@ -9943,6 +9954,90 @@ function rzBind(render){
         const b=app.querySelector(`.rzin[data-rz="${CSS.escape(v)}"]`); if(b){ b.classList.remove('sv'); b.classList.add('ng'); }
       }
     });
+  });
+}
+</script>
+<script>
+/* ================= 🚚 米の入荷を手で入れる（米管理→在庫管理）2026-11-05 泰広さん指示 =================
+   ・引取予定Excelに無い入荷（乾五70% など）を、品種・日付・袋数（＋端数kg）で入れる
+   ・在庫管理の「受入」に足し（下に「手入力」）、在庫・不足チェックの見通しにも入る（引取予定と同じ扱い）
+   ・記録先：共有データの表「米増減」に 区分＝入荷（qty＝kg、memo に袋数など）。1件ずつ別の行（id＝rk_…）。消すと削除欄に日時
+   ・造りexの品種受払・※のずれ判定には入れない。造りexに受入を入れたら、二重にならないようこちらは消す */
+const RK = { open:false, draft:null };
+function rkView(day, Z){
+  const vars = (Z && Z.vars) || [];
+  const d = RK.draft || (RK.draft = { v:'', date:day, bag:'', kg:'', memo:'' });
+  const all = rkItems().slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+  const kgOf = x => (Number(pnum(String(x.bag||'')))||0)*BAG_KG + (Number(pnum(String(x.kg||'')))||0);
+  let h = `<div class="mf-sec">米の入荷（手入力）<span>${all.length?all.length+'件':'引取予定に無い入荷を入れる'}</span></div><div class="card">`;
+  if(!RK.open) h += `<button class="btn p" id="rkOpen">＋ 入荷を入力する</button>`;
+  else {
+    const tot = kgOf(d);
+    h += `<div class="mf-lbl" style="margin-top:0">品種・精米歩合</div>
+      <select class="mf-sel rkin" id="rkV"><option value="">選んでください</option>${vars.map(v=>`<option ${v===d.v?'selected':''}>${esc(v)}</option>`).join('')}</select>
+      <div class="mf-lbl">入荷した日</div>
+      <input type="date" class="mf-sel rkin" id="rkD" value="${esc(d.date||day)}">
+      <div class="mf-lbl">数量（1袋＝${BAG_KG}kg。端数があれば kg に）</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="mf-sel rkin" id="rkB" type="text" inputmode="decimal" autocomplete="off" placeholder="袋" value="${esc(d.bag)}" style="flex:1"><span>袋 ＋</span>
+        <input class="mf-sel rkin" id="rkK" type="text" inputmode="decimal" autocomplete="off" placeholder="kg" value="${esc(d.kg)}" style="flex:1"><span>kg</span></div>
+      <div id="rkT" style="margin-top:6px;font-weight:700;color:var(--navy)">${tot?'合計 '+kgfmt(tot)+'kg':''}</div>
+      <div class="mf-lbl">メモ（任意）</div>
+      <input class="mf-sel rkin" id="rkM" type="text" autocomplete="off" placeholder="例：新潟大学から" value="${esc(d.memo)}">
+      <div style="display:flex;gap:8px;margin-top:12px"><button class="btn" id="rkCancel" style="flex:1">やめる</button><button class="btn p" id="rkSave" style="flex:2">この入荷を保存</button></div>`;
+  }
+  if(all.length){
+    h += `<div style="margin-top:10px">`;
+    all.slice(0,12).forEach(x=>{
+      const m = String(x.name).match(/^(.+?)(\d+)%$/), q = rzNum(x);
+      h += `<div class="tl-row" style="align-items:center;gap:6px">
+        <span style="white-space:nowrap;font-weight:700;color:var(--navy)">${dshort(x.date)}</span>
+        <span style="flex:1">${m?'<b>'+esc(m[1])+'</b>'+ratioBadge(Number(m[2])):esc(x.name)}　<b>${kgfmt(q)}</b>kg<span style="font-size:11.5px;color:var(--sub)">（${bags(q).replace(/<\/?b>/g,'')}）${x.memo?'　'+esc(x.memo):''}${x.by?'　'+esc(nrm(x.by)):''}</span></span>
+        <button class="btn" data-rkdel="${esc(x.id)}" style="width:auto;padding:4px 10px;font-size:12px">消す</button></div>`;
+    });
+    if(all.length>12) h += `<div style="font-size:11.5px;color:var(--sub)">ほか ${all.length-12}件</div>`;
+    h += `</div>`;
+  }
+  h += `<div style="font-size:11.5px;color:var(--sub);margin-top:8px">入れた分は表の「受入」（下に「手入力」）と在庫・不足チェックに入ります。造りexの品種受払に受入を入れたら、二重にならないようここから消してください。</div></div>`;
+  return h;
+}
+function rkBind(render){
+  const o=$('#rkOpen'); if(o) o.onclick=()=>{ RK.open=true; RK.draft={ v:'', date:ZAI_DAY, bag:'', kg:'', memo:'' }; render(); const s=$('#rkV'); if(s) s.focus(); };
+  const kgOf = d => (Number(pnum(String(d.bag||'')))||0)*BAG_KG + (Number(pnum(String(d.kg||'')))||0);
+  const sync=()=>{ const d=RK.draft; if(!d) return;
+    d.v=($('#rkV')||{}).value||''; d.date=($('#rkD')||{}).value||''; d.bag=($('#rkB')||{}).value||''; d.kg=($('#rkK')||{}).value||''; d.memo=($('#rkM')||{}).value||'';
+    const t=$('#rkT'); if(t){ const k=kgOf(d); t.textContent=k?'合計 '+kgfmt(k)+'kg':''; } };
+  app.querySelectorAll('.rkin').forEach(el=>{ el.addEventListener('input',sync); el.addEventListener('change',sync);
+    el.addEventListener('blur',()=>setTimeout(()=>{ if(RZ.pending) rzRedraw(render); },80)); });
+  const c=$('#rkCancel'); if(c) c.onclick=()=>{ RK.open=false; RK.draft=null; render(); };
+  const sv=$('#rkSave'); if(sv) sv.onclick=async()=>{
+    sync(); const d=RK.draft;
+    const b=String(d.bag).trim(), k=String(d.kg).trim();
+    const nb = b===''?0:pnum(b.replace(/[＋+\s]/g,'')), nk = k===''?0:pnum(k.replace(/[＋+\s]/g,''));
+    if(!d.v){ rzToast('品種・精米歩合を選んでください',true); return; }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d.date)){ rzToast('入荷した日を入れてください',true); return; }
+    if(nb===null || nk===null){ rzToast('数量が数として読めません',true); return; }
+    const kg = Math.round((nb*BAG_KG + nk)*10)/10;
+    if(!(kg>0)){ rzToast('数量を入れてください',true); return; }
+    const memo = String(d.memo||'');
+    const item = { id:'rk_'+Date.now().toString(36)+Math.floor(Math.random()*1296).toString(36), name:d.v, kind:'入荷', qty:String(kg), unit:'kg', date:d.date, memo:memo.trim() };
+    sv.disabled=true; sv.textContent='保存しています…';
+    try{
+      rzKeep(await rzApi({action:'save', item}));
+      RICE=null; RK.open=false; RK.draft=null;
+      rzToast(d.v+' の入荷 '+kgfmt(kg)+'kg（'+dshort(item.date)+'）を保存しました');
+      if(app.dataset.mfg==='zaiRender') render();
+    }catch(e){
+      sv.disabled=false; sv.textContent='この入荷を保存';
+      rzToast('保存できませんでした：'+String(e.message||e),true);
+    }
+  };
+  app.querySelectorAll('[data-rkdel]').forEach(bt=>bt.onclick=async()=>{
+    const x=rkItems().find(x=>x.id===bt.dataset.rkdel); if(!x) return;
+    if(!confirm(dshort(x.date)+' '+x.name+' '+kgfmt(rzNum(x))+'kg の入荷を消しますか？')) return;
+    bt.disabled=true; bt.textContent='…';
+    try{ rzKeep(await rzApi({action:'delete', id:x.id})); RICE=null; rzToast('入荷を消しました'); if(app.dataset.mfg==='zaiRender') render(); }
+    catch(e){ bt.disabled=false; bt.textContent='消す'; rzToast('消せませんでした：'+String(e.message||e),true); }
   });
 }
 </script>
