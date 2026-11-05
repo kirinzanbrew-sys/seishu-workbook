@@ -9396,6 +9396,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-05-3','🟫','粕','「きょうの粕」に明日の分（今日上槽した仕込み）が出ていたのを直しました。上槽の翌日になってから出ます。'],
   ['2026-11-05-2','🟫','本日の予定','本日の予定の「粕」を、出勤表の粕欄ではなく仕込みの上槽日の翌日から自動で出すようにしました（仕込みの表で上槽日を変えると粕の日も一緒に動きます）。押すと粕の画面が開きます。'],
   ['2026-11-05-1','🗂️','製造カレンダー','上の「✋振休依頼」アイコンを「🗂️仕込み計画」に変更。造りexの仕込計画表（今年度）から、今日・明日の酛立・添・留・アル添・上槽・検定と、順号ごとの予定日・いまの段階（酒母◯日目・醪◯日目など）を表示します。振休依頼は出勤表の日を押した所の「この日で振休依頼」から出せます。'],
   ['2026-11-04-3','🍶','仕込み','アル添：目標ごとのパターン表（狙い＝計算−1。伝辛は狙い+7→計算+8）。四段Beは15.0を基準にリールで変更でき、払出のBeが違うときは「今回」と差も並べて表示。マスを押すと入れた量に入ります。'],
@@ -15375,7 +15376,7 @@ function kxList(){
   const st=RC.state; if(!st||!st.master) return {today:[], all:[]};
   const td=dtoday(), all=st.master.filter(m=>m.joso).slice().sort((a,b)=>String(b.joso).localeCompare(String(a.joso))||b.no-a.no);
   const today=all.filter(m=>{ const d=kxDay(m); if(!d) return false; const r=kxRec(m.no);
-    if(d>dadd(td,1)) return false;   // 明日の分まで
+    if(d>td) return false;   // 2026-11-05 泰広さん指示：粕放しは上槽の翌日。明日の分（今日上槽）は出さない
     if(d>=dadd(td,-3)) return true;
     if(r && !kxRep(m.no) && d>=dadd(td,-30)) return true;   // 保存したが送っていない
     return false; });
