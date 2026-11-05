@@ -5865,11 +5865,16 @@ function dpItems(date){
   let last=dadd(date.slice(0,7)+'-01',0); { const d0=dparse(date); last=dstr(new Date(d0.getFullYear(),d0.getMonth()+1,0)); }
   while(hol.has(last)) last=dadd(last,-1);
   if(date===last) add('etc',DP_T.seisou[0],DP_T.seisou[1],'月末清掃','dp-u',{title:'月末清掃',lines:['15:30以降']});
+  // 粕＝仕込みの上槽日の翌日（2026-11-05 泰広さん指示：出勤表の「粕」欄ではなく、仕込みの上槽日（選んだ日を含む）から自動で）
+  if(st){
+    const kz=(st.master||[]).filter(m=>m.joso&&dadd(m.joso,1)===date);
+    if(kz.length) add('joso',DP_T.kasu[0],DP_T.kasu[1],'粕'+dpNin('粕'),'dp-u',{title:`粕（${kz.map(m=>m.no).join('・')}号）`,nin:DP_NIN['粕'],time:DP_T.kasu.join('〜')+'（目安）',
+      lines:kz.map(m=>`昨日 上槽　No.${m.no} ${m.sym||''}　${m.liquid||''}`),open:()=>(typeof kasuScreen==='function'?kasuScreen():moromiHome()),openL:'粕の画面を開く'});
+  }
   // 出勤表（上槽・粕）と洗米予定表
   const kd=dpShukkinDay(date);
   if(kd){
     if(kd.j && !out.some(x=>x.lane==='joso'&&x.label.indexOf('上槽')===0)) add('joso',DP_T.joso[0],DP_T.joso[1],'上槽'+dpNin('上槽'),'dp-j',{title:'上槽',nin:DP_NIN['上槽'],time:DP_T.joso.join('〜')+'（目安）',lines:[`出勤表：${kd.j}`],open:()=>moromiHome(),openL:'仕込みの画面を開く'});
-    if(kd.k) add('joso',DP_T.kasu[0],DP_T.kasu[1],'粕'+dpNin('粕'),'dp-u',{title:'粕',nin:DP_NIN['粕'],time:DP_T.kasu.join('〜')+'（目安）',lines:[`出勤表：${kd.k}`]});
   }
   const S=MFG&&MFG.senmai, sd=S&&S.days&&S.days[date];
   if(sd&&sd.e&&sd.e.length){
@@ -9391,6 +9396,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-05-2','🟫','本日の予定','本日の予定の「粕」を、出勤表の粕欄ではなく仕込みの上槽日の翌日から自動で出すようにしました（仕込みの表で上槽日を変えると粕の日も一緒に動きます）。押すと粕の画面が開きます。'],
   ['2026-11-05-1','🗂️','製造カレンダー','上の「✋振休依頼」アイコンを「🗂️仕込み計画」に変更。造りexの仕込計画表（今年度）から、今日・明日の酛立・添・留・アル添・上槽・検定と、順号ごとの予定日・いまの段階（酒母◯日目・醪◯日目など）を表示します。振休依頼は出勤表の日を押した所の「この日で振休依頼」から出せます。'],
   ['2026-11-04-3','🍶','仕込み','アル添：目標ごとのパターン表（狙い＝計算−1。伝辛は狙い+7→計算+8）。四段Beは15.0を基準にリールで変更でき、払出のBeが違うときは「今回」と差も並べて表示。マスを押すと入れた量に入ります。'],
   ['2026-11-04-2','🌾','米管理','在庫管理に「乾五70%」（乾田直播 五百万石 70%）を追加。造りexの品種受払に列ができるまでは、洗米予定表の洗米量を払出として計算します。引取予定・増減の入力・不足チェックも他の品種と同じように使えます。'],
