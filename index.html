@@ -9396,6 +9396,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-05-25','🧪','仕込み','上槽後の分析：リールをやめて数字を打つ入力に。日本酒度は「＋」「−」を押して選び、数字を打ちます（−を打っても−になります）。空欄のままでも保存できます。'],
+  ['2026-11-05-24','📅','仕込み','日程の窓：四洗ボタンをほかと同じ大きさに。「空欄（作業なし）」を選べるように（四添やア上の日を空欄にすると四ア上に戻る／四洗・四仕・四ア上の日を空欄にすると四段の日程を消す。上槽日はそのまま）。'],
   ['2026-11-05-23','📅','仕込み','日程の「四添（四段だけ先に）」を選んでも反映されなかったのを直しました。四添の日だけが動き、アル添・上槽はそのまま（同じ日以降を選んだときは翌日へ）。'],
   ['2026-11-05-22','🧪','仕込み','上槽後の分析：入力していない項目に予想値が入らないように（最初は空欄・予想の表示を削除）。保存した分析は「🗑 この分析を削除」で未入力に戻せます（仕込カルテの上槽の値も消えます）。'],
   ['2026-11-05-21','💾','保存','未送信が残る件その2：保存は書けているのに返事だけ遅れていたので、送り直す前（返事が来なかったとき）に読み直して、入っていれば「保存済み」として外すように。返事が遅いときは1件ずつ、間隔を伸ばして送り直します。未送信の一覧を開くと、保存済みの分は自動で外れます。'],
@@ -14837,7 +14839,7 @@ function ydSum(m){
 }
 
 /* ---------- ① 日付を押した窓：作業を選ぶ ---------- */
-const YD_NM={sen:'四洗', shi:'四仕', sau:'四ア上', soe:'四添', au:'ア上', alc:'アル添', jo:'上槽'};
+const YD_NM={sen:'四洗', shi:'四仕', sau:'四ア上', soe:'四添', au:'ア上', alc:'アル添', jo:'上槽', blank:'空欄'};
 /* 四添・アル添・上槽 は同じ日なら1つの札にまとめる（2026-11-02 泰広さん：正しくは 四洗→四仕→四ア上） */
 function ydCombo(ks){ const h=k=>ks.indexOf(k)>=0;
   if(h('soe')&&h('alc')&&h('jo')) return ['sau','四ア上']; if(h('soe')&&h('alc')) return ['sa','四アル添']; if(h('alc')&&h('jo')) return ['au','ア上'];
@@ -14856,6 +14858,13 @@ function ydAt(m, s, d){ const o=[]; if(s){ if(s.sen===d) o.push('sen'); if(s.shi
   else if((m.joso||'')===d) o.push('jo');
   return o; }
 function ydApply(m, k, d, base, chain){
+  if(k==='blank'){   // 2026-11-05 泰広さん：この日の作業を空欄に
+    if(!base) return 'err:この日には四段の作業がありません';
+    const s=Object.assign({}, base); s.alc=s.alc||s.soe;
+    if(s.sen===d||s.shi===d||(s.soe===d&&s.alc===d)) return {del:true};
+    if(s.soe===d) s.soe=s.alc; else if(s.alc===d) s.alc=s.soe; else return 'err:この日には四段の作業がありません';
+    s.jo=s.alc; return s;
+  }
   if(!base){
     if(k==='sen') return {sen:d, shi:dadd(d,1), soe:dadd(d,2), alc:dadd(d,2), jo:dadd(d,2)};
     if(k==='shi') return {sen:dadd(d,-1), shi:d, soe:dadd(d,1), alc:dadd(d,1), jo:dadd(d,1)};
@@ -14876,6 +14885,7 @@ function ydApply(m, k, d, base, chain){
 }
 function ydPv(s){
   if(!s) return '<span class="yd-sm">（まだ日程なし）</span>';
+  if(s.del) return '<span class="yd-sm">四洗〜アル添の日程を消します（上槽日はそのまま）</span>';
   if(s.only) return `<span class="yd-pvi"><span class="yd-tg yd-jo">上槽</span><b>${ydMD(s.jo)}</b></span>`;
   return ydTags(s).map(t=>`<span class="yd-pvi"><span class="yd-tg yd-${t.c}">${t.l}</span><b>${rcMD(t.d)}</b></span>`).join('<span class="yd-ar">›</span>');
 }
@@ -14891,7 +14901,7 @@ function ydMenu(m, d){
     w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div>
       <div class="yd-hd"><b>${wd.getMonth()+1}/${wd.getDate()}（${WD[wd.getDay()]}）</b>　${esc(String(m.no))}号 ${esc(m.liquid||'')}　<span class="yd-tk">T${esc(String(m.tank||''))}</span><button type="button" class="yd-x" data-a="close">✕</button></div>
       <div class="yd-sub">${now.length?`この日は今「${now.map(k=>YD_NM[k]).join('・')}」。`:''}${s?'この日に移す作業を選んでください':'この日に入れる作業を選んでください'}</div>
-      <div class="yd-menu${picked?' haspk':''}">${B('sen','main', s?'この日に移す':'このあと 四仕 → 四ア上 を自動で入れる')}${B('shi','')}${B('sau','','四段・アル添・上槽')}${s?B('soe','','四段だけ先に')+B('au','','アル添・上槽を後日に'):''}</div>
+      <div class="yd-menu${picked?' haspk':''}">${B('sen','', s?'':'続きも自動')}${B('shi','')}${B('sau','','四段・アル添・上槽')}${s?B('soe','','四段だけ先に')+B('au','','アル添・上槽を後日に')+B('blank','','作業なし'):''}</div>
       ${s?`<label class="yd-chk"><input type="checkbox" id="ydChain"${YD.chain?' checked':''}> 後ろの工程も一緒にずらす</label>`:''}
       <div class="yd-pvb"><div class="yd-sm">${picked?'変更後':'いまの日程'}</div><div class="yd-pvl">${err?`<span class="yd-er">${esc(err)}</span>`:ydPv(picked?res:(s||{jo:m.joso||p, only:true}))}</div>
         ${m.josoSel&&m.joso!==p?`<div class="yd-sm" style="margin-top:3px">上槽の計画：${ydMD(p)}</div>`:''}</div>
@@ -14912,6 +14922,9 @@ function ydMenu(m, d){
       catch(e){ say('消せませんでした：'+(e.message||e)); busy(false); } };
     w.querySelector('[data-a="ok"]').onclick=async()=>{
       if(!picked||err) return; const r=ydApply(m, picked, d, ydSch(m), YD.chain); if(!r||typeof r==='string') return;
+      if(r.del){ busy(true); say('消しています…');
+        try{ const it=ydItem(YD_SCH, m.no); if(it) mwKeep(await mwApi({action:'delete', id:it.id})); close(); ydRepaint(); rcToast(`${m.no}号の四段の日程を消しました`); }
+        catch(e){ say('消せませんでした：'+(e.message||e)); busy(false); } return; }
       busy(true); say('保存しています…');
       try{
         let joCh=false, calErr='';
@@ -15065,30 +15078,36 @@ function ydAnaOpen(no, focusT){
     const D=ydDests(m), d=D.find(x=>String(x.t)===String(t))||{t}, a=ydAna(m,t), R=ydRec(m), P=ydPre(m,R), last=P.last||{};
     const init=k=>a?ydN(a[k]):null;   // 2026-11-05 泰広さん：入力していない項目は空欄から（予想値は入れない）
     const pre=k=>'';   // 2026-11-05 予想値は表示しない
-    const col=(k,l)=>`<div><div class="yd-colh">${l}${pre(k)?`<small>予想 ${pre(k)}</small>`:''}</div>${ydWheelHTML('yw_'+k)}</div>`;
+    /* 2026-11-05 泰広さん：リール → 数字を打つ入力に。日本酒度は ＋／− を選ぶ */
+    const box=(k,l)=>`<label class="yd-in"><span>${l}</span><input type="text" inputmode="decimal" enterkeyhint="next" id="yi_${k}" placeholder="空欄" autocomplete="off"></label>`;
     w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div>
       <div class="yd-hd"><span class="yd-big">T${esc(String(t))}</span><span class="yd-sm">← ${esc(String(m.no))}号 ${esc(m.liquid||'')}　${rcMD(m.joso)}上槽　${ydL(d.L)}L</span><span class="yd-who">入力者 ${esc(String(ST.name||''))}</span></div>
-      <div class="yd-smv"><div class="yd-smvh"><b>日本酒度</b>${pre('smv')?`<span class="pv">予想 ${pre('smv')}</span>`:''}<span class="now" id="ydSmvNow"></span></div>
-        <div class="yd-smvg"><div><div class="yd-dl">符号</div>${ydWheelHTML('yw_s')}</div><div><div class="yd-dl">十の位</div>${ydWheelHTML('yw_t')}</div><div><div class="yd-dl">一の位</div>${ydWheelHTML('yw_o')}</div><div class="yd-dot">.</div><div><div class="yd-dl">小数第1位</div>${ydWheelHTML('yw_d')}</div></div></div>
-      <div class="yd-cols3">${col('alc','alc')}${col('ta','酸度')}${col('aa','ｱﾐﾉ')}</div>
+      <div class="yd-smv"><div class="yd-smvh"><b>日本酒度</b><span class="now" id="ydSmvNow"></span></div>
+        <div class="yd-sgn"><button type="button" class="yd-sg" data-sg="+">＋</button><button type="button" class="yd-sg" data-sg="-">−</button><input type="text" inputmode="decimal" enterkeyhint="next" id="yi_smv" placeholder="空欄" autocomplete="off"></div></div>
+      <div class="yd-cols3">${box('alc','alc')}${box('ta','酸度')}${box('aa','ｱﾐﾉ')}</div>
       <div class="yd-picked" id="ydPk"></div>
       <div class="yd-row"><button type="button" class="yd-b sm" data-a="blank">このタンクは分析しない（全部 空欄）</button><button type="button" class="yd-b sm" data-a="pre">元に戻す</button></div>${a?'<div class="yd-row"><button type="button" class="yd-b sm yd-del" data-a="del">🗑 この分析を削除（未入力に戻す）</button></div>':''}
       <div class="yd-row"><button type="button" class="yd-b" data-a="back">‹ 一覧</button><button type="button" class="yd-b ana" data-a="save">保存</button></div><div class="yd-msg">${note?`<span class="yd-ok">${esc(note)}</span>`:''}</div></div>`;
-    const D10=[0,1,2,3,4,5,6,7,8,9].map(n=>({v:String(n), t:String(n)}));
-    const W={ s:ydWheel(w.querySelector('#yw_s'), [{v:'',t:'空欄',c:'bl'},{v:'+',t:'＋'},{v:'-',t:'−'}]),
-      t:ydWheel(w.querySelector('#yw_t'), D10), o:ydWheel(w.querySelector('#yw_o'), D10), d:ydWheel(w.querySelector('#yw_d'), D10) };
-    ['alc','ta','aa'].forEach(k=>{ const [lo,hi]=YD_RANGE[k], it=[{v:'',t:'空欄',c:'bl'}]; for(let x=Math.round(lo*10);x<=Math.round(hi*10);x++){ const s=(x/10).toFixed(1); it.push({v:s,t:s,c:''}); } W[k]=ydWheel(w.querySelector('#yw_'+k), it); });
-    const smvVal=()=>{ const sg=W.s.val(); if(!sg) return null; const n=Number(W.t.val())*10+Number(W.o.val())+Number(W.d.val())/10; return Math.round((sg==='-'?-n:n)*10)/10; };
-    const setSmv=v=>{ if(v===null||v===undefined){ W.s.set(0); return; } W.s.set(v<0?2:1); const x=Math.min(999,Math.round(Math.abs(v)*10)); W.t.set(Math.floor(x/100)); W.o.set(Math.floor(x/10)%10); W.d.set(x%10); };
-    const setK=(k,v)=>{ if(v===null||v===undefined){ W[k].set(0); return; } const [lo,hi]=YD_RANGE[k]; const x=Math.min(Math.round(hi*10),Math.max(Math.round(lo*10),Math.round(v*10))); W[k].set(1+x-Math.round(lo*10)); };
-    const show=()=>{ const sv=smvVal(), blank=sv===null; ['t','o','d'].forEach(x=>W[x].el.classList.toggle('dim',blank));
+    let sg='+';
+    const KS=['smv','alc','ta','aa'], I=k=>w.querySelector('#yi_'+k);
+    const num=k=>{ let v=String(I(k).value||'').trim().replace(/[０-９．]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)); if(v==='') return null; const n=Number(v); return isNaN(n)?NaN:n; };
+    const smvVal=()=>{ const n=num('smv'); if(n===null||isNaN(n)) return null; const x=Math.abs(n); return Math.round((sg==='-'?-x:x)*10)/10; };
+    const W={}; ['alc','ta','aa'].forEach(k=>W[k]={val:()=>{ const n=num(k); return (n===null||isNaN(n))?'':String(n); }});
+    const show=()=>{ w.querySelectorAll('.yd-sg').forEach(b=>b.classList.toggle('on',b.dataset.sg===sg));
+      const sv=smvVal(), blank=sv===null;
       const nw=w.querySelector('#ydSmvNow'); if(nw){ nw.textContent=blank?'空欄':ydSg(sv); nw.classList.toggle('e',blank); }
+      KS.forEach(k=>I(k).classList.toggle('bad', Number.isNaN(num(k))));
       const pk=w.querySelector('#ydPk'); if(pk) pk.innerHTML=[['日本酒度',blank?'':ydSg(sv)],['alc',W.alc.val()],['酸度',W.ta.val()],['ｱﾐﾉ',W.aa.val()]].map(([l,v])=>`<div>${l}<b class="${v?'':'e'}">${v||'空欄'}</b></div>`).join(''); };
-    Object.values(W).forEach(x=>x.onChange=show);
-    const fill=()=>{ setSmv(init('smv')); ['alc','ta','aa'].forEach(k=>setK(k, init(k))); setTimeout(show,60); };   // 保存済みの値、無ければ空欄
-    requestAnimationFrame(()=>fill(true));
-    w.querySelector('[data-a="blank"]').onclick=()=>{ setSmv(null); ['alc','ta','aa'].forEach(k=>setK(k,null)); setTimeout(show,60); };
-    w.querySelector('[data-a="pre"]').onclick=()=>fill(false);
+    w.querySelectorAll('.yd-sg').forEach(b=>b.onclick=()=>{ sg=b.dataset.sg; show(); });
+    KS.forEach((k,i)=>{ const el=I(k);
+      el.addEventListener('input',()=>{ if(k==='smv'){ const v=el.value; if(/^\s*[−－-]/.test(v)){ sg='-'; el.value=v.replace(/^\s*[−－-]/,''); } else if(/^\s*[＋+]/.test(v)){ sg='+'; el.value=v.replace(/^\s*[＋+]/,''); } } show(); });
+      el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const nx=I(KS[i+1]); if(nx) nx.focus(); else el.blur(); } }); });
+    const setSmv=v=>{ if(v===null||v===undefined){ I('smv').value=''; sg='+'; return; } sg=v<0?'-':'+'; I('smv').value=Math.abs(v).toFixed(1); };
+    const setK=(k,v)=>{ I(k).value=(v===null||v===undefined)?'':String(v); };
+    const fill=()=>{ setSmv(init('smv')); ['alc','ta','aa'].forEach(k=>setK(k, init(k))); show(); };   // 保存済みの値、無ければ空欄
+    fill();
+    w.querySelector('[data-a="blank"]').onclick=()=>{ KS.forEach(k=>I(k).value=''); sg='+'; show(); };
+    w.querySelector('[data-a="pre"]').onclick=()=>fill();
     w.querySelector('[data-a="back"]').onclick=list;
     const dl=w.querySelector('[data-a="del"]'); if(dl) dl.onclick=async()=>{   // 2026-11-05 泰広さん：削除できるように
       if(!confirm(`T${t} の上槽後の分析を削除しますか？\n（未入力に戻ります）`)) return;
@@ -15097,6 +15116,7 @@ function ydAnaOpen(no, focusT){
       catch(e){ if(e0) e0.textContent='削除できませんでした：'+(e.message||e); w.querySelectorAll('button').forEach(b=>b.disabled=false); }
     };
     w.querySelector('[data-a="save"]').onclick=async()=>{
+      if(KS.some(k=>Number.isNaN(num(k)))){ const e=w.querySelector('.yd-msg'); if(e) e.textContent='数字でない入力があります（赤い欄）'; return; }
       const sv=smvVal(), val={ smv:sv===null?'':sv, alc:W.alc.val(), ta:W.ta.val(), aa:W.aa.val() };
       const blank=['smv','alc','ta','aa'].some(k=>val[k]===''||val[k]===null);
       const say=x=>{ const e=w.querySelector('.yd-msg'); if(e) e.textContent=x; };
@@ -15272,6 +15292,7 @@ function ydRecOpen(no, date, step){
 .yd-mb{border:0;border-radius:14px;padding:12px 4px;color:#fff;font:inherit;font-weight:800;font-size:16px;cursor:pointer;line-height:1.25;position:relative}
 .yd-mb small{display:block;font-size:11px;font-weight:600;opacity:.92}
 .yd-mb.main{grid-column:1/-1;font-size:19px;padding:13px}
+.yd-mb.yd-blank{background:#9aa3ab;color:#fff}
 .yd-menu.haspk .yd-mb{opacity:.5}.yd-menu .yd-mb.pk{opacity:1;box-shadow:0 0 0 3px #fff,0 0 0 6px var(--navy)}
 .yd-mb.cur::before{content:'いま';display:block;font-size:10px;background:rgba(255,255,255,.3);border-radius:5px;margin:0 auto 2px;width:34px}
 .yd-sen{background:#2b8cbe}.yd-shi{background:#6a51a3}.yd-soe{background:#8e44ad}.yd-alc{background:#b03a8c}.yd-sa{background:linear-gradient(90deg,#8e44ad,#b03a8c)}.yd-sau{background:linear-gradient(90deg,#8e44ad,#b03a8c 55%,#c62828)}.yd-au{background:linear-gradient(90deg,#b03a8c,#c62828)}
@@ -15324,6 +15345,12 @@ function ydRecOpen(no, date, step){
 .yd-gp::after{content:'';flex:1;height:1px;background:var(--line)}
 .yd-sumr{background:#eef7f1;border:1px solid #c9e3d4;border-radius:12px;padding:6px 10px;font-size:12px;display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
 .yd-sumr b{color:#2f7d5d;font-size:13px}
+.yd-sgn{display:grid;grid-template-columns:56px 56px 1fr;gap:6px;align-items:center;margin-top:4px}
+.yd-sg{border:1.5px solid #b8c6cf;background:#fff;border-radius:10px;font:inherit;font-size:22px;font-weight:800;height:48px;color:#556;cursor:pointer}
+.yd-sg.on{background:var(--navy,#1d3557);border-color:var(--navy,#1d3557);color:#fff}
+.yd-sgn input,.yd-in input{width:100%;box-sizing:border-box;height:48px;border:1.5px solid #b8c6cf;border-radius:10px;font:inherit;font-size:22px;font-weight:700;text-align:center;background:#fff}
+.yd-sgn input.bad,.yd-in input.bad{border-color:#d33;background:#fff4f4}
+.yd-in{display:block;text-align:center}.yd-in span{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:2px}
 .yd-smv{border:1.5px solid #8cc7c9;border-radius:14px;background:#f8fdfd;padding:6px 6px 4px;margin-top:8px}
 .yd-smvh{display:flex;align-items:baseline;gap:8px;padding:0 4px 2px}.yd-smvh b{color:var(--navy);font-size:14px}.yd-smvh .pv{font-size:11px;color:var(--blue,#1f6fa8)}
 .yd-smvh .now{margin-left:auto;font-size:24px;font-weight:800;color:var(--ink)}.yd-smvh .now.e{color:#999;font-size:16px}
