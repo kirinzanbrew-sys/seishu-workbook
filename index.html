@@ -9396,6 +9396,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-05-4','💾','保存','「未送信」がずっと残る件：たくさん一度に送るとサーバーの返事が遅れて打ち切り→送り直しを繰り返していたので、同時に送るのを3件までに。未送信があると右下に「未送信 ◯件」が出て、押すと理由の確認・1件ずつ送る・捨てるができます。'],
   ['2026-11-05-3','🟫','粕','「きょうの粕」に明日の分（今日上槽した仕込み）が出ていたのを直しました。上槽の翌日になってから出ます。'],
   ['2026-11-05-2','🟫','本日の予定','本日の予定の「粕」を、出勤表の粕欄ではなく仕込みの上槽日の翌日から自動で出すようにしました（仕込みの表で上槽日を変えると粕の日も一緒に動きます）。押すと粕の画面が開きます。'],
   ['2026-11-05-1','🗂️','製造カレンダー','上の「✋振休依頼」アイコンを「🗂️仕込み計画」に変更。造りexの仕込計画表（今年度）から、今日・明日の酛立・添・留・アル添・上槽・検定と、順号ごとの予定日・いまの段階（酒母◯日目・醪◯日目など）を表示します。振休依頼は出勤表の日を押した所の「この日で振休依頼」から出せます。'],
@@ -14303,6 +14304,46 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
   /* 端末の保存分（PC）を捨てる：1件ずつ送ったとき（recApi の中）と同じ決まり */
   function pcDrop(b){ try{ const no=b&&b.no; if((b.action==='bunseki_save'||b.action==='shubo_save') && no!=null && no!==''){ ['bunseki_get','shubo_get','karte'].forEach(x=>PC.delPrefix('rec:'+x+':'+no+':')); } else PC.delPrefix('rec:'); }catch(e){} }
   const BGS=window.BGS={run:false, again:false, hidAt:0, stale:new Set(), sent:0};
+  const QE=window.QE={kind:'', at:0, items:{}};
+  /* 2026-11-05 未送信があるとき、右下に「未送信 ◯件」。押すと一覧（理由・1件ずつ送る・捨てる） */
+  const KN={slow:'返事が遅い（90秒）',bad:'返事が読めない',net:'つながらない'};
+  const qvDesc=b=>{ b=b||{}; const v=b.values?Object.keys(b.values).slice(0,4).join('・'):''; return [b.action,b.no!=null&&b.no!==''?b.no+'号':'',b.date||'',b.stage||'',v].filter(Boolean).join('　'); };
+  function qvBadge(){ const n=recQ().length; let el=document.getElementById('qvBadge');
+    if(!n){ if(el) el.remove(); return; }
+    if(!el){ el=document.createElement('button'); el.id='qvBadge'; el.type='button';
+      el.style.cssText='position:fixed;right:10px;bottom:calc(74px + env(safe-area-inset-bottom));z-index:9998;border:none;border-radius:16px;padding:7px 12px;font:700 13px/1.2 inherit;font-family:inherit;color:#fff;background:#b23b3b;box-shadow:0 3px 10px rgba(0,0,0,.2)';
+      el.onclick=qvOpen; document.body.appendChild(el); }
+    el.textContent=(BGS.run?'送信中 ':'未送信 ')+n+'件 ›'; }
+  window.qvBadge=qvBadge;
+  function qvOpen(){ let w=document.getElementById('qvSheet'); if(w) w.remove();
+    w=document.createElement('div'); w.id='qvSheet';
+    w.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.35);display:flex;align-items:flex-end';
+    const draw=()=>{ const q=recQ();
+      w.innerHTML=`<div style="background:#fff;width:100%;max-height:80vh;overflow:auto;border-radius:16px 16px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));font-size:13px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="font-size:16px;flex:1">未送信 ${q.length}件</b><button data-a="x" style="border:1px solid #ccc;background:#fff;border-radius:8px;padding:6px 10px;font-family:inherit">閉じる</button></div>
+        ${QE.kind?`<div style="color:#b23b3b;margin-bottom:6px">前回の理由：${KN[QE.kind]||QE.kind}</div>`:''}
+        <button data-a="all" style="width:100%;border:none;background:#1b2a41;color:#fff;border-radius:10px;padding:10px;font:700 14px inherit;font-family:inherit;margin-bottom:8px">今すぐ送る（同時3件ずつ）</button>
+        ${q.map((it,i)=>`<div style="border:1px solid #e3e3e3;border-radius:10px;padding:8px;margin-bottom:6px">
+          <div style="font-weight:700">${esc(it.label||'')}</div>
+          <div style="color:#777;font-size:11.5px;word-break:break-all">${esc(qvDesc(it.body))}　${new Date(it.at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+          <div data-r="${i}" style="font-size:12px;margin-top:3px"></div>
+          <div style="display:flex;gap:6px;margin-top:5px"><button data-a="one" data-i="${i}" style="flex:1;border:1px solid #1b2a41;background:#fff;color:#1b2a41;border-radius:8px;padding:6px;font-family:inherit">この1件を送る</button>
+            <button data-a="del" data-i="${i}" style="border:1px solid #d99;background:#fff;color:#b23b3b;border-radius:8px;padding:6px 10px;font-family:inherit">捨てる</button></div></div>`).join('')}
+        ${q.length?'':'<p style="color:#777;text-align:center">未送信はありません</p>'}</div>`;
+      w.querySelector('[data-a="x"]').onclick=()=>w.remove();
+      w.onclick=e=>{ if(e.target===w) w.remove(); };
+      w.querySelector('[data-a="all"]').onclick=()=>{ w.remove(); recFlush(); };
+      w.querySelectorAll('[data-a="one"]').forEach(b=>b.onclick=async()=>{ const it=recQ()[+b.dataset.i]; if(!it) return; const r=w.querySelector(`[data-r="${b.dataset.i}"]`);
+        b.disabled=true; r.textContent='送っています…'; const t0=Date.now();
+        try{ const res=await recApi(it.body,120000); const s=Math.round((Date.now()-t0)/1000);
+          if(res&&res.ok){ qRemove(it); r.style.color='#2e7d32'; r.textContent=`✓ 保存しました（${s}秒）`; try{ recAfterSave(it,res); }catch(e){} setTimeout(()=>{ draw(); qvBadge(); },900); }
+          else { r.style.color='#b23b3b'; r.textContent=`✕ サーバー：${(res&&res.err)||'不明'}（${s}秒）`; b.disabled=false; } }
+        catch(e){ r.style.color='#b23b3b'; r.textContent=`✕ ${e&&e.name==='AbortError'?'120秒で返事なし':e instanceof SyntaxError?'返事が読めない':'つながらない'}：${(e&&e.message)||e}`; b.disabled=false; } });
+      w.querySelectorAll('[data-a="del"]').forEach(b=>b.onclick=()=>{ const it=recQ()[+b.dataset.i]; if(!it) return;
+        if(!confirm(`「${it.label}」を送らずに捨てます。よろしいですか？`)) return; qRemove(it); draw(); qvBadge(); });
+    };
+    draw(); document.body.appendChild(w); }
+  setTimeout(qvBadge,1500); setInterval(qvBadge,5000);
   const dev=()=>(navigator.userAgent.match(/iPhone|iPad|Android|Windows|Mac/)||[''])[0];
   function qRemove(it){ const q=recQ(); const i=q.findIndex(x=>same(x,it)); if(i>=0){ q.splice(i,1); lsSet('rec.q',q); } }
   /* 画面を消して戻ったら、止まっていた通信は待たない（打ち切って送り直す） */
@@ -14323,8 +14364,12 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
         q.forEach(it=>{ const k=shapeOf(it.body||{}); if(!G[k]){ G[k]={items:[],body:null}; order.push(k); } const g=G[k]; g.items.push(it); g.body=mergeBody(g.body,it.body||{}); });
         const one=async k=>{ const g=G[k], it0=g.items[0], n=g.items.length;
           const it={body:g.body, label:n>1?`${it0.label} ほか${n-1}件`:it0.label, at:it0.at}; let res=null;
-          try{ res=await waitRes(recApi(g.body,60000)); }
-          catch(e){ if(e&&e.stale){ BGS.again=true; return; } netFail=true; return; }
+          try{ res=await waitRes(recApi(g.body,90000)); }
+          catch(e){ if(e&&e.stale){ BGS.again=true; return; } netFail=true;
+            /* 2026-11-05 打ち切りの理由を残す（slow＝90秒で返事なし／bad＝返事が読めない／net＝つながらない） */
+            const kind=(e&&e.name==='AbortError')?'slow':(e instanceof SyntaxError)?'bad':'net';
+            QE.kind=kind; QE.at=Date.now(); QE.items[k]={label:it.label, kind, msg:String((e&&e.message)||e||''), at:Date.now()}; return; }
+          delete QE.items[k];
           g.items.forEach(qRemove); BGS.sent+=n;
           if(res&&res.ok){ okN+=n; const w=recAfterSave(it,res); if(w) warns.push(w); }
           else { fails.push(`${it.label}：${(res&&res.err)||''}`); } };
@@ -14347,22 +14392,28 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
             if(r&&r.ok){ okN+=n; const w=recAfterSave(it,r); if(w) warns.push(w); } else fails.push(`${it.label}：${(r&&r.err)||''}`); });
           doneBatch=true;
         }
-        if(!netFail) await Promise.all(order.filter(k=>!G[k].sent).map(one));
+        /* 2026-11-05 一斉に送ると醪管理R8BYの再計算が重なって1件60秒を超え、打ち切り→全部送り直しを繰り返したので、同時は3件まで */
+        if(!netFail){ const L=order.filter(k=>!G[k].sent); let p=0; const lane=async()=>{ while(p<L.length){ const k=L[p++]; await one(k); } };
+          await Promise.all([...Array(Math.min(3,L.length))].map(lane)); }
         /* 同じ順号の醪を何日分も同時に送ったときは、返事の順が前後するので最後に取り直して画面の控えをそろえる */
         const cnt={}; if(!doneBatch) order.forEach(k=>{ const b=G[k].body; if(b.action==='bunseki_save') cnt[b.no]=(cnt[b.no]||0)+1; });
         Object.keys(cnt).filter(n=>cnt[n]>1).forEach(n=>{ recApi({action:'bunseki_get',no:Number(n)||n},40000).then(r=>{ if(r&&r.ok){ RC.bun[n]=recOverlay('bunseki_get',n,r); RC.at=0; } }).catch(()=>{}); });
       } while(BGS.again && !netFail);
     } finally { BGS.run=false; RC.qBusy=false; }
     if(okN && !netFail && !fails.length && !warns.length) rcToast(`${okN}件 を保存しました`);
-    if(netFail) rcToast(`電波が弱いため未送信が${recQ().length}件あります。電波が戻ったら自動で送ります`,true);
+    if(netFail){ const n=recQ().length;
+      rcToast(QE.kind==='slow'?`サーバーの返事が遅いため未送信が${n}件あります。少しずつ送り直します（右下の「未送信」で確認できます）`
+        :QE.kind==='bad'?`サーバーの返事が読めず未送信が${n}件あります。右下の「未送信」を押して確認してください`
+        :`電波が弱いため未送信が${n}件あります。電波が戻ったら自動で送ります`,true); }
     /* 注意（推奨追水・警告）と保存できなかった分は、最後にまとめて出す */
     if(warns.length||fails.length) rcToast([...fails.map(x=>'✕ 保存できませんでした　'+x), ...warns].join('\n'), true, 12000);
     /* 酒母：全部送れたら最新を取り直し、表を開いていれば描き直す（未保存の入力があるときは描き直さない） */
     if(!recQ().length && RC.shDirty && Object.keys(RC.shDirty).length){ const nos=Object.keys(RC.shDirty); RC.shDirty={};
       try{ await shFetchMany(nos,'shubo_get',RC.shubo,()=>{}); }catch(e){}
       try{ if(typeof KGE!=='undefined' && KGE.draw && document.querySelector('.kg-sbar') && !Object.keys(KGE.dirty||{}).length) KGE.draw(); }catch(e){} }
-    if(netFail){ clearTimeout(RC.qRetry); RC.qRetry=setTimeout(recFlush,30000); }
+    if(netFail){ clearTimeout(RC.qRetry); RC.qRetry=setTimeout(recFlush,QE.kind==='slow'?10000:30000); }
     else if(recQ().length && !BGS.run) setTimeout(recFlush,500);
+    qvBadge();
   };
 
   /* 画面を消す瞬間：送信待ちを先に送り届ける（ブラウザが画面の外で送る） */
@@ -14385,7 +14436,6 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
   window.addEventListener('pagehide',beaconAll);
   window.addEventListener('pageshow',()=>{ if(recQ().length) setTimeout(()=>recFlush(),300); });
 })();
-
 </script>
 <!-- /bgsave1101 -->
 <!-- shkfast1101 -->
