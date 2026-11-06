@@ -9403,6 +9403,8 @@ async function kiDialog(no, kind){
    ================================================================================== */
 const UPDATES=[
   ['2026-11-05-31','🚚','米管理（在庫管理）','米の入荷を手で入れられるように。在庫管理の表の下「米の入荷（手入力）」→「＋ 入荷を入力する」で、品種・入荷した日・袋数（端数はkg）を入れて保存。表の「受入」に「手入力」として入り、在庫と不足チェックにも反映されます。引取予定に無い乾五70%などの入荷に使えます。入れ間違いは「消す」で取り消せます。'],
+  ['2026-11-06-5','🧪','仕込み','上槽後の分析の合算は、上槽先タンクの量（ℓ・尺から自動）で重み付けして出します。量が入っていないタンクがあるうちは合算を出さず「量待ち」と表示します（仕込カルテの上槽の値も同じ）。'],
+  ['2026-11-06-4','🧪','仕込み','上槽後の分析（タンク｜合算・尺・量）を、上槽翌日のマスから右へ重ねた箱で出すように。〇日目の列の幅はほかの仕込みも含めて変わりません。'],
   ['2026-11-06-3','🍶','仕込み','仕込みの表の上に「上槽済も表示」のスイッチ。入れると、上槽が終わった仕込みも表に（留の古い順に上から）薄い色で並び、順号の下に「上槽済 ◯/◯」。上槽後の分析値もそのまま見られます。スイッチの状態は端末に残ります。'],
   ['2026-11-06-2','🍶','仕込み','上槽日を変えたのに、古い上槽日の「上槽」の印が表に残ることがあったのを直しました（上槽日を読み直したら表を描き直します）。'],
   ['2026-11-06-1','🛠','濾過・火入／仕込み','濾過・火入の記録と、仕込みの日程で上槽日が保存できなくなっていた（「rkRow が見つからない」というエラー）のを直しました。11/5 の米の入荷の手入力を足したときに、同じ名前がぶつかっていました。'],
@@ -14941,9 +14943,10 @@ function ydPatHTML(m, R){
   return h+`</table><div class="yd-sm">マスを押すと、その量が「入れた量」に入ります${two?'。差＝今回の四段Beが通常と違うぶんの量':''}</div>`;
 }
 /* 合算（量で重み付け。量が無いタンクは同じ重み） */
-function ydSum(m){
+function ydSum(m){   // 2026-11-06 泰広さん：合算は ℓ数（上槽先の量）で重み付け。2タンク以上で量の無いタンクがあれば合算は出さない（needL）
   const D=ydDests(m), o={}; let any=false;
-  ['smv','alc','ta','aa'].forEach(k=>{ let s=0,w=0; D.forEach(d=>{ const a=ydAna(m,d.t); const v=a?ydN(a[k]):null; if(v===null) return; const L=ydN(d.L)||1; s+=v*L; w+=L; });
+  o.needL=D.length>=2 && D.some(d=>!(ydN(d.L)>0));
+  ['smv','alc','ta','aa'].forEach(k=>{ let s=0,w=0; if(!o.needL) D.forEach(d=>{ const a=ydAna(m,d.t); const v=a?ydN(a[k]):null; if(v===null) return; const L=ydN(d.L)||1; s+=v*L; w+=L; });
     o[k]=w?Math.round(s/w*10)/10:null; if(w) any=true; });
   o.L=D.reduce((a,d)=>a+(ydN(d.L)||0),0); o.any=any; return o;
 }
@@ -15195,7 +15198,8 @@ function ydPaint(box){
     box=box||document.querySelector('.kg-home[data-mk]')||document.querySelector('.kg-home'); if(!box) return;
     box.querySelectorAll('.yd-tg.yd-in').forEach(x=>x.remove());
     box.querySelectorAll('.yd-box,.yd-b3t,.yd-b3h,.yd-b3s').forEach(x=>x.remove());
-    box.querySelectorAll('.yd-s1').forEach(x=>x.remove());
+    box.querySelectorAll('.yd-s1,.yd-ov').forEach(x=>x.remove());
+    box.querySelectorAll('td.yd-ovc').forEach(x=>x.classList.remove('yd-ovc'));
     box.querySelectorAll('td.yd-band').forEach(x=>{ x.classList.remove('yd-band','yd-done','yd-b3c','yd-s1c'); x.style.minWidth=''; });
     box.querySelectorAll('td.yd-has').forEach(x=>x.classList.remove('yd-has','yd-hasjo'));
     box.querySelectorAll('.kg-i.yd-hide').forEach(x=>x.classList.remove('yd-hide'));
@@ -15214,31 +15218,34 @@ function ydPaint(box){
 }
 /* 上槽後の分析 B3：上槽の翌日の列を色の帯に。日付の行に「上槽後分析 未／1/2／済」、
    Be の行＝項目名（度 alc 酸 ｱﾐﾉ）、その下の行に1タンクずつ値（未入力は「未入力 ›」）、最後に合算。押すとそのタンクの入力 */
-function ydB3(box, m){   // 2026-11-05 泰広さん：S1＋案2（上槽翌日の列を タンク｜…｜合算 に分け、今ある Be/度・alc・酸・ｱﾐﾉ の行に値、追水の行＝尺、品温AMの行＝量L）
+function ydB3(box, m){   // 2026-11-06 泰広さん：案B（上槽翌日のマスから右へ箱を重ねる。〇日目の列の幅は変えない）。中身は タンク｜…｜合算・Be/度・alc・酸・ｱﾐﾉ・尺・量L
   const i=rcDays(m.tome, m.joso)+2, rows=[...box.querySelectorAll(`.kg-t tr[data-kg="${CSS.escape(String(m.no))}"]`)]; if(rows.length<2) return;
   if(typeof TANKS!=='undefined' && !TANKS && typeof loadTanks==='function' && !ydB3.ld){ ydB3.ld=1; loadTanks().then(()=>ydRepaint()).catch(()=>{}); }
   const S=ydAnaState(m), done=S.n>0&&!S.pend, no=esc(String(m.no)), D=S.D, multi=D.length>=2, sm=ydSum(m);
   const KEY={1:'smv', 2:'alc', 3:'ta', 4:'aa'};   // 行：1 Be/度・2 alc・3 酸・4 ｱﾐﾉ・5 追水（→尺）・6 品温AM（→量L）（kgFieldsMoromi の並び）
   const f=(v,k)=>{ v=ydN(v); return v===null?'':(k==='smv'?ydSg(v):ydF1(v)); };
   const sumK=k=>{ if(!multi) return ''; if(!D.every(d=>{ const a=ydAna(m,d.t); return a&&ydN(a[k])!==null; })) return ''; return f(sm[k],k); };
-  const nC=Math.max(1,D.length)+(multi?1:0), wpx=Math.max(56, 58*nC);
-  const row=(cells, sum)=>`<span class="yd-s1">${cells.join('')}${multi?`<span class="yd-s1s">${sum||''}</span>`:''}</span>`;
-  const dtd=rows[0].querySelector(`td[data-i="${i}"]`);
-  if(dtd){ dtd.classList.add('yd-band','yd-s1c','yd-s1top'); if(done) dtd.classList.add('yd-done'); dtd.style.minWidth=wpx+'px';
-    dtd.insertAdjacentHTML('beforeend', `<span class="yd-s1 yd-s1t">${D.length?D.map(d=>`<span>T${esc(String(d.t))}</span>`).join('')+(multi?'<span class="yd-s1s">合算</span>':''):'<span>上槽先</span>'}</span>`); }
-  rows.slice(1).forEach((tr,r0)=>{ const r=r0+1, td=tr.querySelector(`td[data-i="${i}"]`); if(!td) return;
-    td.classList.add('yd-band','yd-s1c'); if(done) td.classList.add('yd-done'); td.style.minWidth=wpx+'px';
-    const inp=td.querySelector('.kg-i'); if(inp && !inp.value) inp.classList.add('yd-hide');
-    let h='';
-    if(!D.length){ if(r===1) h=`<span class="yd-s1"><button type="button" class="yd-box yd-s1b" data-ydno="${no}"><span class="mi">上槽先 ›</span></button></span>`; }
-    else if(KEY[r]){ const k=KEY[r];
-      h=row(D.map(d=>{ const a=ydAna(m,d.t), t=esc(String(d.t)), v=a?f(a[k],k):'';
-        return `<button type="button" class="yd-box yd-s1b" data-ydno="${no}" data-ydt="${t}">${v?`<b>${v}</b>`:(!a&&r===1?'<span class="mi">未 ›</span>':'')}</button>`; }), sumK(k)?`<b>${sumK(k)}</b>`:''); }
-    else if(r===5){ h=row(D.map(d=>`<span class="yd-s1i"><i>尺</i><input type="text" inputmode="numeric" class="yd-sk" data-ydno="${no}" data-ydt="${esc(String(d.t))}" value="${esc(String(d.mm||''))}" autocomplete="off"></span>`), ''); }
+  const dtd=rows[0].querySelector(`td[data-i="${i}"]`); if(!dtd) return;
+  const use=rows.slice(0, 7);   // 日付〜品温AM の7行に重ねる（品温PM・BMD はそのまま）
+  use.forEach(tr=>{ const td=tr.querySelector(`td[data-i="${i}"]`); if(!td) return; td.classList.add('yd-band'); if(done) td.classList.add('yd-done');
+    const inp=td.querySelector('.kg-i'); if(inp && !inp.value) inp.classList.add('yd-hide'); });
+  const nC=Math.max(1,D.length)+(multi?1:0), W=Math.max(60, 58*nC);
+  const line=(cells, sum)=>`<div class="yd-ovr"><span class="yd-s1">${cells.join('')}${multi?`<span class="yd-s1s">${sum||''}</span>`:''}</span></div>`;
+  let h=`<div class="yd-ovr yd-ovh" title="${rcMD(dadd(m.joso,1))} 上槽後の分析"><span class="yd-s1 yd-s1t">${D.length?D.map(d=>`<span>T${esc(String(d.t))}</span>`).join('')+(multi?'<span class="yd-s1s">合算</span>':''):'<span>上槽先</span>'}</span></div>`;
+  for(let r=1;r<use.length;r++){
+    if(!D.length){ h+=r===1?`<div class="yd-ovr"><span class="yd-s1"><button type="button" class="yd-box yd-s1b" data-ydno="${no}"><span class="mi">上槽先 ›</span></button></span></div>`:'<div class="yd-ovr"></div>'; continue; }
+    if(KEY[r]){ const k=KEY[r];
+      h+=line(D.map(d=>{ const a=ydAna(m,d.t), t=esc(String(d.t)), v=a?f(a[k],k):'';
+        return `<button type="button" class="yd-box yd-s1b" data-ydno="${no}" data-ydt="${t}">${v?`<b>${v}</b>`:(!a&&r===1?'<span class="mi">未 ›</span>':'')}</button>`; }), sumK(k)?`<b>${sumK(k)}</b>`:(r===1&&sm.needL?'<span class="yd-needL">量待ち</span>':'')); }
+    else if(r===5) h+=line(D.map(d=>`<span class="yd-s1i"><i>尺</i><input type="text" inputmode="numeric" class="yd-sk" data-ydno="${no}" data-ydt="${esc(String(d.t))}" value="${esc(String(d.mm||''))}" autocomplete="off"></span>`), '');
     else if(r===6){ const tot=D.reduce((a,d)=>a+(ydN(d.L)||0),0);
-      h=row(D.map(d=>`<span class="yd-s1i"><i>L</i><b class="yd-skL" data-ydno="${no}" data-ydt="${esc(String(d.t))}">${ydN(d.L)===null?'—':ydL(d.L)}</b></span>`), tot?`<span class="yd-s1i"><i>L</i><b>${ydL(tot)}</b></span>`:''); }
-    else h=row(D.map(()=>'<span></span>'), '');
-    if(h) td.insertAdjacentHTML('afterbegin', h); });
+      h+=line(D.map(d=>`<span class="yd-s1i"><i>L</i><b class="yd-skL" data-ydno="${no}" data-ydt="${esc(String(d.t))}">${ydN(d.L)===null?'—':ydL(d.L)}</b></span>`), tot?`<span class="yd-s1i"><i>L</i><b>${ydL(tot)}</b></span>`:''); }
+    else h+='<div class="yd-ovr"></div>';
+  }
+  dtd.classList.add('yd-ovc');
+  dtd.insertAdjacentHTML('beforeend', `<div class="yd-ov${done?' yd-done':''}" style="width:${W}px">${h}</div>`);
+  const ov=dtd.querySelector('.yd-ov'), rs=ov?ov.querySelectorAll(':scope > .yd-ovr'):[];
+  use.forEach((tr,k)=>{ if(rs[k]) rs[k].style.height=tr.getBoundingClientRect().height+'px'; });
 }
 /* 上槽後の列の「尺」：打つと量（L）をその場で、確定（フォーカスが外れる）で 上槽記録 の上槽先に 尺・量 を保存（裏で） */
 function ydSaveMm(no, t, v){
@@ -15337,7 +15344,7 @@ function ydAnaOpen(no, focusT){
       <div class="yd-sub">${ydMD(m.joso)}上槽・T${esc(String(m.tank||''))} → ${D.map(d=>'T'+esc(String(d.t))).join('・')}（空欄のままも可）</div>
       ${D.map(d=>{ const a=ydAna(m,d.t); return `<button type="button" class="yd-tc${a?'':' wait'}" data-t="${esc(String(d.t))}"><span class="t">T${esc(String(d.t))}</span><span class="fr">${ydL(d.L)}L</span><span class="vals">${['smv','alc','ta','aa'].map(k=>cell(a?a[k]:undefined,k)).join('')}</span><span class="st ${a?'ok':'no'}">${a?'済':'未'}</span></button>`; }).join('')}
       
-      <div class="yd-sumr"><span>${D.length>1?`合算（${D.map(d=>'T'+esc(String(d.t))).join('＋')} ${ydL(sm.L)}L）`:'上槽後'}</span><b>${S.pend?'入力がそろうと自動':(sm.any?`${ydSg(sm.smv)} / ${ydF1(sm.alc)} / ${ydF1(sm.ta)} / ${ydF1(sm.aa)}`:'空欄')}</b></div>
+      <div class="yd-sumr"><span>${D.length>1?`合算（${D.map(d=>'T'+esc(String(d.t))).join('＋')} ${ydL(sm.L)}L）`:'上槽後'}</span><b>${S.pend?'入力がそろうと自動':sm.needL?'上槽先の量（ℓ）を入れると自動':(sm.any?`${ydSg(sm.smv)} / ${ydF1(sm.alc)} / ${ydF1(sm.ta)} / ${ydF1(sm.aa)}`:'空欄')}</b></div>
       <div class="yd-row"><button type="button" class="yd-b" data-a="close">閉じる</button><button type="button" class="yd-b rec" data-a="rec">📝 上槽先・記録を直す</button></div>${note?`<div class="yd-ok">${esc(note)}</div>`:''}</div>`;
     w.querySelectorAll('[data-a="close"]').forEach(b=>b.onclick=close);
     w.querySelector('[data-a="rec"]').onclick=()=>{ w.remove(); ydRecOpen(m.no, m.joso, '5'); };
@@ -15611,6 +15618,16 @@ function ydRecOpen(no, date, step){
 .yd-dtog.on i{background:#2f7d5d}.yd-dtog.on i::after{left:18px}.yd-dtog small{font-size:11px;color:#6b7480;font-weight:600}
 .kg-t tr.yd-donerow td{background:#f2f4f2!important;color:#777}.kg-t tr.yd-donerow td .kg-i{color:#777}
 .yd-djt{display:inline-block;margin-top:3px;font-size:10px;font-weight:800;color:#fff;background:#2f7d5d;border-radius:4px;padding:0 4px;white-space:nowrap}
+.kg-t td.yd-ovc{position:relative;overflow:visible}
+.yd-ov{position:absolute;left:-1px;top:0;z-index:1;background:#eaf5ee;outline:1.5px solid #0f7c80;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.14);overflow:hidden;text-align:right}
+.yd-ov.yd-done{outline-color:#2f7d5d}
+.yd-ovr{display:flex;align-items:center;box-sizing:border-box;border-bottom:1px solid #d6e9dc;overflow:hidden}.yd-ovr:last-child{border-bottom:0}
+.yd-ovr .yd-s1{width:100%}
+.yd-needL{font-size:10px;font-weight:800;color:#b26a00}
+.yd-ovh{flex-direction:column;justify-content:center;align-items:stretch;background:#0f7c80;color:#fff;font-weight:800}.yd-ov.yd-done .yd-ovh{background:#2f7d5d}
+.yd-ovdt{display:block;font-size:8.5px;line-height:1.05;text-align:center;font-weight:700;opacity:.9}
+.yd-ovh .yd-s1t span{font-size:11px;line-height:1.15;min-height:0!important;padding-top:0;padding-bottom:0}.yd-ovh{gap:1px;padding:1px 0}
+.yd-ov .yd-s1t .yd-s1s{background:rgba(0,0,0,.14)}
 .kg-t td.yd-s1top{text-align:center!important}
 .yd-s1s{background:rgba(31,107,76,.10);display:flex;align-items:center;justify-content:flex-end;font-size:13px;line-height:1.3;min-height:18px}.yd-s1t .yd-s1s{justify-content:center}.yd-s1t .yd-s1s{background:rgba(0,0,0,.12)}
 .yd-s1i{display:flex!important;align-items:center;justify-content:flex-end;gap:2px}.yd-s1i i{font-style:normal;font-size:9px;color:#6b7480}
