@@ -9403,6 +9403,7 @@ async function kiDialog(no, kind){
    ================================================================================== */
 const UPDATES=[
   ['2026-11-05-31','🚚','米管理（在庫管理）','米の入荷を手で入れられるように。在庫管理の表の下「米の入荷（手入力）」→「＋ 入荷を入力する」で、品種・入荷した日・袋数（端数はkg）を入れて保存。表の「受入」に「手入力」として入り、在庫と不足チェックにも反映されます。引取予定に無い乾五70%などの入荷に使えます。入れ間違いは「消す」で取り消せます。'],
+  ['2026-11-06-2','🍶','仕込み','上槽日を変えたのに、古い上槽日の「上槽」の印が表に残ることがあったのを直しました（上槽日を読み直したら表を描き直します）。'],
   ['2026-11-06-1','🛠','濾過・火入／仕込み','濾過・火入の記録と、仕込みの日程で上槽日が保存できなくなっていた（「rkRow が見つからない」というエラー）のを直しました。11/5 の米の入荷の手入力を足したときに、同じ名前がぶつかっていました。'],
   ['2026-11-05-32','📅','仕込み','日程の窓で「上槽がアル添より前になります」と出て決定できなかったのを直しました。上槽日はいつもアル添の日にそろえます（アル添と上槽はセット）。上槽日が古いまま表示されて、変えても上槽日が保存されないことがあったのも直しました。'],
   ['2026-11-05-30','🧪','仕込み','上槽後の分析の表示：上槽の翌日の列を緑の帯にし、「T261｜T262｜合算」のように分けて（日付は上の真ん中）、今ある Be/度・alc・酸・ｱﾐﾉ の行にタンクごとの上槽後の値と合算（量で重み付け）を表示。追水の行に上槽先の尺を入れると、品温AMの行に量（L・早見表で自動）と合計が出ます。未入力のタンクは Be/度 の行に「未 ›」、押すとそのタンクの入力。'],
@@ -15250,6 +15251,15 @@ document.addEventListener('input', e=>{ const el=e.target; if(!el||!el.classList
 document.addEventListener('change', e=>{ const el=e.target; if(!el||!el.classList||!el.classList.contains('yd-sk')) return; ydSaveMm(el.dataset.ydno, el.dataset.ydt, el.value); }, true);
 document.addEventListener('keydown', e=>{ const el=e.target; if(e.key==='Enter' && el&&el.classList&&el.classList.contains('yd-sk')){ e.preventDefault(); el.blur(); } }, true);
 document.addEventListener('click', e=>{ const el=e.target; if(el&&el.classList&&el.classList.contains('yd-sk')) e.stopPropagation(); }, true);
+/* 2026-11-06 濾過火入の表（上槽日）を読み直して上槽日が変わったら、仕込みの表を描き直す（端末に残っていた古い上槽日のまま「上槽」の印が残る件） */
+(function(){ const o=window.rkKeep; if(typeof o!=='function') return;
+  window.rkKeep=function(...a){
+    const st=(typeof RC!=='undefined'&&RC)?RC.state:null, key=()=>st&&st.master?st.master.map(m=>m.no+':'+m.joso).join(','):'';
+    const before=key(), r=o.apply(this,a);
+    try{ if(before && key()!==before && document.getElementById('kgHd') && !document.querySelector('.yd-mask')){
+        const ae=document.activeElement; if(!(ae&&ae.matches&&ae.matches('input,textarea,select'))) moromiHome(); } }catch(e){}
+    return r; };
+})();
 function ydRepaint(){ try{ ydPaint(); ydHomeApply(); }catch(e){} }
 (function(){
   const o=window.kgBox; if(typeof o!=='function') return;
