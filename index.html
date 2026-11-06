@@ -9403,6 +9403,7 @@ async function kiDialog(no, kind){
    ================================================================================== */
 const UPDATES=[
   ['2026-11-05-31','🚚','米管理（在庫管理）','米の入荷を手で入れられるように。在庫管理の表の下「米の入荷（手入力）」→「＋ 入荷を入力する」で、品種・入荷した日・袋数（端数はkg）を入れて保存。表の「受入」に「手入力」として入り、在庫と不足チェックにも反映されます。引取予定に無い乾五70%などの入荷に使えます。入れ間違いは「消す」で取り消せます。'],
+  ['2026-11-06-3','🍶','仕込み','仕込みの表の上に「上槽済も表示」のスイッチ。入れると、上槽が終わった仕込みも表に（留の古い順に上から）薄い色で並び、順号の下に「上槽済 ◯/◯」。上槽後の分析値もそのまま見られます。スイッチの状態は端末に残ります。'],
   ['2026-11-06-2','🍶','仕込み','上槽日を変えたのに、古い上槽日の「上槽」の印が表に残ることがあったのを直しました（上槽日を読み直したら表を描き直します）。'],
   ['2026-11-06-1','🛠','濾過・火入／仕込み','濾過・火入の記録と、仕込みの日程で上槽日が保存できなくなっていた（「rkRow が見つからない」というエラー）のを直しました。11/5 の米の入荷の手入力を足したときに、同じ名前がぶつかっていました。'],
   ['2026-11-05-32','📅','仕込み','日程の窓で「上槽がアル添より前になります」と出て決定できなかったのを直しました。上槽日はいつもアル添の日にそろえます（アル添と上槽はセット）。上槽日が古いまま表示されて、変えても上槽日が保存されないことがあったのも直しました。'],
@@ -14877,7 +14878,13 @@ function ydAnaState(m){
   return {n:D.length, pend, blank, D};
 }
 /* 上槽済でも表に残すか（上槽の翌日まで／分析がまだなら上槽から7日まで） */
+/* 2026-11-06 泰広さん：案C「上槽済も表示」スイッチ（端末に保存）。入れると上槽済の仕込みも表に（留の順＝古い順に上から）、薄い色で */
+YD.showDone=(()=>{ try{ return localStorage.getItem('yd.showDone')==='1'; }catch(e){ return false; } })();
 function ydKeep(m, T, today){
+  if(YD.showDone) return true;
+  return ydKeep0(m, T, today);
+}
+function ydKeep0(m, T, today){
   const t=(T||{})[m.no]||{}; if(t.state!=='上槽済') return true;
   const j=m.joso; if(!j) return false;
   if(today<=dadd(j,1)) return true;
@@ -15202,6 +15209,7 @@ function ydPaint(box){
       if(m.joso && today>=m.joso) ydB3(box, m);   // 2026-11-05 泰広さん：S1（上槽翌日の列を帯にし、今ある Be/度・alc・酸・ｱﾐﾉ の行にタンクごとの値）
     });
     ydPlusAll(box);
+    ydDoneUI(box, today);
   }catch(e){ console.log('yd paint', e); }
 }
 /* 上槽後の分析 B3：上槽の翌日の列を色の帯に。日付の行に「上槽後分析 未／1/2／済」、
@@ -15260,6 +15268,25 @@ document.addEventListener('click', e=>{ const el=e.target; if(el&&el.classList&&
         const ae=document.activeElement; if(!(ae&&ae.matches&&ae.matches('input,textarea,select'))) moromiHome(); } }catch(e){}
     return r; };
 })();
+/* 上槽済も表示：スイッチ（表の上）と、上槽済の行を薄く・順号の下に「上槽済 ◯/◯」 */
+function ydDoneUI(box, today){
+  if(!document.getElementById('kgHd')) return;
+  let sw=box.querySelector('.yd-dtog');
+  if(!sw){ sw=document.createElement('button'); sw.type='button'; sw.className='yd-dtog';
+    sw.onclick=()=>{ YD.showDone=!YD.showDone; try{ localStorage.setItem('yd.showDone', YD.showDone?'1':'0'); }catch(e){} moromiHome(); };
+    const tw=box.querySelector('.kg-tw'); if(tw) tw.before(sw); else box.prepend(sw); }
+  const T=(RC.state&&RC.state.today)||{};
+  const nDone=((RC.state&&RC.state.master)||[]).filter(m=>(T[m.no]||{}).state==='上槽済').length;
+  sw.classList.toggle('on', !!YD.showDone); sw.innerHTML=`<i></i>上槽済も表示<small>${nDone}本</small>`;
+  box.querySelectorAll('.yd-djt').forEach(x=>x.remove()); box.querySelectorAll('tr.yd-donerow').forEach(x=>x.classList.remove('yd-donerow'));
+  if(!YD.showDone) return;
+  box.querySelectorAll('.kg-t tr.top[data-kg]').forEach(tr=>{
+    const m=rcMaster(tr.dataset.kg); if(!m) return;
+    if((T[m.no]||{}).state!=='上槽済' || ydKeep0(m, T, today)) return;   // ふだんも出ている間は今までどおり
+    box.querySelectorAll(`.kg-t tr[data-kg="${CSS.escape(String(m.no))}"]`).forEach(r=>r.classList.add('yd-donerow'));
+    const n=tr.querySelector('td.n'); if(n) n.insertAdjacentHTML('beforeend', `<span class="yd-djt">上槽済 ${rcMD(m.joso)}</span>`);
+  });
+}
 function ydRepaint(){ try{ ydPaint(); ydHomeApply(); }catch(e){} }
 (function(){
   const o=window.kgBox; if(typeof o!=='function') return;
@@ -15578,6 +15605,12 @@ function ydRecOpen(no, date, step){
 .yd-msg{font-size:12px;color:#b31b14;margin-top:6px;min-height:1em}
 .yd-ok{display:block;font-size:12.5px;color:#2f7d5d;font-weight:700;margin-top:6px}
 /* 表の「上槽後の分析」の枠 */
+.yd-dtog{display:inline-flex;align-items:center;gap:6px;border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--ink);padding:2px 2px 6px;cursor:pointer}
+.yd-dtog i{width:36px;height:20px;border-radius:10px;background:#c9c9c9;position:relative;display:inline-block;transition:.2s}
+.yd-dtog i::after{content:'';position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s}
+.yd-dtog.on i{background:#2f7d5d}.yd-dtog.on i::after{left:18px}.yd-dtog small{font-size:11px;color:#6b7480;font-weight:600}
+.kg-t tr.yd-donerow td{background:#f2f4f2!important;color:#777}.kg-t tr.yd-donerow td .kg-i{color:#777}
+.yd-djt{display:inline-block;margin-top:3px;font-size:10px;font-weight:800;color:#fff;background:#2f7d5d;border-radius:4px;padding:0 4px;white-space:nowrap}
 .kg-t td.yd-s1top{text-align:center!important}
 .yd-s1s{background:rgba(31,107,76,.10);display:flex;align-items:center;justify-content:flex-end;font-size:13px;line-height:1.3;min-height:18px}.yd-s1t .yd-s1s{justify-content:center}.yd-s1t .yd-s1s{background:rgba(0,0,0,.12)}
 .yd-s1i{display:flex!important;align-items:center;justify-content:flex-end;gap:2px}.yd-s1i i{font-style:normal;font-size:9px;color:#6b7480}
