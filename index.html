@@ -9402,6 +9402,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-07-1','🛢','資材（アルコール）','添加アルコールをタンク4本（T57・T56・T55・T50）ごとに管理できるように。資材 › アルコール で 受入・割水・実測・払出（アル添）・ほかから（昨年の残りなど）を尺で入力すると量は自動。タンクごとに実際（手書きの尺）と帳簿（造りex）の量と差、いま使っているタンクと次のタンク（選べます）、仕込計画からいつどのタンクが空になるかの見通しを表示。記録簿は期間を選んでA4で印刷でき、造りexに入れた行は ✔ を付けられます。10/27 の受入・割水、11/4・11/7 の払出（ノートの記録）は最初に入れてあります。'],
   ['2026-11-05-31','🚚','米管理（在庫管理）','米の入荷を手で入れられるように。在庫管理の表の下「米の入荷（手入力）」→「＋ 入荷を入力する」で、品種・入荷した日・袋数（端数はkg）を入れて保存。表の「受入」に「手入力」として入り、在庫と不足チェックにも反映されます。引取予定に無い乾五70%などの入荷に使えます。入れ間違いは「消す」で取り消せます。'],
   ['2026-11-06-6','🧹','ホーム（清掃当番）','11月の出勤表に作業（仕・盛引・ムロ・粕 など）が入ってから、作業の入った人が「出られない」扱いになり、3Fの後藤さんが毎日当番になっていたのを直しました。休み・アグリ・午後休・外の予定の人だけ飛ばし、ほかは順番どおりに必ず回ります。'],
   ['2026-11-06-5','🧪','仕込み','上槽後の分析の合算は、上槽先タンクの量（ℓ・尺から自動）で重み付けして出します。量が入っていないタンクがあるうちは合算を出さず「量待ち」と表示します（仕込カルテの上槽の値も同じ）。'],
@@ -16513,5 +16514,363 @@ if(typeof sziBind==='function'){ const _sb2=sziBind; sziBind=function(st, draw){
 
 </script>
 <!-- /kasubox1105 -->
+<!-- alctank1107 -->
+<script>
+/* ================= 🛢 添加アルコールのタンク管理（資材 › アルコール）2026-11-07 泰広さん指示 =================
+   ・入荷したアルコール（95度前後）を T57・T56・T55・T50 の4本で 40% に割水して使う。タンクごとに 実際（手書きの尺）と 帳簿（造りex）を持つ
+   ・記録は表「資材在庫」に 資材名「アルコールタンク」で1件ずつ（区分＝受入／割水／実測／払出／ほかから／設定）。中身はメモに JSON
+       t:タンク b/bl:前の尺・L a/al:後の尺・L deg:度数 tmp:品温 no:順号 liq:液種 to:入れた先 bb/bbl・ba/bal:帳簿（造りex）の尺・L zx:造りex入力済
+   ・尺（空寸）を入れると量は容量早見表（tanks.json）から。帳簿（造りex）の尺は自動では出さない（入れたときだけ差を出す）
+   ・使う順は「使いきったら次」。次のタンクは選ぶ（最初はタンクの並び 57→56→55→50）。見通しは醪管理R8BY「資材予定」（アルコール40%・上槽日）で計算
+   ・T77 など4本以外から入れた分（昨年の残り）は「ほかから」：醪へ入れた合計には足すが在庫には数えない
+   ・タンクの記録があるときは、資材の「アルコール(40%)」の在庫＝4本の実際の合計。払出を入れた順号の予定は引かない。予定日を過ぎて払出の無い予定は「未記録」として今日使う扱い
+   ・記録簿（印刷）：期間を選んで A4。造りexに入れたら行ごとに「造りex ✔」
+   ・はじめて開いたとき、10/27 受入・割水、11/4・11/7 の払出（ノートの記録）を自動で表に入れる（AT_SEED、id 固定なので2回入らない）
+   控え：seishu-workbook_github\_src_alctank1107.js　差し込み：_アルコールタンク_20261107.py（<!-- alctank1107 --> ブロック、</body> の直前） */
+const AT_NAME='アルコールタンク', AT_ORDER=['57','56','55','50'], AT_EMPTY=30;
+const AT={ sec:'', from:'', to:'', edit:'', seeding:false, msg:'' };
+const atJ=x=>{ try{ return JSON.parse(x.memo||'{}')||{}; }catch(e){ return {}; } };
+const atN=v=>{ if(v===''||v==null) return null; const n=typeof pnum==='function'?pnum(v):Number(v); return n===null||isNaN(n)?null:n; };
+const atL=v=>{ const n=atN(v); return n===null?'':Math.round(n).toLocaleString('ja-JP'); };
+const atDg=v=>{ const n=atN(v); return n===null?'':n.toFixed(n>=50?2:1); };
+const atS=v=>{ const n=atN(v); return n===null?'':(n>0?'+':n<0?'−':'')+Math.abs(Math.round(n)).toLocaleString('ja-JP'); };
+function atVol(t, mm){ const x=atN(mm); if(x===null) return null; try{ if(typeof ydVol==='function') return ydVol(String(t), x); }catch(e){} return null; }
+function atRecs(){
+  return (ZAI.items||[]).filter(x=>x.name===AT_NAME && !x.deleted && x.kind!=='設定').map(x=>Object.assign({ id:x.id, kind:x.kind, date:String(x.date||'').slice(0,10), at:x.at||'', by:x.updBy||x.by||'', qty:x.qty }, atJ(x)))
+    .sort((a,b)=>a.date.localeCompare(b.date)||String(a.at).localeCompare(String(b.at))||((AT_KO[a.kind]||9)-(AT_KO[b.kind]||9))||String(a.id).localeCompare(String(b.id)));
+const AT_KO={ 受入:1, 割水:2, 実測:3, 払出:4, ほかから:5 };
+}
+function atHas(){ return (ZAI.items||[]).some(x=>x.name===AT_NAME && !x.deleted && x.kind!=='設定'); }
+function atSetting(){ const x=(ZAI.items||[]).find(x=>x.name===AT_NAME && x.kind==='設定' && !x.deleted); return x?Object.assign({ id:x.id }, atJ(x)):{}; }
+/* タンクごとの今の状態（実際・帳簿） */
+function atState(){
+  const R=atRecs(), S={};
+  AT_ORDER.forEach(t=>S[t]={ t, has:false, mm:null, L:null, deg:null, last:null, bmm:null, bL:null, bOk:false, empty:false, used:false, unmeasured:false });
+  R.forEach(r=>{ const s=S[String(r.t)]; if(!s||r.kind==='ほかから') return;
+    const al=atN(r.al); if(al===null) return;
+    s.has=true; s.mm=atN(r.a); s.L=al; s.last=r; if(atN(r.deg)!==null) s.deg=atN(r.deg);
+    if(r.kind==='受入'){ s.bmm=s.mm; s.bL=al; s.bOk=true; }
+    else if(r.kind==='実測'){ /* 実測では帳簿は変わらない */ }
+    else { const bal=atN(r.bal); if(bal!==null){ s.bmm=atN(r.ba); s.bL=bal; s.bOk=true; } else s.bOk=false; }
+    s.empty=!!r.e || al<=AT_EMPTY; if(r.kind==='払出') s.used=true;
+    s.unmeasured=r.kind==='割水'; });
+  return S;
+}
+function atTotal(S){ S=S||atState(); return AT_ORDER.reduce((a,t)=>a+(S[t].has&&!S[t].empty?S[t].L:0),0); }
+function atBookTotal(S){ S=S||atState(); const L=AT_ORDER.filter(t=>S[t].has); if(L.some(t=>!S[t].bOk)) return null; return L.reduce((a,t)=>a+(S[t].bL||0),0); }
+/* いま使っているタンクと次のタンク */
+function atCurrent(S){ S=S||atState(); const R=atRecs().filter(r=>r.kind==='払出'); for(let i=R.length-1;i>=0;i--){ const t=String(R[i].t); if(S[t]&&!S[t].empty) return t; } return null; }
+function atOrder(S){
+  S=S||atState(); const cur=atCurrent(S), nx=String(atSetting().next||''), live=AT_ORDER.filter(t=>S[t].has&&!S[t].empty);
+  const out=[]; if(cur) out.push(cur);
+  if(nx && nx!==cur && live.includes(nx)) out.push(nx);
+  live.forEach(t=>{ if(!out.includes(t)) out.push(t); });
+  return out;
+}
+/* 払出を入れた順号（予定から引く） */
+function atDoneNos(){ return new Set(atRecs().filter(r=>(r.kind==='払出'||r.kind==='ほかから')&&r.no).map(r=>String(r.no))); }
+/* 見通し：予定（40%L）をタンクの順に引いていく */
+function atForecast(alc){
+  const S=atState(), ord=atOrder(S), left={}; ord.forEach(t=>left[t]=S[t].L);
+  const today=dtoday(), arr=(typeof szoAlcArrivals==='function'?szoAlcArrivals():[]);
+  const ev=[]; (alc&&alc.plan||[]).filter(p=>p.date&&p.date>=today).forEach(p=>ev.push({ date:p.date, use:true, no:p.no, qty:p.qty, mi:!!p.mi }));
+  arr.forEach(a=>{ if(a.q40>0) ev.push({ date:a.date, arr:a, add:a.q40 }); });
+  ev.sort((a,b)=>a.date.localeCompare(b.date)||((a.use?1:0)-(b.use?1:0))||((+a.no||0)-(+b.no||0)));
+  let tot=atTotal(S), i=0, after=false; const empt=[];
+  ev.forEach(e=>{
+    if(e.arr){ tot+=e.add; after=true; e.left=tot; return; }
+    tot-=e.qty; e.left=tot;
+    if(after){ e.tk='入荷分'; return; }
+    let need=e.qty; const used=[];
+    while(need>1e-9 && i<ord.length){ const t=ord[i], take=Math.min(need,left[t]); left[t]-=take; need-=take; used.push(t);
+      if(left[t]<=1e-9){ empt.push({ t, date:e.date, no:e.no, next:ord[i+1]||'' }); i++; } }
+    e.tk=used.map(t=>'T'+t).join('→')+(need>1e-9?'（不足）':''); e.sw=used.length>1; e.lack=need>1e-9;
+  });
+  return { ev, empt, ord, left, S };
+}
+/* ---------- 資材の「アルコール(40%)」の在庫をタンクの実際に置き換える ---------- */
+if(typeof zaiCalc==='function'){ const _zc_at=zaiCalc; zaiCalc=function(st){
+  const rows=_zc_at(st).filter(r=>r.name!==AT_NAME);
+  try{ if(!atHas()) return rows; const today=dtoday(), done=atDoneNos(), r=rows.find(x=>x.name===SZI_ALC); if(!r) return rows;
+    r.plan=r.plan.filter(p=>!done.has(String(p.no))).map(p=>p.date&&p.date<today?Object.assign({},p,{ date:today, mi:1, odate:p.date }):p);
+    r.has=true; r.tank=true; r.stock=Math.round(atTotal()*10)/10;
+    r.need=Math.round(r.plan.filter(p=>!p.date||p.date>=today).reduce((a,p)=>a+p.qty,0)*10)/10;
+    r.short=Math.max(0, Math.round((r.need-r.stock)*10)/10);
+  }catch(e){}
+  return rows; }; }
+
+/* ---------- 画面 ---------- */
+function atCardsHTML(S){
+  const cur=atCurrent(S), ord=atOrder(S), nx=ord.find(t=>t!==cur)||'';
+  return `<div class="at-grid">${AT_ORDER.map(t=>{ const s=S[t]; const st=!s.has?'未入力':s.empty?'空':t===cur?'使用中':t===nx?'次':'待機';
+    const full=(()=>{ try{ const k=tankByNo(t); return k?k._v[0]:10000; }catch(e){ return 10000; } })(), pct=s.has&&!s.empty?Math.max(3,Math.min(100,Math.round(s.L/full*100))):0;
+    const gap=s.has&&s.bOk?s.L-s.bL:null;
+    return `<div class="at-tk ${t===cur?'use':''} ${s.empty?'emp':''}"><span class="st">${st}</span><div class="no">T${t}</div>
+      <div class="tank"><i style="height:${pct}%"></i><em>${s.mm!==null?'空寸 '+s.mm:''}</em></div>
+      <div class="v">${s.has&&!s.empty?atL(s.L)+' L':s.empty?'空':'—'}</div>
+      <div class="s">${s.deg!==null?atDg(s.deg)+'%':''}${s.has&&!s.empty&&s.deg?'｜純アル '+atL(s.L*s.deg/100)+' L':''}
+        <br>${s.has?(s.bOk?`帳簿 ${s.bmm!==null?s.bmm+'mm・':''}${atL(s.bL)} L`:'帳簿 未入力'):''}${s.last?`<br>${esc(s.last.kind)} ${rcMD(s.last.date)}`:''}</div>
+      ${s.has&&!s.empty?`<div class="gap">${gap===null?'帳簿との差 —':'帳簿との差 '+atS(gap)+' L'}</div>`:''}
+      ${s.unmeasured&&!s.empty?'<div class="dn">⚠ 割水後まだ実測なし</div>':''}</div>`; }).join('')}</div>`;
+}
+function atForecastHTML(alc, F){
+  const st=RC.state||lsGet('rec.state',null), mOf=no=>((st&&st.master)||[]).find(m=>String(m.no)===String(no))||{};
+  const uses=F.ev.filter(e=>e.use), lastUse=uses.filter(e=>!e.lack&&e.tk!=='入荷分').slice(-1)[0], lack=uses.find(e=>e.lack);
+  const nArr=F.ev.find(e=>e.arr);
+  let h=`<div class="at-box"><div class="szi-h" style="margin-top:0">📅 この先の見通し（仕込計画から）</div>`;
+  if(!uses.length) h+=`<div class="szi-good">これからの添加予定はありません（醪管理R8BY「資材予定」）。</div>`;
+  else if(lack) h+=`<div class="szi-alert"><b>${rcMD(lack.date)}（${esc(String(lack.no))}号）で4本のタンクが足りなくなります。</b>${nArr?` ${rcMD(nArr.date)} に入荷予定（${esc(nArr.arr.vendor)}）。`:' 次の便の発注を。'}</div>`;
+  else { const before=nArr?uses.filter(e=>e.date<=nArr.date&&e.tk!=='入荷分'):uses, e=before.slice(-1)[0]||lastUse;
+    h+=`<div class="szi-good">今の在庫で <b>${e?rcMD(e.date)+'（'+esc(String(e.no))+'号 '+esc(mOf(e.no).liquid||'')+'）':''}まで足ります</b>。${e?`そのとき残り約 <b>${atL(e.left)} L</b>`:''}${nArr?` → ${rcMD(nArr.date)} に${esc(nArr.arr.vendor)}の便が入荷`:''}</div>`; }
+  const ord=F.ord;
+  h+=`<table class="szi-t"><tr><th>タンク</th><th style="text-align:left">空になる見込み</th></tr>${ord.map(t=>{ const x=F.empt.find(y=>y.t===t);
+    return `<tr><td>T${t}${t===atCurrent(F.S)?'<small>使用中</small>':''}</td><td class="l">${x?`<b>${rcMD(x.date)}</b>（${esc(String(x.no))}号 ${esc(mOf(x.no).liquid||'')}${x.next?` → 残りは T${x.next} から`:''}）`:`このあとの予定では残り ${atL(F.left[t])} L`}</td></tr>`; }).join('')}</table>`;
+  h+=`<div class="at-hint">使う順は「使いきったら次」。見通しはタンクの並び（57→56→55→50）で計算し、次のタンクを選び直したらその順で計算し直します。実際の在庫で計算します。</div>`;
+  h+=`<details class="at-det" ${AT.det?'open':''}><summary>添加予定の一覧（40% L）</summary><div class="szi-scroll"><table class="szi-t at-sch"><tr><th>上槽日</th><th style="text-align:left">順号</th><th>L</th><th>タンク</th><th>残り</th></tr>
+    ${F.ev.map(e=>e.use?`<tr class="${e.sw?'sw':''} ${e.lack?'neg':''}"><td>${rcMD(e.date)}</td><td class="l">${esc(String(e.no))} ${esc(mOf(e.no).liquid||'')}${e.mi?' <span class="at-mi">未記録</span>':''}</td><td>${atL(e.qty)}</td><td>${esc(e.tk||'')}</td><td>${atL(e.left)}</td></tr>`
+      :`<tr class="in2"><td>${rcMD(e.date)}</td><td class="l" colspan="4">📦 入荷 ${esc(e.arr.vendor)}（40%換算 ＋${atL(e.add)}）</td></tr>`).join('')}</table></div>
+    <div class="at-hint">量は醪管理R8BY「資材予定」（配合のアルコール40%・上槽日）。払出を入れた順号は引きません。<span class="at-mi">未記録</span>＝予定日を過ぎたのに払出がまだ入っていない分（今日使うものとして引いています）。</div></details></div>`;
+  return h;
+}
+function atOpts(sel, list){ return list.map(v=>`<option value="${esc(v)}" ${String(v)===String(sel)?'selected':''}>${esc(v)}</option>`).join(''); }
+function atFormHTML(S, alc){
+  const k=AT.sec; if(!k) return '';
+  const today=dtoday(), cur=atCurrent(S), st=RC.state||lsGet('rec.state',null), master=(st&&st.master)||[];
+  const tk=k==='払出'?(cur||atOrder(S)[0]||'57'):(AT.ft||'57');
+  const s=S[tk]||{};
+  const plans=(alc&&alc.plan||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).slice(0,6);
+  const noOpts=['', ...plans.map(p=>String(p.no))], noDef=(plans.find(p=>p.date<=today)||{}).no||'';
+  const mm=(id,lb,val,auto)=>`<div class="r"><label>${lb}</label><input type="text" inputmode="numeric" id="${id}" value="${esc(val==null?'':val)}" placeholder="尺 mm" style="width:6em;text-align:right"><span class="u">mm →</span><b class="at-v" id="${id}L">${auto||'—'}</b><span class="u">L</span></div>`;
+  let h=`<div class="szi-form at-form"><div class="szi-h" style="margin-top:0">${{受入:'📥 受入（95度前後のアルコール）',割水:'💧 割水（40%）',実測:'📏 実測（使う前の液面など）',払出:'🍶 払出（アル添）',ほかから:'➕ ほかから（4本以外・在庫に数えない）'}[k]}</div>
+    <div class="r"><label>日付</label><input type="date" id="atD" value="${today}"></div>`;
+  if(k!=='ほかから') h+=`<div class="r"><label>タンク</label><select id="atT">${atOpts(tk, AT_ORDER)}</select>${k==='払出'&&cur?'<span class="u">使用中</span>':''}</div>`;
+  if(k==='受入') h+=mm('atA','受入後 尺','')+`<div class="r"><label>度数</label><input type="text" inputmode="decimal" id="atDeg" value="95.3" style="width:5em;text-align:right"><span class="u">%　品温</span><input type="text" inputmode="decimal" id="atTmp" value="" style="width:3.5em;text-align:right"><span class="u">℃</span></div>
+    <div class="r"><label>メモ</label><input type="text" id="atM" value="" placeholder="例：メルシャン ローリー1台 16,000L（15℃換算）"></div>`;
+  if(k==='割水') h+=mm('atB','割水前 尺',s.mm,s.L!==null?atL(s.L):'')+mm('atA','割水後 尺','')+`<div class="r"><label>度数</label><input type="text" inputmode="decimal" id="atDeg" value="" placeholder="測った度数" style="width:5em;text-align:right"><span class="u">%</span></div>
+    <div class="at-calc" id="atCalc"></div>`+mm('atBA','帳簿 割水後 尺','')+`<div class="at-hint">帳簿（造りex）の尺は自動では出しません。造りexに入れた尺を入れると、実際との差が出ます（あとからでも入れられます）。</div>`;
+  if(k==='実測') h+=mm('atA','今の 尺','')+`<div class="at-hint">前回の記録 ${s.mm!==null?s.mm+'mm・'+atL(s.L)+' L':'—'}。液温が下がると液面が下がります。差は履歴に残ります。</div>`;
+  if(k==='払出') h+=mm('atB','前 尺',s.mm,s.L!==null?atL(s.L):'')+mm('atA','後 尺','')+`<div class="r"><label>順号</label><select id="atNo">${atOpts(noDef,noOpts)}</select><input type="text" id="atNo2" placeholder="ほかの順号" style="width:6em"></div>
+    <div class="r"><label>入れた先</label><input type="text" id="atTo" placeholder="例 T264" style="width:7em"></div>
+    <div class="at-calc" id="atCalc"></div>
+    <label class="at-ck"><input type="checkbox" id="atE"> このタンクは空になった（次のタンクへ）</label>`+mm('atBB','帳簿 前 尺','')+mm('atBA','帳簿 後 尺','')+`<div class="at-hint">帳簿（造りex）の尺は自動では出しません。空欄のままでも保存でき、あとから履歴で入れられます。</div>`;
+  if(k==='ほかから') h+=`<div class="r"><label>どこから</label><input type="text" id="atSrc" value="T77 昨年の残り" style="flex:1"></div>
+    <div class="r"><label>量</label><input type="text" inputmode="decimal" id="atQ" style="width:6em;text-align:right"><span class="u">L</span></div>
+    <div class="r"><label>順号</label><select id="atNo">${atOpts(noDef,noOpts)}</select><input type="text" id="atNo2" placeholder="ほかの順号" style="width:6em"></div>
+    <div class="r"><label>入れた先</label><input type="text" id="atTo" placeholder="例 T264" style="width:7em"></div>`;
+  h+=`<div class="szi-btns"><button type="button" class="szi-btn" id="atOk">記録する</button><button type="button" class="szi-btn sub" id="atNo_">閉じる</button></div><div class="szi-msg" id="atMsg"></div></div>`;
+  return h;
+}
+function atHistHTML(S){
+  const R=atRecs().slice().reverse(), prevA={};
+  atRecs().forEach(r=>{ if(r.kind!=='ほかから'&&atN(r.al)!==null){ r._prevL=prevA[r.t]; prevA[r.t]=atN(r.al); } });
+  const rows=R.map(r=>{ const bk=r.kind==='受入'?atN(r.al):atN(r.bal), act=atN(r.al), gap=bk!==null&&act!==null&&r.kind!=='ほかから'?act-bk:null;
+    let chg='';
+    if(r.kind==='受入') chg=atS(act); else if(r.kind==='割水') chg='水 '+atL(act-(atN(r.bl)||0));
+    else if(r.kind==='払出') chg=atS(-(atN(r.bl)-act)); else if(r.kind==='ほかから') chg=atL(r.qty);
+    else if(r.kind==='実測') chg=r._prevL!=null?atS(act-r._prevL):'';
+    const lvl=r.kind==='払出'&&r._prevL!=null&&atN(r.bl)!==null&&Math.abs(atN(r.bl)-r._prevL)>=1?`<small>前回から液面 ${atS(atN(r.bl)-r._prevL)} L</small>`:'';
+    const book=r.kind==='ほかから'?'':r.kind==='受入'?atL(bk):bk!==null?`${r.bb?esc(r.bb)+'→':''}${esc(r.ba||'')}<small>${atL(bk)} L</small>`:`<span class="na">未入力</span>`;
+    return `<tr><td>${rcMD(r.date)}<small>${esc(r.by)}</small></td><td class="l"><b class="nw">${esc(r.kind)} ${r.kind==='ほかから'?'':'T'+esc(r.t)}</b>${r.kind==='ほかから'?`<small>${esc(r.src||'')}</small>`:''}${r.no?`<small>${esc(r.no)}号${r.to?' → '+esc(r.to):''}</small>`:r.to?`<small>→ ${esc(r.to)}</small>`:''}${lvl}</td>
+      <td>${chg}${r.kind==='ほかから'?'':`<small>${r.b?esc(r.b)+'→':''}${esc(r.a||'')}</small>`}</td><td>${book}${gap?`<small class="gp">差 ${atS(gap)}</small>`:''}</td>
+      <td><button type="button" class="at-zx ${r.zx?'on':''}" data-atzx="${esc(r.id)}">${r.zx?'✔':'☐'}</button></td>
+      <td><button type="button" class="at-ed" data-ated="${esc(r.id)}">直す</button></td></tr>
+      ${AT.edit===r.id?`<tr class="at-edr"><td colspan="6">${atEditHTML(r)}</td></tr>`:''}`; }).join('');
+  return `<div class="szi-h">📋 履歴<small>造りex ☐ は造りexに入れたら押す</small></div>`+(R.length?`<div class="szi-scroll"><table class="szi-t at-hist"><tr><th>日付</th><th style="text-align:left">作業</th><th>増減 L<br>尺</th><th>帳簿 L<br>差</th><th>造り<br>ex</th><th></th></tr>${rows}</table></div>
+    <div class="at-hint">差 ＝ 実際 − 帳簿（その時点）。マイナスは実際が帳簿より少ないこと。</div>`:`<div class="szi-none">まだありません</div>`);
+}
+function atEditHTML(r){
+  const f=(id,lb,v)=>`<div class="r"><label>${lb}</label><input type="text" inputmode="decimal" id="${id}" value="${esc(v==null?'':v)}" style="width:6em;text-align:right"></div>`;
+  let h='<div class="at-edit">';
+  if(r.kind==='ほかから') h+=f('aeQ','量 L',r.qty)+`<div class="r"><label>どこから</label><input type="text" id="aeSrc" value="${esc(r.src||'')}"></div>`;
+  else { if(r.kind!=='受入') h+=f('aeB','前 尺（実際）',r.b); h+=f('aeA','後 尺（実際）',r.a)+f('aeDeg','度数',r.deg);
+    if(r.kind==='受入') h+=f('aeTmp','品温',r.tmp);
+    if(r.kind==='払出') h+=f('aeBB','帳簿 前 尺',r.bb);
+    if(r.kind!=='受入'&&r.kind!=='実測') h+=f('aeBA','帳簿 後 尺',r.ba); }
+  if(r.kind==='払出'||r.kind==='ほかから') h+=`<div class="r"><label>順号</label><input type="text" id="aeNo" value="${esc(r.no||'')}" style="width:5em"><label style="min-width:0">→</label><input type="text" id="aeTo" value="${esc(r.to||'')}" style="width:7em"></div>`;
+  h+=`<div class="szi-btns"><button type="button" class="szi-btn" data-atsv="${esc(r.id)}">保存</button><button type="button" class="szi-btn sub" data-atcl="1">閉じる</button><button type="button" class="szi-btn sub" data-atdel="${esc(r.id)}" style="color:#b23b3b">消す</button></div><div class="szi-msg" id="aeMsg"></div></div>`;
+  return h;
+}
+function atPrintBoxHTML(){
+  const R=atRecs(), d0=R.length?R[0].date:dtoday();
+  return `<div class="szi-h">🖨 記録簿（印刷）<small>これを見ながら造りexに入れる</small></div><div class="szi-form"><div class="r"><label>期間</label><input type="date" id="atPf" value="${esc(AT.from||d0)}"><span class="u">〜</span><input type="date" id="atPt" value="${esc(AT.to||dtoday())}"></div>
+    <button type="button" class="szi-btn" id="atPrint" style="width:100%">🖨 A4で印刷</button></div>`;
+}
+function atHTML(alc){
+  const S=atState(), F=atForecast(alc), cur=atCurrent(S), ord=atOrder(S), tot=atTotal(S), bt=atBookTotal(S);
+  const nxCand=AT_ORDER.filter(t=>t!==cur && S[t].has && !S[t].empty), nx=ord.find(t=>t!==cur)||'';
+  const zxN=atRecs().filter(r=>!r.zx).length;
+  let h=AT.msg?`<div class="szi-msg ${AT.msgOk?'ok':'ng'}" style="margin:0 0 8px">${esc(AT.msg)}</div>`:'';
+  h+=`<div class="at-sum"><div><small>在庫（4本の合計・実際・40%）</small><b>${atL(tot)} L</b><small>帳簿（造りex）${bt===null?'：未入力あり':atL(bt)+' L'}</small><span class="gap">${bt===null?'帳簿との差 —':'帳簿との差 '+atS(tot-bt)+' L'}</span></div>
+    ${zxN?`<div class="zxn">造りex 未入力<b>${zxN}</b>件</div>`:''}</div>`;
+  h+=`<div class="at-next">▶ いま使っている：<b>${cur?'T'+cur:'—'}</b>${cur?`（残り ${atL(S[cur].L)} L）`:''}<br>使いきったら次は <select id="atNx">${atOpts(nx, nxCand)}</select> <small>（最初は並びの順 57→56→55→50。選んで変えられます）</small></div>`;
+  h+=atCardsHTML(S)+atForecastHTML(alc, F);
+  h+=`<div class="at-btns">${['受入','割水','実測','払出','ほかから'].map(k=>`<button type="button" data-atk="${k}" class="${AT.sec===k?'on':''}">${{受入:'📥',割水:'💧',実測:'📏',払出:'🍶',ほかから:'➕'}[k]} ${k}</button>`).join('')}</div>`;
+  h+=atFormHTML(S, alc)+atPrintBoxHTML()+atHistHTML(S);
+  return `<div class="at-wrap">${h}</div>`;
+}
+/* 記録簿（印刷） */
+function atPrint(from, to){
+  const R=atRecs().filter(r=>(!from||r.date>=from)&&(!to||r.date<=to)), S=atState(), st=RC.state||lsGet('rec.state',null), mOf=no=>((st&&st.master)||[]).find(m=>String(m.no)===String(no))||{};
+  const days=[...new Set(R.map(r=>r.date))];
+  let el=document.getElementById('sziPrint'); if(!el){ el=document.createElement('div'); el.id='sziPrint'; document.body.appendChild(el); }
+  const row=r=>{ const t=r.kind==='ほかから'?esc(r.src||''):esc(r.t), bl=atN(r.bl), al=atN(r.al);
+    const chg=r.kind==='受入'?atS(al):r.kind==='割水'?'水 '+atL(al-(bl||0)):r.kind==='払出'?atS(al-bl):r.kind==='ほかから'?atL(r.qty):'';
+    const bk=r.kind==='受入'?'':atN(r.bal)!==null?`${r.bb?esc(r.bb)+'→':''}${esc(r.ba)}（${atL(r.bal)}）`:'';
+    return `<tr><td>${rcMD(r.date)}</td><td>${esc(r.kind)}</td><td>${t}</td><td>${esc(r.b||'')}</td><td>${bl!==null?atL(bl):''}</td><td>${esc(r.a||'')}</td><td>${al!==null&&r.kind!=='ほかから'?atL(al):''}</td><td>${atDg(r.deg)}</td><td>${esc(r.tmp||'')}</td><td>${chg}</td><td>${r.no?esc(r.no)+'号':''}${r.to?' →'+esc(r.to):''}</td><td>${bk}</td><td class="k">${r.zx?'✔':''}</td></tr>`; };
+  const head_=d=>{ const L=R.filter(r=>r.date===d), k=[...new Set(L.map(r=>r.kind))], P=L.filter(r=>r.kind==='払出'||r.kind==='ほかから');
+    const to=[...new Set(P.map(r=>r.to).filter(Boolean))], sum=P.reduce((a,r)=>a+(r.kind==='ほかから'?(atN(r.qty)||0):((atN(r.bl)||0)-(atN(r.al)||0))),0), nos=[...new Set(P.map(r=>r.no).filter(Boolean))];
+    return `<tr class="d"><td colspan="13">${rcMD(d)}　${esc(k.join('・'))}${nos.length?'　'+nos.map(n=>esc(n)+'号 '+esc(mOf(n).liquid||'')).join('・'):''}${P.length?'　'+esc(to.join('・'))+' へ合計 '+atL(sum)+' L':''}${L.find(r=>r.m)?'　'+esc(L.find(r=>r.m).m):''}</td></tr>`; };
+  el.innerHTML=`<h2>添加アルコール 記録簿</h2><div class="m">${esc(from?rcMD(from):'')}〜${esc(to?rcMD(to):'')}　麒麟山酒造　生産本部製造　（製造ツールの入力から作成・印刷 ${dtoday()}）</div>
+    <table class="at-p"><tr><th>日付</th><th>作業</th><th>容器</th><th>前 尺</th><th>前 L</th><th>後 尺</th><th>後 L</th><th>度数</th><th>品温</th><th>増減 L</th><th>順号・先</th><th>帳簿（造りex）</th><th>造りex</th></tr>
+    ${days.map(d=>head_(d)+R.filter(r=>r.date===d).map(row).join('')).join('')}</table>
+    <table class="at-p" style="margin-top:4mm"><tr><th>容器</th>${AT_ORDER.map(t=>`<th>T${t}</th>`).join('')}<th>合計</th></tr>
+    <tr><td>${rcMD(dtoday())} 現在（実際）</td>${AT_ORDER.map(t=>`<td>${S[t].has&&!S[t].empty?atL(S[t].L):S[t].empty?'空':''}</td>`).join('')}<td>${atL(atTotal(S))}</td></tr></table>
+    <div class="ft"><span>造りex入力者</span><span>確認</span><span>入力日</span></div>`;
+  document.body.classList.add('szi-printing');
+  const done=()=>{ document.body.classList.remove('szi-printing'); window.removeEventListener('afterprint',done); };
+  window.addEventListener('afterprint',done);
+  setTimeout(()=>{ window.print(); setTimeout(done,1500); },50);
+}
+/* ---------- 保存 ---------- */
+async function atSave(item){ zaiKeep(await zaiApi({action:'save', item})); ZAI.err=''; }
+function atItem(kind, date, qty, j, id){ const it={ name:AT_NAME, kind, qty:String(qty==null?'':Math.round(qty*10)/10), unit:'L', date, memo:JSON.stringify(j) }; if(id) it.id=id; return it; }
+function atBind(draw, alc){
+  const $$=id=>document.getElementById(id);
+  const msg=(t,ok)=>{ const m=$$('atMsg'); if(m){ m.className='szi-msg '+(ok?'ok':'ng'); m.textContent=t; } };
+  app.querySelectorAll('[data-atk]').forEach(b=>b.onclick=()=>{ AT.sec=AT.sec===b.dataset.atk?'':b.dataset.atk; AT.msg=''; draw(); });
+  const nx=$$('atNx'); if(nx) nx.onchange=async()=>{ const s=atSetting(); nx.disabled=true;
+    try{ await atSave(atItem('設定', dtoday(), '', { next:nx.value }, s.id||'at-setting')); draw(); }catch(e){ nx.disabled=false; alert(String(e.message||e)); } };
+  const det=app.querySelector('.at-det'); if(det) det.ontoggle=()=>{ AT.det=det.open; };
+  /* 尺→L の表示 */
+  const tkOf=()=>{ const t=$$('atT'); return t?t.value:''; };
+  const live=()=>{ ['atB','atA','atBB','atBA'].forEach(id=>{ const i=$$(id), o=$$(id+'L'); if(i&&o){ const v=atVol(tkOf(), i.value); o.textContent=v===null?'—':atL(v); } });
+    const c=$$('atCalc'); if(!c) return; const b=atVol(tkOf(), ($$('atB')||{}).value), a=atVol(tkOf(), ($$('atA')||{}).value), dg=atN(($$('atDeg')||{}).value);
+    if(AT.sec==='払出') c.innerHTML=b!==null&&a!==null?`使用量 <b>${atL(b-a)} L</b>`:'';
+    if(AT.sec==='割水'){ const s=atState()[tkOf()]||{}, pa=s.L&&s.deg?s.L*s.deg/100:null;
+      c.innerHTML=(pa?`純アル ${atL(pa)} L → 40% の目安 ${atL(pa/0.4)} L${(()=>{ try{ const k=tankByNo(tkOf()); const m=k?mmAt(k,pa/0.4):null; return m!==null?'（空寸 約 '+Math.round(m)+'mm）':''; }catch(e){ return ''; } })()}`:'')
+        +(a!==null?`<br>加えた水 <b>${atL(a-(b||0))} L</b>${pa&&dg?`　純アル 後 ${atL(a*dg/100)} L（${atS(a*dg/100-pa)}）`:''}`:''); } };
+  ['atB','atA','atBB','atBA','atDeg'].forEach(id=>{ const i=$$(id); if(i) i.oninput=live; });
+  const tSel=$$('atT'); if(tSel) tSel.onchange=()=>{ if(AT.sec!=='払出'){ AT.ft=tSel.value; draw(); } else live(); };
+  live();
+  const cl=$$('atNo_'); if(cl) cl.onclick=()=>{ AT.sec=''; draw(); };
+  const ok=$$('atOk');
+  if(ok) ok.onclick=async()=>{
+    const k=AT.sec, d=($$('atD')||{}).value||dtoday(), t=tkOf(), S=atState(), s=S[t]||{};
+    const no=(($$('atNo2')||{}).value||'').trim()||(($$('atNo')||{}).value||''), to=(($$('atTo')||{}).value||'').trim();
+    const st=RC.state||lsGet('rec.state',null), liq=(((st&&st.master)||[]).find(m=>String(m.no)===String(no))||{}).liquid||'';
+    let j={}, q=null;
+    const A=atN(($$('atA')||{}).value), B=atN(($$('atB')||{}).value), al=atVol(t,A), bl=atVol(t,B);
+    if(k!=='ほかから' && (A===null||al===null)) return msg('尺を入れてください（容量早見表で量が出る尺）');
+    if(k==='受入'){ const dg=atN($$('atDeg').value); if(dg===null) return msg('度数を入れてください');
+      j={ t, a:A, al, deg:dg, tmp:atN($$('atTmp').value), m:($$('atM').value||'').trim() }; q=al; }
+    if(k==='割水'){ const dg=atN($$('atDeg').value); if(B===null||bl===null) return msg('割水前の尺を入れてください'); if(dg===null) return msg('割水後の度数を入れてください');
+      const BA=atN($$('atBA').value); j={ t, b:B, bl, a:A, al, deg:dg, w:Math.round(al-bl) }; if(BA!==null){ const v=atVol(t,BA); if(v===null) return msg('帳簿の尺が容量早見表の範囲外です'); j.ba=BA; j.bal=v; } q=al-bl; }
+    if(k==='実測'){ j={ t, b:s.mm, bl:s.L, a:A, al, deg:s.deg }; q=al-(s.L||0); }
+    if(k==='払出'){ if(B===null||bl===null) return msg('前の尺を入れてください'); if(al>bl) return msg('後の尺の量が前より多くなっています');
+      j={ t, b:B, bl, a:A, al, deg:s.deg, no, liq, to, e:$$('atE').checked?1:0 };
+      const BB=atN($$('atBB').value), BA=atN($$('atBA').value);
+      if(BB!==null){ const v=atVol(t,BB); if(v===null) return msg('帳簿の前の尺が範囲外です'); j.bb=BB; j.bbl=v; }
+      if(BA!==null){ const v=atVol(t,BA); if(v===null) return msg('帳簿の後の尺が範囲外です'); j.ba=BA; j.bal=v; } q=bl-al; }
+    if(k==='ほかから'){ q=atN($$('atQ').value); if(q===null||q<=0) return msg('量を入れてください'); j={ src:($$('atSrc').value||'').trim(), no, liq, to }; }
+    ok.disabled=true; msg('送っています…',true);
+    try{ await atSave(atItem(k, d, q, j)); AT.sec=''; AT.msg=`${k}${k==='ほかから'?'':' T'+t} ${atL(q)} L（${rcMD(d)}）を記録しました`; AT.msgOk=true; draw(); }
+    catch(e){ ok.disabled=false; msg(String(e.message||e)); }
+  };
+  /* 履歴：造りex 済・直す・消す */
+  app.querySelectorAll('[data-atzx]').forEach(b=>b.onclick=async()=>{ const x=(ZAI.items||[]).find(y=>y.id===b.dataset.atzx); if(!x) return; const j=atJ(x); if(j.zx) delete j.zx; else j.zx=1;
+    b.disabled=true; try{ await atSave(Object.assign({}, x, { memo:JSON.stringify(j) })); draw(); }catch(e){ b.disabled=false; b.textContent='失敗'; } });
+  app.querySelectorAll('[data-ated]').forEach(b=>b.onclick=()=>{ AT.edit=AT.edit===b.dataset.ated?'':b.dataset.ated; draw(); });
+  app.querySelectorAll('[data-atcl]').forEach(b=>b.onclick=()=>{ AT.edit=''; draw(); });
+  app.querySelectorAll('[data-atsv]').forEach(b=>b.onclick=async()=>{ const x=(ZAI.items||[]).find(y=>y.id===b.dataset.atsv); if(!x) return; const j=atJ(x), m=$$('aeMsg');
+    const g=id=>{ const e=$$(id); return e?e.value:undefined; }, err=t=>{ if(m){ m.className='szi-msg ng'; m.textContent=t; } };
+    let q=x.qty;
+    if(x.kind==='ほかから'){ q=atN(g('aeQ')); if(q===null) return err('量を入れてください'); j.src=(g('aeSrc')||'').trim(); }
+    else { const t=j.t;
+      for(const [id,kk,lk] of [['aeB','b','bl'],['aeA','a','al'],['aeBB','bb','bbl'],['aeBA','ba','bal']]){ const v=g(id); if(v===undefined) continue; const n=atN(v);
+        if(n===null){ delete j[kk]; if(kk==='bb'||kk==='ba') delete j[lk]; else return err('尺を入れてください'); continue; }
+        const L=atVol(t,n); if(L===null) return err('尺が容量早見表の範囲外です'); j[kk]=n; j[lk]=L; }
+      if(g('aeDeg')!==undefined) j.deg=atN(g('aeDeg')); if(g('aeTmp')!==undefined) j.tmp=atN(g('aeTmp'));
+      if(x.kind==='受入') q=j.al; else if(x.kind==='割水'){ q=j.al-j.bl; j.w=Math.round(q); } else if(x.kind==='払出') q=j.bl-j.al; else if(x.kind==='実測') q=x.qty; }
+    if(g('aeNo')!==undefined){ j.no=(g('aeNo')||'').trim(); j.to=(g('aeTo')||'').trim(); }
+    b.disabled=true; try{ await atSave(Object.assign({}, x, { qty:String(Math.round(Number(q)*10)/10), memo:JSON.stringify(j) })); AT.edit=''; draw(); }catch(e){ b.disabled=false; err(String(e.message||e)); } });
+  app.querySelectorAll('[data-atdel]').forEach(b=>b.onclick=async()=>{ if(b.dataset.s!=='1'){ b.dataset.s='1'; b.textContent='本当に消す'; return; }
+    b.disabled=true; try{ zaiKeep(await zaiApi({action:'delete', id:b.dataset.atdel})); AT.edit=''; draw(); }catch(e){ b.textContent='失敗'; } });
+  const pr=$$('atPrint'); if(pr) pr.onclick=()=>{ AT.from=$$('atPf').value; AT.to=$$('atPt').value; atPrint(AT.from, AT.to); };
+}
+/* ---------- はじめて開いたとき：ノートの記録（10/27〜11/7）を表に入れる ---------- */
+const AT_SEED=[
+  ['at-1027-r50','受入','2026-10-27',{ t:'50', a:1562, al:3988, deg:95.29, tmp:17, m:'メルシャン タンクローリー1台 16,000L（15℃換算）95.3度' }],
+  ['at-1027-r55','受入','2026-10-27',{ t:'55', a:1560, al:4025, deg:95.31, tmp:17, m:'メルシャン タンクローリー1台 16,000L（15℃換算）95.3度' }],
+  ['at-1027-r56','受入','2026-10-27',{ t:'56', a:1560, al:4007, deg:95.30, tmp:17, m:'メルシャン タンクローリー1台 16,000L（15℃換算）95.3度' }],
+  ['at-1027-r57','受入','2026-10-27',{ t:'57', a:1560, al:4002, deg:95.28, tmp:17, m:'メルシャン タンクローリー1台 16,000L（15℃換算）95.3度' }],
+  ['at-1027-w50','割水','2026-10-27',{ t:'50', b:1562, bl:3988, a:264, al:9449, deg:40.2, w:5461, ba:252, bal:9497 }],
+  ['at-1027-w55','割水','2026-10-27',{ t:'55', b:1560, bl:4025, a:252, al:9541, deg:40.1, w:5516, ba:250, bal:9549 }],
+  ['at-1027-w56','割水','2026-10-27',{ t:'56', b:1560, bl:4007, a:260, al:9496, deg:40.2, w:5489, ba:248, bal:9542 }],
+  ['at-1027-w57','割水','2026-10-27',{ t:'57', b:1560, bl:4002, a:262, al:9476, deg:40.0, w:5474, ba:252, bal:9514 }],
+  ['at-1104-p57','払出','2026-11-04',{ t:'57', b:272, bl:9438, a:836, al:7053, deg:40.0, no:'1', liq:'伝辛', to:'T263', bb:252, bbl:9514, ba:816, bal:7138 }],
+  ['at-1107-p57','払出','2026-11-07',{ t:'57', b:836, bl:7053, a:1328, al:4982, deg:40.0, no:'2', liq:'伝辛', to:'T264' }],
+  ['at-1107-x77','ほかから','2026-11-07',{ src:'T77 昨年の残り', no:'2', liq:'伝辛', to:'T264' }, 313]
+];
+async function atSeed(){
+  if(AT.seeding || ZAI.err || (ZAI.items||[]).some(x=>x.name===AT_NAME) || lsGet('at.seeded','')) return false;
+  AT.seeding=true;
+  try{ for(const [id,kind,date,j,q0] of AT_SEED){ const q=q0!=null?q0:kind==='受入'?j.al:kind==='割水'?j.al-j.bl:kind==='払出'?j.bl-j.al:0; await atSave(atItem(kind, date, q, j, id)); }
+    lsSet('at.seeded','1'); return true; }
+  catch(e){ AT.msg='はじめの記録（10/27〜11/7）を入れられませんでした：'+String(e.message||e); AT.msgOk=false; return false; }
+  finally{ AT.seeding=false; }
+}
+/* ---------- 既存の画面へのつなぎ ---------- */
+if(typeof sziAlcHTML==='function'){ const _ah_at=sziAlcHTML; sziAlcHTML=function(alc, st){
+  let h=_ah_at(alc, st); if(!atHas()) return (AT.seeding?'<div class="szi-none">タンクの記録を準備しています…</div>':'')+h;
+  const i=h.lastIndexOf('<div class="szi-form">'); if(i>0) h=h.slice(0,i);   /* タンクの記録があるときは、旧「入荷・棚卸（40%換算）」の欄は出さない */
+  const T=atHTML(alc), k=T.indexOf('<div class="at-btns">');
+  return T.slice(0,k)+h+T.slice(k); }; }
+if(typeof sziBind==='function'){ const _sb_at=sziBind; sziBind=function(st, draw){ _sb_at(st, draw); if(SZI.tab==='alc' && atHas()){ const alc=sziRows(st).find(r=>r.name===SZI_ALC); atBind(draw, alc); } }; }
+if(typeof sziScreen==='function'){ const _ss_at=sziScreen; sziScreen=async function(tab){
+  try{ if(typeof loadTanks==='function') loadTanks().then(()=>{ if(SZI.tab==='alc'&&typeof SZI.redraw==='function') SZI.redraw(); }).catch(()=>{}); }catch(e){}
+  const r=await _ss_at(tab);
+  try{ if(!atHas() && await atSeed() && typeof SZI.redraw==='function') SZI.redraw(); }catch(e){}
+  return r; }; }
+/* ホームの資材アイコンの札：ほかに何も無いときだけ「造りex 未入力」 */
+if(typeof sziHomeTag==='function'){ const _ht_at=sziHomeTag; sziHomeTag=function(){ const t=_ht_at(); if(t) return t; try{ const n=atRecs().filter(r=>!r.zx).length; return n?'造りex 未入力 '+n:''; }catch(e){ return ''; } }; }
+(function(){ const s=document.createElement('style'); s.textContent=`
+.at-sum{display:flex;justify-content:space-between;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:0 0 8px}
+.at-sum small{display:block;font-size:11px;color:var(--sub)}.at-sum b{display:block;font-size:22px;font-weight:800}
+.at-sum .gap,.at-tk .gap{display:block;font-size:12px;color:#ad1457;font-weight:700}
+.at-sum .zxn{font-size:11px;color:#b23b3b;text-align:center;border:1px solid #e3b4b4;border-radius:10px;padding:4px 8px;background:#fff5f4}.at-sum .zxn b{font-size:18px}
+.at-next{background:#eef7ef;border:1px solid #a5d6a7;border-radius:12px;padding:8px 10px;font-size:13px;margin:0 0 8px;line-height:1.7}
+.at-next select{font-size:15px;font-weight:700;padding:2px 6px;border-radius:8px;border:1px solid #66bb6a;background:#fff;font-family:inherit}
+.at-next small{color:var(--sub);font-size:11px}
+.at-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px}
+.at-tk{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:8px;position:relative}
+.at-tk.use{border-color:#2e7d32}.at-tk.emp{opacity:.55}
+.at-tk .no{font-weight:800;font-size:17px}
+.at-tk .st{position:absolute;right:8px;top:9px;font-size:11px;padding:1px 7px;border-radius:9px;color:#fff;background:#8d6e63}.at-tk.use .st{background:#2e7d32}
+.at-tk .tank{height:62px;border:2px solid #999;border-radius:4px 4px 10px 10px;margin:6px 0;position:relative;background:#fafafa;overflow:hidden}
+.at-tk .tank i{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(#cfe8ff,#9fcbf2)}
+.at-tk .tank em{position:absolute;left:4px;top:2px;font-style:normal;font-size:11px;color:#555}
+.at-tk .v{font-size:18px;font-weight:800}.at-tk .s{font-size:11.5px;color:var(--sub);line-height:1.5}.at-tk .dn{font-size:11px;color:#b23b3b}
+.at-box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin:0 0 10px}
+.at-hint{font-size:11.5px;color:var(--sub);margin:6px 2px;line-height:1.6}
+.at-det summary{font-size:13px;color:var(--navy);margin-top:6px;cursor:pointer}
+.at-sch tr.sw td{background:#fff3e0}.at-sch tr.in2 td{background:#e8f5e9;color:#1b5e20}
+.at-mi{font-size:10px;color:#fff;background:#ef6c00;border-radius:4px;padding:0 4px;white-space:nowrap}
+.at-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:12px 0 8px}
+.at-btns button{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 0;font-size:12.5px;font-family:inherit;color:var(--ink);cursor:pointer;white-space:nowrap}
+.at-btns button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700}
+.at-form .r{flex-wrap:wrap}.at-form .at-v{font-size:16px;min-width:3.5em;text-align:right}
+.at-calc{font-size:13px;margin:2px 2px 8px;line-height:1.6}
+.at-ck{display:block;font-size:13px;margin:4px 2px 8px}
+.at-hist td,.at-hist th{font-size:12.5px;padding:6px 4px;vertical-align:top}.at-hist .gp{color:#ad1457!important;font-weight:700}.at-hist .nw{white-space:nowrap}.at-hist .na{color:#b9b29f;font-size:11px}
+.at-zx{border:1px solid var(--line);background:#fff;border-radius:8px;font-size:15px;padding:0 6px;font-family:inherit}.at-zx.on{color:#1b5e20;border-color:#a5d6a7;background:#eef7ef}
+.at-ed{border:1px solid var(--line);background:#fff;border-radius:8px;font-size:12px;padding:2px 6px;font-family:inherit}
+.at-edr td{background:#faf8f2;white-space:normal}.at-edit .r{display:flex;gap:6px;align-items:center;margin:0 0 6px}.at-edit label{min-width:7em;font-size:12px}
+#sziPrint .at-p th,#sziPrint .at-p td{padding:1.4mm 1mm;font-size:9pt}
+#sziPrint .at-p tr.d td{text-align:left;font-weight:700;background:#f6f6f6}
+#sziPrint .ft{display:flex;justify-content:space-between;margin-top:8mm;font-size:10pt}#sziPrint .ft span{border-bottom:1px solid #333;min-width:45mm;padding-bottom:6mm}
+`; document.head.appendChild(s); })();
+
+</script>
+<!-- /alctank1107 -->
 </body>
 </html>
