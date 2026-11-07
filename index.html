@@ -9402,6 +9402,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-07-2','🍶','仕込み（四段・アル添・上槽の記録）','③アルコール添加に「どのタンクから入れたか」：タンク（T57・T56・T55・T50／ほかから）と前・後の尺を入れると量が出て、合計が「入れた量 L」に入ります。タンクを替えた日や昨年の残りを足した日は「＋もう1つ」。保存すると 資材 › アルコール のタンクの払出にも自動で入ります。'],
   ['2026-11-07-1','🛢','資材（アルコール）','添加アルコールをタンク4本（T57・T56・T55・T50）ごとに管理できるように。資材 › アルコール で 受入・割水・実測・払出（アル添）・ほかから（昨年の残りなど）を尺で入力すると量は自動。タンクごとに実際（手書きの尺）と帳簿（造りex）の量と差、いま使っているタンクと次のタンク（選べます）、仕込計画からいつどのタンクが空になるかの見通しを表示。記録簿は期間を選んでA4で印刷でき、造りexに入れた行は ✔ を付けられます。10/27 の受入・割水、11/4・11/7 の払出（ノートの記録）は最初に入れてあります。'],
   ['2026-11-05-31','🚚','米管理（在庫管理）','米の入荷を手で入れられるように。在庫管理の表の下「米の入荷（手入力）」→「＋ 入荷を入力する」で、品種・入荷した日・袋数（端数はkg）を入れて保存。表の「受入」に「手入力」として入り、在庫と不足チェックにも反映されます。引取予定に無い乾五70%などの入荷に使えます。入れ間違いは「消す」で取り消せます。'],
   ['2026-11-06-6','🧹','ホーム（清掃当番）','11月の出勤表に作業（仕・盛引・ムロ・粕 など）が入ってから、作業の入った人が「出られない」扱いになり、3Fの後藤さんが毎日当番になっていたのを直しました。休み・アグリ・午後休・外の予定の人だけ飛ばし、ほかは順番どおりに必ず回ります。'],
@@ -15483,7 +15484,7 @@ function ydRecOpen(no, date, step){
       `<div class="yd-gp">四段の払出（T${esc(T4()||'—')}）</div><div class="yd-f">${fi('尺 mm','hsk')}${fi('量 L','hL',{auto:1})}${fi('Be','hbe')}</div>
        <div class="yd-gp">醪タンク T${esc(TM)}</div><div class="yd-f yd-f4">${fi('合併前 尺','msk0')}${fi('合併前 L','mL0',{auto:1})}${fi('合併後 尺','msk1')}${fi('合併後 L','mL1',{auto:1})}</div>`);
     h+=st('3','③ アルコール添加', s?rcMD(s.alc):'', cls('3',!!R.alcL,s&&s.alc), sm['3'],
-      tgtBox+`<div class="yd-f">${fi('入れた量 L','alcL')}${fi('添加後 尺','jsk')}${fi('添加後 L','jL',{auto:1})}</div>`);
+      tgtBox+'<div data-atsrc></div>'+`<div class="yd-f">${fi('入れた量 L','alcL')}${fi('添加後 尺','jsk')}${fi('添加後 L','jL',{auto:1})}</div>`);
     h+=st('4','④ 添加後の予想値', '', P.pre?'done':'', sm['4'], anaT);
     h+=st('5','⑤ 上槽先', rcMD(m.joso), cls('5',D.some(d=>String(d.t||'').trim()&&ydN(d.L)!==null),m.joso), sm['5'],
       dests+`<div class="yd-tot"><span>上槽先の合計</span><b data-v="dL">${ydL(D.reduce((a,d)=>a+(ydN(d.L)||0),0))} L</b></div>`);
@@ -15496,6 +15497,7 @@ function ydRecOpen(no, date, step){
     const sc=w.querySelector('.yd-body'), top=sc?sc.scrollTop:0;
     w.innerHTML=h; const sc2=w.querySelector('.yd-body'); if(sc2) sc2.scrollTop=top;
     bind(); tgtReel();
+    if(typeof atYdMount==='function'){ try{ atYdMount(w, m, R, v=>{ dirty=true; if(v!==null){ R.alcL=String(v); const el=w.querySelector('input[data-k="alcL"]'); if(el) el.value=R.alcL; calc(); } }); }catch(e){} }   // 2026-11-07 ③にどのタンクから入れたか（アルコールタンク）
     if(!w._scrolled){ w._scrolled=1; const f=w.querySelector('.yd-st.open'); if(f&&sc2) requestAnimationFrame(()=>{ sc2.scrollTop=Math.max(0,f.offsetTop-4); }); }
   };
   /* 尺→量、予想値など（描き直さずにその場で） */
@@ -15550,6 +15552,7 @@ function ydRecOpen(no, date, step){
     try{
       const it=ydItem(YD_REC, m.no);
       mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:YD_REC, kind:'記録', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:dtoday(), memo:JSON.stringify(out)}}));
+      if(typeof atYdSave==='function'){ try{ await atYdSave(m, R, (s&&s.alc)||date||dtoday()); }catch(e){ rcToast('アルコールタンクへの記録ができませんでした：'+(e.message||e), true, 6000); } }   // 2026-11-07
       dirty=false; rcToast(`${m.no}号の四段・アル添・上槽の記録を保存しました`);
       /* 醸造記録の上槽（仕込カルテ・解析）にも（裏で） */
       const v={}, S=ydSch(m);
@@ -16868,6 +16871,76 @@ if(typeof sziHomeTag==='function'){ const _ht_at=sziHomeTag; sziHomeTag=function
 #sziPrint .at-p th,#sziPrint .at-p td{padding:1.4mm 1mm;font-size:9pt}
 #sziPrint .at-p tr.d td{text-align:left;font-weight:700;background:#f6f6f6}
 #sziPrint .ft{display:flex;justify-content:space-between;margin-top:8mm;font-size:10pt}#sziPrint .ft span{border-bottom:1px solid #333;min-width:45mm;padding-bottom:6mm}
+`; document.head.appendChild(s); })();
+
+/* ================= 🍶 仕込みの「📝 記録 ③アルコール添加」とつなぐ　2026-11-07 泰広さん指示 =================
+   ・③に「どのタンクから入れたか」：タンク（T57・T56・T55・T50／ほかから）と 前・後の尺（実際）→ 量。合計を「入れた量 L」に入れる
+   ・タンクを途中で替えた・昨年の残りを足した日は「＋もう1つ」で2行目
+   ・保存すると 表「資材在庫」のアルコールタンクに 払出（ほかから）として入る（その順号の記録があれば直す・帳簿の尺は残す）。日付＝日程のアル添の日
+   ・タンクの前の尺は、そのタンクの今の尺を最初から入れておく */
+function atYdRows(m){
+  const L=atRecs().filter(r=>(r.kind==='払出'||r.kind==='ほかから')&&String(r.no)===String(m.no));
+  if(L.length) return L.map(r=>r.kind==='ほかから'?{ id:r.id, t:'他', src:r.src||'', q:String(atN(r.qty)||'') }:{ id:r.id, t:String(r.t), b:String(r.b==null?'':r.b), a:String(r.a==null?'':r.a), e:!!r.e });
+  const S=atState(), t=atCurrent(S)||atOrder(S)[0]||'57';
+  return [{ id:'', t, b:S[t]&&S[t].mm!=null?String(S[t].mm):'', a:'', e:false }];
+}
+function atYdL(row){ if(row.t==='他') return atN(row.q); const b=atVol(row.t,row.b), a=atVol(row.t,row.a); return b!==null&&a!==null?b-a:null; }
+function atYdTotal(rows){ let s=0, any=false; for(const r of rows){ const v=atYdL(r); if(v===null) continue; s+=v; any=true; } return any?Math.round(s):null; }
+function atYdHTML(R){
+  const rows=R.atRows||[], tot=atYdTotal(rows), S=atState();
+  const opt=t=>['57','56','55','50','他'].map(v=>`<option value="${v}" ${v===t?'selected':''}>${v==='他'?'ほかから':'T'+v}${v!=='他'&&S[v]&&S[v].has?'（'+(S[v].empty?'空':atL(S[v].L)+'L')+'）':''}</option>`).join('');
+  return `<div class="at-yd"><div class="yd-gp">どのタンクから入れたか（実際の尺）</div>
+    ${rows.map((r,i)=>`<div class="at-ydr"><select data-atyd="${i}" data-f="t">${opt(r.t)}</select>
+      ${r.t==='他'?`<input type="text" data-atyd="${i}" data-f="src" value="${esc(r.src||'')}" placeholder="どこから 例 T77 昨年の残り" style="flex:1;min-width:8em"><input type="text" inputmode="decimal" data-atyd="${i}" data-f="q" value="${esc(r.q||'')}" placeholder="量 L" style="width:5em">`
+        :`<label>前<input type="text" inputmode="numeric" data-atyd="${i}" data-f="b" value="${esc(r.b||'')}" placeholder="尺"></label><label>後<input type="text" inputmode="numeric" data-atyd="${i}" data-f="a" value="${esc(r.a||'')}" placeholder="尺"></label>`}
+      <b class="l" data-atydl="${i}">${(v=>v===null?'—':atL(v))(atYdL(r))} L</b>${rows.length>1?`<button type="button" class="del" data-atydx="${i}">✕</button>`:''}
+      ${r.t!=='他'?`<label class="e"><input type="checkbox" data-atyd="${i}" data-f="e" ${r.e?'checked':''}> 空になった</label>`:''}</div>`).join('')}
+    <div class="at-ydf"><button type="button" class="yd-add" data-atyda="1">＋ もう1つ（タンクを替えた・昨年の残りなど）</button><span>合計 <b data-atydt>${tot===null?'—':atL(tot)+' L'}</b></span></div>
+    <div class="yd-sm">保存すると 資材 › アルコール のタンクの払出にも入ります（帳簿の尺は 資材 › アルコール の履歴で）。</div></div>`;
+}
+function atYdMount(w, m, R, onTot){
+  const box=w.querySelector('[data-atsrc]'); if(!box) return;
+  if(!R.atRows){ R.atRows=atYdRows(m); R._atTouched=false;
+    if(!R._atRef){ R._atRef=1; try{ zaiApi({action:'list'}).then(j=>{ zaiKeep(j); if(!R._atTouched){ R.atRows=atYdRows(m); atYdMount(w, m, R, onTot); } }).catch(()=>{}); }catch(e){} } }
+  box.innerHTML=atYdHTML(R);
+  const upd=()=>{ R.atRows.forEach((r,i)=>{ const e=box.querySelector(`[data-atydl="${i}"]`); if(e){ const v=atYdL(r); e.textContent=(v===null?'—':atL(v))+' L'; } });
+    const t=atYdTotal(R.atRows), te=box.querySelector('[data-atydt]'); if(te) te.textContent=t===null?'—':atL(t)+' L'; onTot(t); };
+  box.querySelectorAll('[data-atyd]').forEach(el=>{
+    const i=Number(el.dataset.atyd), f=el.dataset.f, r=R.atRows[i]; if(!r) return;
+    const ev=el.tagName==='SELECT'||el.type==='checkbox'?'change':'input';
+    el.addEventListener(ev,()=>{ R._atTouched=true;
+      if(f==='e') r.e=el.checked;
+      else if(f==='t'){ r.t=el.value; if(r.t!=='他'){ const s=atState()[r.t]; r.b=s&&s.mm!=null?String(s.mm):''; r.a=''; } atYdMount(w, m, R, onTot); onTot(atYdTotal(R.atRows)); return; }
+      else r[f]=el.value;
+      upd(); }); });
+  box.querySelectorAll('[data-atydx]').forEach(b=>b.onclick=()=>{ R._atTouched=true; const r=R.atRows.splice(Number(b.dataset.atydx),1)[0]; if(r&&r.id){ (R._atDel=R._atDel||[]).push(r.id); } atYdMount(w, m, R, onTot); onTot(atYdTotal(R.atRows)); });
+  const ad=box.querySelector('[data-atyda]'); if(ad) ad.onclick=()=>{ R._atTouched=true; const S=atState(), used=R.atRows.map(r=>r.t), nx=atOrder(S).find(t=>!used.includes(t))||'他';
+    R.atRows.push(nx==='他'?{ id:'', t:'他', src:'T77 昨年の残り', q:'' }:{ id:'', t:nx, b:S[nx]&&S[nx].mm!=null?String(S[nx].mm):'', a:'', e:false }); atYdMount(w, m, R, onTot); };
+}
+async function atYdSave(m, R, date){
+  if(!R.atRows || !R._atTouched && !R.atRows.some(r=>!r.id && atYdL(r)!==null)) return 0;
+  const d=String(date||dtoday()).slice(0,10), to='T'+String(m.tank||''), liq=m.liquid||''; let n=0;
+  for(const id of (R._atDel||[])) { zaiKeep(await zaiApi({action:'delete', id})); n++; }
+  for(const r of R.atRows){ const v=atYdL(r); if(v===null) continue;
+    const old=r.id?(ZAI.items||[]).find(x=>x.id===r.id):null, oj=old?atJ(old):{};
+    if(r.t==='他'){ const j=Object.assign({}, oj, { src:(r.src||'').trim(), no:String(m.no), liq, to }); delete j.t;
+      await atSave(Object.assign(atItem('ほかから', old?old.date:d, v, j, r.id||undefined), old?{ kind:'ほかから' }:{})); n++; continue; }
+    const B=atN(r.b), A=atN(r.a), bl=atVol(r.t,B), al=atVol(r.t,A); if(bl===null||al===null) continue;
+    const S=atState(), j=Object.assign({}, oj, { t:r.t, b:B, bl, a:A, al, deg:(S[r.t]&&S[r.t].deg)||oj.deg||null, no:String(m.no), liq, to, e:r.e?1:0 });
+    if(old && String(oj.t)!==String(r.t)){ delete j.bb; delete j.bbl; delete j.ba; delete j.bal; }   /* タンクを替えたら帳簿の尺は入れ直し */
+    await atSave(atItem('払出', old?String(old.date).slice(0,10):d, bl-al, j, r.id||undefined)); n++; }
+  return n;
+}
+(function(){ const s=document.createElement('style'); s.textContent=`
+.at-yd{background:#f6f9f4;border:1px solid #d5e6cf;border-radius:12px;padding:8px;margin:8px 0}
+.at-ydr{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 6px}
+.at-ydr select{font:inherit;font-size:15px;font-weight:700;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:#fff}
+.at-ydr label{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--sub)}
+.at-ydr input[type=text]{font:inherit;font-size:16px;padding:5px 6px;border:1px solid var(--line);border-radius:8px;width:4.6em;text-align:right;box-sizing:border-box}
+.at-ydr .l{font-size:16px;min-width:4.5em;text-align:right;color:#1565c0}
+.at-ydr .del{border:1px solid #e3b4b4;background:#fff;color:#b23b3b;border-radius:8px;font-size:12px;padding:2px 8px}
+.at-ydr label.e{width:100%;font-size:12px}
+.at-ydf{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}.at-ydf b{font-size:17px}
 `; document.head.appendChild(s); })();
 
 </script>
