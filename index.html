@@ -9402,6 +9402,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-09-3','🍶','仕込み（日程の窓）','日付のマスを押したときの作業に「上槽（上槽だけ・アル添なし）」を足しました。純米などアル添しない仕込みで、上槽の日を選べます。アル添がある仕込みは今までどおり「ア上」（アル添・上槽）を選んでください。'],
   ['2026-11-09-2','🟫','粕（事務所への報告）','酒粕数量の報告をメールからSlackの「#酒粕数量報告」への投稿に変えました（検定済だけ送れるのは今までどおり）。報告の文章は宛名を「営業担当様」にし、端数の行と「製造ツールから自動送信」の行を除きました。合計kgも端数を除いた箱・袋の合計です。'],
   ['2026-11-09-1','🍶','仕込み（四段・アル添・上槽の記録）','⑤上槽先に「醪タンクの上槽前 尺」を入れる欄を足しました。尺を入れると量（L）は早見表から自動で入り、仕込カルテの「上槽前容量L」に保存されます。純米など何も添加しない仕込みはここに入れてください。アル添した仕込みは③の「添加後 尺」と同じ欄なので、どちらで入れても両方に出ます。'],
   ['2026-11-07-2','🍶','仕込み（四段・アル添・上槽の記録）','③アルコール添加に「どのタンクから入れたか」：タンク（T57・T56・T55・T50／ほかから）と前・後の尺を入れると量が出て、合計が「入れた量 L」に入ります。タンクを替えた日や昨年の残りを足した日は「＋もう1つ」。保存すると 資材 › アルコール のタンクの払出にも自動で入ります。'],
@@ -15050,7 +15051,7 @@ function ydMenu(m, d){   // 2026-11-05 泰広さん：押した日・翌日・�
   const w=document.createElement('div'); w.className='o2-mask yd-mask'; document.body.appendChild(w);
   const close=()=>w.remove(); w.onclick=e=>{ if(e.target===w) close(); };
   const DAYS=[0,1,2].map(i=>dadd(d,i));
-  const OPS=[['bl','空欄','作業なし'],['sen','四洗','四段の洗米'],['shi','四仕','四段仕込み'],['soe','四添','四段添加だけ'],['au','ア上','アル添・上槽'],['sau','四ア上','四段添加・アル添・上槽']];
+  const OPS=[['bl','空欄','作業なし'],['sen','四洗','四段の洗米'],['shi','四仕','四段仕込み'],['soe','四添','四段添加だけ'],['au','ア上','アル添・上槽'],['sau','四ア上','四段添加・アル添・上槽'],['jo','上槽','上槽だけ（アル添なし）']];
   const NM={bl:'空欄', sen:'四洗', shi:'四仕', soe:'四添', au:'ア上', sau:'四ア上', jo:'上槽', alc:'アル添'};
   const p=jsPlan(m);
   const jo0=(()=>{ try{ const o=rkRow('上槽', m.no); if(o&&o.plan) return o.plan; }catch(e){} return m.joso||p; })();   // 2026-11-06 上槽日は濾過火入の表（RK）を正に（m.joso が古いままのことがあった）
@@ -15063,15 +15064,19 @@ function ydMenu(m, d){   // 2026-11-05 泰広さん：押した日・翌日・�
   /* 選んだ3日分を全体の日程に当てはめる */
   const build=()=>{
     const s=ydSch(m), r={sen:s?s.sen:'', shi:s?s.shi:'', soe:s?s.soe:'', alc:s?s.alc:'', jo:jo0};
-    const cnt={};
+    const cnt={}; let joSel='';   // 2026-11-09 泰広さん：上槽だけ（アル添なし）も選べるように
     DAYS.forEach(x=>{ ['sen','shi','soe','alc'].forEach(k=>{ if(r[k]===x) r[k]=''; }); });
-    for(const x of DAYS){ const k=sel[x]; if(k==='bl'||k==='jo') continue;
+    for(const x of DAYS){ const k=sel[x]; if(k==='bl') continue;
+      if(k==='jo'){ if(sel[x]===cur[x]&&x===jo0) continue; if(cnt.jo) return 'err:上槽が2つあります'; cnt.jo=1; joSel=x; continue; }
       if(k==='alc'){ if(cnt.alc) return 'err:アル添（ア上・四ア上）が2つあります'; cnt.alc=1; r.alc=x; r.jo=x; continue; }   // アル添と上槽はセット
       const ks=k==='sau'?['soe','alc']:k==='au'?['alc']:[k];
       for(const kk of ks){ if(cnt[kk]) return 'err:'+(kk==='alc'?'アル添（ア上・四ア上）':NM[kk])+'が2つあります'; cnt[kk]=1; r[kk]=x; }
-      if(k==='au'||k==='sau') r.jo=x; }
+      if(k==='au'||k==='sau'){ if(cnt.jo) return 'err:上槽が2つあります'; cnt.jo=1; r.jo=x; } }
     const seq=[['sen','四洗'],['shi','四仕'],['soe','四添'],['alc','アル添']].filter(([k])=>r[k]);
     for(let i=1;i<seq.length;i++){ const [a,al]=seq[i-1], [b,bl]=seq[i]; const ok=(a==='soe'&&b==='alc')?r[b]>=r[a]:r[b]>r[a]; if(!ok) return `err:順番がおかしいです（${al} → ${bl} の順に）`; }
+    if(joSel){ if(r.alc&&r.alc!==joSel) return 'err:アル添がある仕込みは「ア上」（アル添・上槽）を選んでください';
+      const pv=r.soe||r.shi||r.sen; if(pv&&(r.soe?joSel<pv:joSel<=pv)) return `err:上槽は${r.soe?'四添':r.shi?'四仕':'四洗'}より後の日にしてください`;
+      r.jo=joSel; }
     if(r.alc) r.jo=r.alc;   // 2026-11-05 アル添と上槽はセット：上槽日はアル添の日にそろえる（前は「上槽がアル添より前」で決定できなかった）
     return r;
   };
@@ -15094,7 +15099,7 @@ function ydMenu(m, d){   // 2026-11-05 泰広さん：押した日・翌日・�
           <button type="button" class="yd-bx${sel[x]!=='bl'?' has yd-'+(sel[x]==='alc'?'alc':sel[x]):''}${c?' ch':''}" data-d="${x}">${NM[sel[x]]}</button></div>`; }).join('')}</div>
       <div class="yd-inh">入力する（その日の作業に合わせて出ます）</div>
       <div class="yd-3d">${DAYS.map(ins).join('')}</div>
-      <div class="yd-sm" style="margin-top:6px">ア上＝アル添・上槽（同じ日）／四ア上＝四段添加・アル添・上槽（同じ日）</div>
+      <div class="yd-sm" style="margin-top:6px">ア上＝アル添・上槽（同じ日）／四ア上＝四段添加・アル添・上槽（同じ日）／上槽＝上槽だけ（アル添なし）</div>
       <div class="yd-er" style="min-height:18px;margin:4px 2px">${esc(err||msg||'')}</div>
       <div class="yd-row"><button type="button" class="yd-b" data-a="close">やめる</button><button type="button" class="yd-b go" data-a="ok"${err||!ch?' disabled':''}>決定</button></div>
       <div class="yd-row"><button type="button" class="yd-b rec sm" data-a="rec">📝 記録 ›</button>${m.josoSel&&m.joso!==p?`<button type="button" class="yd-b sm" data-a="back">上槽を計画に戻す（${rcMD(p)}）</button>`:''}${s0?'<button type="button" class="yd-b ng sm" data-a="del">日程を全部消す</button>':''}</div></div>`;
