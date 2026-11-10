@@ -9385,6 +9385,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-10-6','🟫','粕（事務所への報告）','送信済みの報告に間違いがあったとき、送り直せるようにしました。カードの緑の「送信済」アイコン（または報告タブの「訂正」）を押すと、粕の種類・黒粕を選び直して【訂正】としてSlackへ送れます。数量を直すときは先にカードで直して保存してから押してください。'],
   ['2026-11-10-5','📱','酒母・仕込み（スマホ）','スマホでは上のアイコンを1行にまとめました。出ているのは「グラフ｜表｜酒母」の切り替え・室温・知らせ（品温！・仕込み水・穴あけ など）だけで、ほかは右端の「⋯」から出します。表を上へ動かすとアイコンの行が隠れ、表を一番上に戻すか「▼ アイコン」で戻ります。'],
   ['2026-11-10-4','🟫','粕（事務所への報告）','酒粕数量の報告は、伊藤の「検定済」を待たずに、保存すれば担当者がそのままSlack（#営業部）へ送れるようにしました。検定済の印はこれまでどおり記録として付けられます（送信のあとでも付けられます）。'],
   ['2026-11-10-3','✅','ありえない値の確認','酒母の表・仕込みの表・分析まとめで「ありえない値かもしれません。このまま保存しますか？」に OK を押すと、その値を覚えて、次からは同じ表・同じ項目の同じような値（Be・alc・品温は前後1.0、酸度・アミノ酸度は前後0.5）では確認を出さず、色も付けないようにしました。覚えた範囲はほかの人の端末にも効きます。'],
@@ -14628,6 +14629,13 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
   }
   if(typeof fastRerender==='function'){ const o=fastRerender;
     fastRerender=function(myTop, act){
+      /* 2026-11-10 泰広さん指示（仕込み・酒母を開くとカクカクずれる）：仕込カルテ（黒粕の判定用）が届くたびに画面全体を描き直していた
+         （30分ごとに全タンク分を取り直すので、開くと本数分くり返し描き直し）→ 表を見ているときは黒粕の札だけ塗り直す */
+      if(act==='karte' && onTable()){
+        if(topNow()!==myTop) return;
+        try{ if(typeof kkSet==='function') Object.keys(RC.karte||{}).forEach(n=>kkSet(n, RC.karte[n])); if(typeof kkPaintAll==='function') kkPaintAll(); }catch(e){}
+        return;
+      }
       if(onTable() && (!act || act==='bunseki_get' || act==='shubo_get')){
         if(topNow()!==myTop) return;
         if(!act && listChanged()) return o.apply(this, arguments);   // 並ぶタンクが変わったときだけ画面全体
@@ -15895,7 +15903,7 @@ function kxCardHTML(m){
     return `<span class="l">${l}</span>${sp(0,b,'')}${sp(1,a,a===null?'':ng?'ng':'ok')}`; }).join('');
   const qty=KX_Q.map(([k,l,w,u])=>{ const n=kxN(d.q[k]); return `<div class="kx-qr${n?' on':''}"><span class="nm">${l}</span><span class="kx-sp big"><button type="button" data-kxq="${k}" data-v="-1" data-no="${esc(no)}">−</button><input type="text" inputmode="decimal" value="${n===null?'':n}" data-kxq="${k}" data-no="${esc(no)}" placeholder="0"><button type="button" data-kxq="${k}" data-v="1" data-no="${esc(no)}">＋</button></span><span class="un">${u}</span><span class="kg" data-kxkg="${k}">${n?kxL(n*w)+' kg':''}</span></div>`; }).join('');
   const sendCls=!r?'off':rep?'done':'on';   /* 2026-11-10 泰広さん指示：検定済でなくても担当者が送れる */
-  const sendLab=!r?'事務所へ':rep?`送信済 ${String(rep.date||rep.upd||rep.at||'').slice(5,16).replace('-','/')}`:'事務所へ送信';
+  const sendLab=!r?'事務所へ':rep?`送信済 ${String(rep.date||rep.upd||rep.at||'').slice(5,16).replace('-','/')}・押すと訂正`:'事務所へ送信';
   const envB=`<svg viewBox="0 0 40 40" width="32" height="32"><rect x="5" y="10" width="30" height="21" rx="3" fill="${sendCls==='off'?'#f4f3ef':'#fff'}"/><path d="M6 12l14 10 14-10" fill="none" stroke="${sendCls==='off'?'#b5b2aa':'#1f6fa8'}" stroke-width="2.2" stroke-linejoin="round"/></svg>`;
   return `<div class="kx-card${dirty?' kx-dirty':''}" data-kxcard="${esc(no)}">
     <div class="kx-ch"><span class="no">${esc(no)}号</span><span class="lq">${esc(m.liquid||'')}</span><span class="tk">T${esc(String(m.tank||''))}</span><span class="sm">上槽 ${rcMD(m.joso)}・総米 ${kxL(m.soumai)}kg</span>
@@ -15938,6 +15946,7 @@ function kxBind(){
   R.querySelectorAll('[data-kxsave]').forEach(b=>b.onclick=()=>kxSave(b.dataset.kxsave));
   R.querySelectorAll('[data-kxken]').forEach(b=>b.onclick=()=>kxKenTap(b.dataset.kxken));
   R.querySelectorAll('[data-kxsend]').forEach(b=>b.onclick=()=>kxSendOpen([b.dataset.kxsend]));
+  R.querySelectorAll('[data-kxre]').forEach(b=>b.onclick=e=>{ e.preventDefault(); e.stopPropagation(); kxSendOpen([b.dataset.kxre]); });   // 報告タブの送信済「訂正」
   const pk=R.querySelector('#kxPick'); if(pk) pk.onchange=()=>{ if(!pk.value) return; KX.extra=(KX.extra||[]).filter(x=>x!==pk.value).concat([pk.value]); redraw(); };
   R.querySelectorAll('[data-kxrow]').forEach(b=>b.onclick=()=>{ KX.tab='today'; KX.extra=(KX.extra||[]).concat([b.dataset.kxrow]); kxDraw(); const c=document.querySelector(`.kx-card[data-kxcard="${b.dataset.kxrow}"]`); if(c) c.scrollIntoView({block:'start'}); });
   const rs=R.querySelector('#kxRepSend'); if(rs) rs.onclick=()=>{ const L=[...R.querySelectorAll('.kx-rc:checked')].map(x=>x.value); if(!L.length){ rcToast('送る仕込みを選んでください'); return; } kxSendOpen(L); };
@@ -15950,7 +15959,7 @@ async function kxSave(no){
   const msg=t=>{ const e=document.querySelector(`[data-kxmsg="${no}"]`); if(e) e.textContent=t; };
   const ng=KX_T.filter(([k])=>{ const t=d.tools[k]||[]; const b=kxN(t[0]), a=kxN(t[1]); return a!==null&&b!==null&&a!==b; }).map(x=>x[1]);
   if(ng.length && !confirm(`${ng.join('・')} の数が作業前と作業後で合っていません。このまま保存しますか？`)) return;
-  if(kxRep(no) && !confirm('この仕込みは事務所へ送信済みです。直すと訂正の連絡が必要です。保存しますか？')) return;
+  if(kxRep(no) && !confirm('この仕込みは事務所へ送信済みです。保存したあと、緑の「送信済」アイコンを押すと【訂正】として送り直せます。保存しますか？')) return;
   const kg=kxTotal(d.q);
   const out={ date:d.date||kxDay(m)||dtoday(), workers:d.workers.slice(), tools:{}, q:{}, biko:String(d.biko||'').trim(), total:kg, pct:kxPct(m,kg), kinds:d.kinds, kuro:d.kuro };   // kinds・kuro は送信時に選んだ粕の種類（2026-11-10）
   KX_T.forEach(([k])=>{ const t=d.tools[k]||['','']; out.tools[k]=[kxN(t[0]), kxN(t[1])]; });
@@ -15986,20 +15995,25 @@ function kxKuroAuto(no){ try{ const x=(typeof KK!=='undefined')&&KK.m&&KK.m[Stri
 function kxKindDef(m){ const lq=String((m&&m.liquid)||'').normalize('NFKC').toLowerCase(); const k=KX_KIND.slice(5).find(x=>lq.indexOf(x.normalize('NFKC').toLowerCase())>=0); return k?[k]:[]; }
 function kxKindLine(s){ if(s&&s.kuro) return '黒粕';   // 2026-11-10 黒粕のときは黒粕だけ
   return (s&&s.k&&s.k.length)?s.k.join('・'):'（未選択）'; }
-function kxMailText(nos, S){
+function kxMailText(nos, S, re){
   const L=nos.map(no=>{ const m=rcMaster(no)||{}, r=kxRec(no)||{}; const s=(S&&S[no])||{k:r.kinds||[], kuro:!!r.kuro}; return {no, m, r, s}; });
   const anyKuro=L.some(x=>x.s.kuro);
-  const sub=L.length===1?`【酒粕数量報告】${kxMD(L[0].r.date).replace(/（.*）/,'')} 仕${L[0].no}号（${L[0].m.liquid||''}）［${kxKindLine(L[0].s)}］ ${kxQText(kxRepQ(L[0].r.q))}`:`【酒粕数量報告】${anyKuro?'【黒粕あり】':''}${L.length}件（${L.map(x=>'仕'+x.no+'号').join('・')}）`;
-  let body='営業担当様\n\n酒粕数量を報告します。\n';
+  const sub0=L.length===1?`【酒粕数量報告】${kxMD(L[0].r.date).replace(/（.*）/,'')} 仕${L[0].no}号（${L[0].m.liquid||''}）［${kxKindLine(L[0].s)}］ ${kxQText(kxRepQ(L[0].r.q))}`:`【酒粕数量報告】${anyKuro?'【黒粕あり】':''}${L.length}件（${L.map(x=>'仕'+x.no+'号').join('・')}）`;
+  const sub=(re?'【訂正】':'')+sub0;   // 2026-11-10 訂正の送り直し
+  let body='営業担当様\n\n'+(re?`先にお送りした酒粕数量報告（${L.map(x=>{ const p=kxRep(x.no); return '仕'+x.no+'号'+(p&&p.date?' '+String(p.date).slice(5,16).replace('-','/')+' 送信分':''); }).join('・')}）に誤りがありました。下記のとおり訂正します。\n`:'酒粕数量を報告します。\n');
   L.forEach(({no,m,r,s})=>{ const q=r.q||{}; body+=`\n日付　　　${kxMD(r.date)}\n仕込　　　仕${no}号（${m.liquid||''}）　上槽 ${rcMD(m.joso)}\n種類　　　${kxKindLine(s)}\n`+KX_Q.filter(([k])=>k!=='frac').map(([k,l])=>`${l}　　${kxN(q[k])===null?0:kxN(q[k])}${k==='f20'?' 袋':' 個'}`).join('\n')+`\n合計　　　${kxL(kxRepKg(q))} kg\n`; });
   body+=`\n生産本部製造　送信：${ST.name||''}`;
   return {sub, body};
 }
-function kxSendOpen(nos){
+function kxSendOpen(nos, re){
   nos=nos.filter(no=>kxRec(no));
-  const bad=nos.filter(no=>kxRep(no)||KX.more['x'+no]);   /* 2026-11-10 検定済でなくても送れる */
   if(!nos.length) return;
   const one=nos.length===1, no0=nos[0];
+  /* 2026-11-10 泰広さん指示：送信済みでも、間違いに気づいたら「訂正」として送り直せる */
+  if(!re && one && kxRep(no0) && !KX.more['x'+no0]){ const rp=kxRep(no0);
+    if(!confirm(`${no0}号は事務所へ送信済みです（${String(rp.date||'').slice(5,16).replace('-','/')}）。\n\n間違いがあった場合は「訂正」として送り直せます。\n（数量を直すときは、先にカードで直して「保存」してから押してください）\n\n訂正して送り直しますか？`)) return;
+    re=true; }
+  const bad=nos.filter(no=>(!re&&kxRep(no))||KX.more['x'+no]);   /* 2026-11-10 検定済でなくても送れる／訂正のときは送信済も送れる */
   if(one && bad.length){ const no=no0; if(kxRep(no)) rcToast(`${no}号は送信済みです`); else rcToast('先に「保存」してください', true); return; }
   nos=nos.filter(no=>bad.indexOf(no)<0); if(!nos.length){ rcToast('送れる仕込みがありません（未保存・送信済）', true); return; }
   const cfg=kxCfg();
@@ -16014,13 +16028,14 @@ function kxSendOpen(nos){
     return `<div class="kx-kd"><div class="h"><b>仕${esc(String(no))}号 ${esc(m.liquid||'')}</b><small>粕の種類（2種まで）</small></div>
       <div class="kx-chips${s.kuro?' kx-dim':''}">${KX_KIND.map(k=>`<button type="button" class="kx-chip${s.k.indexOf(k)>=0?' on':''}" data-kk="${esc(k)}" data-no="${esc(String(no))}">${esc(k)}</button>`).join('')}<button type="button" class="kx-chip kuro${s.kuro?' on':''}" data-kkuro="${esc(String(no))}">黒粕</button></div>
       ${note?`<div class="kx-kn">${esc(note)}</div>`:''}</div>`; }).join('');
-  const draw=()=>{ const sh=w.querySelector('.yd-sheet'), sc=sh?sh.scrollTop:0; const T=kxMailText(nos,S), ok=ready();
-    w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div><div class="yd-hd"><b>酒粕数量を事務所へ送信（Slack）</b><button type="button" class="yd-x" data-a="close">✕</button></div>
+  const draw=()=>{ const sh=w.querySelector('.yd-sheet'), sc=sh?sh.scrollTop:0; const T=kxMailText(nos,S,re), ok=ready();
+    w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div><div class="yd-hd"><b>${re?'訂正して送り直す（Slack）':'酒粕数量を事務所へ送信（Slack）'}</b><button type="button" class="yd-x" data-a="close">✕</button></div>
+    ${re?'<div class="kx-alert" style="margin:0 0 8px">送信済みの報告を【訂正】として送り直します。粕の種類・黒粕を選び直してください。</div>':''}
     ${kindHTML()}
     <div class="kx-mail"><div class="mh"><span>送り先</span>${cfg.slack?'Slack '+esc(cfg.slack):'<b class="ng">未設定</b>'}<br><span>件名</span>${esc(T.sub)}</div><pre>${esc(T.body)}</pre></div>
     ${cfg.slack?'':'<div class="kx-alert" style="margin:8px 0 0">送り先のSlackがまだ設定されていないため、送れません（報告タブの「⚙ 送り先」で設定）。</div>'}
     ${ok?'':'<div class="kx-alert" style="margin:8px 0 0">粕の種類を選んでください（仕込みごとに1〜2種。黒粕は選ばなくてよい）。</div>'}
-    <div class="yd-row"><button type="button" class="yd-b" data-a="close">やめる</button><button type="button" class="yd-b go" data-a="send"${cfg.slack&&ok?'':' disabled'}>送信する</button></div><div class="yd-msg"></div></div>`;
+    <div class="yd-row"><button type="button" class="yd-b" data-a="close">やめる</button><button type="button" class="yd-b go" data-a="send"${cfg.slack&&ok?'':' disabled'}>${re?'訂正を送信する':'送信する'}</button></div><div class="yd-msg"></div></div>`;
     const sh2=w.querySelector('.yd-sheet'); if(sh2) sh2.scrollTop=sc;
     bind(); };
   const bind=()=>{
@@ -16030,7 +16045,7 @@ function kxSendOpen(nos){
     w.querySelectorAll('[data-kkuro]').forEach(b=>b.onclick=()=>{ const s=S[b.dataset.kkuro]; s.kuro=!s.kuro; s.man=true; draw(); });
     w.querySelector('[data-a="send"]').onclick=async()=>{
       if(!cfg.slack||!ready()) return;
-      const T=kxMailText(nos,S);
+      const T=kxMailText(nos,S,re);
       const say=t=>{ const e=w.querySelector('.yd-msg'); if(e) e.textContent=t; };
       busy=true; w.querySelectorAll('button').forEach(b=>b.disabled=true); say('送信しています…');
       try{
@@ -16040,7 +16055,7 @@ function kxSendOpen(nos){
           mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:KX_REP, kind:'送信済', no:String(no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:dtoday()+' '+new Date().toTimeString().slice(0,5), memo:T.sub}}));
           try{ const ri=kxItem(KX_REC,no), rj=kxJ(ri); if(ri&&rj){ rj.kinds=S[no].k.slice(); rj.kuro=!!S[no].kuro;   // 種類・黒粕も粕記録に残す
             mwKeep(await mwApi({action:'save', item:{id:ri.id, name:KX_REC, kind:'保存', no:String(no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:rj.date||'', memo:JSON.stringify(rj)}})); } }catch(e){} }
-        busy=false; close(); rcToast('事務所へ送信しました'); const sc=window.scrollY; kxDraw(); window.scrollTo(0,sc);
+        busy=false; close(); rcToast(re?'訂正を送信しました':'事務所へ送信しました'); const sc=window.scrollY; kxDraw(); window.scrollTo(0,sc);
       }catch(e){ busy=false; say('送信できませんでした：'+(e.message||e)); w.querySelectorAll('button').forEach(b=>b.disabled=false); }
     };
   };
@@ -16071,7 +16086,7 @@ function kxRepHTML(){
   const row=(m,ok,lk)=>{ const r=kxRec(m.no), ken=kxKen(m.no), rep=kxRep(m.no);
     return `<label class="kx-li${lk?' lk':''}${rep?' sent':''}">${rep?'<span class="cb s">✓</span>':`<input type="checkbox" class="kx-rc" value="${esc(String(m.no))}"${lk?' disabled':' checked'}>`}
       <span><span class="n">${esc(String(m.no))}号 ${esc(m.liquid||'')}</span><br>${rep?`<span class="pill s">送信 ${esc(String(rep.date||'').slice(5).replace('-','/'))}</span>`:ken?`<span class="pill k">検定済 ${esc(String(ken.date||'').slice(5).replace('-','/'))}</span>`:'<span class="pill w">未検定</span>'}</span>
-      <span class="q"><b>${esc(kxQText(r.q))}</b><br>${kxL(r.total)}kg</span></label>`; };
+      <span class="q"><b>${esc(kxQText(r.q))}</b><br>${kxL(r.total)}kg</span>${rep?`<button type="button" class="kx-re" data-kxre="${esc(String(m.no))}">訂正</button>`:''}</label>`; };
   const nK=wait.filter(m=>kxKen(m.no)).length, nS=wait.filter(m=>!KX.more['x'+m.no]).length;
   return `<div class="kx-rh"><span>送信待ち ${wait.length}件（検定済 ${nK}・未検定 ${wait.length-nK}）</span>${kxBoss()?'<button type="button" id="kxCfg" class="kx-cfg">⚙ 送り先</button>':''}</div>
     <div class="kx-sm">送り先：${cfg.slack?'Slack '+esc(cfg.slack):'未設定（後で設定）'}</div>
@@ -16189,6 +16204,7 @@ function kxHomeApply(){ const b=document.getElementById('bKasu'); if(!b) return;
 .kx-li input{width:20px;height:20px;flex:none}.kx-li .cb.s{color:#2f7d5d;font-weight:800;width:20px;text-align:center}
 .kx-li .n{font-weight:800;font-size:14px;color:var(--navy)}.kx-li .q{margin-left:auto;text-align:right}.kx-li .q b{font-size:13px}
 .kx-li.lk{background:#faf9f6;color:#999}.kx-li.lk .n{color:#999}.kx-li.sent{background:#f6fbf8}
+.kx-li .kx-re{flex:none;border:1.5px solid #c9822b;color:#9a5a00;background:#fff;border-radius:8px;font-size:11.5px;font-weight:800;padding:5px 9px}
 .kx-li .pill,.kx-kp .pill{font-size:10.5px;font-weight:800;border-radius:999px;padding:0 7px}.pill.w{background:#fff1d6;color:#9a6200}.pill.k{background:#e8f1fa;color:#1f6fa8}.pill.s{background:#e3f2ea;color:#2f7d5d}
 .kx-bigsend{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;border:0;border-radius:14px;background:linear-gradient(#3b8fd0,#1f6fa8);color:#fff;font:inherit;font-weight:800;font-size:15px;padding:10px;margin-top:6px;cursor:pointer}
 .kx-bigsend .sq{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center}
@@ -17228,10 +17244,10 @@ async function atYdSave(m, R, date){
     window.dispatchEvent(new Event('resize'));   // 仕込みの表の高さ（--sfh）を取り直す
   }
   function apply(){
-    const on=MQ.matches;
+    const on=MQ.matches; let fresh=false;
     app.querySelectorAll('.st-icons').forEach(row=>{
       if(!on){ row.classList.remove('ic-b','ic-op'); return; }
-      if(!row.classList.contains('ic-b')) row.classList.add('ic-b');
+      if(!row.classList.contains('ic-b')){ row.classList.add('ic-b'); fresh=true; }
       if(!row.querySelector(':scope > .ic-more')){
         const b=document.createElement('button'); b.type='button'; b.className='ic-more'; b.textContent='⋯'; b.setAttribute('aria-label','そのほかのアイコン');
         b.onclick=e=>{ e.stopPropagation(); openSheet(row); }; row.appendChild(b);
@@ -17243,15 +17259,25 @@ async function atYdSave(m, R, date){
       }
     });
     if(!on || !app.querySelector('.st-icons')){ setHid(false); closeSheet(); }
+    if(fresh) window.dispatchEvent(new Event('resize'));   // 1行にした高さで仕込みの表の高さを測り直す
   }
   let raf=0; const soon=()=>{ if(raf) return; raf=requestAnimationFrame(()=>{ raf=0; apply(); }); };
-  new MutationObserver(soon).observe(app,{childList:true,subtree:true});
+  /* 2026-11-10 カクカク対策：描いた直後（画面に出る前）に1行にする。大きいまま一瞬出て表の高さが2回変わるのを防ぐ */
+  new MutationObserver(()=>apply()).observe(app,{childList:true,subtree:true});
   if(MQ.addEventListener) MQ.addEventListener('change',soon); else if(MQ.addListener) MQ.addListener(soon);
   /* ⋯ の中のアイコンを押したら閉じる（押したときの動きはそのまま） */
   document.addEventListener('click', e=>{ const t=e.target.closest && e.target.closest('.st-icons.ic-op .st-ic'); if(t) setTimeout(closeSheet,0); }, true);
-  /* C：表を上へ動かしたら隠す／一番上に戻したら出す */
+  /* C：表を上へ動かしたら隠す／一番上に戻したら出す
+     2026-11-10 カクカク対策：指で動かしたときだけ（描き直しで元の位置に戻すスクロールでは隠したり出したりしない） */
+  const U={on:false, end:0, wh:0};
+  document.addEventListener('touchstart', ()=>{ U.on=true; }, {passive:true, capture:true});
+  document.addEventListener('touchend', ()=>{ U.on=false; U.end=Date.now(); }, {passive:true, capture:true});
+  document.addEventListener('touchcancel', ()=>{ U.on=false; U.end=Date.now(); }, {passive:true, capture:true});
+  document.addEventListener('wheel', ()=>{ U.wh=Date.now(); }, {passive:true, capture:true});
+  const byUser=()=>U.on || Date.now()-U.end<2500 || Date.now()-U.wh<600;
   document.addEventListener('scroll', e=>{
     const t=e.target; if(!MQ.matches || !t || !t.classList || !t.classList.contains('kg-tw') || !t.closest('.kg-home')) return;
+    if(!byUser()) return;
     if(!app.querySelector('.st-icons.ic-b') || app.querySelector('.st-icons.ic-op')) return;
     if(t.scrollTop>20) setHid(true); else if(t.scrollTop<=0) setHid(false);
   }, true);
