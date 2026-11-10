@@ -9386,7 +9386,7 @@ async function kiDialog(no, kind){
    ================================================================================== */
 const UPDATES=[
   ['2026-11-10-7','📱','酒母・仕込み（スマホ）','上のアイコンを小さな丸（下に小さく名前）にして1行に並べ、表が広く見えるようにしました。入りきらないアイコンは、指で左になぞると出てきます。'],
-  ['2026-11-10-6','🟫','粕（事務所への報告）','送信済みの報告に間違いがあったとき、送り直せるようにしました。カードの緑の「送信済」アイコン（または報告タブの「訂正」）を押すと、粕の種類・黒粕を選び直して【訂正】としてSlackへ送れます。数量を直すときは先にカードで直して保存してから押してください。'],
+  ['2026-11-10-6','🟫','粕（事務所への報告）','送信済みの報告に間違いがあったとき、送り直せるようにしました。カードの緑の「送信済」アイコン（または報告タブの「訂正」）を押すと、粕の種類・黒粕を選び直して【訂正】としてSlackへ送れます。訂正の文には【訂正箇所】（例：種類 純米吟醸 → 黒粕）が入り、変わった行に「←訂正」が付きます。数量を直すときは先にカードで直して保存してから押してください。'],
   ['2026-11-10-4','🟫','粕（事務所への報告）','酒粕数量の報告は、伊藤の「検定済」を待たずに、保存すれば担当者がそのままSlack（#営業部）へ送れるようにしました。検定済の印はこれまでどおり記録として付けられます（送信のあとでも付けられます）。'],
   ['2026-11-10-3','✅','ありえない値の確認','酒母の表・仕込みの表・分析まとめで「ありえない値かもしれません。このまま保存しますか？」に OK を押すと、その値を覚えて、次からは同じ表・同じ項目の同じような値（Be・alc・品温は前後1.0、酸度・アミノ酸度は前後0.5）では確認を出さず、色も付けないようにしました。覚えた範囲はほかの人の端末にも効きます。'],
   ['2026-11-10-2','💾','自動保存（PC・伊藤・神田）','PCで入力するとき、または伊藤・神田が入力するときは、「保存」を押さなくてもマスを離れたら（Enter・次のマスへ）自動で保存されるようにしました。対象：酒母の表・仕込みの表・分析まとめ・麹／洗米吸水／酒母／醪の入力・仕込時の値・タンク洗浄・粕のカード。保存すると前の画面に戻っていた画面も、自動保存のときは戻りません。📝記録などの窓は、入力してから「閉じる」を押すと閉じる代わりに保存します。ありえない値・酛卸の未入力など確認が必要なときは自動では保存せず、左下に知らせが出るので「保存」ボタンで保存してください。ほかの人のスマホは今までどおり「保存」ボタンです。'],
@@ -15815,6 +15815,11 @@ function kxJ(it){ try{ return it&&it.memo?JSON.parse(String(it.memo)):null; }cat
 function kxRec(no){ const it=kxItem(KX_REC,no), j=kxJ(it); return j?Object.assign(j,{_id:it.id, by:it.updBy||it.by||'', at:it.upd||it.at||''}):null; }
 function kxKen(no){ const it=kxItem(KX_KEN,no); return it&&it.kind==='検定済'?it:null; }
 function kxRep(no){ const it=kxItem(KX_REP,no); return it&&it.kind==='送信済'?it:null; }
+/* 前回送った内容（2026-11-10〜 粕報告の memo に JSON {sub,kinds,kuro,q}。それより前は件名の文字から読む） */
+function kxRepPrev(no){ const it=kxRep(no); if(!it) return null; const j=kxJ(it); if(j&&j.q) return j;
+  const t=String(it.memo||''), mm=t.match(/［(.+?)］/); if(!mm) return null;
+  const kk=mm[1], q={}; KX_Q.forEach(([k,l])=>{ if(k==='frac') return; const x=t.slice(t.indexOf('］')).match(new RegExp(l+' ([0-9.]+)')); q[k]=x?Number(x[1]):0; });
+  return {kinds:(kk==='黒粕'||kk==='（未選択）')?[]:kk.split('・'), kuro:kk==='黒粕', q}; }
 function kxCfg(){ return kxJ(kxItem(KX_CFG))||{}; }
 function kxTotal(q){ q=q||{}; let s=0, any=false; KX_Q.forEach(([k,,w])=>{ const n=kxN(q[k]); if(n!==null){ s+=n*w; any=true; } }); return any?Math.round(s*10)/10:null; }
 function kxPct(m, kg){ const s=Number(m&&m.soumai); return (kg!==null&&kg!==undefined&&s>0)?Math.round(kg/s*1000)/10:null; }
@@ -16001,7 +16006,17 @@ function kxMailText(nos, S, re){
   const sub0=L.length===1?`【酒粕数量報告】${kxMD(L[0].r.date).replace(/（.*）/,'')} 仕${L[0].no}号（${L[0].m.liquid||''}）［${kxKindLine(L[0].s)}］ ${kxQText(kxRepQ(L[0].r.q))}`:`【酒粕数量報告】${anyKuro?'【黒粕あり】':''}${L.length}件（${L.map(x=>'仕'+x.no+'号').join('・')}）`;
   const sub=(re?'【訂正】':'')+sub0;   // 2026-11-10 訂正の送り直し
   let body='営業担当様\n\n'+(re?`先にお送りした酒粕数量報告（${L.map(x=>{ const p=kxRep(x.no); return '仕'+x.no+'号'+(p&&p.date?' '+String(p.date).slice(5,16).replace('-','/')+' 送信分':''); }).join('・')}）に誤りがありました。下記のとおり訂正します。\n`:'酒粕数量を報告します。\n');
-  L.forEach(({no,m,r,s})=>{ const q=r.q||{}; body+=`\n日付　　　${kxMD(r.date)}\n仕込　　　仕${no}号（${m.liquid||''}）　上槽 ${rcMD(m.joso)}\n種類　　　${kxKindLine(s)}\n`+KX_Q.filter(([k])=>k!=='frac').map(([k,l])=>`${l}　　${kxN(q[k])===null?0:kxN(q[k])}${k==='f20'?' 袋':' 個'}`).join('\n')+`\n合計　　　${kxL(kxRepKg(q))} kg\n`; });
+  /* 2026-11-10 泰広さん指示：訂正のときは「どこが変わったか」を【訂正箇所】として出し、変わった行に「←訂正」 */
+  const D=[], mk=b=>(re&&b)?'　←訂正':'';
+  let det='';
+  L.forEach(({no,m,r,s})=>{ const q=r.q||{}, p=re?kxRepPrev(no):null, un=k=>k==='f20'?' 袋':' 個', nv=v=>kxN(v)===null?0:kxN(v);
+    const kNew=kxKindLine(s), kOld=p?kxKindLine({k:p.kinds||[],kuro:!!p.kuro}):null, kCh=p&&kOld!==kNew;
+    if(kCh) D.push(`仕${no}号　種類　${kOld} → ${kNew}`);
+    const qs=KX_Q.filter(([k])=>k!=='frac').map(([k,l])=>{ const ch=p&&p.q&&nv(p.q[k])!==nv(q[k]); if(ch) D.push(`仕${no}号　${l}　${nv(p.q[k])}${un(k)} → ${nv(q[k])}${un(k)}`); return `${l}　　${nv(q[k])}${un(k)}${mk(ch)}`; });
+    const tCh=p&&p.q&&kxRepKg(p.q)!==kxRepKg(q); if(tCh) D.push(`仕${no}号　合計　${kxL(kxRepKg(p.q))} kg → ${kxL(kxRepKg(q))} kg`);
+    det+=`\n日付　　　${kxMD(r.date)}\n仕込　　　仕${no}号（${m.liquid||''}）　上槽 ${rcMD(m.joso)}\n種類　　　${kNew}${mk(kCh)}\n`+qs.join('\n')+`\n合計　　　${kxL(kxRepKg(q))} kg${mk(tCh)}\n`; });
+  if(re){ const known=L.some(x=>kxRepPrev(x.no)); body+=`\n【訂正箇所】\n`+(D.length?D.join('\n'):known?'（数量・種類の変更はありません）':'（前回の内容が記録されていないため、訂正箇所を出せません）')+'\n'; }
+  body+=det;
   body+=`\n生産本部製造　送信：${ST.name||''}`;
   return {sub, body};
 }
@@ -16052,7 +16067,7 @@ function kxSendOpen(nos, re){
         const j=await kxMailSend(cfg, T);   // 2026-11-09 メールをやめて Slack へ（共有データの action:'slack'）
         if(!j||!j.ok) throw new Error((j&&j.error)||'送信できませんでした');
         for(const no of nos){ const m=rcMaster(no)||{}, it=kxItem(KX_REP,no);
-          mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:KX_REP, kind:'送信済', no:String(no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:dtoday()+' '+new Date().toTimeString().slice(0,5), memo:T.sub}}));
+          mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:KX_REP, kind:'送信済', no:String(no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:dtoday()+' '+new Date().toTimeString().slice(0,5), memo:JSON.stringify({sub:T.sub, kinds:S[no].kuro?[]:S[no].k.slice(), kuro:!!S[no].kuro, q:kxRepQ((kxRec(no)||{}).q)})}}));   // 送った内容を残す（訂正箇所に使う）
           try{ const ri=kxItem(KX_REC,no), rj=kxJ(ri); if(ri&&rj){ rj.kinds=S[no].k.slice(); rj.kuro=!!S[no].kuro;   // 種類・黒粕も粕記録に残す
             mwKeep(await mwApi({action:'save', item:{id:ri.id, name:KX_REC, kind:'保存', no:String(no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:rj.date||'', memo:JSON.stringify(rj)}})); } }catch(e){} }
         busy=false; close(); rcToast(re?'訂正を送信しました':'事務所へ送信しました'); const sc=window.scrollY; kxDraw(); window.scrollTo(0,sc);
