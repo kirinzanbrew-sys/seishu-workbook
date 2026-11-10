@@ -9385,6 +9385,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-10-7','📱','酒母・仕込み（スマホ）','上のアイコンを小さな丸（下に小さく名前）にして1行に並べ、表が広く見えるようにしました。入りきらないアイコンは、指で左になぞると出てきます。'],
   ['2026-11-10-6','🟫','粕（事務所への報告）','送信済みの報告に間違いがあったとき、送り直せるようにしました。カードの緑の「送信済」アイコン（または報告タブの「訂正」）を押すと、粕の種類・黒粕を選び直して【訂正】としてSlackへ送れます。数量を直すときは先にカードで直して保存してから押してください。'],
   ['2026-11-10-4','🟫','粕（事務所への報告）','酒粕数量の報告は、伊藤の「検定済」を待たずに、保存すれば担当者がそのままSlack（#営業部）へ送れるようにしました。検定済の印はこれまでどおり記録として付けられます（送信のあとでも付けられます）。'],
   ['2026-11-10-3','✅','ありえない値の確認','酒母の表・仕込みの表・分析まとめで「ありえない値かもしれません。このまま保存しますか？」に OK を押すと、その値を覚えて、次からは同じ表・同じ項目の同じような値（Be・alc・品温は前後1.0、酸度・アミノ酸度は前後0.5）では確認を出さず、色も付けないようにしました。覚えた範囲はほかの人の端末にも効きます。'],
@@ -17216,5 +17217,45 @@ async function atYdSave(m, R, date){
 })();
 </script>
 <!-- /rnglearn1110 -->
+<!-- icmini1110 -->
+<script>
+/* 2026-11-10 泰広さん指示：スマホで 🍶仕込み・🧫酒母 の上のアイコンが大きく表の邪魔 → 見本の案3（小さな丸の下に小さく名前）
+   ・はじめから丸アイコン（34px）を1行に並べる。入りきらない分は指で左になぞると出てくる（横にずらす）
+   ・知らせの色の輪（品温！・仕込み水・穴あけ・O₂未測定など）、押したときの動きは今までどおり
+   ・名前：今日の仕込み→今日／仕込み水→仕込水／昨年度→昨年／配合表→配合／品温！→品温
+   ・スマホ幅（700px以下）だけ。PC・Pad は今までどおり
+   見本：Claude outputs\製造ツール_表を動かすと丸アイコン_見本.html（案3）
+   控え：seishu-workbook_github\_src_icmini1110.js　差し込み：_丸アイコン_20261110.py（<!-- icmini1110 --> ブロック、</body> の直前） */
+(function(){
+  const MQ=matchMedia('(max-width:700px)'), root=document.documentElement;
+  const SHORT={'今日の仕込み':'今日','仕込み水':'仕込水','昨年度':'昨年','配合表':'配合'};
+  function nameOf(b){
+    if(b.classList.contains('mz-hin')) return '品温';
+    const sm=b.querySelector('small'); let t=sm?(sm.textContent||'').split('・')[0].trim():'';
+    if(!t){ const bb=b.querySelector('b'); t=bb?(bb.textContent||'').trim():''; }
+    t=SHORT[t]||t; return t.length>4?t.slice(0,4):t;
+  }
+  function names(){ app.querySelectorAll('.st-icons .st-ic:not(.st-o2)').forEach(b=>{ if(!b.hasAttribute('data-mn')) b.setAttribute('data-mn', nameOf(b)); }); }
+  /* アイコンの行が描かれたら名前を付ける（丸の下に出す） */
+  new MutationObserver(()=>{ if(MQ.matches) names(); }).observe(app,{childList:true,subtree:true});
+  root.classList.add('ic-mini'); names();
+
+  const s=document.createElement('style'); s.textContent=`
+@media (max-width:700px){
+html.ic-mini #app .st-icons{flex-wrap:nowrap!important;overflow-x:auto;overflow-y:hidden;gap:6px!important;align-items:flex-start;margin:2px 0 4px!important;padding:4px 4px 13px;scrollbar-width:none}
+html.ic-mini #app .st-icons::-webkit-scrollbar{display:none}
+html.ic-mini #app .st-icons .st-ic{width:34px!important;min-width:34px!important;height:34px!important;min-height:34px!important;flex:0 0 34px!important;padding:0!important;border-radius:50%!important;
+  flex-direction:row!important;justify-content:center!important;align-items:center!important;gap:0!important;position:relative;overflow:visible}
+html.ic-mini #app .st-icons .st-ic .e{font-size:16px!important;line-height:1}
+html.ic-mini #app .st-icons .st-ic b,html.ic-mini #app .st-icons .st-ic small,html.ic-mini #app .st-icons .st-ic .hg-d,html.ic-mini #app .st-icons .st-ic .mw-lt{display:none!important}
+html.ic-mini #app .st-icons .st-ic::after{content:attr(data-mn);position:absolute;top:36px;left:50%;transform:translateX(-50%);font-size:8px;line-height:1;color:var(--sub,#6b6b6b);white-space:nowrap;pointer-events:none}
+html.ic-mini #app .st-icons .st-ic.st-o2{border:none!important;background:none!important;box-shadow:none!important}
+html.ic-mini #app .st-icons .st-ic.st-o2 .o2c{width:32px!important;height:32px!important;font-size:12px!important}
+html.ic-mini #app .st-icons .st-ic.ia-ic select{font-size:16px}
+}`;
+  document.head.appendChild(s);
+})();
+</script>
+<!-- /icmini1110 -->
 </body>
 </html>
