@@ -9402,6 +9402,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-10-4','🟫','粕（事務所への報告）','酒粕数量の報告は、伊藤の「検定済」を待たずに、保存すれば担当者がそのままSlack（#営業部）へ送れるようにしました。検定済の印はこれまでどおり記録として付けられます（送信のあとでも付けられます）。'],
   ['2026-11-10-3','✅','ありえない値の確認','酒母の表・仕込みの表・分析まとめで「ありえない値かもしれません。このまま保存しますか？」に OK を押すと、その値を覚えて、次からは同じ表・同じ項目の同じような値（Be・alc・品温は前後1.0、酸度・アミノ酸度は前後0.5）では確認を出さず、色も付けないようにしました。覚えた範囲はほかの人の端末にも効きます。'],
   ['2026-11-10-2','💾','自動保存（PC・伊藤・神田）','PCで入力するとき、または伊藤・神田が入力するときは、「保存」を押さなくてもマスを離れたら（Enter・次のマスへ）自動で保存されるようにしました。対象：酒母の表・仕込みの表・分析まとめ・麹／洗米吸水／酒母／醪の入力・仕込時の値・タンク洗浄・粕のカード。保存すると前の画面に戻っていた画面も、自動保存のときは戻りません。📝記録などの窓は、入力してから「閉じる」を押すと閉じる代わりに保存します。ありえない値・酛卸の未入力など確認が必要なときは自動では保存せず、左下に知らせが出るので「保存」ボタンで保存してください。ほかの人のスマホは今までどおり「保存」ボタンです。'],
   ['2026-11-10-1','🟫','粕（事務所への報告）','事務所へ送信するときに「粕の種類」を選べるようにしました（通常・純米・純米吟醸・純米大吟醸・大吟醸・ぽたり・紅葉・kagayaki・ながれぼし・はでっぱの香・金雲母 から2種まで）。報告の「仕込」の下に「種類」の行が出ます。白夜・清麗の麹を使った醪は自動で「黒粕」になり、種類の行は「黒粕」だけになります（純米大吟醸などは出しません。黒粕のボタンで手直しもできます）。'],
@@ -15800,7 +15801,7 @@ table.yd-pt{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 4px}
        作業者（出勤者が先頭＋ほかの人・タイミー1・タイミー2・応援＝名前を入力）／道具の数（手袋・ヘラ・穴開け用道具 の作業前→作業後、合わないと赤）
        数量（20kg箱・10kg箱・5kg箱・20kg袋 の個数＋端数kg → 合計kg・粕歩合＝合計÷総米）／備考 →「保存」
    ・検定：保存すると「未検定」。伊藤さんだけがタップで「検定済」にできる（ほかの人は表示だけ）
-   ・事務所へ送信（アイコン）：未検定は灰色🔒、検定済は青。1件ずつ／報告タブでまとめて1通。※送り先のメールアドレスは後で設定（未設定のあいだは送れない）
+   ・事務所へ送信（アイコン）：保存すれば青（2026-11-10 検定済でなくても担当者が送れるように変更。検定は記録として残す）。1件ずつ／報告タブでまとめて1通。送り先はSlack
    ・粕歩合の表（案2：液種ごと）：今年の各仕込みの点と、昨年（R7BY）の同じ液種の平均（縦線）・幅（帯）
    ・チェック履歴：紙のチェックシートと同じ並び。CSV で書き出し（提出用）。記録そのものはスプレッドシートに残る
    ・記録先：製造ツール 共有データ「醪作業」（サーバー変更なし）
@@ -15852,7 +15853,7 @@ function kxList(){
 }
 function kxHomeTag(){
   try{ const td=dtoday(); const L=kxList().today.filter(m=>kxDay(m)===td && !kxRec(m.no)); if(L.length) return '粕放し '+L.map(m=>m.no+'号').join('・');
-    const n=kxList().today.filter(m=>kxRec(m.no)&&kxKen(m.no)&&!kxRep(m.no)).length; return n?`報告まだ ${n}`:''; }catch(e){ return ''; }
+    const n=kxList().today.filter(m=>kxRec(m.no)&&!kxRep(m.no)).length;   /* 2026-11-10 検定なしで送れる */ return n?`報告まだ ${n}`:''; }catch(e){ return ''; }
 }
 
 /* ---------- 画面 ---------- */
@@ -15909,8 +15910,8 @@ function kxCardHTML(m){
     const sp=(i,v,cls)=>`<span class="kx-sp ${cls||''}"><button type="button" data-kxtl="${k}" data-i="${i}" data-v="-1" data-no="${esc(no)}">−</button><input type="text" inputmode="numeric" value="${v===null?'':v}" data-kxtl="${k}" data-i="${i}" data-no="${esc(no)}" placeholder="—"><button type="button" data-kxtl="${k}" data-i="${i}" data-v="1" data-no="${esc(no)}">＋</button></span>`;
     return `<span class="l">${l}</span>${sp(0,b,'')}${sp(1,a,a===null?'':ng?'ng':'ok')}`; }).join('');
   const qty=KX_Q.map(([k,l,w,u])=>{ const n=kxN(d.q[k]); return `<div class="kx-qr${n?' on':''}"><span class="nm">${l}</span><span class="kx-sp big"><button type="button" data-kxq="${k}" data-v="-1" data-no="${esc(no)}">−</button><input type="text" inputmode="decimal" value="${n===null?'':n}" data-kxq="${k}" data-no="${esc(no)}" placeholder="0"><button type="button" data-kxq="${k}" data-v="1" data-no="${esc(no)}">＋</button></span><span class="un">${u}</span><span class="kg" data-kxkg="${k}">${n?kxL(n*w)+' kg':''}</span></div>`; }).join('');
-  const sendCls=!r?'off':rep?'done':ken?'on':'off';
-  const sendLab=!r?'事務所へ':rep?`送信済 ${String(rep.date||rep.upd||rep.at||'').slice(5,16).replace('-','/')}`:ken?'事務所へ送信':'事務所へ';
+  const sendCls=!r?'off':rep?'done':'on';   /* 2026-11-10 泰広さん指示：検定済でなくても担当者が送れる */
+  const sendLab=!r?'事務所へ':rep?`送信済 ${String(rep.date||rep.upd||rep.at||'').slice(5,16).replace('-','/')}`:'事務所へ送信';
   const envB=`<svg viewBox="0 0 40 40" width="32" height="32"><rect x="5" y="10" width="30" height="21" rx="3" fill="${sendCls==='off'?'#f4f3ef':'#fff'}"/><path d="M6 12l14 10 14-10" fill="none" stroke="${sendCls==='off'?'#b5b2aa':'#1f6fa8'}" stroke-width="2.2" stroke-linejoin="round"/></svg>`;
   return `<div class="kx-card${dirty?' kx-dirty':''}" data-kxcard="${esc(no)}">
     <div class="kx-ch"><span class="no">${esc(no)}号</span><span class="lq">${esc(m.liquid||'')}</span><span class="tk">T${esc(String(m.tank||''))}</span><span class="sm">上槽 ${rcMD(m.joso)}・総米 ${kxL(m.soumai)}kg</span>
@@ -15926,7 +15927,7 @@ function kxCardHTML(m){
     <div class="kx-tot"><div><span>合計</span><b data-kxtot="${esc(no)}">${kg===null?'—':kxL(kg)}</b> kg</div><div class="pp"><span>粕歩合（合計÷総米）</span><b data-kxpct="${esc(no)}">${pc===null?'—':pc.toFixed(1)+'%'}</b><small data-kxpv="${esc(no)}">${pv?`昨年の${esc(m.liquid||'')} ${pv.avg.toFixed(1)}%${pc!==null?`（${pc-pv.avg>=0?'＋':'−'}${Math.abs(pc-pv.avg).toFixed(1)}）`:''}`:''}</small></div></div>
     <label class="kx-biko"><span>備考</span><input type="text" value="${esc(d.biko||'')}" data-kxbiko="${esc(no)}" placeholder="（任意）"></label>
     <div class="kx-foot"><button type="button" class="kx-save" data-kxsave="${esc(no)}">保存</button>
-      <button type="button" class="kx-ken ${ken?'ok':'no'}${boss&&r&&!rep?' can':''}" data-kxken="${esc(no)}"${boss&&r&&!rep?'':' aria-disabled="true"'}>${ken?`✓ 検定済 ${String(ken.date||'').slice(5).replace('-','/')}`:'未検定'}</button>
+      <button type="button" class="kx-ken ${ken?'ok':'no'}${boss&&r?' can':''}" data-kxken="${esc(no)}"${boss&&r?'':' aria-disabled="true"'}>${ken?`✓ 検定済 ${String(ken.date||'').slice(5).replace('-','/')}`:'未検定'}</button>
       <button type="button" class="kx-send ${sendCls}" data-kxsend="${esc(no)}" aria-label="事務所へ送信"><span class="sq">${envB}${sendCls==='off'?'<i class="lk">🔒</i>':sendCls==='done'?'<i class="ck">✓</i>':''}</span><span class="t">${esc(sendLab)}</span></button></div>
     ${r?`<div class="kx-by">保存 ${esc(r.by||'')} ${esc(String(r.at||'').slice(5,16))}${ken?`／検定済 ${esc(ken.updBy||ken.by||'')}`:''}</div>`:''}
     <div class="kx-msg" data-kxmsg="${esc(no)}"></div></div>`;
@@ -15981,7 +15982,7 @@ async function kxSave(no){
 }
 async function kxKenTap(no){
   if(!kxBoss()) return;   // 伊藤さんだけ
-  const m=rcMaster(no); if(!m||!kxRec(no)||kxRep(no)) return;
+  const m=rcMaster(no); if(!m||!kxRec(no)) return;   /* 送信済のあとでも検定できる（2026-11-10） */
   if(KX.more['x'+no]){ rcToast('先に「保存」してください', true); return; }
   const ken=kxKen(no), it=kxItem(KX_KEN,no);
   if(!ken && !confirm(`${no}号 ${m.liquid||''} を「検定済」にしますか？`)) return;
@@ -16012,11 +16013,11 @@ function kxMailText(nos, S){
 }
 function kxSendOpen(nos){
   nos=nos.filter(no=>kxRec(no));
-  const bad=nos.filter(no=>!kxKen(no)||kxRep(no)||KX.more['x'+no]);
+  const bad=nos.filter(no=>kxRep(no)||KX.more['x'+no]);   /* 2026-11-10 検定済でなくても送れる */
   if(!nos.length) return;
   const one=nos.length===1, no0=nos[0];
-  if(one && bad.length){ const no=no0; if(kxRep(no)) rcToast(`${no}号は送信済みです`); else if(KX.more['x'+no]) rcToast('先に「保存」してください', true); else rcToast(`${no}号は未検定のため送れません（検定済になると送れます）`, true, 4000); return; }
-  nos=nos.filter(no=>bad.indexOf(no)<0); if(!nos.length){ rcToast('検定済の仕込みがありません', true); return; }
+  if(one && bad.length){ const no=no0; if(kxRep(no)) rcToast(`${no}号は送信済みです`); else rcToast('先に「保存」してください', true); return; }
+  nos=nos.filter(no=>bad.indexOf(no)<0); if(!nos.length){ rcToast('送れる仕込みがありません（未保存・送信済）', true); return; }
   const cfg=kxCfg();
   const S={}; nos.forEach(no=>{ const r=kxRec(no)||{}, m=rcMaster(no)||{}, a=kxKuroAuto(no), man=(r.kuro===true||r.kuro===false);
     S[no]={k:(r.kinds&&r.kinds.length?r.kinds.slice(0,2):kxKindDef(m)), kuro:man?r.kuro:!!a, man, auto:a}; });
@@ -16087,11 +16088,11 @@ function kxRepHTML(){
     return `<label class="kx-li${lk?' lk':''}${rep?' sent':''}">${rep?'<span class="cb s">✓</span>':`<input type="checkbox" class="kx-rc" value="${esc(String(m.no))}"${lk?' disabled':' checked'}>`}
       <span><span class="n">${esc(String(m.no))}号 ${esc(m.liquid||'')}</span><br>${rep?`<span class="pill s">送信 ${esc(String(rep.date||'').slice(5).replace('-','/'))}</span>`:ken?`<span class="pill k">検定済 ${esc(String(ken.date||'').slice(5).replace('-','/'))}</span>`:'<span class="pill w">未検定</span>'}</span>
       <span class="q"><b>${esc(kxQText(r.q))}</b><br>${kxL(r.total)}kg</span></label>`; };
-  const nK=wait.filter(m=>kxKen(m.no)).length;
+  const nK=wait.filter(m=>kxKen(m.no)).length, nS=wait.filter(m=>!KX.more['x'+m.no]).length;
   return `<div class="kx-rh"><span>送信待ち ${wait.length}件（検定済 ${nK}・未検定 ${wait.length-nK}）</span>${kxBoss()?'<button type="button" id="kxCfg" class="kx-cfg">⚙ 送り先</button>':''}</div>
     <div class="kx-sm">送り先：${cfg.slack?'Slack '+esc(cfg.slack):'未設定（後で設定）'}</div>
-    ${wait.map(m=>row(m,true,!kxKen(m.no)||!!KX.more['x'+m.no])).join('')||'<p class="muted" style="text-align:center">送信待ちはありません</p>'}
-    ${nK?`<button type="button" id="kxRepSend" class="kx-bigsend"><span class="sq"><svg viewBox="0 0 40 40" width="26" height="26"><rect x="5" y="10" width="30" height="21" rx="3" fill="#fff"/><path d="M6 12l14 10 14-10" fill="none" stroke="#1f6fa8" stroke-width="2.4" stroke-linejoin="round"/></svg></span>選んだ検定済をまとめて1通で送信</button>`:''}
+    ${wait.map(m=>row(m,true,!!KX.more['x'+m.no])).join('')||'<p class="muted" style="text-align:center">送信待ちはありません</p>'}
+    ${nS?`<button type="button" id="kxRepSend" class="kx-bigsend"><span class="sq"><svg viewBox="0 0 40 40" width="26" height="26"><rect x="5" y="10" width="30" height="21" rx="3" fill="#fff"/><path d="M6 12l14 10 14-10" fill="none" stroke="#1f6fa8" stroke-width="2.4" stroke-linejoin="round"/></svg></span>選んだ仕込みをまとめて1通で送信</button>`:''}
     ${sent.length?`<div class="kx-sm" style="margin-top:10px">送信済</div>${sent.map(m=>row(m,false,false)).join('')}`:''}`;
 }
 /* 粕歩合の表（案2：液種ごと） */
