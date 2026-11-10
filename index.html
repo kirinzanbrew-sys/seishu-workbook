@@ -9385,6 +9385,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-10-9','🟫','黒粕の判定','黒粕かどうかは「仲・留」の麹で決めるようにしました。酛・添だけ白夜・清麗を使い、仲・留が別の麹の仕込み（ぽたり五百万石など）は黒粕になりません（札・粕の報告とも）。'],
   ['2026-11-10-7','📱','酒母・仕込み（スマホ）','上のアイコンを小さな丸（下に小さく名前）にして1行に並べ、表が広く見えるようにしました。入りきらないアイコンは、指で左になぞると出てきます。'],
   ['2026-11-10-6','🟫','粕（事務所への報告）','送信済みの報告に間違いがあったとき、送り直せるようにしました。カードの緑の「送信済」アイコン（または報告タブの「訂正」）を押すと、粕の種類・黒粕を選び直して【訂正】としてSlackへ送れます。訂正の文には【訂正箇所】（例：種類 純米吟醸 → 黒粕）が入り、変わった行に「←訂正」が付きます。数量を直すときは先にカードで直して保存してから押してください。'],
   ['2026-11-10-4','🟫','粕（事務所への報告）','酒粕数量の報告は、伊藤の「検定済」を待たずに、保存すれば担当者がそのままSlack（#営業部）へ送れるようにしました。検定済の印はこれまでどおり記録として付けられます（送信のあとでも付けられます）。'],
@@ -14251,7 +14252,7 @@ setTimeout(()=>{ try{ if(ST&&ST.token) mwLoad(false).then(stoPaint); }catch(e){}
 <script>
 /* ================= 🟫 仕込み：黒粕の札（2026-11-01 泰広さん指示） =================
    白夜・清麗は酵素力価が高く、粕が黒くなる（黒粕）＝製品として普通に出荷できない。
-   その種麹を使った麹が 酛・添・仲・留 のどれか1つでも入った醪に、札「黒粕」を出す（範囲は「どれか1つでも」＝泰広さん決定）。
+   その種麹を使った麹が 仲・留 のどちらかに入った醪に、札「黒粕」を出す（2026-11-10 泰広さん指示で変更：酛・添だけ白夜・清麗で仲・留が別の麹なら黒粕にしない。例 ぽたり五百万石。もとは「どれか1つでも」）。
    ・🍶仕込みの表（今年・.kg-home の .kg-t.mk）の順号の下に札。札を押すと理由（どの麹に何を使ったか・麹米に占める割合）
    ・📊解析のカードの見出し、📋仕込カルテの上にも同じ札／帯
    データ：仕込カルテ（recApi karte）の koji（麹DBの行。引込前は種麹マスタの予定の種麹＝「予定」と出す）。サーバーの変更なし
@@ -14261,7 +14262,8 @@ setTimeout(()=>{ try{ if(ST&&ST.token) mwLoad(false).then(stoPaint); }catch(e){}
 const KK_TANE=['白夜','清麗'];
 const KK_TTL=30*60000;
 const KK_KU={'酛':0,'添':1,'仲':2,'留':3};
-const KK={ m:(()=>{ try{ return lsGet('kk.m',{})||{}; }catch(e){ return {}; } })(), busy:new Set(), q:[], w:0 };
+const KK_JUDGE=['仲','留'];   // 黒粕かどうかを決める区分（2026-11-10）
+const KK={ m:(()=>{ try{ return lsGet('kk.m2',{})||{}; }catch(e){ return {}; } })(), busy:new Set(), q:[], w:0 };
 function kkName(n){ n=String(n||'').trim(); return (n&&KK_TANE.find(t=>n.indexOf(t)>=0))||''; }
 function kkOf(k){
   const today=dtoday();
@@ -14277,10 +14279,10 @@ function kkOf(k){
     const hd=String(r['引込日']||'').slice(0,10);
     return {id:String(r['麹ID']||''), ku:String(r['区分']||''), kg, ts, hit:hs.length>0, plan:!hd||hd>today};
   });
-  return {at:Date.now(), hit:L.some(x=>x.hit), L, pct:tot?Math.round(hitKg/tot*100):null};
+  return {at:Date.now(), hit:L.some(x=>x.hit&&KK_JUDGE.indexOf(x.ku)>=0), part:L.some(x=>x.hit), L, pct:tot?Math.round(hitKg/tot*100):null};
 }
 function kkSet(no,k){ if(!k||!k.koji) return null; const x=kkOf(k); KK.m[String(no)]=x;
-  try{ const cut=Date.now()-14*86400000; Object.keys(KK.m).forEach(n=>{ if(!KK.m[n]||KK.m[n].at<cut) delete KK.m[n]; }); lsSet('kk.m',KK.m); }catch(e){}
+  try{ const cut=Date.now()-14*86400000; Object.keys(KK.m).forEach(n=>{ if(!KK.m[n]||KK.m[n].at<cut) delete KK.m[n]; }); lsSet('kk.m2',KK.m); }catch(e){}
   return x; }
 function kkNeed(no){ const x=KK.m[String(no)]; return !x||Date.now()-x.at>KK_TTL; }
 /* 古い分だけ karte を取り直す（同時に3本まで） */
@@ -14317,12 +14319,12 @@ function kkHitText(x){ return x.L.filter(y=>y.hit).map(y=>`${y.id}（${y.ts.filt
 function kkBody(no){
   const x=KK.m[String(no)];
   if(!x) return '<p class="muted" style="padding:14px 16px">読み込んでいます…</p>';
-  if(!x.hit) return '<p style="padding:14px 16px">いまの記録では、白夜・清麗を使った麹は入っていません（黒粕ではありません）。</p>';
+  if(!x.hit) return x.part?`<p style="padding:14px 16px">酛・添に白夜・清麗を使っていますが、仲・留は別の麹なので<b>黒粕ではありません</b>（黒粕かどうかは仲・留の麹で決めます）。</p>`:'<p style="padding:14px 16px">いまの記録では、白夜・清麗を使った麹は入っていません（黒粕ではありません）。</p>';
   return `<div class="kk-d">
     <div class="kk-msg"><b>🟫 この醪の粕は黒粕になります</b><br>白夜・清麗は酵素力価が高く、粕が黒くなります。粕は<b>製品として普通に出荷できません</b>。</div>
     ${x.L.map(y=>`<div class="kk-r${y.hit?' h':''}"><span class="ku">${esc(y.ku)}</span><span class="id">${esc(y.id)}<small>${y.kg?y.kg+'kg':''}${y.plan?'・予定':''}</small></span><span class="tn">${kkTane(y)}</span></div>`).join('')}
     ${x.pct!=null?`<div class="kk-pct">麹米のうち 白夜・清麗は 約 <b>${x.pct}%</b></div>`:''}
-    <div class="kk-note">「予定」はまだ引込んでいない麹（種麹マスタの予定の種麹）。黒粕になる種麹：${KK_TANE.map(esc).join('・')}</div></div>`;
+    <div class="kk-note">「予定」はまだ引込んでいない麹（種麹マスタの予定の種麹）。黒粕になる種麹：${KK_TANE.map(esc).join('・')}（仲・留に入ったとき）</div></div>`;
 }
 function kkDialog(no){
   no=String(no);
