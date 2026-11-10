@@ -9402,6 +9402,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-10-3','✅','ありえない値の確認','酒母の表・仕込みの表・分析まとめで「ありえない値かもしれません。このまま保存しますか？」に OK を押すと、その値を覚えて、次からは同じ表・同じ項目の同じような値（Be・alc・品温は前後1.0、酸度・アミノ酸度は前後0.5）では確認を出さず、色も付けないようにしました。覚えた範囲はほかの人の端末にも効きます。'],
+  ['2026-11-10-2','💾','自動保存（PC・伊藤・神田）','PCで入力するとき、または伊藤・神田が入力するときは、「保存」を押さなくてもマスを離れたら（Enter・次のマスへ）自動で保存されるようにしました。対象：酒母の表・仕込みの表・分析まとめ・麹／洗米吸水／酒母／醪の入力・仕込時の値・タンク洗浄・粕のカード。保存すると前の画面に戻っていた画面も、自動保存のときは戻りません。📝記録などの窓は、入力してから「閉じる」を押すと閉じる代わりに保存します。ありえない値・酛卸の未入力など確認が必要なときは自動では保存せず、左下に知らせが出るので「保存」ボタンで保存してください。ほかの人のスマホは今までどおり「保存」ボタンです。'],
   ['2026-11-10-1','🟫','粕（事務所への報告）','事務所へ送信するときに「粕の種類」を選べるようにしました（通常・純米・純米吟醸・純米大吟醸・大吟醸・ぽたり・紅葉・kagayaki・ながれぼし・はでっぱの香・金雲母 から2種まで）。報告の「仕込」の下に「種類」の行が出ます。白夜・清麗の麹を使った醪は自動で「黒粕」になり、種類の行は「黒粕」だけになります（純米大吟醸などは出しません。黒粕のボタンで手直しもできます）。'],
   ['2026-11-09-3','🍶','仕込み（日程の窓）','日付のマスを押したときの作業に「上槽（上槽だけ・アル添なし）」を足しました。純米などアル添しない仕込みで、上槽の日を選べます。アル添がある仕込みは今までどおり「ア上」（アル添・上槽）を選んでください。'],
   ['2026-11-09-2','🟫','粕（事務所への報告）','酒粕数量の報告をメールからSlackの「#酒粕数量報告」への投稿に変えました（検定済だけ送れるのは今までどおり）。報告の文章は宛名を「営業担当様」にし、端数の行と「製造ツールから自動送信」の行を除きました。合計kgも端数を除いた箱・袋の合計です。'],
@@ -16997,5 +16999,222 @@ async function atYdSave(m, R, date){
 
 </script>
 <!-- /alctank1107 -->
+<!-- autosave1110 -->
+<script>
+/* ================= 💾 自動保存（PC・伊藤・神田）2026-11-10 泰広さん指示 =================
+   ・PCで入力するとき、またはログイン名に「伊藤」「神田」が入る人は、「保存」を押さなくても
+     マスを離れたら（Enter・次のマスへ・欄の外を押す）自動で保存する。ほかの人のスマホは今までどおり「保存」ボタン
+   ・画面にとどまる保存：🧫酒母の表・🍶仕込みの表（#kgSave）／🧪分析まとめ（#bnSave）／麹・洗米吸水・酒母・醪の1日の入力（#rcSave・#rcSave2）
+     ／仕込時の値（#shSetSave・#mrSave）／タンク洗浄（#wsSave）／🟫粕のカード（.kx-save。±・チップは押して1.5秒後）
+     保存すると前の画面に戻る画面も、自動保存のときは戻らない（自分で「保存」や ‹ を押したときは今までどおり）
+   ・窓（📝記録・上槽後の分析・酒母の仕込時の窓・アルコールタンクの記録）：入力してから「閉じる／‹一覧／✕／窓の外」を押すと、
+     閉じる代わりに保存する（保存すると窓は閉じる・次へ進む）。保存できなかったときは、もう一度押すと今までどおり閉じる
+   ・新しく1件を足す入力（種麹の仕入・米の入荷・室温・原酒評価・発注・連絡先・マニュアル・酵母の予定）は対象外（入れかけで記録ができてしまうため）
+   ・確認の窓が出る保存（ありえない値・酛卸の未入力・道具の数・入力者の未選択など）は自動では保存せず、左下に知らせを出す → 「保存」ボタンで確認して保存
+   控え：seishu-workbook_github\_src_autosave1110.js　差し込み：_自動保存_20261110.py
+   ================================================================================== */
+(function(){
+  const AS={auto:false, blocked:'', tm:{}, n:{}};
+  function asOn(){
+    try{ const ua=navigator.userAgent||'';
+      const mob=/iPhone|iPad|iPod|Android|Mobile/i.test(ua)||(navigator.maxTouchPoints>1&&/Macintosh/.test(ua));
+      const pc=!mob && !!(window.matchMedia&&window.matchMedia('(pointer:fine)').matches);
+      const nm=String((typeof ST!=='undefined'&&ST&&ST.name)||'');
+      return pc||/伊藤|神田/.test(nm);
+    }catch(e){ return false; }
+  }
+  window.asOn=asOn;
+  const STAY='#kgSave,#bnSave,#rcSave,#rcSave2,#shSetSave,#mrSave,#wsSave,.kx-save';
+  const DSAVE='#kdSave,[data-atsv],[data-a="save"]';
+  const DCLOSE='#kdClose,[data-atcl],[data-a="close"],[data-a="back"],.yd-x';
+  const isField=t=>t&&t.matches&&t.matches('input,textarea,select')&&!['search','file','button','submit'].includes(t.type)&&!(t.dataset&&t.dataset.igSkip)&&t.id!=='iaSel';
+  const inDlg=el=>!!(el&&el.closest&&el.closest('.yd-mask,.kge-ov,.o2-mask,.bn-ask,.kx-mail'));
+  const okBtn=b=>!!(b&&b.isConnected&&!(b.id==='rcSave'&&/評価/.test(b.textContent||'')));
+  function stayBtn(el){ for(let p=el.parentElement;p&&p!==document.body&&p!==document.documentElement;p=p.parentElement){ const b=p.querySelector(STAY); if(b) return okBtn(b)?b:null; } return null; }
+  function dlgSave(el){ for(let p=el.parentElement;p&&p!==document.body&&p!==document.documentElement;p=p.parentElement){ const b=p.querySelector(DSAVE); if(b) return b; } return null; }
+  /* ボタンを後で探し直す（描き直しで入れ替わるため） */
+  function getter(b){
+    const card=b.closest&&b.closest('.kx-card');
+    if(card){ const no=card.dataset.kxcard; return {key:'kx'+no, get:()=>document.querySelector(`.kx-card[data-kxcard="${no}"] .kx-save`)}; }
+    if(b.id) return {key:b.id, get:()=>document.getElementById(b.id)};
+    return {key:'x', get:()=>b};
+  }
+  function later(g, ms, tries){
+    clearTimeout(AS.tm[g.key]);
+    AS.tm[g.key]=setTimeout(()=>run(g, tries||0), ms);
+  }
+  function run(g, tries){
+    if(!asOn()) return;
+    const b=g.get(); if(!okBtn(b)) return;
+    if(b.disabled){ if(tries<8) later(g, 1000, tries+1); return; }   // 前の保存の途中
+    const ae=document.activeElement;
+    if(isField(ae) && !inDlg(ae) && ae._asV!==undefined && ae.value!==ae._asV) return;   // 次のマスを打っている途中 → そのマスを離れたときに保存
+    if(document.querySelector('.bn-ask,.yd-mask,.kge-ov')) { if(tries<8) later(g, 1500, tries+1); return; }   // 窓が開いている間は待つ
+    fire(b);
+  }
+  function fkey(el){
+    if(!isField(el)) return null;
+    const a=[...el.attributes].filter(x=>/^data-/.test(x.name)).map(x=>`[${x.name}="${window.CSS&&CSS.escape?CSS.escape(x.value):x.value}"]`).join('');
+    return {el, id:el.id||'', sel:a?el.tagName.toLowerCase()+a:''};
+  }
+  function restore(k, force){
+    if(!k) return;
+    let el=k.el;
+    if(!el.isConnected){ el=(k.id&&document.getElementById(k.id))||(k.sel&&document.querySelector(k.sel))||null; }
+    if(!el||!el.isConnected||document.activeElement===el) return;
+    const ae=document.activeElement;
+    if(!force && ae && ae!==document.body && ae.isConnected) return;   // 自分で別の所を押した
+    try{ el.focus({preventScroll:true}); if(el.setSelectionRange&&/^(text|search|tel|)$/.test(el.type||'')) el.setSelectionRange(el.value.length, el.value.length); }catch(e){}
+  }
+  function fire(b){
+    const k=fkey(document.activeElement), sx=window.scrollX, sy=window.scrollY;
+    AS.auto=true; AS.blocked='';
+    try{ b.click(); }catch(e){}
+    setTimeout(()=>{
+      AS.auto=false; const bl=AS.blocked; AS.blocked='';
+      if(bl){ restore(k, true); try{ window.scrollTo(sx, sy); }catch(e){} note(bl); }
+      else { restore(k, false); flash('💾 自動保存しました'); }
+    }, 700);
+    setTimeout(()=>restore(k, false), 1600);
+  }
+  /* 左下の小さな知らせ */
+  function flash(t, warn){
+    let el=document.getElementById('asFlash');
+    if(!el){ el=document.createElement('div'); el.id='asFlash'; document.body.appendChild(el); }
+    el.textContent=t; el.className=warn?'w on':'on';
+    clearTimeout(AS.ft); AS.ft=setTimeout(()=>{ el.className=warn?'w':''; }, warn?6000:1400);
+  }
+  function note(msg){
+    const m=String(msg||'').split('\n')[0].slice(0,60);
+    flash(`自動保存できませんでした（${m}）。「保存」ボタンで確認して保存してください`, true);
+  }
+  /* ---- 自動保存のときだけ：確認の窓は出さずに止める・前の画面に戻らない・「変わったところがありません」等を出さない ---- */
+  const _cf=window.confirm, _al=window.alert;
+  window.confirm=function(m){
+    if(AS.auto){ AS.blocked=AS.blocked||String(m||''); return false; }
+    if(asOn() && /保存していない入力があります/.test(String(m||''))){   // 📝記録の窓などを閉じる → 閉じる代わりに保存（1回だけ）
+      const L=[...document.querySelectorAll('.yd-mask [data-a="save"]')].filter(b=>!b.disabled&&!b._asTried); const sv=L[L.length-1];
+      if(sv){ sv._asTried=true; setTimeout(()=>sv.click(), 0); return false; }
+    }
+    return _cf.call(window, m);
+  };
+  window.alert=function(m){ if(AS.auto){ AS.blocked=AS.blocked||String(m||''); return; } return _al.call(window, m); };
+  try{ if(typeof bnAsk==='function'){ const _b=bnAsk; bnAsk=function(msg){ if(AS.auto){ AS.blocked=AS.blocked||String(msg||''); return Promise.resolve(0); } return _b.apply(this, arguments); }; } }catch(e){}
+  const QUIET=/変わったところがありません|裏で保存|ほかの作業に移って/;
+  try{ if(typeof rcToast==='function'){ const _t=rcToast; rcToast=function(t){ if(AS.auto&&QUIET.test(String(t||''))) return; return _t.apply(this, arguments); }; } }catch(e){}
+  try{ if(typeof rcStatus==='function'){ const _s=rcStatus; rcStatus=function(t){ if(AS.auto&&QUIET.test(String(t||''))) return; return _s.apply(this, arguments); }; } }catch(e){}
+  try{ if(typeof kgeSay==='function'){ const _k=kgeSay; kgeSay=function(box,t){ if(AS.auto&&QUIET.test(String(t||''))) return; return _k.apply(this, arguments); }; } }catch(e){}
+  document.addEventListener('click', e=>{
+    if(AS.auto && typeof hBack!=='undefined' && hBack && e.target===hBack){ e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+  /* ---- マスを離れたら ---- */
+  document.addEventListener('focusin', e=>{ const t=e.target; if(isField(t)) t._asV=t.value; }, true);
+  const mark=t=>{ if(!asOn()||!isField(t)) return; const s=dlgSave(t); if(s) s._asDirty=true; };
+  document.addEventListener('input', e=>mark(e.target), true);
+  document.addEventListener('change', e=>{
+    const t=e.target; mark(t);
+    if(!asOn()||AS.auto||!isField(t)||inDlg(t)) return;
+    t._asV=t.value;
+    const b=stayBtn(t); if(b) later(getter(b), 350);
+  }, false);
+  /* 🟫粕のカードの ±・チップ（押して1.5秒後） */
+  document.addEventListener('click', e=>{
+    if(!asOn()||AS.auto) return;
+    const b=e.target&&e.target.closest&&e.target.closest('.kx-card button'); if(!b) return;
+    if(b.matches('.kx-save,.kx-ken,.kx-send,[data-kxmore]')) return;
+    const card=b.closest('.kx-card'), sv=card&&card.querySelector('.kx-save'); if(sv) later(getter(sv), 1500);
+  }, false);
+  /* ---- 窓：閉じる代わりに保存 ---- */
+  document.addEventListener('click', e=>{
+    if(!asOn()||AS.auto) return;
+    const t=e.target; let sv=null;
+    if(t&&t.classList&&(t.classList.contains('yd-mask')||t.classList.contains('kge-ov'))) sv=t.querySelector('#kdSave,[data-a="save"]');
+    else { const cl=t&&t.closest&&t.closest(DCLOSE); if(!cl) return; sv=dlgSave(cl); }
+    if(!sv||sv.disabled||!sv._asDirty) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    sv._asDirty=false; sv._asTried=true;
+    sv.click();
+  }, true);
+  (function(){ const s=document.createElement('style'); s.textContent=`
+#asFlash{position:fixed;left:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:9998;max-width:min(78vw,420px);background:#2f7d5d;color:#fff;font-size:12.5px;font-weight:700;border-radius:999px;padding:6px 12px;box-shadow:0 3px 10px rgba(0,0,0,.2);opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none}
+#asFlash.w{background:#9a5a00;border-radius:12px}
+#asFlash.on{opacity:.96;transform:none}`; document.head.appendChild(s); })();
+})();
+</script>
+<!-- /autosave1110 -->
+<!-- rnglearn1110 -->
+<script>
+/* ================= ✅ ありえない値の確認を覚える 2026-11-10 泰広さん指示 =================
+   「ありえない値かもしれません／ありえない値が◯か所あります。このまま保存しますか？」で OK を押したら、その値を覚えて
+   次からは同じような値（同じ表・同じ項目で、その値の前後）では確認を出さない（色も付けない）。とくに Be（ボーメ）
+   ・対象：🧫酒母の表・🍶仕込みの表（KGE_RANGE：Be・alc・酸度・アミノ酸・品温）／🧪分析まとめ（BN_RANGE）
+   ・覚える単位：表の種類（酒母の表＝sb／仕込みの表＝mr／仕込み時のマス＝mrs／分析まとめ＝bn酒母・醪・踊）×項目
+     覚えた値 ± 幅（Be・alc・品温 1.0、酸度・アミノ酸度 0.5）まで、もとの範囲を広げる
+   ・覚えた範囲は端末（as.rng）と 製造ツール 共有データ「醪作業」name＝範囲の学習（memo＝JSON）の両方に残す → ほかの人の端末にも効く
+   控え：seishu-workbook_github\_src_rnglearn1110.js　差し込み：_ありえない値を覚える_20261110.py
+   ================================================================================== */
+(function(){
+  const RL_NAME='範囲の学習';
+  const RL_W={be:1, alc:1, temp:1, tPM:1, ta:0.5, aa:0.5};
+  const RL_LB={be:'Be', alc:'alc', ta:'酸度', aa:'アミノ酸度', temp:'品温', tPM:'品温PM'};
+  const num=v=>{ try{ const n=typeof pnum==='function'?pnum(String(v)):Number(v); return (n===null||n===undefined||isNaN(n))?null:Number(n); }catch(e){ return null; } };
+  function rlItem(){ try{ const L=((typeof MW!=='undefined'&&MW.items)||[]).filter(x=>!x.deleted&&x.name===RL_NAME); return L.length?L[L.length-1]:null; }catch(e){ return null; } }
+  function rlAll(){
+    const a=(typeof lsGet==='function'?lsGet('as.rng',{}):{})||{};
+    let b={}; try{ const it=rlItem(); b=it&&it.memo?JSON.parse(String(it.memo)):{}; }catch(e){}
+    const o={}; [a,b].forEach(s=>Object.keys(s||{}).forEach(k=>{ const r=s[k]; if(!Array.isArray(r)) return; o[k]=o[k]?[Math.min(o[k][0],r[0]),Math.max(o[k][1],r[1])]:[r[0],r[1]]; }));
+    return o;
+  }
+  function rlCovers(key, n){ if(n===null) return false; const r=rlAll()[key]; return !!(r&&n>=r[0]&&n<=r[1]); }
+  window.rlCovers=rlCovers;
+  function rlLearn(list){   // list=[{key,f,n}]
+    if(!list.length) return;
+    const loc=(typeof lsGet==='function'?lsGet('as.rng',{}):{})||{};
+    list.forEach(({key,f,n})=>{ const w=RL_W[f]!==undefined?RL_W[f]:1, lo=Math.round((n-w)*10)/10, hi=Math.round((n+w)*10)/10;
+      const r=loc[key]; loc[key]=r?[Math.min(r[0],lo),Math.max(r[1],hi)]:[lo,hi]; });
+    try{ lsSet('as.rng', loc); }catch(e){}
+    try{ if(typeof rcToast==='function') rcToast('次から同じような値は確認を出しません（'+list.slice(0,4).map(x=>`${RL_LB[x.f]||x.f} ${x.n}`).join('・')+'）', false, 4000); }catch(e){}
+    /* 共有データにも（ほかの端末にも効くように） */
+    (async()=>{ try{ if(typeof mwApi!=='function'||typeof SHARED_URL==='undefined'||!SHARED_URL) return;
+      const it=rlItem(); let cur={}; try{ cur=it&&it.memo?JSON.parse(String(it.memo)):{}; }catch(e){}
+      Object.keys(loc).forEach(k=>{ const r=loc[k], c=cur[k]; cur[k]=c?[Math.min(c[0],r[0]),Math.max(c[1],r[1])]:r; });
+      const j=await mwApi({action:'save', item:{id:it?it.id:'', name:RL_NAME, kind:'設定', no:'0', memo:JSON.stringify(cur)}}); if(typeof mwKeep==='function') mwKeep(j);
+    }catch(e){} })();
+  }
+  /* 酒母の表・仕込みの表：どの表のマスか */
+  const kgScope=el=>(el.closest&&el.closest('[data-mk]')?'mr':'sb')+(el.classList&&el.classList.contains('ks')?'s':'');
+  if(typeof kgeCheck==='function'){
+    const _k=kgeCheck;
+    kgeCheck=function(el){
+      const r=_k.apply(this, arguments);
+      try{ if(r==='warn'){ const k=el.dataset.k; if(rlCovers('kg.'+kgScope(el)+'.'+k, num(el.value.trim()))) return ''; } }catch(e){}
+      return r;
+    };
+  }
+  /* 分析まとめ：範囲の外でも覚えた範囲なら「ありえない値」にしない（前回比の注意はそのまま） */
+  if(typeof bnCheck==='function' && typeof BN_RANGE!=='undefined'){
+    const _b=bnCheck;
+    bnCheck=function(k,f,v,prev){
+      const R=BN_RANGE[k]&&BN_RANGE[k][f];
+      if(R && (v<R[0]||v>R[1]) && rlCovers('bn.'+k+'.'+f, v)){ BN_RANGE[k][f]=null; try{ return _b.apply(this, arguments); } finally{ BN_RANGE[k][f]=R; } }
+      return _b.apply(this, arguments);
+    };
+  }
+  /* OK を押したら覚える */
+  const _cf=window.confirm;
+  window.confirm=function(m){
+    const ok=_cf.apply(window, arguments);
+    try{ if(ok && /^ありえない値/.test(String(m||''))){
+      const L=[];
+      document.querySelectorAll('.kg-i.warn').forEach(el=>{ if(el.disabled) return; if(typeof kgeChanged==='function'&&!kgeChanged(el)) return; const k=el.dataset.k, n=num(el.value.trim()); if(n!==null&&k) L.push({key:'kg.'+kgScope(el)+'.'+k, f:k, n}); });
+      document.querySelectorAll('.bn-in.dirty.bad').forEach(el=>{ if(el.disabled) return; const k=String(el.dataset.key||'').split('_')[0], f=el.dataset.f, n=num(el.value.trim()); const R=typeof BN_RANGE!=='undefined'&&BN_RANGE[k]&&BN_RANGE[k][f];
+        if(n!==null&&R&&(n<R[0]||n>R[1])) L.push({key:'bn.'+k+'.'+f, f, n}); });
+      rlLearn(L);
+    } }catch(e){}
+    return ok;
+  };
+})();
+</script>
+<!-- /rnglearn1110 -->
 </body>
 </html>
