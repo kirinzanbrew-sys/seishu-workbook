@@ -9402,6 +9402,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-10-1','🟫','粕（事務所への報告）','事務所へ送信するときに「粕の種類」を選べるようにしました（通常・純米・純米吟醸・純米大吟醸・大吟醸・ぽたり・紅葉・kagayaki・ながれぼし・はでっぱの香・金雲母 から2種まで）。報告の「仕込」の下に「種類」の行が出ます。白夜・清麗の麹を使った醪は自動で「黒粕」になり、種類の行は「黒粕」だけになります（純米大吟醸などは出しません。黒粕のボタンで手直しもできます）。'],
   ['2026-11-09-3','🍶','仕込み（日程の窓）','日付のマスを押したときの作業に「上槽（上槽だけ・アル添なし）」を足しました。純米などアル添しない仕込みで、上槽の日を選べます。アル添がある仕込みは今までどおり「ア上」（アル添・上槽）を選んでください。'],
   ['2026-11-09-2','🟫','粕（事務所への報告）','酒粕数量の報告をメールからSlackの「#酒粕数量報告」への投稿に変えました（検定済だけ送れるのは今までどおり）。報告の文章は宛名を「営業担当様」にし、端数の行と「製造ツールから自動送信」の行を除きました。合計kgも端数を除いた箱・袋の合計です。'],
   ['2026-11-09-1','🍶','仕込み（四段・アル添・上槽の記録）','⑤上槽先に「醪タンクの上槽前 尺」を入れる欄を足しました。尺を入れると量（L）は早見表から自動で入り、仕込カルテの「上槽前容量L」に保存されます。純米など何も添加しない仕込みはここに入れてください。アル添した仕込みは③の「添加後 尺」と同じ欄なので、どちらで入れても両方に出ます。'],
@@ -15964,7 +15965,7 @@ async function kxSave(no){
   if(ng.length && !confirm(`${ng.join('・')} の数が作業前と作業後で合っていません。このまま保存しますか？`)) return;
   if(kxRep(no) && !confirm('この仕込みは事務所へ送信済みです。直すと訂正の連絡が必要です。保存しますか？')) return;
   const kg=kxTotal(d.q);
-  const out={ date:d.date||kxDay(m)||dtoday(), workers:d.workers.slice(), tools:{}, q:{}, biko:String(d.biko||'').trim(), total:kg, pct:kxPct(m,kg) };
+  const out={ date:d.date||kxDay(m)||dtoday(), workers:d.workers.slice(), tools:{}, q:{}, biko:String(d.biko||'').trim(), total:kg, pct:kxPct(m,kg), kinds:d.kinds, kuro:d.kuro };   // kinds・kuro は送信時に選んだ粕の種類（2026-11-10）
   KX_T.forEach(([k])=>{ const t=d.tools[k]||['','']; out.tools[k]=[kxN(t[0]), kxN(t[1])]; });
   KX_Q.forEach(([k])=>{ const n=kxN(d.q[k]); if(n!==null) out.q[k]=n; });
   document.querySelectorAll(`.kx-card[data-kxcard="${no}"] button`).forEach(b=>b.disabled=true); msg('保存しています…');
@@ -15991,11 +15992,19 @@ async function kxKenTap(no){
 /* 事務所への報告は端数を除く（2026-11-09 泰広さん指示） */
 function kxRepQ(q){ const o=Object.assign({},q||{}); delete o.frac; return o; }
 function kxRepKg(q){ q=q||{}; let t=0; KX_Q.forEach(([k,,kg])=>{ if(k==='frac') return; const n=kxN(q[k]); if(n) t+=n*kg; }); return t; }
-function kxMailText(nos){
-  const L=nos.map(no=>{ const m=rcMaster(no)||{}, r=kxRec(no)||{}; return {no, m, r}; });
-  const sub=L.length===1?`【酒粕数量報告】${kxMD(L[0].r.date).replace(/（.*）/,'')} 仕${L[0].no}号（${L[0].m.liquid||''}） ${kxQText(kxRepQ(L[0].r.q))}`:`【酒粕数量報告】${L.length}件（${L.map(x=>'仕'+x.no+'号').join('・')}）`;
+/* 粕の種類（2026-11-10 泰広さん指示）：送信のときに2種まで選ぶ。仕込の下に「種類」の行。
+   白夜・清麗の麹を使った醪は黒粕（商品価値が低く、ほかの粕と混ぜられない）→【黒粕】と知らせる。判定は 🍶仕込みの黒粕の札と同じ（KK） */
+const KX_KIND=['通常','純米','純米吟醸','純米大吟醸','大吟醸','ぽたり','紅葉','kagayaki','ながれぼし','はでっぱの香','金雲母'];
+function kxKuroAuto(no){ try{ const x=(typeof KK!=='undefined')&&KK.m&&KK.m[String(no)]; return x?!!x.hit:null; }catch(e){ return null; } }
+function kxKindDef(m){ const lq=String((m&&m.liquid)||'').normalize('NFKC').toLowerCase(); const k=KX_KIND.slice(5).find(x=>lq.indexOf(x.normalize('NFKC').toLowerCase())>=0); return k?[k]:[]; }
+function kxKindLine(s){ if(s&&s.kuro) return '黒粕';   // 2026-11-10 黒粕のときは黒粕だけ
+  return (s&&s.k&&s.k.length)?s.k.join('・'):'（未選択）'; }
+function kxMailText(nos, S){
+  const L=nos.map(no=>{ const m=rcMaster(no)||{}, r=kxRec(no)||{}; const s=(S&&S[no])||{k:r.kinds||[], kuro:!!r.kuro}; return {no, m, r, s}; });
+  const anyKuro=L.some(x=>x.s.kuro);
+  const sub=L.length===1?`【酒粕数量報告】${kxMD(L[0].r.date).replace(/（.*）/,'')} 仕${L[0].no}号（${L[0].m.liquid||''}）［${kxKindLine(L[0].s)}］ ${kxQText(kxRepQ(L[0].r.q))}`:`【酒粕数量報告】${anyKuro?'【黒粕あり】':''}${L.length}件（${L.map(x=>'仕'+x.no+'号').join('・')}）`;
   let body='営業担当様\n\n酒粕数量を報告します。\n';
-  L.forEach(({no,m,r})=>{ const q=r.q||{}; body+=`\n日付　　　${kxMD(r.date)}\n仕込　　　仕${no}号（${m.liquid||''}）　上槽 ${rcMD(m.joso)}\n`+KX_Q.filter(([k])=>k!=='frac').map(([k,l])=>`${l}　　${kxN(q[k])===null?0:kxN(q[k])}${k==='f20'?' 袋':' 個'}`).join('\n')+`\n合計　　　${kxL(kxRepKg(q))} kg\n`; });
+  L.forEach(({no,m,r,s})=>{ const q=r.q||{}; body+=`\n日付　　　${kxMD(r.date)}\n仕込　　　仕${no}号（${m.liquid||''}）　上槽 ${rcMD(m.joso)}\n種類　　　${kxKindLine(s)}\n`+KX_Q.filter(([k])=>k!=='frac').map(([k,l])=>`${l}　　${kxN(q[k])===null?0:kxN(q[k])}${k==='f20'?' 袋':' 個'}`).join('\n')+`\n合計　　　${kxL(kxRepKg(q))} kg\n`; });
   body+=`\n生産本部製造　送信：${ST.name||''}`;
   return {sub, body};
 }
@@ -16006,26 +16015,52 @@ function kxSendOpen(nos){
   const one=nos.length===1, no0=nos[0];
   if(one && bad.length){ const no=no0; if(kxRep(no)) rcToast(`${no}号は送信済みです`); else if(KX.more['x'+no]) rcToast('先に「保存」してください', true); else rcToast(`${no}号は未検定のため送れません（検定済になると送れます）`, true, 4000); return; }
   nos=nos.filter(no=>bad.indexOf(no)<0); if(!nos.length){ rcToast('検定済の仕込みがありません', true); return; }
-  const cfg=kxCfg(), T=kxMailText(nos);
+  const cfg=kxCfg();
+  const S={}; nos.forEach(no=>{ const r=kxRec(no)||{}, m=rcMaster(no)||{}, a=kxKuroAuto(no), man=(r.kuro===true||r.kuro===false);
+    S[no]={k:(r.kinds&&r.kinds.length?r.kinds.slice(0,2):kxKindDef(m)), kuro:man?r.kuro:!!a, man, auto:a}; });
   const w=document.createElement('div'); w.className='o2-mask yd-mask'; document.body.appendChild(w);
-  const close=()=>w.remove(); w.onclick=e=>{ if(e.target===w) close(); };
-  w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div><div class="yd-hd"><b>酒粕数量を事務所へ送信（Slack）</b><button type="button" class="yd-x" data-a="close">✕</button></div>
+  let busy=false;
+  const close=()=>w.remove(); w.onclick=e=>{ if(e.target===w&&!busy) close(); };
+  const ready=()=>nos.every(no=>S[no].kuro||S[no].k.length>0);   // 黒粕なら種類は選ばなくてよい
+  const kindHTML=()=>nos.map(no=>{ const m=rcMaster(no)||{}, s=S[no];
+    const note=s.auto===null?'麹（白夜・清麗）を確認しています…':s.kuro?'黒粕として報告します（種類は出しません）':'';
+    return `<div class="kx-kd"><div class="h"><b>仕${esc(String(no))}号 ${esc(m.liquid||'')}</b><small>粕の種類（2種まで）</small></div>
+      <div class="kx-chips${s.kuro?' kx-dim':''}">${KX_KIND.map(k=>`<button type="button" class="kx-chip${s.k.indexOf(k)>=0?' on':''}" data-kk="${esc(k)}" data-no="${esc(String(no))}">${esc(k)}</button>`).join('')}<button type="button" class="kx-chip kuro${s.kuro?' on':''}" data-kkuro="${esc(String(no))}">黒粕</button></div>
+      ${note?`<div class="kx-kn">${esc(note)}</div>`:''}</div>`; }).join('');
+  const draw=()=>{ const sh=w.querySelector('.yd-sheet'), sc=sh?sh.scrollTop:0; const T=kxMailText(nos,S), ok=ready();
+    w.innerHTML=`<div class="yd-sheet"><div class="yd-grab"></div><div class="yd-hd"><b>酒粕数量を事務所へ送信（Slack）</b><button type="button" class="yd-x" data-a="close">✕</button></div>
+    ${kindHTML()}
     <div class="kx-mail"><div class="mh"><span>送り先</span>${cfg.slack?'Slack '+esc(cfg.slack):'<b class="ng">未設定</b>'}<br><span>件名</span>${esc(T.sub)}</div><pre>${esc(T.body)}</pre></div>
     ${cfg.slack?'':'<div class="kx-alert" style="margin:8px 0 0">送り先のSlackがまだ設定されていないため、送れません（報告タブの「⚙ 送り先」で設定）。</div>'}
-    <div class="yd-row"><button type="button" class="yd-b" data-a="close">やめる</button><button type="button" class="yd-b go" data-a="send"${cfg.slack?'':' disabled'}>送信する</button></div><div class="yd-msg"></div></div>`;
-  w.querySelectorAll('[data-a="close"]').forEach(b=>b.onclick=close);
-  w.querySelector('[data-a="send"]').onclick=async()=>{
-    if(!cfg.slack) return;
-    const say=t=>{ const e=w.querySelector('.yd-msg'); if(e) e.textContent=t; };
-    w.querySelectorAll('button').forEach(b=>b.disabled=true); say('送信しています…');
-    try{
-      const j=await kxMailSend(cfg, T);   // 2026-11-09 メールをやめて Slack へ（共有データの action:'slack'）
-      if(!j||!j.ok) throw new Error((j&&j.error)||'送信できませんでした');
-      for(const no of nos){ const m=rcMaster(no)||{}, it=kxItem(KX_REP,no);
-        mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:KX_REP, kind:'送信済', no:String(no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:dtoday()+' '+new Date().toTimeString().slice(0,5), memo:T.sub}})); }
-      close(); rcToast('事務所へ送信しました'); const sc=window.scrollY; kxDraw(); window.scrollTo(0,sc);
-    }catch(e){ say('送信できませんでした：'+(e.message||e)); w.querySelectorAll('button').forEach(b=>b.disabled=false); }
+    ${ok?'':'<div class="kx-alert" style="margin:8px 0 0">粕の種類を選んでください（仕込みごとに1〜2種。黒粕は選ばなくてよい）。</div>'}
+    <div class="yd-row"><button type="button" class="yd-b" data-a="close">やめる</button><button type="button" class="yd-b go" data-a="send"${cfg.slack&&ok?'':' disabled'}>送信する</button></div><div class="yd-msg"></div></div>`;
+    const sh2=w.querySelector('.yd-sheet'); if(sh2) sh2.scrollTop=sc;
+    bind(); };
+  const bind=()=>{
+    w.querySelectorAll('[data-a="close"]').forEach(b=>b.onclick=()=>{ if(!busy) close(); });
+    w.querySelectorAll('[data-kk]').forEach(b=>b.onclick=()=>{ const s=S[b.dataset.no], k=b.dataset.kk, i=s.k.indexOf(k); if(s.kuro){ rcToast('黒粕のときは種類を出しません（黒粕を外すと選べます）'); return; }
+      if(i>=0) s.k.splice(i,1); else { if(s.k.length>=2){ rcToast('粕の種類は2種までです（先にどれかを外してください）'); return; } s.k.push(k); } draw(); });
+    w.querySelectorAll('[data-kkuro]').forEach(b=>b.onclick=()=>{ const s=S[b.dataset.kkuro]; s.kuro=!s.kuro; s.man=true; draw(); });
+    w.querySelector('[data-a="send"]').onclick=async()=>{
+      if(!cfg.slack||!ready()) return;
+      const T=kxMailText(nos,S);
+      const say=t=>{ const e=w.querySelector('.yd-msg'); if(e) e.textContent=t; };
+      busy=true; w.querySelectorAll('button').forEach(b=>b.disabled=true); say('送信しています…');
+      try{
+        const j=await kxMailSend(cfg, T);   // 2026-11-09 メールをやめて Slack へ（共有データの action:'slack'）
+        if(!j||!j.ok) throw new Error((j&&j.error)||'送信できませんでした');
+        for(const no of nos){ const m=rcMaster(no)||{}, it=kxItem(KX_REP,no);
+          mwKeep(await mwApi({action:'save', item:{id:it?it.id:'', name:KX_REP, kind:'送信済', no:String(no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:dtoday()+' '+new Date().toTimeString().slice(0,5), memo:T.sub}}));
+          try{ const ri=kxItem(KX_REC,no), rj=kxJ(ri); if(ri&&rj){ rj.kinds=S[no].k.slice(); rj.kuro=!!S[no].kuro;   // 種類・黒粕も粕記録に残す
+            mwKeep(await mwApi({action:'save', item:{id:ri.id, name:KX_REC, kind:'保存', no:String(no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:rj.date||'', memo:JSON.stringify(rj)}})); } }catch(e){} }
+        busy=false; close(); rcToast('事務所へ送信しました'); const sc=window.scrollY; kxDraw(); window.scrollTo(0,sc);
+      }catch(e){ busy=false; say('送信できませんでした：'+(e.message||e)); w.querySelectorAll('button').forEach(b=>b.disabled=false); }
+    };
   };
+  draw();
+  /* 黒粕の判定（麹の種麹）がまだ手元に無い仕込みは仕込カルテを取りに行く */
+  nos.forEach(no=>{ try{ if(typeof kkNeed!=='function'||!kkNeed(no)) return;
+    recApi({action:'karte',no},50000).then(r=>{ if(!(r&&r.ok)) return; RC.karte[no]=r; const x=kkSet(no,r); const s=S[no]; if(!s||!x) return; s.auto=!!x.hit; if(!s.man) s.kuro=!!x.hit; if(document.body.contains(w)&&!busy) draw(); }).catch(()=>{}); }catch(e){} });
 }
 async function kxMailSend(cfg, T){
   const r=await fetch(SHARED_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'slack', table:'醪作業', who:{id:String(ST.id||''),name:String(ST.name||'')}, text:`*${T.sub}*\n${T.body}`}),redirect:'follow'});
@@ -16128,6 +16163,8 @@ function kxHomeApply(){ const b=document.getElementById('bKasu'); if(!b) return;
 .kx-chip.more{color:#999}
 .kx-chip.tm{border-color:#c9b3e6;color:#6a3fa0;background:#faf6ff}.kx-chip.tm.on{background:#6a3fa0;border-color:#6a3fa0;color:#fff}
 .kx-chip.ou{border-color:#d4a24c;color:#9a6200;background:#fffaf0}.kx-chip.ou.on{background:#d48a1c;border-color:#d48a1c;color:#fff}.kx-chip.ou.add{border-style:dashed}
+.kx-kd{border:1px solid var(--line);border-radius:10px;padding:8px 0 9px;margin:4px 0 8px;background:#fff}.kx-kd .h{display:flex;gap:8px;align-items:baseline;padding:0 10px 6px}.kx-kd .h small{color:var(--sub);font-size:11.5px}
+.kx-chip.kuro{border-color:#7a5536;color:#6b4a2b;background:#f6efe6;font-weight:800}.kx-chip.kuro.on{background:#4a3020;border-color:#4a3020;color:#fff}.kx-chips.kx-dim .kx-chip:not(.kuro){opacity:.35}.kx-kn{font-size:12px;color:#6b4a2b;font-weight:700;padding:5px 10px 0}
 .kx-tools{display:grid;grid-template-columns:96px 1fr 1fr;gap:5px 6px;padding:0 10px;align-items:center;font-size:12.5px}
 .kx-tools .h{text-align:center;font-size:11px;color:var(--sub)}.kx-tools .l{color:var(--sub);font-weight:700}
 .kx-sp{display:flex;align-items:center;justify-content:center;gap:4px}
