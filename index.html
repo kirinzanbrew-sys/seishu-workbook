@@ -61,7 +61,6 @@ h2{font-size:15px;margin:22px 0 10px;font-weight:600;color:var(--navy);
 /* ===== ホーム：麒麟山の帯（写真があれば写真、無ければ絵） ===== */
 .kz{position:relative;margin:0 -14px 0;height:132px;overflow:hidden;background:linear-gradient(180deg,#1c3350,#3d6285)}
 .kz img{width:100%;height:100%;object-fit:cover;display:block}
-.kz svg{width:100%;height:100%;display:block}
 .kz .fade{position:absolute;left:0;right:0;bottom:0;height:46px;pointer-events:none;
   background:linear-gradient(180deg,rgba(247,244,236,0),var(--paper))}
 .kz .cap{position:absolute;left:0;right:0;bottom:5px;text-align:center;font-size:10.5px;
@@ -570,36 +569,20 @@ function homeBadge(kind){
    ho＝実った穂の粒、momi＝籾のすじ、ha＝葉脈。墨の細い線をうっすら重ねる。 */
 
 /* ===== 麒麟山の帯 =====
-   同じフォルダに kirinzan.jpg があればその写真を、無ければ描いた稜線を出す。
+   同じフォルダの kirinzan.jpg を出す（2026-11-10 描いた稜線SVGは削除。無いときは紺の地色だけ）。
    写真は 1200×500 くらいの横長。写真が無くても画面は崩れない。 */
 const KZ_PHOTO = 'kirinzan.jpg';
 function kirinzanBand(){
-  return `<div class="kz" id="kzBand">
-    <img id="kzImg" class="kz-hide" src="${KZ_PHOTO}?v=1" alt="麒麟山と常浪川">
-    <svg id="kzSvg" viewBox="0 0 390 132" preserveAspectRatio="none" aria-hidden="true">
-      <defs><linearGradient id="kzSky" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#1c3350"/><stop offset="1" stop-color="#4e7396"/></linearGradient></defs>
-      <rect width="390" height="132" fill="url(#kzSky)"/>
-      <path d="M0,132 L0,74 L38,58 L74,70 L112,50 L150,64 L188,46 L228,60 L268,44 L308,58 L346,50 L390,64 L390,132 Z" fill="#33526f" opacity=".75"/>
-      <path d="M96,132 L104,58 L116,28 L126,20 L140,24 L150,40 L156,62 L162,132 Z" fill="#2f4a38"/>
-      <path d="M150,132 L156,62 L168,48 L182,54 L190,74 L196,132 Z" fill="#3a5a43"/>
-      <g stroke="#243b2c" stroke-width="1.1" opacity=".5">
-        <line x1="112" y1="40" x2="115" y2="128"/><line x1="122" y1="28" x2="126" y2="128"/>
-        <line x1="132" y1="24" x2="136" y2="128"/><line x1="142" y1="32" x2="146" y2="128"/>
-        <line x1="152" y1="58" x2="155" y2="128"/><line x1="170" y1="56" x2="173" y2="128"/>
-        <line x1="180" y1="60" x2="183" y2="128"/></g>
-      <path d="M0,132 L0,96 L34,86 L68,95 L96,86 L120,93 L160,85 L196,94 L232,82 L270,93 L306,84 L344,94 L390,85 L390,132 Z" fill="#2c4a32"/>
-      <path d="M0,132 L0,116 C44,110 88,122 132,115 C176,108 220,120 264,113 C308,106 350,118 390,111 L390,132 Z" fill="#5a93bb" opacity=".95"/>
-    </svg>
+  return `<div class="kz photo" id="kzBand">
+    <img id="kzImg" src="${KZ_PHOTO}?v=1" alt="麒麟山と常浪川" decoding="async">
     <div class="fade"></div>
   </div>`;
 }
 function kirinzanBind(){
-  const img=$('#kzImg'), svg=$('#kzSvg'), band=$('#kzBand');
-  if(!img||!band) return;
-  img.onload =()=>{ img.classList.remove('kz-hide'); if(svg) svg.classList.add('kz-hide'); band.classList.add('photo'); };
-  img.onerror=()=>{ img.classList.add('kz-hide'); if(svg) svg.classList.remove('kz-hide'); band.classList.remove('photo'); };
-  if(img.complete && img.naturalWidth) img.onload();
+  /* 2026-11-10 泰広さん指示：写真の前に出ていた描いた稜線（SVG）を削除。読み込み中は帯の地色（紺）だけ。写真が無いときも紺のまま */
+  const img=$('#kzImg');
+  if(!img) return;
+  img.onerror=()=>{ img.classList.add('kz-hide'); };
 }
 
 function home(){
@@ -9402,6 +9385,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-10-5','📱','酒母・仕込み（スマホ）','スマホでは上のアイコンを1行にまとめました。出ているのは「グラフ｜表｜酒母」の切り替え・室温・知らせ（品温！・仕込み水・穴あけ など）だけで、ほかは右端の「⋯」から出します。表を上へ動かすとアイコンの行が隠れ、表を一番上に戻すか「▼ アイコン」で戻ります。'],
   ['2026-11-10-4','🟫','粕（事務所への報告）','酒粕数量の報告は、伊藤の「検定済」を待たずに、保存すれば担当者がそのままSlack（#営業部）へ送れるようにしました。検定済の印はこれまでどおり記録として付けられます（送信のあとでも付けられます）。'],
   ['2026-11-10-3','✅','ありえない値の確認','酒母の表・仕込みの表・分析まとめで「ありえない値かもしれません。このまま保存しますか？」に OK を押すと、その値を覚えて、次からは同じ表・同じ項目の同じような値（Be・alc・品温は前後1.0、酸度・アミノ酸度は前後0.5）では確認を出さず、色も付けないようにしました。覚えた範囲はほかの人の端末にも効きます。'],
   ['2026-11-10-2','💾','自動保存（PC・伊藤・神田）','PCで入力するとき、または伊藤・神田が入力するときは、「保存」を押さなくてもマスを離れたら（Enter・次のマスへ）自動で保存されるようにしました。対象：酒母の表・仕込みの表・分析まとめ・麹／洗米吸水／酒母／醪の入力・仕込時の値・タンク洗浄・粕のカード。保存すると前の画面に戻っていた画面も、自動保存のときは戻りません。📝記録などの窓は、入力してから「閉じる」を押すと閉じる代わりに保存します。ありえない値・酛卸の未入力など確認が必要なときは自動では保存せず、左下に知らせが出るので「保存」ボタンで保存してください。ほかの人のスマホは今までどおり「保存」ボタンです。'],
@@ -17217,5 +17201,91 @@ async function atYdSave(m, R, date){
 })();
 </script>
 <!-- /rnglearn1110 -->
+<!-- icbar1110 -->
+<script>
+/* 2026-11-10 泰広さん指示：スマホで 🍶仕込み・🧫酒母 の表を見るとき、上のアイコンが大きくて表の邪魔 → 見本の B＋C
+   B：1行にまとめる。出すのは「グラフ｜表｜酒母」の切り替え・押して開いているもの（青枠）・知らせ（橙/赤：品温！・仕込み水・穴あけ/泡消・O₂未測定・資材・酵母など）・酒母の室温。
+      ほかは右端の「⋯」で下から出す（外を押すと閉じる）
+   C：表を上へ動かすとアイコンの行が隠れる。表を一番上に戻すか「▼ アイコン」で戻る
+   スマホ幅（700px以下）だけ。PC・Pad は今までどおり。アイコンの中身・押したときの動きは変えていない
+   控え：seishu-workbook_github\_src_icbar1110.js　差し込み：_アイコン1行_20261110.py（<!-- icbar1110 --> ブロック、</body> の直前） */
+(function(){
+  const MQ=matchMedia('(max-width:700px)'), root=document.documentElement;
+  let shade=null;
+  function closeSheet(){
+    const row=app.querySelector('.st-icons.ic-op'); if(row) row.classList.remove('ic-op');
+    app.querySelectorAll('.ic-spacer').forEach(x=>x.remove());
+    if(shade) shade.classList.remove('op');
+  }
+  function openSheet(row){
+    if(!shade){ shade=document.createElement('div'); shade.className='ic-shade'; shade.onclick=closeSheet; document.body.appendChild(shade); }
+    const sp=document.createElement('div'); sp.className='ic-spacer'; sp.style.height=row.offsetHeight+'px'; row.before(sp);   // 下の表が上に詰まらないように
+    row.classList.add('ic-op'); shade.classList.add('op');
+  }
+  function setHid(v){
+    if(root.classList.contains('ic-hid')===v) return;
+    root.classList.toggle('ic-hid', v);
+    window.dispatchEvent(new Event('resize'));   // 仕込みの表の高さ（--sfh）を取り直す
+  }
+  function apply(){
+    const on=MQ.matches;
+    app.querySelectorAll('.st-icons').forEach(row=>{
+      if(!on){ row.classList.remove('ic-b','ic-op'); return; }
+      if(!row.classList.contains('ic-b')) row.classList.add('ic-b');
+      if(!row.querySelector(':scope > .ic-more')){
+        const b=document.createElement('button'); b.type='button'; b.className='ic-more'; b.textContent='⋯'; b.setAttribute('aria-label','そのほかのアイコン');
+        b.onclick=e=>{ e.stopPropagation(); openSheet(row); }; row.appendChild(b);
+      }
+      const p=row.previousElementSibling;
+      if(!(p && p.classList.contains('ic-hdl'))){
+        const h=document.createElement('div'); h.className='ic-hdl'; h.innerHTML='<button type="button">▼ アイコン</button>';
+        h.firstChild.onclick=()=>setHid(false); row.before(h);
+      }
+    });
+    if(!on || !app.querySelector('.st-icons')){ setHid(false); closeSheet(); }
+  }
+  let raf=0; const soon=()=>{ if(raf) return; raf=requestAnimationFrame(()=>{ raf=0; apply(); }); };
+  new MutationObserver(soon).observe(app,{childList:true,subtree:true});
+  if(MQ.addEventListener) MQ.addEventListener('change',soon); else if(MQ.addListener) MQ.addListener(soon);
+  /* ⋯ の中のアイコンを押したら閉じる（押したときの動きはそのまま） */
+  document.addEventListener('click', e=>{ const t=e.target.closest && e.target.closest('.st-icons.ic-op .st-ic'); if(t) setTimeout(closeSheet,0); }, true);
+  /* C：表を上へ動かしたら隠す／一番上に戻したら出す */
+  document.addEventListener('scroll', e=>{
+    const t=e.target; if(!MQ.matches || !t || !t.classList || !t.classList.contains('kg-tw') || !t.closest('.kg-home')) return;
+    if(!app.querySelector('.st-icons.ic-b') || app.querySelector('.st-icons.ic-op')) return;
+    if(t.scrollTop>20) setHid(true); else if(t.scrollTop<=0) setHid(false);
+  }, true);
+  if(typeof go==='function'){ const o=go; go=function(){ closeSheet(); setHid(false); return o.apply(this, arguments); }; }
+  apply();
+
+  const s=document.createElement('style'); s.textContent=`
+.st-icons.ic-b:not(.ic-op){flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;gap:5px;align-items:center;margin:2px 0 6px;padding:7px 1px 1px;scrollbar-width:none}
+.st-icons.ic-b:not(.ic-op)::-webkit-scrollbar{display:none}
+.st-icons.ic-b:not(.ic-op) .st-ic:not(.vw-ic):not(.on):not(.wn):not(.ng):not(.mz-hin):not(.mz-w.wt):not(.mw-ic):not([data-sti="room"]){display:none!important}
+.st-icons.ic-b:not(.ic-op) .st-ic{width:auto!important;min-width:0!important;min-height:0!important;height:32px!important;flex:0 0 auto!important;flex-direction:row!important;flex-wrap:nowrap!important;padding:0 8px!important;gap:3px!important;border-radius:9px!important;white-space:nowrap}
+.st-icons.ic-b:not(.ic-op) .st-ic .e{font-size:15px!important;line-height:1}
+.st-icons.ic-b:not(.ic-op) .st-ic b,.st-icons.ic-b:not(.ic-op) .st-ic small{font-size:10.5px!important;line-height:1;white-space:nowrap}
+.st-icons.ic-b:not(.ic-op) .st-ic .hg-d{display:none}
+.st-icons.ic-b:not(.ic-op) .vw-ic:not(.on) small{display:none}
+.st-icons.ic-b:not(.ic-op) .mz-w b{display:none}
+.st-icons.ic-b:not(.ic-op) .st-ic.st-o2{padding:0!important;height:auto!important;border:none!important;background:none!important}
+.st-icons.ic-b:not(.ic-op) .st-ic.st-o2 .o2c{width:30px!important;height:30px!important;font-size:12px!important}
+.st-icons.ic-b:not(.ic-op) .st-ic.mw-ic .mw-lt{top:-7px;right:-4px}
+.st-icons.ic-b .ic-more{order:99;margin-left:auto;flex:0 0 auto;position:sticky;right:0;z-index:2;box-shadow:-6px 0 6px var(--paper,#f7f4ec);height:32px;padding:0 12px;border:1px solid var(--line,#e4ded1);background:var(--card,#fff);border-radius:9px;font-size:16px;font-weight:700;color:var(--navy,#1f3f72);font-family:inherit;line-height:1}
+.st-icons.ic-b.ic-op .ic-more{display:none}
+.st-icons.ic-b.ic-op{position:fixed;left:0;right:0;bottom:0;z-index:90;margin:0;flex-wrap:wrap;gap:8px;background:#fff;border-radius:16px 16px 0 0;
+  padding:12px 12px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -4px 20px rgba(0,0,0,.2);max-height:70vh;overflow:auto}
+.st-icons.ic-b.ic-op::before{content:"アイコン（外を押すと閉じる）";flex:0 0 100%;font-size:12px;color:var(--sub,#6b6b6b)}
+.ic-shade{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:89;display:none}
+.ic-shade.op{display:block}
+.ic-hdl{display:none;justify-content:center;margin:0 0 4px}
+.ic-hdl button{border:none;background:#e6dfcd;color:var(--navy,#1f3f72);font-size:11px;padding:3px 16px;border-radius:0 0 10px 10px;font-family:inherit}
+html.ic-hid #app .st-icons.ic-b:not(.ic-op){display:none!important}
+html.ic-hid #app .ic-hdl{display:flex}
+@media (min-width:701px){.ic-hdl,.ic-more{display:none!important}}`;
+  document.head.appendChild(s);
+})();
+</script>
+<!-- /icbar1110 -->
 </body>
 </html>
