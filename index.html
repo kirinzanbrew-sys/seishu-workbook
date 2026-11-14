@@ -9474,7 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
-  ['2026-11-14-4','💧','仕込み','仕込みの表で、きょうの「発酵/溶解」が昨年の同じ液種・同じ日の真ん中より上なのに、追水が配合の規定まで入っていないとき、きょうの追水のマスをオレンジにしました（左上の💧を押すと理由）。Be が切れた（日本酒度になった）仕込みには出しません。'],
+  ['2026-11-14-4','💧','仕込み','仕込みの表で、きょうの「発酵/溶解」が昨年の同じ液種・同じ日の真ん中より上なのに、追水が配合の規定まで入っていないとき、きょうの追水のマスをオレンジにしました。Be が切れた（日本酒度になった）仕込みには出しません。'],
   ['2026-11-14-3','🍶','仕込み・酒母','PC・Padで、仕込みと酒母の上のアイコンを半分くらいの高さの小さな札（絵と文字を1行）にしました。酒母の「分析者」の大きな帯もやめて、仕込みと同じ「👤 入力者」のアイコンにしました（会社PCなどの共用端末だけ）。スマホの丸アイコンは今までどおりです。'],
   ['2026-11-14-2','🌾','洗米予定表','スマホを縦にして見るとき、月末（月計の行）が画面の下に隠れて見えなかったのを直しました。表の枠を画面の下端までの高さに合わせ、表の中を上へなぞれば月末まで見えます。液種・精米歩合の凡例は1行にしました（横になぞると続きが出ます）。'],
   ['2026-11-14-1','🌾','洗米予定表','米管理の洗米予定表の表示を、印刷用の洗米表と同じ形にしました。マスの背景は液種の色、上段に〇仕込番号・液種・記号、中段に品種と精米歩合、下段に数量（kg）。掛米の酒母のマスには右に酵母の枠（未定は点線）。見出しは麹米／掛米の2段、表の上に液種と精米歩合の凡例、一番下に月計の行を付けました。'],
@@ -17618,7 +17618,7 @@ function ykBg(box){
    見本 Claude outputs/製造ツール_追水のマスの色_見本.html → 決定：①当日（きょうの列）だけ ②基準は案A＝昨年の同じ液種・同じ日の真ん中（YK_STD の md）より上 ③Be が切れたら（日本酒度（−）になったら）出さない
    ・条件：きょうの日目 d に分析があり（YK.rows[no].Y[d]）、r（発酵/溶解）＞ ykBand(key,'r',d).md、cum（その日までの追水の合計・その日の分を含む）＜ 規定（sk19Oimizu＝配合表の追水）、
      その日までに Be/度 が（−）になっていない。昨年の基準が無い液種・規定が無い仕込みは出さない
-   ・きょうの追水のマス（input[data-k=oimizu][data-day=d] の td）をオレンジの枠＋薄いオレンジ、左上に 💧（押すと中身：何が・なぜ・どうする・計算のもと）。マスへの入力は今までどおり
+   ・きょうの追水のマス（input[data-k=oimizu][data-day=d] の td）をオレンジの枠＋薄いオレンジ（💧のマークは同日 泰広さん指示で削除。oiwDetail は残してあるが今は呼ばれない）。マスへの入力は今までどおり
    ・その日の追水を入れて規定に届くと消える。見出しの「追水 ◯/◯」の信号（oisig1101）は変えない
    控え：seishu-workbook_github\_src_oiw1114.js　差し込み：_追水のマスの色_20261114.py（<!-- oiw1114 --> ブロック、</body> の直前） */
 function oiwToday(m){ try{ if(!m||!m.tome) return null; const t=new Date(m.tome+'T00:00:00'), n=new Date(dtoday()+'T00:00:00'); return Math.round((n-t)/864e5)+1; }catch(e){ return null; } }
@@ -17637,9 +17637,7 @@ function oiwPaint(box){
   Object.keys(YK.rows||{}).forEach(no=>{
     const c=oiwCheck(no); if(!c) return;
     const i=(box||app).querySelector(`.kg-t input.kg-i[data-no="${no}"][data-day="${c.d}"][data-k="oimizu"]`); if(!i) return;
-    const td=i.closest('td'); td.classList.add('oiw');
-    const sp=document.createElement('span'); sp.className='oiw-b'; sp.textContent='💧'; sp.title='追水を入れられる余地（押すと中身）';
-    sp.onclick=e=>{ e.stopPropagation(); e.preventDefault(); oiwDetail(no); }; td.appendChild(sp);
+    const td=i.closest('td'); td.classList.add('oiw');   /* 2026-11-14 泰広さん：💧のマークは要らない → 色だけ */
   });
 }
 function oiwDetail(no){
