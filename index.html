@@ -1470,7 +1470,9 @@ body.yo-wide .wrap, body.yo-wide header .hin{max-width:none}
 .sn td.tt{vertical-align:bottom;text-align:right;padding:1px 3px 3px}
 .sn tr.mt td{background:#f4f4f4;font-weight:700;text-align:right;font-size:11px;padding:4px 3px;border-top:2px solid #b8b0a0;color:var(--ink);vertical-align:middle}
 .sn tr.mt td.dt{text-align:center;background:#f4f4f4}
-.yo-lg{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:11px;margin:0 2px 8px;color:var(--ink)}
+.yo-lg{display:flex;flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;align-items:center;gap:4px;font-size:11px;margin:0 2px 6px;padding-bottom:2px;color:var(--ink);-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.yo-lg::-webkit-scrollbar{display:none}
+.yo-lg>*{flex:0 0 auto}
 .yo-lg b{font-size:10.5px;color:var(--sub);margin-right:1px}
 .yo-lg .lg{padding:1px 6px;border:1px solid #aaa;border-radius:4px;font-weight:700}
 .yo-lg .mf-bdg{margin-left:0;font-size:10.5px!important}
@@ -2077,8 +2079,9 @@ function yoteiScreen(){
         <br>スマホを<b>横にする</b>と、画面いっぱいに広げて見られます。</p>
       <div id="yoDay"></div>`;
     app.innerHTML = h + mfgSrcInfo('senmai','造りex 洗米予定表');
+    yoFit();
     const ab=$('#yoAlBtn');
-    if(ab) ab.onclick=()=>{ const x=$('#yoAl'), open=x.style.display==='none'; x.style.display=open?'block':'none'; ab.querySelector('span').textContent=open?'▲':'▼'; };
+    if(ab) ab.onclick=()=>{ const x=$('#yoAl'), open=x.style.display==='none'; x.style.display=open?'block':'none'; ab.querySelector('span').textContent=open?'▲':'▼'; yoFit(); };
     const yp=$('#yPrev'), yn=$('#yNext');
     if(yp) yp.onclick=()=>{ YO_YM=yms[i-1]; YO_SEL=null; yoRender(); };
     if(yn) yn.onclick=()=>{ YO_YM=yms[i+1]; YO_SEL=null; yoRender(); };
@@ -2092,6 +2095,18 @@ function yoteiScreen(){
   };
   mfgOpen(render);
 }
+/* 洗米予定表：縦向きのとき表の枠を画面の下端までの高さにする（月末・月計が画面の外に隠れないように。2026-11-14）
+   横向きはこれまでどおり CSS（画面いっぱい）に任せる */
+function yoFit(){
+  const w = document.querySelector('.kn-wrap.tall'); if(!w || !document.body.classList.contains('yo-wide')) return;
+  if(window.innerWidth > window.innerHeight){ w.style.maxHeight=''; return; }
+  const top = w.getBoundingClientRect().top + window.scrollY;
+  const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  w.style.maxHeight = Math.max(260, Math.floor(vh - top - 8)) + 'px';
+}
+(function(){ let t=null; const f=()=>{ clearTimeout(t); t=setTimeout(yoFit,150); };
+  window.addEventListener('resize', f); window.addEventListener('orientationchange', ()=>setTimeout(yoFit,400));
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', f); })();
 /* 洗米予定表の1つの仕込（印刷版スタイルNと同じ。2026-11-14） */
 function yoCellN(e, mo){
   const [,rice,ratio,code,prod,no,kg0] = e; const kg = Number(kg0||0);
@@ -9459,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-14-2','🌾','洗米予定表','スマホを縦にして見るとき、月末（月計の行）が画面の下に隠れて見えなかったのを直しました。表の枠を画面の下端までの高さに合わせ、表の中を上へなぞれば月末まで見えます。液種・精米歩合の凡例は1行にしました（横になぞると続きが出ます）。'],
   ['2026-11-14-1','🌾','洗米予定表','米管理の洗米予定表の表示を、印刷用の洗米表と同じ形にしました。マスの背景は液種の色、上段に〇仕込番号・液種・記号、中段に品種と精米歩合、下段に数量（kg）。掛米の酒母のマスには右に酵母の枠（未定は点線）。見出しは麹米／掛米の2段、表の上に液種と精米歩合の凡例、一番下に月計の行を付けました。'],
   ['2026-11-12-1','🍶','仕込み','仕込みの表の BMD の下に「溶解度・発酵度・発酵/溶解」の3行を足しました（関東信越国税局の講話会で紹介された名古屋国税局「もろみえーる」と同じ式）。汲水歩合（追水込み）をそろえて計算するので、汲水の違う仕込みや昨年とも同じ物差しで比べられます。昨年の同じ液種の真ん中半分から外れた数字はオレンジ（上）・青（下）になり、押すと「何が・なぜ・どうする」が出ます（順号の欄の ⚠ 札も同じ）。3行の背景に溶解度の線（緑）と昨年の帯（灰色）。12日目までは3行に収まり、その後は上へ伸びます。kagayaki・純米大吟醸は金賞酒の帯も出します。'],
   ['2026-11-10-9','🟫','黒粕の判定','黒粕かどうかは「仲・留」の麹で決めるようにしました。酛・添だけ白夜・清麗を使い、仲・留が別の麹の仕込み（ぽたり五百万石など）は黒粕になりません（札・粕の報告とも）。'],
