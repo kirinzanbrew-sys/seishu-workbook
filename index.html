@@ -17618,7 +17618,7 @@ function ykBg(box){
    見本 Claude outputs/製造ツール_追水のマスの色_見本.html → 決定：①当日（きょうの列）だけ ②基準は案A＝昨年の同じ液種・同じ日の真ん中（YK_STD の md）より上 ③Be が切れたら（日本酒度（−）になったら）出さない
    ・条件：きょうの日目 d に分析があり（YK.rows[no].Y[d]）、r（発酵/溶解）＞ ykBand(key,'r',d).md、cum（その日までの追水の合計・その日の分を含む）＜ 規定（sk19Oimizu＝配合表の追水）、
      その日までに Be/度 が（−）になっていない。昨年の基準が無い液種・規定が無い仕込みは出さない
-   ・きょうの追水のマス（input[data-k=oimizu][data-day=d] の td）をオレンジの枠＋薄いオレンジ（💧のマークは同日 泰広さん指示で削除。oiwDetail は残してあるが今は呼ばれない）。マスへの入力は今までどおり
+   ・きょうの追水のマス（input[data-k=oimizu][data-day=d] の td）の入力のマスを薄いオレンジに（枠は変えない。💧のマークは同日 泰広さん指示で削除。oiwDetail は残してあるが今は呼ばれない）。マスへの入力は今までどおり
    ・その日の追水を入れて規定に届くと消える。見出しの「追水 ◯/◯」の信号（oisig1101）は変えない
    控え：seishu-workbook_github\_src_oiw1114.js　差し込み：_追水のマスの色_20261114.py（<!-- oiw1114 --> ブロック、</body> の直前） */
 function oiwToday(m){ try{ if(!m||!m.tome) return null; const t=new Date(m.tome+'T00:00:00'), n=new Date(dtoday()+'T00:00:00'); return Math.round((n-t)/864e5)+1; }catch(e){ return null; } }
@@ -17659,8 +17659,7 @@ function oiwDetail(no){
   window.kgBox=function(box, fields){ const r=o.apply(this, arguments); try{ if(isMk(box,fields)) oiwPaint(box); }catch(e){ console.log('oiw',e); } return r; };
 })();
 (function(){ const s=document.createElement('style'); s.textContent=`
-.kg-t td.oiw{background:#ffe9cf!important;box-shadow:inset 0 0 0 2px #e8892a;position:relative}
-.kg-t td.oiw input{background:transparent!important}
+.kg-t td.oiw input{background:#ffd9a8!important}   /* 2026-11-14 泰広さん：枠は元のまま、入力のマスの色だけ変える */
 .kg-t td.oiw .oiw-b{position:absolute;left:0;top:-2px;font-size:11px;line-height:1;cursor:pointer;padding:2px;z-index:2}
 `; document.head.appendChild(s); })();
 </script>
