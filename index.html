@@ -1435,6 +1435,51 @@ body.yo-wide .wrap, body.yo-wide header .hin{max-width:none}
 .sn tr.sel td.dt,.sn tr.sel td.tt{background:#fbf6e4}
 .sn tr.sun td.dt{color:#c62828}.sn tr.sat td.dt{color:#1f5fa8}
 .sn .mh td{background:#f2efe6;font-weight:700;color:var(--navy);text-align:left;padding:5px 6px;font-size:12px;position:sticky;left:0}
+
+/* ===== 洗米予定表を印刷版（洗米表PDF・スタイルN）と同じ形に 2026-11-14 yoN1114 =====
+   1マス：上段＝〇仕込番号・液種（液種の文字色）・記号（小）／中段＝品種＋歩合バッジ／下段＝数量kg。マスの背景は液種の色。
+   掛米の酒母のマスは右に酵母の白枠（未定は点線の空欄）。 */
+.sn td.c{min-width:80px;max-width:80px;padding:0;background:#fff}
+.sn td.c.mo{min-width:124px;max-width:124px}
+.sn td.c.e{background:#fff}
+.sn .yn{position:relative;padding:2px 3px 1px;text-align:left;min-height:47px;color:#000}
+.sn .yn+.yn{border-top:1px dashed #6f6a60}
+.sn .yn .t1{display:flex;align-items:center;gap:2px;white-space:nowrap;line-height:1.15}
+.sn .yn .cno{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:1px solid #000;border-radius:50%;
+  background:#fff;font-size:9.5px;font-weight:700;letter-spacing:-.08em;color:#000;line-height:1;box-sizing:border-box}
+.sn .yn .np{font-size:10.5px;font-weight:700;letter-spacing:-.03em;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.sn .yn .np.lg{font-size:8.5px}
+.sn .yn .nc{margin-left:auto;font-size:8.5px;color:#444;flex:0 0 auto;padding-left:1px}
+.sn .yn .l1{display:flex;align-items:center;white-space:nowrap;line-height:1.3;margin-top:1px}
+.sn .yn .rc{font-size:12px;font-weight:700;letter-spacing:-.03em;color:#000;overflow:hidden;min-width:0}
+.sn .yn .l1 .mf-bdg{font-size:10px!important;padding:0 3px;margin-left:2px;flex:0 0 auto;vertical-align:0}
+.sn .yn .t3{text-align:right;white-space:nowrap;line-height:1.1}
+.sn .yn .t3 b{font-size:14px;font-weight:700;letter-spacing:-.02em;color:#000}
+.sn .yn .t3 small{font-size:8px;margin-left:1px}
+.sn td.mo .yn .t1,.sn td.mo .yn .l1,.sn td.mo .yn .t3{margin-right:44px}
+.sn .yn .ys{position:absolute;right:3px;top:3px;bottom:3px;width:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#fff;border:1px solid #333;border-radius:3px;text-align:center;overflow:hidden}
+.sn .yn .ys div{font-weight:700;line-height:1.05;white-space:nowrap;letter-spacing:-.03em;color:#000}
+.sn .yn .ys.no{border:1px dashed #666}
+.sn .yn .ys.no span{position:absolute;left:2px;top:0;font-size:7px;color:#666}
+.sn thead tr.g th{height:20px;padding:0 3px;line-height:20px;box-sizing:border-box;border-bottom:1px solid #d9d2c2}
+.sn thead tr.g th.kj,.sn thead tr.g th.kk{letter-spacing:.4em}
+.sn thead th.dt{font-size:11px;letter-spacing:0}
+.sn thead tr.s th{top:20px}
+.sn thead th.dt,.sn thead th.tt{vertical-align:middle}
+.sn td.tt{vertical-align:bottom;text-align:right;padding:1px 3px 3px}
+.sn tr.mt td{background:#f4f4f4;font-weight:700;text-align:right;font-size:11px;padding:4px 3px;border-top:2px solid #b8b0a0;color:var(--ink);vertical-align:middle}
+.sn tr.mt td.dt{text-align:center;background:#f4f4f4}
+.yo-lg{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:11px;margin:0 2px 8px;color:var(--ink)}
+.yo-lg b{font-size:10.5px;color:var(--sub);margin-right:1px}
+.yo-lg .lg{padding:1px 6px;border:1px solid #aaa;border-radius:4px;font-weight:700}
+.yo-lg .mf-bdg{margin-left:0;font-size:10.5px!important}
+.yo-lg .sp{color:#c9c2b2;margin:0 2px}
+@media (orientation:landscape){
+  body.yo-wide .sn td.c{min-width:78px;max-width:150px}
+  body.yo-wide .sn td.c.mo{min-width:120px;max-width:200px}
+}
+/* ===== /yoN1114 ===== */
 .kn-wrap.tall{max-height:min(80vh,900px)}
 /* 出勤表：スマホを横にしたら表だけを画面いっぱいに（2026-09-30）。パソコン・タブレットは対象外（高さ600px以下の横向きだけ） */
 .kn-cap{display:none}
@@ -1985,42 +2030,50 @@ function yoteiScreen(){
         <div id="yoAl" style="display:none">${yoAl}</div>`;
     }
     YO_G = 'all';   // 「ぜんぶ／麹米だけ／掛米だけ」の切り替えは 2026-09-28 に廃止（いつも全部）
+    // 凡例（印刷版と同じ。2026-11-14）：この月に出てくる液種と精米歩合
+    { const ps=[], rs=[];
+      dataDays.forEach(d=>(S.days[d].e||[]).forEach(e=>{ if(ps.indexOf(e[4])<0) ps.push(e[4]); if(rs.indexOf(Number(e[2]))<0) rs.push(Number(e[2])); }));
+      const pk = Object.keys(MFG_PROD_COLORS).filter(p=>ps.indexOf(p)>=0).concat(ps.filter(p=>!MFG_PROD_COLORS[p]));
+      if(pk.length) h += `<div class="yo-lg"><b>液種</b>` + pk.map(p=>{ const c=MFG_PROD_COLORS[p]||['#eeeeee','#333']; return `<span class="lg" style="background:${c[0]};color:${c[1]}">${esc(p)}</span>`; }).join('')
+        + `<span class="sp">｜</span><b>精米歩合</b>` + rs.sort((a,b)=>b-a).map(r=>ratioBadge(r)).join('') + `</div>`; }
 
     const cols = S.cols;
     const use = cols.map((c,i)=>i).filter(i=>YO_G==='all'||cols[i][1]===YO_G);
-    h += `<div class="kn-wrap tall"><table class="sn"><thead><tr><th class="dt">日</th>`;
-    use.forEach(i=>{ const c=cols[i]; h += `<th class="${c[1]==='麹'?'kj':'kk'}">${c[1]==='麹'?'麹':'掛'}<br>${esc(c[0])}</th>`; });
-    h += `<th class="tt">総米</th></tr></thead><tbody>`;
+    const YO_LB = {'酛':'酒母','添':'初添','仲':'仲添','留':'留添'};
+    const moCi = cols.findIndex(c=>c[1]==='掛' && (c[0]==='酛'||c[0]==='酒母'));   // 掛米の酒母（酵母の枠を出すマス）
+    const nK = use.filter(i=>cols[i][1]==='麹').length, nH = use.length - nK;
+    h += `<div class="kn-wrap tall"><table class="sn"><thead><tr class="g"><th class="dt" rowspan="2">${Number(mm)}月</th>`
+      + (nK?`<th class="kj" colspan="${nK}">麹米</th>`:'') + (nH?`<th class="kk" colspan="${nH}">掛米</th>`:'')
+      + `<th class="tt" rowspan="2">総米</th></tr><tr class="s">`;
+    use.forEach(i=>{ const c=cols[i]; h += `<th class="${c[1]==='麹'?'kj':'kk'}">${esc(YO_LB[c[0]]||c[0])}</th>`; });
+    h += `</tr></thead><tbody>`;
+    const monCol = use.map(()=>0);
     for(const d of days){
       const x = S.days[d] || {e:[]}, dd = dparse(d), w = dd.getDay();
       if(!(x.e||[]).length){
         h += `<tr data-yd="${d}" class="none ${d===YO_SEL?'sel':''} ${w===0?'sun':''} ${w===6?'sat':''} ${d===dtoday()?'tdy':''}">
-          <td class="dt">${dd.getDate()}<span class="wd">${WD[w]}</span></td>
-          <td class="nw" colspan="${use.length}">洗米なし</td><td class="tt">—</td></tr>`;
+          <td class="dt">${String(dd.getDate()).padStart(2,'0')}<span class="wd">${WD[w]}</span></td>
+          ${use.map(ci=>`<td class="c e${ci===moCi?' mo':''}"></td>`).join('')}<td class="tt"></td></tr>`;
         continue;
       }
       const byCi = {}; (x.e||[]).forEach(e=>{ (byCi[e[0]] = byCi[e[0]] || []).push(e); });
       const tot = (x.e||[]).reduce((a,e)=>a+Number(e[6]||0),0);
       const shown = use.reduce((a,i)=>a+((byCi[i]||[]).reduce((b,e)=>b+Number(e[6]||0),0)),0);
       h += `<tr data-yd="${d}" class="${d===YO_SEL?'sel':''} ${w===0?'sun':''} ${w===6?'sat':''} ${d===dtoday()?'tdy':''}">
-        <td class="dt">${dd.getDate()}<span class="wd">${WD[w]}</span></td>`;
-      use.forEach(ci=>{
-        const list = byCi[ci];
-        if(!list){ h += `<td class="c e"></td>`; return; }
-        h += `<td class="c">` + list.map(e=>{
-          const [,rice,ratio,code,prod,no,kg0] = e; const kg = Number(kg0||0);
-          const y = yeastOf(prod, no);
-          return `<div class="r1"><span class="nm">${esc(rice)}</span>${ratioBadge(ratio)}</div>
-            <div class="r2">${prodChip(prod)}</div>
-            <div class="r3">${code?esc(code):''}<b>${no}</b> ${kgfmt(kg)}</div>
-            <div class="r4">${y?esc(y):'<span class="none">酵母 未定</span>'}</div>`;
-        }).join('<div style="border-top:1px dotted #c9c2b2;margin:2px 0"></div>') + `</td>`;
+        <td class="dt">${String(dd.getDate()).padStart(2,'0')}<span class="wd">${WD[w]}</span></td>`;
+      use.forEach((ci,k)=>{
+        const list = byCi[ci], mo = ci===moCi;
+        if(!list){ h += `<td class="c e${mo?' mo':''}"></td>`; return; }
+        list.forEach(e=>{ monCol[k] += Number(e[6]||0); });
+        const last = MFG_PROD_COLORS[list[list.length-1][4]] || ['#eeeeee','#333'];
+        h += `<td class="c${mo?' mo':''}" style="background:${last[0]}">` + list.map(e=>yoCellN(e, mo)).join('') + `</td>`;
       });
       h += `<td class="tt">${kgfmt(shown)}${shown!==tot?`<div style="font-size:9.5px;font-weight:400;color:var(--sub)">計${kgfmt(tot)}</div>`:''}</td></tr>`;
     }
+    h += `<tr class="mt"><td class="dt">月計</td>${monCol.map(v=>`<td>${v?kgfmt(v):''}</td>`).join('')}<td>${kgfmt(monTot)}</td></tr>`;
     h += `</tbody></table></div>
-      <p class="tl-note">各マスは上から <b>品種＋精米歩合</b>／<b>液種</b>／<b>記号・仕込番号・kg</b>／<b style="color:#0f4a48">酵母</b> の4段です。色は紙の予定表と同じ。
-        「酵母 未定」は造りex＼酵母割当 の表に書くとここに出ます。<b>行を押す</b>と、その日の詳しい内容（袋数つき）が下に出ます。
+      <p class="tl-note">印刷用の洗米表と同じ形です。各マスは上から <b>〇仕込番号・液種・記号</b>／<b>品種＋精米歩合</b>／<b>数量（kg）</b>。
+        掛米の酒母のマスの右の白枠が<b>酵母</b>（点線の枠は未定。醪管理R8BYの酵母の欄に入れるとここに出ます）。<b>行を押す</b>と、その日の詳しい内容（袋数つき）が下に出ます。
         <br>スマホを<b>横にする</b>と、画面いっぱいに広げて見られます。</p>
       <div id="yoDay"></div>`;
     app.innerHTML = h + mfgSrcInfo('senmai','造りex 洗米予定表');
@@ -2038,6 +2091,27 @@ function yoteiScreen(){
     if(YO_SEL) yoDay(YO_SEL);
   };
   mfgOpen(render);
+}
+/* 洗米予定表の1つの仕込（印刷版スタイルNと同じ。2026-11-14） */
+function yoCellN(e, mo){
+  const [,rice,ratio,code,prod,no,kg0] = e; const kg = Number(kg0||0);
+  const c = MFG_PROD_COLORS[prod] || ['#eeeeee','#333'];
+  let h = `<div class="yn" style="background:${c[0]}"><div class="t1"><span class="cno">${esc(String(no))}</span>`
+    + `<span class="np${String(prod).length>=5?' lg':''}" style="color:${c[1]}">${esc(prod)}</span><span class="nc">${code?esc(code):''}</span></div>`
+    + `<div class="l1"><span class="rc">${esc(rice)}</span>${ratioBadge(ratio)}</div>`
+    + `<div class="t3"><b>${kgfmt(kg)}</b><small>kg</small></div>`;
+  if(mo){
+    const y = yeastOf(prod, no);
+    if(y){
+      const parts = String(y).split('+');
+      h += `<div class="ys">` + parts.map(t=>{
+        const w = [...t].reduce((a,ch)=>a+(ch.charCodeAt(0)>0x2E80?1:0.58),0);
+        const px = Math.min(parts.length===1?15:12.5, 36/Math.max(w,1));
+        return `<div style="font-size:${px.toFixed(1)}px">${esc(t)}</div>`;
+      }).join('') + `</div>`;
+    } else h += `<div class="ys no"><span>酵母</span></div>`;
+  }
+  return h + `</div>`;
 }
 /* 行を押したときに出す、その日のまとめ */
 function yoDay(d){
@@ -9385,6 +9459,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-14-1','🌾','洗米予定表','米管理の洗米予定表の表示を、印刷用の洗米表と同じ形にしました。マスの背景は液種の色、上段に〇仕込番号・液種・記号、中段に品種と精米歩合、下段に数量（kg）。掛米の酒母のマスには右に酵母の枠（未定は点線）。見出しは麹米／掛米の2段、表の上に液種と精米歩合の凡例、一番下に月計の行を付けました。'],
   ['2026-11-12-1','🍶','仕込み','仕込みの表の BMD の下に「溶解度・発酵度・発酵/溶解」の3行を足しました（関東信越国税局の講話会で紹介された名古屋国税局「もろみえーる」と同じ式）。汲水歩合（追水込み）をそろえて計算するので、汲水の違う仕込みや昨年とも同じ物差しで比べられます。昨年の同じ液種の真ん中半分から外れた数字はオレンジ（上）・青（下）になり、押すと「何が・なぜ・どうする」が出ます（順号の欄の ⚠ 札も同じ）。3行の背景に溶解度の線（緑）と昨年の帯（灰色）。12日目までは3行に収まり、その後は上へ伸びます。kagayaki・純米大吟醸は金賞酒の帯も出します。'],
   ['2026-11-10-9','🟫','黒粕の判定','黒粕かどうかは「仲・留」の麹で決めるようにしました。酛・添だけ白夜・清麗を使い、仲・留が別の麹の仕込み（ぽたり五百万石など）は黒粕になりません（札・粕の報告とも）。'],
   ['2026-11-10-8','🧫','酒母','酒母の画面でも「📋 表」「🍶 仕込み」を上のアイコンにしました（仕込みの画面と同じ形）。'],
