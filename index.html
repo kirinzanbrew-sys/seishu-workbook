@@ -9474,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-15-2','🧴','濾過・調合・火入','濾過・火入の画面の上を「🧴濾過 › ⚗️調合 › 🔥火入」のアイコンにしました。濾過は、上槽したタンクを選んで「まとめて1本へ」か「それぞれ別のタンクへ」を選び、移送先と尺を入れます（入れる前に見込みの尺・空きが出ます）。調合は新しく足しました。使うタンクのいまの尺から、移送先ごとに「どのタンクから何ℓ」を入れると、残りの量・抜いた後の尺・移送先の見込みの尺が出ます。'],
   ['2026-11-15-1','🧹','麹','麹の上段に「掃」のアイコンを足しました。押すと麹室の清掃・洗浄の1週間の表（昨年の「洗浄」シートと同じ項目：毎日・決まった曜日・月◯回・12月末）が開きます。マスを押すと「済」になり、押した人が残ります（もう一度押すと取り消し）。アイコンの赤い数字は今日まだ済んでいない数で、16時を過ぎて残っていると橙で点滅、全部済むと緑になります。麹箱の洗浄・エアシューターの洗浄は 📅 で日にちを決められます。'],
   ['2026-11-14-4','💧','仕込み','仕込みの表で、きょうの「発酵/溶解」が昨年の同じ液種・同じ日の真ん中より上なのに、追水が配合の規定まで入っていないとき、きょうの追水のマスをオレンジにしました。Be が切れた（日本酒度になった）仕込みには出しません。'],
   ['2026-11-14-3','🍶','仕込み・酒母','PC・Padで、仕込みと酒母の上のアイコンを半分くらいの高さの小さな札（絵と文字を1行）にしました。酒母の「分析者」の大きな帯もやめて、仕込みと同じ「👤 入力者」のアイコンにしました（会社PCなどの共用端末だけ）。スマホの丸アイコンは今までどおりです。'],
@@ -17893,5 +17894,328 @@ function kjsPlanPop(id){
 }
 </script>
 <!-- /kjs1115 -->
+<!-- rkmv1115 -->
+<script>
+/* ================= 🧴 濾過 › ⚗️ 調合 › 🔥 火入（2026-11-15 泰広さん指示） =================
+   見本：Claude outputs/製造ツール_濾過_移送と尺_見本.html → 製造ツール_濾過2パターンと調合_見本.html（調合は案2に決定）
+   ・濾過・火入の画面の上のタブを、作業の順に「🧴濾過 › ⚗️調合 › 🔥火入」のアイコンに（RK_TAB に '調合' を足す）
+   ・濾過の入力窓（rkDialog の '濾過' だけ差し替え。火入は今までどおり）
+       上槽済のタンク（📝記録の上槽先＝上槽記録 dests の t・L）を複数選ぶ。2パターン：
+       ① まとめて1本へ（例：仕込1・2 → 1本）…移送先1本。上槽の合計 → 見込み尺・空き。入れた順に「入れた後の尺」（途中は空でもよい。最後の尺で実際の量）
+       ② それぞれ別のタンクへ（例：ぽたり）…上槽タンクごとに移送先と実際の尺。見込み尺も出す
+       保存：今までどおり表「濾過火入」に 順号ごとの行（予定日・済んだ日・担当・タンク＝移送先・数量L＝実際の量・炭・メモ → カレンダー・出勤表もそのまま）
+             ＋ 表「醪作業」 name＝濾過移送（no＝順号を・でつないだもの、memo＝JSON {v,nos,S,out}）。out＝移送先ごとの {t,mm,L,lq}（調合の「いまの尺」に使う）
+   ・調合（案2：移送先ごとのカード、事前の計算はℓ）
+       ① 使うタンク：いまの尺（濾過・前の調合で分かっている尺を初めから入れる。打ち直せる）→ いまのℓ・残りℓ・抜いた後の尺
+       ② 移送先ごとのカード：「どのタンクから何ℓ」（全量／残り ボタン）→ 合計ℓ・見込み尺、入れた後の実際の尺 → 実際のℓと見込みとの差
+       保存：表「醪作業」 name＝調合（liquid＝調合の名前、tank＝移送先、plan・date、memo＝JSON）。カレンダー・出勤表には入れない
+   控え：seishu-workbook_github\_src_rkmv1115.js　差し込み：_濾過調合火入_20261115.py（<!-- rkmv1115 --> ブロック、</body> の直前） */
+const RKMV_REC='濾過移送', CH_NAME='調合';
+const RK_ICONS=[['濾過','🧴'],['調合','⚗️'],['火入','🔥']];
+const rkN=v=>{ if(v===''||v===null||v===undefined) return null; const n=typeof pnum==='function'?pnum(String(v)):Number(v); return (n===null||isNaN(n))?null:n; };
+const rkL0=v=>v===null||v===undefined||isNaN(v)?'—':Math.round(v).toLocaleString('ja-JP');
+const rkT=t=>String(t==null?'':t).normalize('NFKC').replace(/^T/i,'').trim();
+/* 尺→ℓ（照合済みの容器だけ） */
+function rkVol(T,mm){ try{ return ydVol(rkT(T),mm); }catch(e){ return null; } }
+/* ℓ→尺。入りきらない＝-1、照合できない容器＝null */
+function rkMm(T,L){
+  if(L===null||L===undefined||isNaN(L)||typeof tankByNo!=='function') return null;
+  const t=tankByNo(rkT(T)); if(!t||t.verify||t.blocked||!t.checked) return null;
+  if(L>t._v[0]) return -1; const m=mmAt(t,L); return m===null?null:Math.round(m);
+}
+const rkMmTxt=(T,L)=>{ if(!L) return '—'; const m=rkMm(T,L); return m===-1?'<span class="ng">入りきらない</span>':m===null?'（早見表なし）':'尺 '+rkL0(m); };
+const rkFull=T=>{ try{ const t=tankByNo(rkT(T)); return t?t.f:null; }catch(e){ return null; } };
+function rkKeepFocus(box,draw){ return e=>{ const k=e.target.dataset.k, p=e.target.selectionStart; draw(); const n=box.querySelector(`[data-k="${k}"]`); if(n){ n.focus(); try{ n.setSelectionRange(p,p); }catch(_){} } }; }
+function rkmvItems(){ const L=(MW.items||[]).filter(x=>!x.deleted&&x.name===RKMV_REC); L.sort((a,b)=>String(a.upd||a.at||'').localeCompare(String(b.upd||b.at||''))); return L; }
+function rkmvFind(no){ const L=rkmvItems(); for(let i=L.length-1;i>=0;i--){ const j=ydJ(L[i]); if(j&&(j.nos||[]).map(String).includes(String(no))) return {it:L[i], j}; } return null; }
+function chItems(){ return (MW.items||[]).filter(x=>!x.deleted&&x.name===CH_NAME); }
+
+/* ---- 上のアイコン（濾過 › 調合 › 火入） ---- */
+function rkIcBar(){
+  let all=[]; try{ all=rkAll(); }catch(e){}
+  const n=k=>all.reduce((a,o)=>a+o.warn.filter(w=>w.k===k).length,0);
+  return `<div class="rk-ic">${RK_ICONS.map(([k,e],i)=>`${i?'<span class="ar">›</span>':''}<button data-rk="${k}" class="${RK_TAB===k?'on':''}"><i>${e}</i>${k}${k!=='調合'&&n(k)?`<b>${n(k)}</b>`:''}</button>`).join('')}</div>`;
+}
+function rkIcBind(){ app.querySelectorAll('.rk-ic [data-rk]').forEach(b=>b.onclick=()=>{ RK_TAB=b.dataset.rk; lsSet('rk.tab',RK_TAB); rkDraw(); }); }
+const _rkDraw0=rkDraw;
+rkDraw=function(){
+  if(RK_TAB==='調合'){ chDraw(); return; }
+  _rkDraw0();
+  const t=app.querySelector('.rk-tabs'); if(t){ t.outerHTML=rkIcBar(); rkIcBind(); }
+};
+const _rokaScreen0=rokaScreen;
+rokaScreen=async function(){
+  try{ loadTanks(); }catch(e){}
+  try{ mwLoad(false).then(()=>{ if(RK_TAB==='調合' && document.getElementById('chBox')) chDraw(); }); }catch(e){}
+  return _rokaScreen0();
+};
+
+/* ================= 🧴 濾過の入力窓 ================= */
+const _rkDialog0=rkDialog;
+rkDialog=function(K,nos){ if(K!=='濾過') return _rkDialog0(K,nos); rkfDialog(nos||[]); };
+async function rkfDialog(nos){
+  const st=dpState(); if(!st) return;
+  try{ await Promise.all([loadTanks(), mwLoad(false)]); }catch(e){}
+  const today=dtoday(), K='濾過';
+  const cand=rkAll().filter(o=>o.J&&o.J<=dadd(today,21)&&o.J>=dadd(today,-60));
+  nos.forEach(n=>{ if(!cand.some(o=>String(o.m.no)===String(n))){ const m=(st.master||[]).find(x=>String(x.no)===String(n)); if(m) cand.push(rkOf(m,today)); } });
+  cand.sort((a,b)=>Number(a.m.no)-Number(b.m.no));
+  /* 上槽タンク（上槽先）：key＝順号:タンク。上槽先を入れていない仕込は 順号: だけ（量は不明） */
+  const SRC={}, G=cand.map(o=>{ const m=o.m; let D=[]; try{ D=ydDests(m); }catch(e){}
+    const keys=(D.length?D:[{t:'',L:null,mm:''}]).map(d=>{ const t=rkT(d.t), k=m.no+':'+t; const L=rkN(d.L)!==null?rkN(d.L):(t&&d.mm?rkVol(t,d.mm):null);
+      SRC[k]={k, no:String(m.no), t, L, mm:d.mm||'', liq:m.liquid||'', J:o.J}; return k; });
+    return {no:String(m.no), liq:m.liquid||'', J:o.J, done:o.roD, keys}; });
+  const rec=nos.length?rkmvFind(nos[0]):null;
+  const first=nos.length?rkRow(K,nos[0]):null;
+  const S=(rec&&rec.j.S)?JSON.parse(JSON.stringify(rec.j.S)):{ mode:lsGet('rk.mode',1), sel:[], dst:'', mm:{}, pd:{}, pm:{} };
+  S.sel=(S.sel||[]).filter(k=>SRC[k]); ['mm','pd','pm'].forEach(x=>S[x]=S[x]||{});
+  if(!S.sel.length) G.filter(g=>nos.map(String).includes(g.no)).forEach(g=>g.keys.forEach(k=>S.sel.push(k)));
+  if(!S.dst && first && first.tank && !/・/.test(first.tank)) S.dst=rkT(first.tank);
+  /* よく使う移送先（これまでの濾過の移送先） */
+  const recent=[]; rkmvItems().slice().reverse().forEach(it=>{ const j=ydJ(it); (j&&j.out||[]).forEach(o=>{ const t=rkT(o.t); if(t&&!recent.includes(t)) recent.push(t); }); });
+  (RK.items||[]).filter(x=>x.name==='濾過'&&x.tank).forEach(x=>String(x.tank).split(/[・,、\s]+/).map(rkT).forEach(t=>{ if(t&&/^\d+$/.test(t)&&!recent.includes(t)) recent.push(t); }));
+  const memo0=first?String(first.memo||''):'', mm0=memo0.match(/^(?:炭)\s*([\d.]+)\S*\s*/), num0=mm0?mm0[1]:'', rest0=mm0?memo0.slice(mm0[0].length):memo0;
+  const d=document.createElement('div'); d.className='rk-dlg';
+  d.innerHTML=`<div class="rk-in"><div class="rk-hd">🧴 濾過の予定・記録<button class="x" data-x>×</button></div>
+    <div id="rkmvBox"></div>
+    <label class="rk-f">予定日<input type="date" id="rkPlan" value="${first&&first.plan||''}"></label>
+    <label class="rk-f">済んだ日<input type="date" id="rkDate" value="${first&&first.date||''}"><button type="button" class="rc-ghost" id="rkToday">きょう</button></label>
+    <label class="rk-f">担当<select id="rkStaff"><option value="">（出勤表に入れない）</option>${rkStaffList().map(x=>`<option ${nrmS(x)===nrmS(first&&first.staff||lsGet('rk.staff',''))?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
+    <div class="rk-lim" id="rkSh"></div>
+    <label class="rk-f">炭 kg<input id="rkNum" inputmode="decimal" value="${esc(num0)}"></label>
+    <label class="rk-f">メモ<input id="rkMemo" value="${esc(rest0)}"></label>
+    <div class="rk-lim" id="rkLim"></div>
+    <div class="rc-actions"><button class="rc-btn" id="rkSave">保存</button>${first?`<button class="rc-ghost" id="rkDel" style="color:var(--ng)">消す</button>`:''}</div></div>`;
+  document.body.appendChild(d);
+  const box=d.querySelector('#rkmvBox');
+  const close=()=>d.remove();
+  d.addEventListener('click',e=>{ if(e.target===d||e.target.dataset.x!==undefined) close(); });
+  const selNos=()=>{ const a=[]; S.sel.forEach(k=>{ const n=SRC[k].no; if(!a.includes(n)) a.push(n); }); return a; };
+  const lim=()=>{ const os=selNos().map(n=>cand.find(o=>String(o.m.no)===n)).filter(Boolean);
+    const L=os.map(o=>dadd(o.J||today,RK_DAYS.濾過)).sort()[0]; const p=$('#rkPlan').value;
+    $('#rkLim').innerHTML=L?`上槽から${RK_DAYS.濾過}日：<b>${rcMD(L)}</b> までに${p&&p>L?' <span style="color:var(--ng)">← 予定が期限を過ぎています</span>':''}`:''; };
+  function draw(){
+    let h=`<div class="rkmv-seg"><button data-md="1" class="${S.mode==1?'on':''}">まとめて1本へ<small>例：仕込1・2 → 1本</small></button><button data-md="2" class="${S.mode==2?'on':''}">それぞれ別のタンクへ<small>例：ぽたり</small></button></div>
+      <div class="rk-lb">① 濾過する上槽済のタンク（複数選べます。押した順に並びます）</div>`;
+    h+=G.map(g=>`<div class="rkmv-grp"><div class="g">${g.no}号 ${esc(g.liq)}<small>上槽 ${rcMD(g.J)}${g.done?'・濾過済 '+rcMD(g.done):''}</small></div><div class="rk-nos">${g.keys.map(k=>{ const s=SRC[k]; return `<button type="button" data-sk="${k}" class="${S.sel.includes(k)?'on':''}">${s.t?'T'+esc(s.t):'上槽先 未入力'}<small>${s.L!==null?rkL0(s.L)+'L':(s.t?'量 —':'📝記録で上槽先を入れると量が出ます')}</small></button>`; }).join('')}</div></div>`).join('')||'<div class="tl-note">対象の仕込がありません</div>';
+    const sel=S.sel.map(k=>SRC[k]), tot=sel.reduce((a,s)=>a+(s.L||0),0), unk=sel.some(s=>s.L===null);
+    if(S.mode==1){
+      h+=`<div class="rk-lb">② 移送先のタンク（1本）</div><div class="rkmv-dsts">${recent.slice(0,10).map(t=>`<button type="button" data-dt="${t}" class="${S.dst===t?'on':''}">T${t}</button>`).join('')}<input id="rkmvDst" inputmode="numeric" placeholder="番号" data-k="dst" value="${recent.slice(0,10).includes(S.dst)?'':esc(S.dst)}"></div>`;
+      if(S.dst&&sel.length){
+        const f=rkFull(S.dst), sp=f!==null?f-tot:null;
+        h+=`<div class="rkmv-plan">見込み：上槽 ${sel.map(s=>rkL0(s.L)).join('＋')} ＝ <b>${rkL0(tot)} L</b>${unk?'（量の分からないタンクあり）':''}<br>→ T${esc(S.dst)} の見込み <b>${rkMmTxt(S.dst,tot)}</b>${sp!==null?`　空き ${sp>=0?rkL0(sp)+' L':'<span class="ng">'+rkL0(-sp)+' L 足りない</span>'}`:''}</div>`;
+        h+=`<div class="rkmv-box"><div class="t">T${esc(S.dst)}<small>入れた順</small><span class="r">途中の尺は空でもOK</span></div>`;
+        let prev=0, ok=true, cum=0;
+        sel.forEach((s,i)=>{ const last=i===sel.length-1, m=S.mm[s.k]||'', L=rkVol(S.dst,m); cum+=s.L||0;
+          const inc=L!==null&&ok?L-prev:null;
+          const sub=L===null?'入れた後':inc!==null?(i?'＋'+rkL0(inc)+(s.L!==null?'（差 '+rkL0(inc-s.L)+'）':''):(s.L!==null?'差 '+rkL0(inc-s.L):'')):'上槽'+(i+1)+'本分との差 '+rkL0(L-cum);
+          ok=L!==null; if(L!==null) prev=L;
+          h+=`<div class="rkmv-row r1"><span class="n">${i+1}</span><span class="s"><b>${s.t?'T'+esc(s.t):'—'}</b> ${s.no}号 ${esc(s.liq)}<br><small>上槽 ${rkL0(s.L)}L</small></span><input class="in" inputmode="numeric" placeholder="${last?'最後の尺':'尺(任意)'}" data-k="m${s.k}" data-mm="${s.k}" value="${esc(m)}"><span class="v">${L!==null?rkL0(L)+'L':'—'}<small>${sub}</small></span></div>`; });
+        const FL=sel.length?rkVol(S.dst,S.mm[sel[sel.length-1].k]):null;
+        if(FL!==null) h+=`<div class="rkmv-plan">実際：T${esc(S.dst)} <b>${rkL0(FL)} L</b>${unk?'':`（見込み ${rkL0(tot)} L、差 <span class="${Math.abs(FL-tot)>tot*.03?'ng':''}">${rkL0(FL-tot)} L</span>）`}</div>`;
+        if(rkFull(S.dst)===null) h+=`<div class="rk-lim" style="color:var(--ng)">T${esc(S.dst)} は早見表にありません（尺から量を出せません）</div>`;
+        h+=`</div>`;
+      } else h+=`<div class="rk-lim">上槽タンクと移送先を選ぶと、見込みの尺が出ます。</div>`;
+    } else {
+      h+=`<div class="rk-lb">② 上槽タンクごとの移送先と尺</div><div class="rkmv-box">`;
+      sel.forEach(s=>{ const t=S.pd[s.k]||'', m=S.pm[s.k]||'', L=t?rkVol(t,m):null;
+        h+=`<div class="rkmv-one"><div class="h"><b>${s.t?'T'+esc(s.t):'—'}</b> ${s.no}号 ${esc(s.liq)}<span>上槽 ${rkL0(s.L)}L</span></div>
+          <div class="rkmv-row r2"><span class="n">→</span><input class="in t" inputmode="numeric" list="rkmvDl" placeholder="移送先" data-k="d${s.k}" data-pd="${s.k}" value="${esc(t)}"><input class="in" inputmode="numeric" placeholder="実際の尺" data-k="p${s.k}" data-pm="${s.k}" value="${esc(m)}"><span class="v">${L!==null?rkL0(L)+'L':'—'}<small>${L!==null&&s.L!==null?'差 '+rkL0(L-s.L):'入れた後'}</small></span></div>
+          <div class="rk-lim">${t?(rkFull(t)===null?`<span style="color:var(--ng)">T${esc(t)} は早見表にありません</span>`:`見込み：T${esc(t)} ${s.L!==null?'<b>'+rkMmTxt(t,s.L)+'</b>':'（上槽の量が分かりません）'}`):'移送先を入れると見込みの尺が出ます'}</div></div>`; });
+      if(!sel.length) h+=`<div class="rk-lim">上の上槽タンクを押してください</div>`;
+      h+=`</div><datalist id="rkmvDl">${recent.map(t=>`<option value="${t}">`).join('')}</datalist>`;
+    }
+    box.innerHTML=h;
+    box.querySelectorAll('[data-md]').forEach(b=>b.onclick=()=>{ S.mode=+b.dataset.md; lsSet('rk.mode',S.mode); draw(); });
+    box.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>{ const k=b.dataset.sk, i=S.sel.indexOf(k);
+      if(i<0){ S.sel.push(k); if(!S.pd[k]){ const prevK=S.sel[S.sel.length-2], pt=prevK&&S.pd[prevK]; if(pt&&/^\d+$/.test(pt)){ let n=String(+pt+1); const used=Object.values(S.pd); while(used.includes(n)&&+n<+pt+20) n=String(+n+1); if(rkFull(n)!==null) S.pd[k]=n; } } }
+      else S.sel.splice(i,1); draw(); lim(); });
+    box.querySelectorAll('[data-dt]').forEach(b=>b.onclick=()=>{ S.dst=b.dataset.dt; draw(); });
+    const di=box.querySelector('#rkmvDst'); if(di) di.oninput=e=>{ S.dst=rkT(di.value); rkKeepFocus(box,draw)(e); };
+    box.querySelectorAll('[data-mm]').forEach(x=>x.oninput=e=>{ S.mm[x.dataset.mm]=x.value; rkKeepFocus(box,draw)(e); });
+    box.querySelectorAll('[data-pd]').forEach(x=>x.oninput=e=>{ S.pd[x.dataset.pd]=rkT(x.value); rkKeepFocus(box,draw)(e); });
+    box.querySelectorAll('[data-pm]').forEach(x=>x.oninput=e=>{ S.pm[x.dataset.pm]=x.value; rkKeepFocus(box,draw)(e); });
+  }
+  draw();
+  const shChk=()=>{ const sf=$('#rkStaff').value, dd=$('#rkDate').value||$('#rkPlan').value; const el=$('#rkSh');
+    if(!sf||!dd){ el.innerHTML=sf?'':'担当を選ぶと、出勤表のその人・その日に「濾過」と入ります（会社PCが10分以内に書きます）'; return null; }
+    const c=rkShCell(sf,dd);
+    if(c===null){ el.innerHTML=`出勤表の ${esc(sf)} ${rcMD(dd)} に「濾過」と入ります（その月の出勤表がまだなら、できたときに入ります）`; return null; }
+    if(c===''||nrmS(c)===K){ el.innerHTML=`出勤表の ${esc(sf)} ${rcMD(dd)} に「濾過」と入ります`; return null; }
+    el.innerHTML=`<span style="color:var(--ng)">⚠ 出勤表の ${esc(sf)} ${rcMD(dd)} は「${esc(c)}」です。出勤表には書きません（予定だけ保存します）</span>`; return c; };
+  $('#rkPlan').onchange=()=>{ lim(); shChk(); }; $('#rkDate').onchange=shChk; $('#rkStaff').onchange=shChk; lim(); shChk();
+  $('#rkToday').onclick=()=>{ $('#rkDate').value=today; shChk(); };
+  $('#rkSave').onclick=async()=>{
+    const s=selNos(); if(!s.length){ rcToast('上槽済のタンクを選んでください',true); return; }
+    const plan=$('#rkPlan').value, date=$('#rkDate').value; if(!plan&&!date){ rcToast('予定日か済んだ日を入れてください',true); return; }
+    if(S.mode==1&&!S.dst){ rcToast('移送先のタンクを選んでください',true); return; }
+    const num=$('#rkNum').value.trim(), memo=[num?`炭${num}kg`:'', $('#rkMemo').value.trim()].filter(Boolean).join(' ');
+    const staff=$('#rkStaff').value, busy=shChk(); if(staff) lsSet('rk.staff',staff);
+    /* 移送先ごとの結果（調合の「いまの尺」に使う） */
+    const sel=S.sel.map(k=>SRC[k]), out=[]; let tank1='', qty1={};
+    if(S.mode==1){ const lk=sel[sel.length-1].k, mm=S.mm[lk]||'', L=rkVol(S.dst,mm); out.push({t:S.dst, mm, L, lq:[...new Set(sel.map(x=>x.liq))].join('・')}); tank1=S.dst; s.forEach(n=>qty1[n]=L!==null?String(L):''); }
+    else { sel.forEach(x=>{ const t=S.pd[x.k]||'', mm=S.pm[x.k]||'', L=t?rkVol(t,mm):null; if(t) out.push({t, mm, L, lq:x.liq, from:x.k}); }); }
+    const btn=$('#rkSave'); btn.disabled=true; btn.textContent='保存中…';
+    try{
+      for(const n of s){ const m=(st.master||[]).find(x=>String(x.no)===String(n))||{}; const old=rkRow(K,n);
+        let tank=tank1, qty=qty1[n]||'';
+        if(S.mode==2){ const os=sel.filter(x=>x.no===n).map(x=>({t:S.pd[x.k]||'', L:S.pd[x.k]?rkVol(S.pd[x.k],S.pm[x.k]):null})).filter(o=>o.t);
+          tank=[...new Set(os.map(o=>o.t))].join('・'); const q=os.reduce((a,o)=>a+(o.L||0),0); qty=os.length&&os.every(o=>o.L!==null)?String(q):''; }
+        const item={ id:old?old.id:'', name:K, kind:(S.mode==1&&s.length>1)?`まとめ ${s.join('・')}`:'', no:String(n), liquid:m.liquid||'', plan, date, tank, qty, memo, staff };
+        const j=await rkApi({action:'save', item, noShukkin:busy!==null}); rkKeep(j); if(j.calErr) rcToast('カレンダーに入れられませんでした：'+j.calErr,true,8000); if(j.shErr) rcToast(j.shErr,true,10000); }
+      const it={ id:rec?rec.it.id:'', name:RKMV_REC, kind:S.mode==1?'まとめ':'別々', no:s.join('・'), liquid:[...new Set(sel.map(x=>x.liq))].join('・'), tank:out.map(o=>o.t).join('・'), plan, date, memo:JSON.stringify({v:1, nos:s, S, out}) };
+      mwKeep(await mwApi({action:'save', item:it}));
+      close(); rcToast('濾過を保存しました'); rkDraw();
+    }catch(e){ btn.disabled=false; btn.textContent='保存'; rcToast(String(e.message||e),true,8000); }
+  };
+  const del=$('#rkDel'); if(del) del.onclick=async()=>{ if(!confirm(`濾過の記録（${nos.join('・')}号）を消しますか？`)) return;
+    try{ for(const n of nos){ const o=rkRow(K,n); if(o){ rkKeep(await rkApi({action:'delete', id:o.id})); } }
+      if(rec){ const rest=(rec.j.nos||[]).filter(n=>!nos.map(String).includes(String(n))&&rkRow(K,n)); if(!rest.length) mwKeep(await mwApi({action:'delete', id:rec.it.id})); }
+      close(); rcToast('消しました'); rkDraw(); }catch(e){ rcToast(String(e.message||e),true,8000); } };
+}
+
+/* ================= ⚗️ 調合（案2：移送先ごとのカード、ℓで計算） ================= */
+/* 分かっているタンクの中身（濾過の移送先・済んだ調合の結果）→ {t:{mm,L,lq,at}} 。新しい記録が勝つ */
+function chKnown(exceptId){
+  const ev=[];
+  rkmvItems().forEach(it=>{ const j=ydJ(it); (j&&j.out||[]).forEach(o=>{ if(o.t&&o.mm) ev.push({t:rkT(o.t), mm:String(o.mm), lq:o.lq||'', at:it.date||it.plan||'', u:it.upd||it.at||''}); }); });
+  chItems().filter(it=>it.id!==exceptId&&it.date).forEach(it=>{ const j=ydJ(it); if(!j) return; const d=it.date, u=it.upd||it.at||'';
+    (j.src||[]).forEach(s=>{ const L=rkVol(s.t,s.mm); if(L===null) return; const used=(j.dst||[]).reduce((a,x)=>a+(x.rows||[]).filter(r=>r.s===s.t).reduce((b,r)=>b+(rkN(r.L)||0),0),0);
+      const r=L-used, m=r>0?rkMm(s.t,r):null; if(r>0&&(m===null||m<0)) return; ev.push({t:rkT(s.t), mm:r>0?String(m):'', empty:r<=0, lq:s.lq||'', at:d, u:u+'a', est:true}); });
+    (j.dst||[]).forEach(x=>{ if(x.act) ev.push({t:rkT(x.t), mm:String(x.act), lq:it.liquid||'', at:d, u:u+'b'}); }); });
+  ev.sort((a,b)=>(a.at+a.u).localeCompare(b.at+b.u));
+  const K={}; ev.forEach(e=>{ K[e.t]=e; }); return K;
+}
+function chSum(j){ return (j.dst||[]).map(x=>`T${esc(x.t)} ← ${(x.rows||[]).filter(r=>r.s).map(r=>`T${esc(r.s)} ${rkL0(rkN(r.L))}L`).join('・')||'—'}`).join('<br>'); }
+function chDraw(){
+  const today=dtoday();
+  const L=chItems().map(it=>({it, j:ydJ(it)||{}}));
+  const plan=L.filter(o=>!o.it.date).sort((a,b)=>String(a.it.plan).localeCompare(String(b.it.plan)));
+  const done=L.filter(o=>o.it.date).sort((a,b)=>String(b.it.date).localeCompare(String(a.it.date))).slice(0,30);
+  const row=(o,cls)=>{ const it=o.it; return `<button class="rk-row ${cls}" data-ch="${it.id}"><span class="mid"><b>${esc(it.liquid||'調合')}</b><br><span class="d">${chSum(o.j)}</span></span>
+    <span class="r">${it.date?`<b class="ok">済 ${rcMD(it.date)}</b>`:it.plan?`<b class="${it.plan<today?'ng':''}">予定 ${rcMD(it.plan)}</b>`:'<b class="ng">未定</b>'}<span>押して開く ›</span></span></button>`; };
+  let h=rkIcBar()+`<div id="chBox">${MW.err?`<div class="tl-warn">${esc(MW.err)}</div>`:''}
+    <p class="tl-note" style="margin:2px 2px 8px">何本かのタンクから、1本または2本へ。<b>ℓで計算</b>して、使うタンクの残り・移送先の見込み尺を出します。</p>
+    <button class="rc-btn" id="chNew" style="width:100%;margin-bottom:10px">＋ 調合を計算・記録する</button>`;
+  h+=`<div class="shk-sec">予定<small>${plan.length}件</small></div>`+(plan.length?plan.map(o=>row(o,'plan')).join(''):`<div class="shk-none">ありません</div>`);
+  h+=`<div class="shk-sec">済（新しい順）<small>${done.length}件</small></div>`+(done.length?done.map(o=>row(o,'done')).join(''):`<div class="shk-none">ありません</div>`);
+  h+=`<div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="chReload">更新</button></div></div>`;
+  app.innerHTML=h; rkIcBind();
+  $('#chNew').onclick=()=>chDialog(null);
+  app.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>chDialog(chItems().find(x=>x.id===b.dataset.ch)||null));
+  $('#chReload').onclick=async()=>{ await mwLoad(true); chDraw(); };
+}
+async function chDialog(it){
+  try{ await loadTanks(); }catch(e){}
+  const today=dtoday(), j0=it?ydJ(it):null;
+  const S=j0?JSON.parse(JSON.stringify(j0)):{ src:[], dst:[] };
+  S.src=S.src||[]; S.dst=S.dst||[]; S.dst.forEach(x=>{ x.rows=x.rows||[]; });
+  const KN=chKnown(it&&it.id);
+  const d=document.createElement('div'); d.className='rk-dlg';
+  d.innerHTML=`<div class="rk-in"><div class="rk-hd">⚗️ 調合の計算・記録<button class="x" data-x>×</button></div>
+    <label class="rk-f">調合の名前<input id="chName" value="${esc(it&&it.liquid||'')}" placeholder="例 伝辛 調合"></label>
+    <div id="chBox2"></div>
+    <label class="rk-f">予定日<input type="date" id="chPlan" value="${it&&it.plan||''}"></label>
+    <label class="rk-f">済んだ日<input type="date" id="chDate" value="${it&&it.date||''}"><button type="button" class="rc-ghost" id="chToday">きょう</button></label>
+    <label class="rk-f">メモ<input id="chMemo" value="${esc(S.memo||'')}"></label>
+    <div class="rc-actions"><button class="rc-btn" id="chSave">保存</button>${it?`<button class="rc-ghost" id="chDel" style="color:var(--ng)">消す</button>`:''}</div></div>`;
+  document.body.appendChild(d);
+  const box=d.querySelector('#chBox2'), close=()=>d.remove();
+  d.addEventListener('click',e=>{ if(e.target===d||e.target.dataset.x!==undefined) close(); });
+  const cur=t=>{ const s=S.src.find(x=>x.t===t); return s?rkVol(t,s.mm):null; };
+  const used=t=>S.dst.reduce((a,x)=>a+x.rows.filter(r=>r.s===t).reduce((b,r)=>b+(rkN(r.L)||0),0),0);
+  const inUse=()=>[...S.src.map(x=>x.t), ...S.dst.map(x=>x.t)];
+  function addSrc(t){ t=rkT(t); if(!t||inUse().includes(t)) return; const k=KN[t]; S.src.push({t, mm:k&&k.mm||'', lq:k&&k.lq||''}); }
+  function addDst(t){ t=rkT(t); if(!t||inUse().includes(t)) return; S.dst.push({t, rows:[{s:'',L:''}], act:''}); }
+  function draw(){
+    let h=`<div class="rk-lb">① 使うタンク（いまの尺 → ℓ。分かっている尺が入っています）</div>`;
+    S.src.forEach(s=>{ const L=cur(s.t), u=used(s.t), r=L!==null?L-u:null;
+      h+=`<div class="ch-src"><span><b>T${esc(s.t)}</b><small>${esc(s.lq||'')}</small></span><span class="d">いま ${rkL0(L)} L</span><input class="in" inputmode="numeric" placeholder="尺" data-k="c${s.t}" data-cur="${s.t}" value="${esc(s.mm)}">
+        <span class="left">${r===null?(rkFull(s.t)===null?'<small class="ng">早見表なし</small>':'尺を入れてください'):r<0?`<b class="ng">${rkL0(r)} L</b><small class="ng">足りない</small>`:`残り ${rkL0(r)} L<small>${r>0?'抜いた後 '+rkMmTxt(s.t,r):'空になる'}</small>`}</span><button class="x" data-rs="${s.t}">✕</button></div>`; });
+    const sug=Object.keys(KN).filter(t=>!KN[t].empty&&!inUse().includes(t)).sort((a,b)=>+a-+b);
+    h+=`<div class="ch-add">${sug.map(t=>{ const L=rkVol(t,KN[t].mm); return `<button type="button" class="mini" data-as="${t}">＋T${t}${KN[t].lq?' '+esc(KN[t].lq):''}${L!==null?' '+rkL0(L)+'L':''}</button>`; }).join('')}<span class="ch-in"><input id="chSrcNo" inputmode="numeric" placeholder="番号"><button type="button" class="mini" id="chSrcAdd">＋使うタンク</button></span></div>`;
+    h+=`<div class="rk-lb">② 移送先ごとに「どこから何ℓ」</div>`;
+    S.dst.forEach((x,di)=>{ const tot=x.rows.reduce((a,r)=>a+(rkN(r.L)||0),0), f=rkFull(x.t), AL=rkVol(x.t,x.act);
+      h+=`<div class="rkmv-box"><div class="t">T${esc(x.t)}<small>移送先</small><span class="r">${f!==null?'満 '+rkL0(f)+' L':'<span class="ng">早見表なし</span>'} <button class="x" data-rd="${di}">✕</button></span></div>`;
+      x.rows.forEach((r,i)=>{ h+=`<div class="ch-row"><select class="in" data-rss="${di}|${i}"><option value="">使うタンク</option>${S.src.map(s=>`<option value="${s.t}" ${r.s===s.t?'selected':''}>T${esc(s.t)} ${esc(s.lq||'')}</option>`).join('')}</select><input class="in L" inputmode="numeric" placeholder="ℓ" data-k="l${di}_${i}" data-l="${di}|${i}" value="${esc(r.L)}"><button type="button" class="mini" data-all="${di}|${i}">全量</button><button type="button" class="mini" data-rest="${di}|${i}">残り</button><button class="x" data-del="${di}|${i}">✕</button></div>`; });
+      h+=`<button type="button" class="ch-addr" data-addr="${di}">＋ 使うタンクを足す</button>
+        <div class="rkmv-plan">合計 <b>${rkL0(tot)} L</b>　→ T${esc(x.t)} 見込み <b>${rkMmTxt(x.t,tot)}</b>${f!==null&&tot?`　空き ${f-tot>=0?rkL0(f-tot)+' L':'<span class="ng">'+rkL0(tot-f)+' L 足りない</span>'}`:''}</div>
+        <div class="ch-act"><span>入れた後の実際の尺</span><input class="in" inputmode="numeric" data-k="a${di}" data-act="${di}" value="${esc(x.act||'')}"><span>${AL!==null?`<b>${rkL0(AL)} L</b>（見込みとの差 <span class="${tot&&Math.abs(AL-tot)>tot*.02?'ng':''}">${rkL0(AL-tot)}</span>）`:''}</span></div></div>`; });
+    h+=`<div class="ch-add"><span class="ch-in"><input id="chDstNo" inputmode="numeric" placeholder="番号"><button type="button" class="mini" id="chDstAdd">＋移送先タンク</button></span></div>
+      <div class="rk-lim">「全量」＝そのタンクのいまの量全部／「残り」＝ほかの移送先に割り当てた分を引いた残り全部。</div>`;
+    box.innerHTML=h;
+    const kf=rkKeepFocus(box,draw), g=v=>{ const [a,b]=v.split('|'); return S.dst[+a].rows[+b]; };
+    box.querySelectorAll('[data-cur]').forEach(x=>x.oninput=e=>{ S.src.find(s=>s.t===x.dataset.cur).mm=x.value; kf(e); });
+    box.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{ S.src=S.src.filter(s=>s.t!==b.dataset.rs); draw(); });
+    box.querySelectorAll('[data-as]').forEach(b=>b.onclick=()=>{ addSrc(b.dataset.as); draw(); });
+    box.querySelector('#chSrcAdd').onclick=()=>{ const v=box.querySelector('#chSrcNo').value; if(rkFull(v)===null){ rcToast(`T${rkT(v)} は早見表にありません`,true); return; } addSrc(v); draw(); };
+    box.querySelector('#chDstAdd').onclick=()=>{ const v=box.querySelector('#chDstNo').value; if(rkFull(v)===null){ rcToast(`T${rkT(v)} は早見表にありません`,true); return; } addDst(v); draw(); };
+    box.querySelectorAll('[data-rd]').forEach(b=>b.onclick=()=>{ S.dst.splice(+b.dataset.rd,1); draw(); });
+    box.querySelectorAll('[data-rss]').forEach(x=>x.onchange=()=>{ g(x.dataset.rss).s=x.value; draw(); });
+    box.querySelectorAll('[data-l]').forEach(x=>x.oninput=e=>{ g(x.dataset.l).L=x.value; kf(e); });
+    box.querySelectorAll('[data-all]').forEach(b=>b.onclick=()=>{ const r=g(b.dataset.all); if(!r.s){ rcToast('使うタンクを選んでください',true); return; } const L=cur(r.s); if(L!==null){ r.L=String(L); draw(); } });
+    box.querySelectorAll('[data-rest]').forEach(b=>b.onclick=()=>{ const r=g(b.dataset.rest); if(!r.s){ rcToast('使うタンクを選んでください',true); return; } const L=cur(r.s); if(L!==null){ r.L=String(Math.max(0,L-used(r.s)+(rkN(r.L)||0))); draw(); } });
+    box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ const [a,i]=b.dataset.del.split('|'); S.dst[+a].rows.splice(+i,1); draw(); });
+    box.querySelectorAll('[data-addr]').forEach(b=>b.onclick=()=>{ S.dst[+b.dataset.addr].rows.push({s:'',L:''}); draw(); });
+    box.querySelectorAll('[data-act]').forEach(x=>x.oninput=e=>{ S.dst[+x.dataset.act].act=x.value; kf(e); });
+  }
+  draw();
+  $('#chToday').onclick=()=>{ $('#chDate').value=today; };
+  $('#chSave').onclick=async()=>{
+    if(!S.dst.length){ rcToast('移送先のタンクを入れてください',true); return; }
+    const plan=$('#chPlan').value, date=$('#chDate').value; if(!plan&&!date){ rcToast('予定日か済んだ日を入れてください',true); return; }
+    S.memo=$('#chMemo').value.trim();
+    const bad=S.src.filter(s=>{ const L=cur(s.t); return L!==null&&L-used(s.t)<0; });
+    if(bad.length&&!confirm(`${bad.map(s=>'T'+s.t).join('・')} の量が足りません。このまま保存しますか？`)) return;
+    const name=$('#chName').value.trim()||(()=>{ const l=[...new Set(S.src.map(s=>s.lq).filter(Boolean))]; return (l.join('・')||'')+' 調合'; })();
+    const btn=$('#chSave'); btn.disabled=true; btn.textContent='保存中…';
+    try{
+      const item={ id:it?it.id:'', name:CH_NAME, kind:date?'済':'予定', no:'', liquid:name, tank:S.dst.map(x=>x.t).join('・'), plan, date, memo:JSON.stringify(S) };
+      mwKeep(await mwApi({action:'save', item}));
+      close(); rcToast('調合を保存しました'); chDraw();
+    }catch(e){ btn.disabled=false; btn.textContent='保存'; rcToast(String(e.message||e),true,8000); }
+  };
+  const del=$('#chDel'); if(del) del.onclick=async()=>{ if(!confirm('この調合の記録を消しますか？')) return;
+    try{ mwKeep(await mwApi({action:'delete', id:it.id})); close(); rcToast('消しました'); chDraw(); }catch(e){ rcToast(String(e.message||e),true,8000); } };
+}
+(function(){ const s=document.createElement('style'); s.textContent=`
+.rk-ic{display:flex;gap:6px;align-items:center;justify-content:center;margin:4px 0 10px}
+.rk-ic button{position:relative;width:84px;padding:6px 0 5px;border:1px solid var(--line);border-radius:14px;background:#fff;font:inherit;font-size:12.5px;font-weight:700;color:var(--navy);line-height:1.2}
+.rk-ic button i{display:block;font-style:normal;font-size:26px;line-height:1.15}
+.rk-ic button.on{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:0 2px 6px rgba(31,58,95,.35)}
+.rk-ic button b{position:absolute;top:-6px;right:-4px;background:var(--ng);color:#fff;border-radius:999px;font-size:11px;padding:1px 6px}
+.rk-ic .ar{color:#aab;font-size:15px}
+.rkmv-seg{display:flex;gap:6px;margin:6px 0 4px}.rkmv-seg button{flex:1;padding:8px 4px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:13px;font-weight:700;color:var(--sub);line-height:1.25}
+.rkmv-seg button.on{background:#e8eef6;border:2px solid var(--navy);color:var(--navy)}.rkmv-seg button small{display:block;font-weight:400;font-size:10px}
+.rkmv-grp{background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 8px;margin-bottom:6px}
+.rkmv-grp .g{font-size:12px;color:var(--navy);font-weight:700;margin-bottom:4px}.rkmv-grp .g small{color:var(--sub);font-weight:400;margin-left:4px}
+.rkmv-dsts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.rkmv-dsts button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 9px;font:inherit;font-size:15px;font-weight:800;color:var(--navy)}
+.rkmv-dsts button.on{background:var(--navy);color:#fff}
+.rkmv-dsts input{width:76px;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:16px}
+.rkmv-plan{background:#eef4fa;border:1px solid #c9d8e8;border-radius:10px;padding:7px 9px;margin-top:8px;font-size:13px;line-height:1.6}.rkmv-plan b{color:var(--navy);font-size:15px}
+.rkmv-box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;margin:8px 0}
+.rkmv-box .t{display:flex;align-items:baseline;gap:6px;font-weight:800;color:var(--navy);font-size:16px}.rkmv-box .t small{font-size:11px;color:var(--sub);font-weight:400}.rkmv-box .t .r{margin-left:auto;font-size:11px;color:var(--sub);font-weight:400}
+.rkmv-row{display:grid;gap:6px;align-items:center;margin-top:6px}
+.rkmv-row.r1{grid-template-columns:16px 1fr 84px 92px}.rkmv-row.r2{grid-template-columns:16px 1fr 84px 92px}
+.rkmv-row .n{font-size:11px;color:var(--sub);text-align:center}.rkmv-row .s{font-size:13px}.rkmv-row .s b{color:var(--navy)}.rkmv-row .s small{color:var(--sub)}
+.rkmv-row .v,.ch-act .v{text-align:right;font-size:14px;font-weight:700;color:var(--navy);line-height:1.15}.rkmv-row .v small{display:block;font-size:10px;font-weight:400;color:var(--sub)}
+.rkmv-one{border-bottom:1px dashed var(--line);padding:6px 0}.rkmv-one:last-of-type{border-bottom:0}
+.rkmv-one .h{display:flex;gap:6px;align-items:baseline;font-size:13px}.rkmv-one .h b{color:var(--navy);font-size:15px}.rkmv-one .h span{margin-left:auto;font-size:11px;color:var(--sub)}
+.rk-dlg .in{width:100%;box-sizing:border-box;padding:8px 5px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-family:inherit;background:#fffbe6;text-align:right;min-width:0}
+.rk-dlg .in.L{background:#eef7ee}.rk-dlg .in.t{background:#fff}.rk-dlg select.in{background:#fff;text-align:left}
+.rk-dlg .ng{color:var(--ng);font-weight:700}
+.ch-src{display:grid;grid-template-columns:54px 1fr 76px 104px 18px;gap:6px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:9px;padding:5px 7px;margin-top:5px;font-size:12px}
+.ch-src b{font-size:16px;color:var(--navy)}.ch-src small{display:block;font-size:10px;color:var(--sub)}.ch-src .d{color:var(--sub);font-size:11px}
+.ch-src .left{text-align:right;line-height:1.2}.ch-src .left small{font-size:10px}
+.rk-dlg .x{border:0;background:none;color:#aaa;font-size:18px;padding:0}
+.ch-add{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;align-items:center}
+.rk-dlg .mini{border:1px solid #9fb3c8;background:#f5f8fb;color:var(--navy);border-radius:7px;font-size:12px;padding:6px 6px;font-family:inherit;white-space:nowrap}
+.ch-in{display:inline-flex;gap:4px}.ch-in input{width:70px;padding:6px;border:1px solid var(--line);border-radius:7px;font-size:16px}
+.ch-row{display:grid;grid-template-columns:1fr 90px 46px 46px 18px;gap:5px;align-items:center;margin-top:6px}
+.ch-addr{display:block;width:100%;margin-top:7px;border:1px dashed #9fb3c8;background:#f5f8fb;color:var(--navy);border-radius:8px;padding:7px;font-size:13px;font-weight:700;font-family:inherit}
+.ch-act{display:grid;grid-template-columns:auto 90px 1fr;gap:6px;align-items:center;margin-top:7px;font-size:12px;border-top:1px dashed var(--line);padding-top:7px}`; document.head.appendChild(s); })();
+</script>
+<!-- /rkmv1115 -->
 </body>
 </html>
