@@ -9474,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-15-1','🧹','麹','麹の上段に「掃」のアイコンを足しました。押すと麹室の清掃・洗浄の1週間の表（昨年の「洗浄」シートと同じ項目：毎日・決まった曜日・月◯回・12月末）が開きます。マスを押すと「済」になり、押した人が残ります（もう一度押すと取り消し）。アイコンの赤い数字は今日まだ済んでいない数で、16時を過ぎて残っていると橙で点滅、全部済むと緑になります。麹箱の洗浄・エアシューターの洗浄は 📅 で日にちを決められます。'],
   ['2026-11-14-4','💧','仕込み','仕込みの表で、きょうの「発酵/溶解」が昨年の同じ液種・同じ日の真ん中より上なのに、追水が配合の規定まで入っていないとき、きょうの追水のマスをオレンジにしました。Be が切れた（日本酒度になった）仕込みには出しません。'],
   ['2026-11-14-3','🍶','仕込み・酒母','PC・Padで、仕込みと酒母の上のアイコンを半分くらいの高さの小さな札（絵と文字を1行）にしました。酒母の「分析者」の大きな帯もやめて、仕込みと同じ「👤 入力者」のアイコンにしました（会社PCなどの共用端末だけ）。スマホの丸アイコンは今までどおりです。'],
   ['2026-11-14-2','🌾','洗米予定表','スマホを縦にして見るとき、月末（月計の行）が画面の下に隠れて見えなかったのを直しました。表の枠を画面の下端までの高さに合わせ、表の中を上へなぞれば月末まで見えます。液種・精米歩合の凡例は1行にしました（横になぞると続きが出ます）。'],
@@ -17664,5 +17665,233 @@ function oiwDetail(no){
 `; document.head.appendChild(s); })();
 </script>
 <!-- /oiw1114 -->
+<!-- kjs1115 -->
+<script>
+/* ================= 🧹 麹室の清掃・洗浄（2026-11-15 泰広さん指示） =================
+   ・麹の上段（種・札・i の並び）に「掃」のアイコン（案A）。赤い数字＝今日まだ済んでいない数
+     16:00 を過ぎて残りがあると橙で点滅、今日の分が全部済むと緑
+   ・押すと1週間の表（案2）：項目×曜日（月〜日）。昨年の麹管理R7.xlsx「元洗浄」シートの項目そのまま
+     毎日／決まった曜日（第◯週の指定あり）／月◯回（備考）／日にちを決める（12月末の麹箱・エアシューター）
+   ・マスを押すと「済」（押した人・時刻）。もう一度押すと取り消し。仲・留仕事など作業が無い日は「作業なし（－）」
+   ・記録：Apps Script「製造ツール 共有データ」の表「資材在庫」に 資材名「麹清掃」（区分 済／なし、メモ＝項目ID）
+     日にちを決める項目は 資材名「麹清掃予定」（区分 予定）。サーバーの変更なし。資材の一覧・不足の計算には入れない
+   控え：seishu-workbook_github\_src_kjs1115.js　差し込み：_麹の清掃_20261115.py（<!-- kjs1115 --> ブロック、</body> の直前） */
+const KJS_N='麹清掃', KJS_P='麹清掃予定', KJS_LATE=16;
+const KJS_START='2026-11-15';   // この日より前は記録が無いので × を出さない
+/* t: d=毎日 / w=曜日（wd:曜日 0=日、nth:第◯） / m=月◯回 / s=日にちを決める。opt=作業なし（－）を選べる */
+const KJS_ITEMS=[
+  {id:'d1', t:'d', tx:'麹床・床の掃き掃除', sub:'盛り・引込み・切返し後'},
+  {id:'d2', t:'d', tx:'モップ掛け', sub:'2号室 → 前室 → 1号室の順。使用後のモップは300倍のビオサイド液に漬ける'},
+  {id:'d3', t:'d', tx:'1号室 引込み・種切り後の拭き掃除', sub:'手入れ機・天井レール・エアーホース・籠・ファンヒーター・天穴・蛍光灯・パネルヒーター・殺菌灯・棚・手入れ機レール（引込みの無い日は、日曜日と同じ作業で自動手入れ機の羽根と内側を拭く）'},
+  {id:'d4', t:'d', opt:1, tx:'2号室 出麹後の麹箱・天幕', sub:'出麹後の麹箱は掃き掃除、天幕の使用後は掃き掃除と拭き掃除'},
+  {id:'d5', t:'d', opt:1, tx:'2号室 仲・留仕事後の掃き掃除'},
+  {id:'w1a', t:'w', wd:1, tx:'2号室 ビオサイド噴霧', sub:'出麹後 14:30頃目安'},
+  {id:'w1b', t:'w', wd:1, tx:'2号室 パネルヒーター・殺菌灯の拭き掃除'},
+  {id:'w1c', t:'w', wd:1, tx:'2号室 除湿機及びフィルター洗浄'},
+  {id:'w1d', t:'w', wd:1, nth:[1,3,5], tx:'2号室 天幕上布の洗濯', sub:'第1・第3・第5 月曜日'},
+  {id:'w1e', t:'w', wd:1, nth:[2,4], tx:'2号室 ゴアラミネートの洗濯', sub:'第2・第4 月曜日'},
+  {id:'w2a', t:'w', wd:2, tx:'麹貯蔵庫の掃除', sub:'壁・天井・床・扉の掃除と除湿機・フィルター洗浄'},
+  {id:'w2b', t:'w', wd:2, tx:'広間 掃除・モップ掛け'},
+  {id:'w2c', t:'w', wd:2, tx:'前室 壁・天井の拭き掃除'},
+  {id:'w3a', t:'w', wd:3, tx:'スリッパの洗浄・交換'},
+  {id:'w4a', t:'w', wd:4, tx:'ゴミ箱 ゴミ袋の交換', sub:'汚れていたらゴミ箱の洗浄'},
+  {id:'w4b', t:'w', wd:4, nth:[2,4], tx:'2号室 壁・天井の拭き掃除', sub:'第2・第4週'},
+  {id:'w5a', t:'w', wd:5, tx:'手洗いシンクの掃除'},
+  {id:'w6a', t:'w', wd:6, tx:'1号室 カゴを洗う'},
+  {id:'w6b', t:'w', wd:6, tx:'スリッパの洗浄・交換'},
+  {id:'w0a', t:'w', wd:0, tx:'2号室 盛り後、切返し機の布洗浄'},
+  {id:'w0b', t:'w', wd:0, tx:'1号室 ビオサイドを噴霧', sub:'盛り後 午前中'},
+  {id:'w0c', t:'w', wd:0, opt:1, tx:'1号室 自動手入れ機の羽根と内側を拭く', sub:'引込みの無い時（他の通常掃除はしなくてよい）'},
+  {id:'w0d', t:'w', wd:0, tx:'1号室 麹床・天井・蛍光灯の拭き掃除', sub:'できたら壁の拭き掃除'},
+  {id:'w0e', t:'w', wd:0, tx:'1号室 除湿機フィルター洗浄'},
+  {id:'w0f', t:'w', wd:0, tx:'1号室 ゴアラミネートの洗濯'},
+  {id:'w0g', t:'w', wd:0, tx:'1号室 カゴの設置'},
+  {id:'m1', t:'m', n:2, nl:'月2回', tx:'1号室 ファンヒーターのフィルターを洗う'},
+  {id:'m2', t:'m', n:1, nl:'月1回', tx:'2号室 アルミ板を洗う'},
+  {id:'m3', t:'m', n:1, nl:'月1〜2回', tx:'中用モップを交換する'},
+  {id:'s1', t:'s', tx:'麹箱を洗浄し蒸す', sub:'12月の3〜4日間（麹作業の無い日）'},
+  {id:'s2', t:'s', tx:'エアシューターの洗浄', sub:'12月下旬 蒸米終了時'}
+];
+const KJS={ wk:'', zt:0, busy:false };
+const kjsDay=s=>dparse(s).getDay();
+const kjsNth=s=>Math.ceil(dparse(s).getDate()/7);
+function kjsAdd(s,n){ const d=dparse(s); d.setDate(d.getDate()+n); return dstr(d); }
+function kjsMon(s){ return kjsAdd(s, -((kjsDay(s)+6)%7)); }
+function kjsRecs(){ return (ZAI.items||[]).filter(x=>x.name===KJS_N && !x.deleted && x.date); }
+function kjsRec(id,date){ return kjsRecs().filter(x=>String(x.memo||'')===id && String(x.date).slice(0,10)===date).sort((a,b)=>String(a.at||'').localeCompare(String(b.at||'')))[0]||null; }
+function kjsPlans(id){ return (ZAI.items||[]).filter(x=>x.name===KJS_P && !x.deleted && x.date && (!id||String(x.memo||'')===id)).map(x=>({ id:x.id, it:String(x.memo||''), date:String(x.date).slice(0,10) })).sort((a,b)=>a.date.localeCompare(b.date)); }
+/* その日にやる項目か（月◯回は「いつでも」なので別扱い） */
+function kjsDue(it,date){
+  if(it.t==='d') return true;
+  if(it.t==='w') return kjsDay(date)===it.wd && (!it.nth || it.nth.includes(kjsNth(date)));
+  if(it.t==='s') return kjsPlans(it.id).some(p=>p.date===date);
+  return false;
+}
+function kjsMonthCount(it,date){ const ym=date.slice(0,7); return kjsRecs().filter(x=>String(x.memo||'')===it.id && x.kind==='済' && String(x.date).slice(0,7)===ym).length; }
+/* 今日の残り（毎日・曜日・日にちを決めた項目） */
+function kjsLeft(date){ date=date||dtoday(); return KJS_ITEMS.filter(it=>kjsDue(it,date) && !kjsRec(it.id,date)); }
+const kjsBy=x=>String((x&&(x.updBy||x.by))||'');
+const kjsHm=x=>{ const m=String((x&&x.at)||'').match(/(\d{1,2}):(\d{2})/); return m?m[1]+':'+m[2]:''; };
+/* 資材の一覧・不足の計算には入れない */
+if(typeof zaiCalc==='function'){ const _zc_kjs=zaiCalc; zaiCalc=function(...a){ const keep=ZAI.items; ZAI.items=(keep||[]).filter(x=>x.name!==KJS_N && x.name!==KJS_P); try{ return _zc_kjs.apply(this,a); } finally{ ZAI.items=keep; } }; }
+async function kjsLoad(force){
+  if(!(ST&&ST.token)) return;
+  if(!force && Date.now()-KJS.zt<2*60000) return;
+  KJS.zt=Date.now();
+  try{ zaiKeep(await zaiApi({action:'list'})); }catch(e){}
+}
+(function(){ const s=document.createElement('style'); s.textContent=`
+.rc-nav .k-ic.kjs-ic{position:relative}
+/* 「掃」が増えて横に収まらないので、日付ボタンだけ残りの幅に合わせて縮める */
+.rc-nav:has(#kjsIc) #kDate{width:auto;flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;padding:8px 6px}
+@media (max-width:420px){.rc-nav:has(#kjsIc) #kDate{font-size:15px}}
+.rc-nav .k-ic.kjs-ic .kjs-b{position:absolute;top:-5px;right:-6px;min-width:19px;height:19px;padding:0 4px;border-radius:10px;background:#d22;color:#fff;font-size:11px;line-height:15px;text-align:center;font-weight:800;border:2px solid #fff;width:auto}
+.rc-nav .k-ic.kjs-ic.late span:first-child{background:#e07b00;animation:kjsBlink 1.1s infinite}
+.rc-nav .k-ic.kjs-ic.done span:first-child{background:#2e8b57}
+@keyframes kjsBlink{50%{opacity:.45}}
+.kjs-top{display:flex;align-items:center;gap:6px;margin:4px 0 8px}
+.kjs-top button{border:1px solid #bbb;background:#fff;border-radius:8px;padding:6px 10px;font-size:14px}
+.kjs-top b{flex:1;text-align:center;font-size:15px}
+.kjs-left{margin:0 0 8px;padding:8px 10px;border-radius:8px;background:#fff3e0;border:1px solid #f0c27a;font-size:13px}
+.kjs-left.ok{background:#eaf6ee;border-color:#9fd3b0}
+.kjs-tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.kjs-t{border-collapse:collapse;width:100%;min-width:360px;font-size:13px;background:#fff}
+table.kjs-t th,table.kjs-t td{border:1px solid #d8dde3;padding:4px 2px;text-align:center}
+table.kjs-t th{background:#f2f4f7;font-weight:700;font-size:12px}
+table.kjs-t th small{display:block;font-weight:400;font-size:10px;color:#777}
+table.kjs-t th.td,table.kjs-t td.td{background:#fff7d6}
+table.kjs-t td.nm{text-align:left;padding:4px 6px;width:44%;font-size:12.5px;line-height:1.35}
+table.kjs-t td.nm small{display:block;color:#888;font-size:10.5px}
+table.kjs-t td.nm .kjs-mc{display:inline-block;margin-left:4px;font-size:10.5px;border-radius:8px;padding:0 6px;background:#eef3e6;color:#4f6b2a}
+table.kjs-t td.nm .kjs-mc.ng{background:#fde8e8;color:#c22}
+table.kjs-t tr.sec td{background:#5b7f9b;color:#fff;font-weight:700;text-align:left;padding:3px 8px;font-size:12px}
+table.kjs-t tr.sec.w td{background:#8a6bb0}table.kjs-t tr.sec.m td{background:#6c8a3c}table.kjs-t tr.sec.s td{background:#c07a2c}
+table.kjs-t td.na{background:#f4f5f7}
+table.kjs-t td.c{cursor:pointer;font-weight:800;font-size:15px;min-width:34px}
+table.kjs-t td.c.o{color:#2e8b57}table.kjs-t td.c.x{color:#d22}table.kjs-t td.c.n{color:#999}
+table.kjs-t td.c.q{color:#1f6fa8;font-weight:400}table.kjs-t td.c.f{color:#ccc;font-weight:400;cursor:default}
+table.kjs-t td.c small{display:block;font-size:9px;font-weight:400;color:#666;line-height:1.1}
+.kjs-pl{display:inline-block;margin-top:3px;border:1px solid #c07a2c;color:#c07a2c;background:#fff;border-radius:6px;padding:1px 6px;font-size:11px;cursor:pointer}
+.kjs-note{font-size:11.5px;color:#666;margin:8px 2px;line-height:1.6}
+.kjs-pop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9999;display:flex;align-items:center;justify-content:center}
+.kjs-pop>div{background:#fff;border-radius:12px;padding:14px;width:min(92vw,360px);max-height:80vh;overflow:auto}
+.kjs-pop h4{margin:0 0 4px;font-size:15px}.kjs-pop p{margin:0 0 10px;font-size:12.5px;color:#666}
+.kjs-pop .bt{display:flex;gap:8px;flex-wrap:wrap}.kjs-pop .bt button{flex:1;padding:10px 6px;border-radius:8px;border:1px solid #bbb;background:#fff;font-size:14px}
+.kjs-pop .bt button.p{background:#1f6fa8;border-color:#1f6fa8;color:#fff;font-weight:700}
+.kjs-pop .pl{display:flex;align-items:center;justify-content:space-between;padding:6px 2px;border-bottom:1px solid #eee;font-size:14px}
+.kjs-pop .pl button{border:1px solid #d99;color:#c22;background:#fff;border-radius:6px;padding:2px 8px}
+.kjs-pop input[type=date]{font-size:15px;padding:6px;border:1px solid #bbb;border-radius:6px;flex:1}
+`; document.head.appendChild(s); })();
+/* ---- 麹の上段アイコン ---- */
+function kjsIconApply(){
+  const nav=app&&app.querySelector('.rc-nav'); if(!nav||!$('#kDate')) return;
+  let b=$('#kjsIc');
+  if(!b){ const after=$('#kCmp')||$('#kFuda')||$('#kTane'); if(!after) return;
+    after.insertAdjacentHTML('afterend',`<button class="k-ic kjs-ic" id="kjsIc" type="button" title="麹室の清掃・洗浄" aria-label="麹室の清掃・洗浄"><span>掃</span></button>`);
+    b=$('#kjsIc'); b.onclick=()=>go(()=>kjsScreen()); }
+  const n=kjsLeft().length, late=new Date().getHours()>=KJS_LATE;
+  b.classList.toggle('done', n===0); b.classList.toggle('late', n>0&&late);
+  let g=b.querySelector('.kjs-b');
+  if(n>0){ if(!g){ b.insertAdjacentHTML('beforeend','<span class="kjs-b"></span>'); g=b.querySelector('.kjs-b'); } g.textContent=n; } else if(g) g.remove();
+  b.title=n>0?('麹室の清掃：今日まだ '+n+' 件'):'麹室の清掃：今日の分は全部済';
+}
+(function(){ const f=window.kojiScreen; if(typeof f!=='function') return;
+  window.kojiScreen=function(...a){ const p=f.apply(this,a);
+    Promise.resolve(p).then(()=>{ try{ kjsIconApply(); }catch(e){}
+      kjsLoad(false).then(()=>{ try{ kjsIconApply(); }catch(e){} }); });
+    return p; }; })();
+setInterval(()=>{ try{ if(app&&$('#kjsIc')) kjsIconApply(); }catch(e){} }, 60000);
+/* ---- 1週間の表 ---- */
+async function kjsScreen(wk){
+  KJS.wk=kjsMon(wk||KJS.wk||dtoday());
+  head('麹室の清掃・洗浄','1週間の表（昨年の麹管理R7「洗浄」と同じ項目）');
+  const me=nav[nav.length-1];
+  kjsDraw();
+  await kjsLoad(true);
+  if(nav[nav.length-1]!==me) return;
+  kjsDraw();
+}
+function kjsCell(it,date,today){
+  const r=kjsRec(it.id,date), fut=date>today;
+  if(it.t==='m'){
+    if(r) return `<td class="c o${date===today?' td':''}" data-kc="${it.id}|${date}">${r.kind==='なし'?'－':'○'}<small>${esc(kjsBy(r).slice(0,3))}</small></td>`;
+    return `<td class="c ${fut?'f':'q'}${date===today?' td':''}" ${fut?'':`data-kc="${it.id}|${date}"`}>${fut?'':date===today?'□':''}</td>`;
+  }
+  if(!kjsDue(it,date)) return `<td class="na${date===today?' td':''}"></td>`;
+  const td=date===today?' td':'';
+  if(r) return `<td class="c ${r.kind==='なし'?'n':'o'}${td}" data-kc="${it.id}|${date}" title="${esc(kjsBy(r)+' '+kjsHm(r))}">${r.kind==='なし'?'－':'○'}<small>${esc(kjsBy(r).slice(0,3))}</small></td>`;
+  if(fut) return `<td class="c f${td}">・</td>`;
+  if(date===today) return `<td class="c q${td}" data-kc="${it.id}|${date}">□</td>`;
+  if(date<KJS_START) return `<td class="c q" data-kc="${it.id}|${date}"></td>`;
+  return `<td class="c x" data-kc="${it.id}|${date}">×</td>`;
+}
+function kjsDraw(){
+  const today=dtoday(), mon=KJS.wk, days=[0,1,2,3,4,5,6].map(i=>kjsAdd(mon,i));
+  const md=s=>{ const d=dparse(s); return (d.getMonth()+1)+'/'+d.getDate(); };
+  const left=kjsLeft(today);
+  const lt=left.length?`<div class="kjs-left">今日（${djp(today)}）まだ <b>${left.length}</b> 件：${left.map(it=>esc(it.tx)).join('／')}</div>`:`<div class="kjs-left ok">今日（${djp(today)}）の清掃は全部済です。</div>`;
+  const hd=`<tr><th>項目</th>${days.map(d=>`<th class="${d===today?'td':''}">${WD[kjsDay(d)]}<small>${md(d)}</small></th>`).join('')}</tr>`;
+  const row=it=>{ let extra='';
+    if(it.t==='m'){ const c=kjsMonthCount(it,days.includes(today)?today:days[6]); extra=`<span class="kjs-mc ${c>=it.n?'':'ng'}">${it.nl}・今月${c}回</span>`; }
+    if(it.t==='s'){ const P=kjsPlans(it.id); extra=`<br><span class="kjs-pl" data-kp="${it.id}">📅 ${P.length?P.map(p=>md(p.date)).join('・'):'日にちを決める'}</span>`; }
+    return `<tr><td class="nm">${esc(it.tx)}${extra}${it.sub?`<small>${esc(it.sub)}</small>`:''}</td>${days.map(d=>kjsCell(it,d,today)).join('')}</tr>`; };
+  const sec=(c,t)=>`<tr class="sec ${c}"><td colspan="8">${t}</td></tr>`;
+  const W=[1,2,3,4,5,6,0];
+  let b=sec('','毎日')+KJS_ITEMS.filter(x=>x.t==='d').map(row).join('');
+  b+=sec('w','決まった曜日')+W.map(w=>KJS_ITEMS.filter(x=>x.t==='w'&&x.wd===w).map(row).join('')).join('');
+  b+=sec('m','月◯回（曜日は自由）')+KJS_ITEMS.filter(x=>x.t==='m').map(row).join('');
+  b+=sec('s','日にちを決める（12月末）')+KJS_ITEMS.filter(x=>x.t==='s').map(row).join('');
+  app.innerHTML=`<div class="kjs-top"><button id="kjsPrev">‹ 前の週</button><b>${md(days[0])}（月）〜${md(days[6])}（日）</b><button id="kjsNext">次の週 ›</button></div>
+    ${mon!==kjsMon(today)?'<div class="kjs-top"><button id="kjsNow" style="flex:1">今週へ戻る</button></div>':''}
+    ${lt}<div class="kjs-tw"><table class="kjs-t">${hd}${b}</table></div>
+    <div class="kjs-note">○＝済（下は押した人）　－＝作業なし　×＝やっていない　□＝今日（押して済にする）　・＝これから　色なし＝その日はやらない<br>
+    マスを押すと「済」。間違えたらもう一度押すと取り消せます。前の日の分も押して入れられます。<br>
+    「日にちを決める」は 📅 を押して日にちを入れると、その日のマスと今日の数に出ます。</div>`;
+  $('#kjsPrev').onclick=()=>{ KJS.wk=kjsAdd(KJS.wk,-7); kjsDraw(); };
+  $('#kjsNext').onclick=()=>{ KJS.wk=kjsAdd(KJS.wk,7); kjsDraw(); };
+  if($('#kjsNow')) $('#kjsNow').onclick=()=>{ KJS.wk=kjsMon(today); kjsDraw(); };
+  app.querySelectorAll('[data-kc]').forEach(c=>c.onclick=()=>{ const [id,date]=c.dataset.kc.split('|'); kjsTap(id,date); });
+  app.querySelectorAll('[data-kp]').forEach(c=>c.onclick=()=>kjsPlanPop(c.dataset.kp));
+}
+function kjsPop(html){ const w=document.createElement('div'); w.className='kjs-pop'; w.innerHTML=`<div>${html}</div>`;
+  w.addEventListener('click',e=>{ if(e.target===w) w.remove(); }); document.body.appendChild(w); return w; }
+async function kjsSave(fn,msg){
+  if(KJS.busy) return; KJS.busy=true;
+  try{ zaiKeep(await fn()); KJS.zt=Date.now(); }catch(err){ alertSay(msg+'：'+(err.message||err)); }
+  KJS.busy=false; if(app.querySelector('.kjs-t')) kjsDraw(); kjsIconApply();
+}
+function kjsTap(id,date){
+  const it=KJS_ITEMS.find(x=>x.id===id); if(!it||KJS.busy) return;
+  const r=kjsRec(id,date), dl=djp(date);
+  if(r){ const w=kjsPop(`<h4>${esc(it.tx)}</h4><p>${dl}　${r.kind==='なし'?'作業なし':'済'}（${esc(kjsBy(r))} ${esc(kjsHm(r))}）</p>
+      <div class="bt"><button data-a="del">取り消す</button><button class="p" data-a="no">そのまま</button></div>`);
+    w.querySelector('[data-a=no]').onclick=()=>w.remove();
+    w.querySelector('[data-a=del]').onclick=()=>{ w.remove(); kjsSave(()=>zaiApi({action:'delete', id:r.id}),'取り消せませんでした'); };
+    return; }
+  const put=k=>kjsSave(()=>zaiApi({action:'save', item:{ name:KJS_N, kind:k, qty:'0', unit:'', date, memo:it.id }}),'記録できませんでした');
+  if(!it.opt && date===dtoday()){ put('済'); return; }
+  const w=kjsPop(`<h4>${esc(it.tx)}</h4><p>${dl}${date!==dtoday()?' の分として記録します':''}</p>
+    <div class="bt"><button class="p" data-a="ok">済</button>${it.opt?'<button data-a="na">作業なし（－）</button>':''}<button data-a="no">やめる</button></div>`);
+  w.querySelector('[data-a=ok]').onclick=()=>{ w.remove(); put('済'); };
+  if(it.opt) w.querySelector('[data-a=na]').onclick=()=>{ w.remove(); put('なし'); };
+  w.querySelector('[data-a=no]').onclick=()=>w.remove();
+}
+/* ---- 日にちを決める（12月末の麹箱・エアシューター） ---- */
+function kjsPlanPop(id){
+  const it=KJS_ITEMS.find(x=>x.id===id); if(!it) return;
+  const P=kjsPlans(id);
+  const y=new Date().getFullYear(), def=`${y}-12-${new Date().getMonth()===11?String(Math.min(31,new Date().getDate()+1)).padStart(2,'0'):'26'}`;
+  const w=kjsPop(`<h4>📅 ${esc(it.tx)}</h4><p>${esc(it.sub||'')}。何日でも入れられます。</p>
+    ${P.length?P.map(p=>`<div class="pl"><span>${djp(p.date)}${kjsRec(id,p.date)?'　✔済':''}</span><button data-pd="${p.id}">消す</button></div>`).join(''):'<p>まだ決まっていません。</p>'}
+    <div class="bt" style="margin-top:10px"><input type="date" id="kjsPd" value="${def}"><button class="p" data-a="add" style="flex:0 0 72px">足す</button></div>
+    <div class="bt" style="margin-top:10px"><button data-a="cl">閉じる</button></div>`);
+  w.querySelector('[data-a=cl]').onclick=()=>w.remove();
+  w.querySelector('[data-a=add]').onclick=()=>{ const d=w.querySelector('#kjsPd').value; if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    if(P.some(p=>p.date===d)){ w.remove(); return; }
+    w.remove(); kjsSave(()=>zaiApi({action:'save', item:{ name:KJS_P, kind:'予定', qty:'0', unit:'', date:d, memo:id }}),'日にちを保存できませんでした').then(()=>kjsPlanPop(id)); };
+  w.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{ w.remove(); kjsSave(()=>zaiApi({action:'delete', id:b.dataset.pd}),'消せませんでした').then(()=>kjsPlanPop(id)); });
+}
+</script>
+<!-- /kjs1115 -->
 </body>
 </html>
