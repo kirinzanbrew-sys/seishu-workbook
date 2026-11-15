@@ -9474,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-15-4','🧹','麹','麹室の清掃の表：決まった曜日の作業を別の日にしたときは、その日の灰色のマスを押して ○ を付けられます。同じ週（月〜日）の別の日に済ませていれば、決まった曜日のマスは × ではなく「→（済ませた日）」になり、アイコンの数にも入りません。'],
   ['2026-11-15-3','🧹','麹','麹室の清掃の表：マスを押すと ○、もう一度押すと消えるだけにしました（確認の窓は出ません）。押した瞬間に表示が変わり、送信は裏で行います。仲・留仕事後など作業が無い日もある項目は、やっていない日も × を出しません。'],
   ['2026-11-15-2','🧴','濾過・調合・火入','濾過・火入の画面の上を「🧴濾過 › ⚗️調合 › 🔥火入」のアイコンにしました。濾過は、上槽したタンクを選んで「まとめて1本へ」か「それぞれ別のタンクへ」を選び、移送先と尺を入れます（入れる前に見込みの尺・空きが出ます）。調合は新しく足しました。使うタンクのいまの尺から、移送先ごとに「どのタンクから何ℓ」を入れると、残りの量・抜いた後の尺・移送先の見込みの尺が出ます。'],
   ['2026-11-15-1','🧹','麹','麹の上段に「掃」のアイコンを足しました。押すと麹室の清掃・洗浄の1週間の表（昨年の「洗浄」シートと同じ項目：毎日・決まった曜日・月◯回・12月末）が開きます。マスを押すと「済」になり、押した人が残ります（もう一度押すと取り消し）。アイコンの赤い数字は今日まだ済んでいない数で、16時を過ぎて残っていると橙で点滅、全部済むと緑になります。麹箱の洗浄・エアシューターの洗浄は 📅 で日にちを決められます。'],
@@ -17739,7 +17740,10 @@ function kjsMonthCount(it,date){ const ym=date.slice(0,7), ds={};
   Object.keys(KJS.want).forEach(k=>{ const [i,d]=k.split('|'); if(i===it.id && d.slice(0,7)===ym){ if(KJS.want[k]) ds[d]=1; else delete ds[d]; } });
   return Object.keys(ds).length; }
 /* 今日の残り（毎日・曜日・日にちを決めた項目） */
-function kjsLeft(date){ date=date||dtoday(); return KJS_ITEMS.filter(it=>kjsDue(it,date) && !kjsRec(it.id,date)); }
+/* 決まった曜日・日にちを決めた項目を、同じ週（月〜日）の別の日に済ませたか（2026-11-15 別日にすることもある） */
+function kjsWeekDone(it,date){ if(it.t!=='w' && it.t!=='s') return null; const mon=kjsMon(date);
+  for(let i=0;i<7;i++){ const d=kjsAdd(mon,i); if(d===date) continue; const r=kjsRec(it.id,d); if(r && r.kind!=='なし') return d; } return null; }
+function kjsLeft(date){ date=date||dtoday(); return KJS_ITEMS.filter(it=>kjsDue(it,date) && !kjsRec(it.id,date) && !kjsWeekDone(it,date)); }
 const kjsBy=x=>String((x&&(x.updBy||x.by))||'');
 const kjsHm=x=>{ const m=String((x&&x.at)||'').match(/(\d{1,2}):(\d{2})/); return m?m[1]+':'+m[2]:''; };
 /* 資材の一覧・不足の計算には入れない */
@@ -17776,7 +17780,7 @@ table.kjs-t td.nm .kjs-mc{display:inline-block;margin-left:4px;font-size:10.5px;
 table.kjs-t td.nm .kjs-mc.ng{background:#fde8e8;color:#c22}
 table.kjs-t tr.sec td{background:#5b7f9b;color:#fff;font-weight:700;text-align:left;padding:3px 8px;font-size:12px}
 table.kjs-t tr.sec.w td{background:#8a6bb0}table.kjs-t tr.sec.m td{background:#6c8a3c}table.kjs-t tr.sec.s td{background:#c07a2c}
-table.kjs-t td.na{background:#f4f5f7}
+table.kjs-t td.na,table.kjs-t td.c.e{background:#f4f5f7}
 table.kjs-t td.c{cursor:pointer;font-weight:800;font-size:15px;min-width:34px}
 table.kjs-t td.c.o{color:#2e8b57}table.kjs-t td.c.x{color:#d22}table.kjs-t td.c.n{color:#999}
 table.kjs-t td.c.q{color:#1f6fa8;font-weight:400}table.kjs-t td.c.f{color:#ccc;font-weight:400;cursor:default}
@@ -17827,9 +17831,14 @@ function kjsCell(it,date,today){
     if(r) return `<td class="c o${date===today?' td':''}" data-kc="${it.id}|${date}">${r.kind==='なし'?'－':'○'}<small>${esc(kjsBy(r).slice(0,3))}</small></td>`;
     return `<td class="c ${fut?'f':'q'}${date===today?' td':''}" ${fut?'':`data-kc="${it.id}|${date}"`}>${fut?'':date===today?'□':''}</td>`;
   }
-  if(!kjsDue(it,date)) return `<td class="na${date===today?' td':''}"></td>`;
   const td=date===today?' td':'';
+  if(!kjsDue(it,date)){
+    /* やらない曜日のマスも押せる（別日にしたとき）。これからの日は押せない */
+    if(r) return `<td class="c o e${td}" data-kc="${it.id}|${date}" title="${esc(kjsBy(r)+' '+kjsHm(r))}">○<small>${esc(kjsBy(r).slice(0,3))}</small></td>`;
+    return fut?`<td class="na${td}"></td>`:`<td class="c e${td}" data-kc="${it.id}|${date}"></td>`; }
   if(r) return `<td class="c ${r.kind==='なし'?'n':'o'}${td}" data-kc="${it.id}|${date}" title="${esc(kjsBy(r)+' '+kjsHm(r))}">${r.kind==='なし'?'－':'○'}<small>${esc(kjsBy(r).slice(0,3))}</small></td>`;
+  const wd=kjsWeekDone(it,date);
+  if(wd) return `<td class="c n${td}" data-kc="${it.id}|${date}" title="${esc(djp(wd))}に済">→<small>${esc(String(dparse(wd).getMonth()+1)+'/'+dparse(wd).getDate())}</small></td>`;
   if(fut) return `<td class="c f${td}">・</td>`;
   if(date===today) return `<td class="c q${td}" data-kc="${it.id}|${date}">□</td>`;
   if(date<KJS_START || it.opt) return `<td class="c q" data-kc="${it.id}|${date}"></td>`;
@@ -17854,8 +17863,8 @@ function kjsDraw(){
   app.innerHTML=`<div class="kjs-top"><button id="kjsPrev">‹ 前の週</button><b>${md(days[0])}（月）〜${md(days[6])}（日）</b><button id="kjsNext">次の週 ›</button></div>
     ${mon!==kjsMon(today)?'<div class="kjs-top"><button id="kjsNow" style="flex:1">今週へ戻る</button></div>':''}
     ${lt}<div class="kjs-tw"><table class="kjs-t">${hd}${b}</table></div>
-    <div class="kjs-note">○＝済（下は押した人）　×＝やっていない　□＝今日（押して済にする）　・＝これから　色なし＝その日はやらない<br>
-    マスを押すと ○（済）、もう一度押すと消えます。前の日の分も押して入れられます。<br>
+    <div class="kjs-note">○＝済（下は押した人）　→＝別の日に済（下はその日）　×＝やっていない　□＝今日（押して済にする）　・＝これから　色なし＝その日はやらない<br>
+    マスを押すと ○（済）、もう一度押すと消えます。前の日の分も押して入れられます。<br>決まった曜日の作業を別の日にしたときは、その日の灰色のマスを押してください（その週の決まった曜日は × になりません）。<br>
     「日にちを決める」は 📅 を押して日にちを入れると、その日のマスと今日の数に出ます。</div>`;
   $('#kjsPrev').onclick=()=>{ KJS.wk=kjsAdd(KJS.wk,-7); kjsDraw(); };
   $('#kjsNext').onclick=()=>{ KJS.wk=kjsAdd(KJS.wk,7); kjsDraw(); };
