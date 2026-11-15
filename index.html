@@ -9474,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-15-3','🧹','麹','麹室の清掃の表：マスを押すと ○、もう一度押すと消えるだけにしました（確認の窓は出ません）。押した瞬間に表示が変わり、送信は裏で行います。仲・留仕事後など作業が無い日もある項目は、やっていない日も × を出しません。'],
   ['2026-11-15-2','🧴','濾過・調合・火入','濾過・火入の画面の上を「🧴濾過 › ⚗️調合 › 🔥火入」のアイコンにしました。濾過は、上槽したタンクを選んで「まとめて1本へ」か「それぞれ別のタンクへ」を選び、移送先と尺を入れます（入れる前に見込みの尺・空きが出ます）。調合は新しく足しました。使うタンクのいまの尺から、移送先ごとに「どのタンクから何ℓ」を入れると、残りの量・抜いた後の尺・移送先の見込みの尺が出ます。'],
   ['2026-11-15-1','🧹','麹','麹の上段に「掃」のアイコンを足しました。押すと麹室の清掃・洗浄の1週間の表（昨年の「洗浄」シートと同じ項目：毎日・決まった曜日・月◯回・12月末）が開きます。マスを押すと「済」になり、押した人が残ります（もう一度押すと取り消し）。アイコンの赤い数字は今日まだ済んでいない数で、16時を過ぎて残っていると橙で点滅、全部済むと緑になります。麹箱の洗浄・エアシューターの洗浄は 📅 で日にちを決められます。'],
   ['2026-11-14-4','💧','仕込み','仕込みの表で、きょうの「発酵/溶解」が昨年の同じ液種・同じ日の真ん中より上なのに、追水が配合の規定まで入っていないとき、きょうの追水のマスをオレンジにしました。Be が切れた（日本酒度になった）仕込みには出しません。'],
@@ -17673,13 +17674,14 @@ function oiwDetail(no){
      16:00 を過ぎて残りがあると橙で点滅、今日の分が全部済むと緑
    ・押すと1週間の表（案2）：項目×曜日（月〜日）。昨年の麹管理R7.xlsx「元洗浄」シートの項目そのまま
      毎日／決まった曜日（第◯週の指定あり）／月◯回（備考）／日にちを決める（12月末の麹箱・エアシューター）
-   ・マスを押すと「済」（押した人・時刻）。もう一度押すと取り消し。仲・留仕事など作業が無い日は「作業なし（－）」
+   ・マスを押すと ○（押した人・時刻）、もう一度押すと消える（確認の窓なし。表示はすぐ変え、送信は裏で kjsSync）
+     仲・留仕事後など作業が無い日もある項目（opt）は、やっていない日も × にしない
    ・記録：Apps Script「製造ツール 共有データ」の表「資材在庫」に 資材名「麹清掃」（区分 済／なし、メモ＝項目ID）
      日にちを決める項目は 資材名「麹清掃予定」（区分 予定）。サーバーの変更なし。資材の一覧・不足の計算には入れない
    控え：seishu-workbook_github\_src_kjs1115.js　差し込み：_麹の清掃_20261115.py（<!-- kjs1115 --> ブロック、</body> の直前） */
 const KJS_N='麹清掃', KJS_P='麹清掃予定', KJS_LATE=16;
 const KJS_START='2026-11-15';   // この日より前は記録が無いので × を出さない
-/* t: d=毎日 / w=曜日（wd:曜日 0=日、nth:第◯） / m=月◯回 / s=日にちを決める。opt=作業なし（－）を選べる */
+/* t: d=毎日 / w=曜日（wd:曜日 0=日、nth:第◯） / m=月◯回 / s=日にちを決める。opt=作業が無い日もある（× を出さない） */
 const KJS_ITEMS=[
   {id:'d1', t:'d', tx:'麹床・床の掃き掃除', sub:'盛り・引込み・切返し後'},
   {id:'d2', t:'d', tx:'モップ掛け', sub:'2号室 → 前室 → 1号室の順。使用後のモップは300倍のビオサイド液に漬ける'},
@@ -17713,13 +17715,17 @@ const KJS_ITEMS=[
   {id:'s1', t:'s', tx:'麹箱を洗浄し蒸す', sub:'12月の3〜4日間（麹作業の無い日）'},
   {id:'s2', t:'s', tx:'エアシューターの洗浄', sub:'12月下旬 蒸米終了時'}
 ];
-const KJS={ wk:'', zt:0, busy:false };
+const KJS={ wk:'', zt:0, busy:false, want:{}, run:false };
 const kjsDay=s=>dparse(s).getDay();
 const kjsNth=s=>Math.ceil(dparse(s).getDate()/7);
 function kjsAdd(s,n){ const d=dparse(s); d.setDate(d.getDate()+n); return dstr(d); }
 function kjsMon(s){ return kjsAdd(s, -((kjsDay(s)+6)%7)); }
 function kjsRecs(){ return (ZAI.items||[]).filter(x=>x.name===KJS_N && !x.deleted && x.date); }
-function kjsRec(id,date){ return kjsRecs().filter(x=>String(x.memo||'')===id && String(x.date).slice(0,10)===date).sort((a,b)=>String(a.at||'').localeCompare(String(b.at||'')))[0]||null; }
+function kjsSrv(id,date){ return kjsRecs().filter(x=>String(x.memo||'')===id && String(x.date).slice(0,10)===date).sort((a,b)=>String(a.at||'').localeCompare(String(b.at||''))); }
+/* 押した直後は KJS.want（id|日付 → true/false）を先に表示に使い、送信は裏で（2026-11-15 タップでチェック⇔消える） */
+function kjsRec(id,date){ const k=id+'|'+date, srv=kjsSrv(id,date)[0]||null;
+  if(KJS.want && (k in KJS.want)){ if(!KJS.want[k]) return null; return srv||{ kind:'済', by:String(ST.name||''), at:'', tmp:1 }; }
+  return srv; }
 function kjsPlans(id){ return (ZAI.items||[]).filter(x=>x.name===KJS_P && !x.deleted && x.date && (!id||String(x.memo||'')===id)).map(x=>({ id:x.id, it:String(x.memo||''), date:String(x.date).slice(0,10) })).sort((a,b)=>a.date.localeCompare(b.date)); }
 /* その日にやる項目か（月◯回は「いつでも」なので別扱い） */
 function kjsDue(it,date){
@@ -17728,7 +17734,10 @@ function kjsDue(it,date){
   if(it.t==='s') return kjsPlans(it.id).some(p=>p.date===date);
   return false;
 }
-function kjsMonthCount(it,date){ const ym=date.slice(0,7); return kjsRecs().filter(x=>String(x.memo||'')===it.id && x.kind==='済' && String(x.date).slice(0,7)===ym).length; }
+function kjsMonthCount(it,date){ const ym=date.slice(0,7), ds={};
+  kjsRecs().forEach(x=>{ if(String(x.memo||'')===it.id && x.kind==='済' && String(x.date).slice(0,7)===ym) ds[String(x.date).slice(0,10)]=1; });
+  Object.keys(KJS.want).forEach(k=>{ const [i,d]=k.split('|'); if(i===it.id && d.slice(0,7)===ym){ if(KJS.want[k]) ds[d]=1; else delete ds[d]; } });
+  return Object.keys(ds).length; }
 /* 今日の残り（毎日・曜日・日にちを決めた項目） */
 function kjsLeft(date){ date=date||dtoday(); return KJS_ITEMS.filter(it=>kjsDue(it,date) && !kjsRec(it.id,date)); }
 const kjsBy=x=>String((x&&(x.updBy||x.by))||'');
@@ -17823,7 +17832,7 @@ function kjsCell(it,date,today){
   if(r) return `<td class="c ${r.kind==='なし'?'n':'o'}${td}" data-kc="${it.id}|${date}" title="${esc(kjsBy(r)+' '+kjsHm(r))}">${r.kind==='なし'?'－':'○'}<small>${esc(kjsBy(r).slice(0,3))}</small></td>`;
   if(fut) return `<td class="c f${td}">・</td>`;
   if(date===today) return `<td class="c q${td}" data-kc="${it.id}|${date}">□</td>`;
-  if(date<KJS_START) return `<td class="c q" data-kc="${it.id}|${date}"></td>`;
+  if(date<KJS_START || it.opt) return `<td class="c q" data-kc="${it.id}|${date}"></td>`;
   return `<td class="c x" data-kc="${it.id}|${date}">×</td>`;
 }
 function kjsDraw(){
@@ -17845,8 +17854,8 @@ function kjsDraw(){
   app.innerHTML=`<div class="kjs-top"><button id="kjsPrev">‹ 前の週</button><b>${md(days[0])}（月）〜${md(days[6])}（日）</b><button id="kjsNext">次の週 ›</button></div>
     ${mon!==kjsMon(today)?'<div class="kjs-top"><button id="kjsNow" style="flex:1">今週へ戻る</button></div>':''}
     ${lt}<div class="kjs-tw"><table class="kjs-t">${hd}${b}</table></div>
-    <div class="kjs-note">○＝済（下は押した人）　－＝作業なし　×＝やっていない　□＝今日（押して済にする）　・＝これから　色なし＝その日はやらない<br>
-    マスを押すと「済」。間違えたらもう一度押すと取り消せます。前の日の分も押して入れられます。<br>
+    <div class="kjs-note">○＝済（下は押した人）　×＝やっていない　□＝今日（押して済にする）　・＝これから　色なし＝その日はやらない<br>
+    マスを押すと ○（済）、もう一度押すと消えます。前の日の分も押して入れられます。<br>
     「日にちを決める」は 📅 を押して日にちを入れると、その日のマスと今日の数に出ます。</div>`;
   $('#kjsPrev').onclick=()=>{ KJS.wk=kjsAdd(KJS.wk,-7); kjsDraw(); };
   $('#kjsNext').onclick=()=>{ KJS.wk=kjsAdd(KJS.wk,7); kjsDraw(); };
@@ -17862,20 +17871,30 @@ async function kjsSave(fn,msg){
   KJS.busy=false; if(app.querySelector('.kjs-t')) kjsDraw(); kjsIconApply();
 }
 function kjsTap(id,date){
-  const it=KJS_ITEMS.find(x=>x.id===id); if(!it||KJS.busy) return;
-  const r=kjsRec(id,date), dl=djp(date);
-  if(r){ const w=kjsPop(`<h4>${esc(it.tx)}</h4><p>${dl}　${r.kind==='なし'?'作業なし':'済'}（${esc(kjsBy(r))} ${esc(kjsHm(r))}）</p>
-      <div class="bt"><button data-a="del">取り消す</button><button class="p" data-a="no">そのまま</button></div>`);
-    w.querySelector('[data-a=no]').onclick=()=>w.remove();
-    w.querySelector('[data-a=del]').onclick=()=>{ w.remove(); kjsSave(()=>zaiApi({action:'delete', id:r.id}),'取り消せませんでした'); };
-    return; }
-  const put=k=>kjsSave(()=>zaiApi({action:'save', item:{ name:KJS_N, kind:k, qty:'0', unit:'', date, memo:it.id }}),'記録できませんでした');
-  if(!it.opt && date===dtoday()){ put('済'); return; }
-  const w=kjsPop(`<h4>${esc(it.tx)}</h4><p>${dl}${date!==dtoday()?' の分として記録します':''}</p>
-    <div class="bt"><button class="p" data-a="ok">済</button>${it.opt?'<button data-a="na">作業なし（－）</button>':''}<button data-a="no">やめる</button></div>`);
-  w.querySelector('[data-a=ok]').onclick=()=>{ w.remove(); put('済'); };
-  if(it.opt) w.querySelector('[data-a=na]').onclick=()=>{ w.remove(); put('なし'); };
-  w.querySelector('[data-a=no]').onclick=()=>w.remove();
+  const it=KJS_ITEMS.find(x=>x.id===id); if(!it) return;
+  KJS.want[id+'|'+date]=!kjsRec(id,date);
+  if(app.querySelector('.kjs-t')) kjsDraw(); kjsIconApply();
+  kjsSync();
+}
+/* 押した状態をサーバーに合わせる（1件ずつ順番に） */
+async function kjsSync(){
+  if(KJS.run) return; KJS.run=true;
+  try{
+    let guard=0;
+    while(guard++<200){
+      const ks=Object.keys(KJS.want); if(!ks.length) break;
+      const k=ks[0], w=KJS.want[k], [id,date]=k.split('|'), srv=kjsSrv(id,date);
+      let j=null;
+      if(w && !srv.length) j=await zaiApi({action:'save', item:{ name:KJS_N, kind:'済', qty:'0', unit:'', date, memo:id }});
+      else if(!w && srv.length) j=await zaiApi({action:'delete', id:srv[0].id});
+      if(j) zaiKeep(j);
+      const now=kjsSrv(id,date).length>0;
+      if(KJS.want[k]===w && (now===w || !j)) delete KJS.want[k];
+    }
+    KJS.zt=Date.now();
+  }catch(err){ KJS.want={}; alertSay('清掃の記録を送れませんでした：'+(err.message||err)); }
+  KJS.run=false;
+  if(app.querySelector('.kjs-t')) kjsDraw(); kjsIconApply();
 }
 /* ---- 日にちを決める（12月末の麹箱・エアシューター） ---- */
 function kjsPlanPop(id){
