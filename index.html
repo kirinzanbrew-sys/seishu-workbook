@@ -9474,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-16-3','🧴','濾過','濾過の移動先の入力欄に「濾過後の尺」の欄をはっきり置きました。統合は移動先のタンクを選ぶ欄のすぐ下、別々は上槽タンクごとの欄にあります。1本入れるごとに測る「途中の尺」は任意で、その下に入れられます。'],
   ['2026-11-16-2','🧴','濾過','濾過の窓で「まとめて1本へ」を「🔗統合」、「それぞれ別のタンクへ」を「🔀別々」のアイコンにしました。上槽したタンクを選ぶと、上に「移動先」のタンクのアイコンが出ます。押すとその下で移動先のタンクと尺を入れられます（統合は1つ、別々は上槽タンクごと）。'],
   ['2026-11-15-4','🧹','麹','麹室の清掃の表：決まった曜日の作業を別の日にしたときは、その日の灰色のマスを押して ○ を付けられます。同じ週（月〜日）の別の日に済ませていれば、決まった曜日のマスは × ではなく「→（済ませた日）」になり、アイコンの数にも入りません。'],
   ['2026-11-15-3','🧹','麹','麹室の清掃の表：マスを押すと ○、もう一度押すと消えるだけにしました（確認の窓は出ません）。押した瞬間に表示が変わり、送信は裏で行います。仲・留仕事後など作業が無い日もある項目は、やっていない日も × を出しません。'],
@@ -17939,6 +17940,7 @@ function kjsPlanPop(id){
        ② 移送先ごとのカード：「どのタンクから何ℓ」（全量／残り ボタン）→ 合計ℓ・見込み尺、入れた後の実際の尺 → 実際のℓと見込みとの差
        保存：表「醪作業」 name＝調合（liquid＝調合の名前、tank＝移送先、plan・date、memo＝JSON）。カレンダー・出勤表には入れない
    ・2026-11-16 泰広さん指示：濾過の「まとめて1本へ」→🔗統合、「それぞれ」→🔀別々 のアイコンに。上槽タンクを選ぶと「移動先」のタンクアイコンを上に出し、押してそこで入力（統合＝1つ、別々＝上槽タンクごと）
+   ・2026-11-16 泰広さん指摘「濾過後の尺を入力するところがない」→ 移動先の入力欄に「濾過後の尺」をはっきり置く（統合＝タンクを選ぶ欄のすぐ下・S.fin、別々＝「濾過後の尺」）。途中の尺は任意の欄として下に
    控え：seishu-workbook_github\_src_rkmv1115.js　差し込み：_濾過調合火入_20261115.py（<!-- rkmv1115 --> ブロック、</body> の直前） */
 const RKMV_REC='濾過移送', CH_NAME='調合';
 const RK_ICONS=[['濾過','🧴'],['調合','⚗️'],['火入','🔥']];
@@ -18000,6 +18002,7 @@ async function rkfDialog(nos){
   const S=(rec&&rec.j.S)?JSON.parse(JSON.stringify(rec.j.S)):{ mode:lsGet('rk.mode',1), sel:[], dst:'', mm:{}, pd:{}, pm:{} };
   S.sel=(S.sel||[]).filter(k=>SRC[k]); ['mm','pd','pm'].forEach(x=>S[x]=S[x]||{});
   if(!S.sel.length) G.filter(g=>nos.map(String).includes(g.no)).forEach(g=>g.keys.forEach(k=>S.sel.push(k)));
+  if(S.fin===undefined){ const lk=S.sel[S.sel.length-1]; S.fin=lk&&S.mm[lk]||''; if(lk) delete S.mm[lk]; }   /* 2026-11-16 濾過後の尺は S.fin（前は最後のタンクの尺） */
   if(!S.dst && first && first.tank && !/・/.test(first.tank)) S.dst=rkT(first.tank);
   /* よく使う移送先（これまでの濾過の移送先） */
   const recent=[]; rkmvItems().slice().reverse().forEach(it=>{ const j=ydJ(it); (j&&j.out||[]).forEach(o=>{ const t=rkT(o.t); if(t&&!recent.includes(t)) recent.push(t); }); });
@@ -18039,33 +18042,35 @@ async function rkfDialog(nos){
     /* ---- 移動先のアイコン（上） ---- */
     if(sel.length){
       h+=`<div class="rk-lb">移動先（押して入力）</div><div class="rkmv-dic">`;
-      if(S.mode==1){ const t=S.dst, lk=sel[sel.length-1].k, FL=t?rkVol(t,S.mm[lk]):null, em=t?rkMm(t,tot):null;
-        h+=`<button type="button" data-op="dst" class="${S.open==='dst'?'on':''} ${t?'':'empty'}"><span class="lb">移動先</span><b>${dstName(t)}</b><small>${FL!==null?'実際 '+rkL0(FL)+'L':t?(em===-1?'入りきらない':em!==null?'見込み 尺'+rkL0(em):'—'):'押して選ぶ'}</small></button>`;
+      if(S.mode==1){ const t=S.dst, FL=t?rkVol(t,S.fin):null, em=t?rkMm(t,tot):null;
+        h+=`<button type="button" data-op="dst" class="${S.open==='dst'?'on':''} ${t?'':'empty'}"><span class="lb">移動先</span><b>${dstName(t)}</b><small>${FL!==null?'濾過後 '+rkL0(FL)+'L':t?(em===-1?'入りきらない':em!==null?'見込み 尺'+rkL0(em):'—'):'押して選ぶ'}</small></button>`;
       } else sel.forEach(s=>{ const t=S.pd[s.k]||'', L=t?rkVol(t,S.pm[s.k]):null;
-        h+=`<button type="button" data-op="${s.k}" class="${S.open===s.k?'on':''} ${t?'':'empty'}"><span class="lb">${s.t?'T'+esc(s.t):s.no+'号'} →</span><b>${dstName(t)}</b><small>${L!==null?rkL0(L)+'L':t?'尺 未入力':'押して選ぶ'}</small></button>`; });
+        h+=`<button type="button" data-op="${s.k}" class="${S.open===s.k?'on':''} ${t?'':'empty'}"><span class="lb">${s.t?'T'+esc(s.t):s.no+'号'} →</span><b>${dstName(t)}</b><small>${L!==null?'濾過後 '+rkL0(L)+'L':t?'濾過後の尺 未入力':'押して選ぶ'}</small></button>`; });
       h+=`</div>`;
       /* 入力の欄（押したアイコンの分） */
       if(S.mode==1){
-        h+=`<div class="rkmv-ed"><div class="rk-lb" style="margin-top:0">移動先のタンク（1本）</div>${dstPick(S.dst,'data-dt')}`;
+        const FL=S.dst?rkVol(S.dst,S.fin):null;
+        h+=`<div class="rkmv-ed"><div class="rk-lb" style="margin-top:0">移動先のタンク（1本）</div>${dstPick(S.dst,'data-dt')}
+          <div class="rkmv-fin"><span class="s">濾過後の尺${S.dst?'<small>T'+esc(S.dst)+'</small>':''}</span><input class="in" inputmode="numeric" placeholder="尺" data-k="fin" data-fin="1" value="${esc(S.fin||'')}"><span class="v">${FL!==null?rkL0(FL)+'L':'—'}<small>${FL!==null&&!unk?'見込みとの差 '+rkL0(FL-tot):S.dst?'':'移動先を選ぶと量が出ます'}</small></span></div>`;
         if(S.dst){
           const f=rkFull(S.dst), sp=f!==null?f-tot:null;
           h+=`<div class="rkmv-plan">見込み：上槽 ${sel.map(s=>rkL0(s.L)).join('＋')} ＝ <b>${rkL0(tot)} L</b>${unk?'（量の分からないタンクあり）':''}<br>→ T${esc(S.dst)} の見込み <b>${rkMmTxt(S.dst,tot)}</b>${sp!==null?`　空き ${sp>=0?rkL0(sp)+' L':'<span class="ng">'+rkL0(-sp)+' L 足りない</span>'}`:''}</div>`;
-          h+=`<div class="rk-lb">入れた順に、入れた後の尺（途中は空でもOK）</div>`;
-          let prev=0, ok=true, cum=0;
-          sel.forEach((s,i)=>{ const last=i===sel.length-1, m=S.mm[s.k]||'', L=rkVol(S.dst,m); cum+=s.L||0;
-            const inc=L!==null&&ok?L-prev:null;
-            const sub=L===null?'入れた後':inc!==null?(i?'＋'+rkL0(inc)+(s.L!==null?'（差 '+rkL0(inc-s.L)+'）':''):(s.L!==null?'差 '+rkL0(inc-s.L):'')):'上槽'+(i+1)+'本分との差 '+rkL0(L-cum);
-            ok=L!==null; if(L!==null) prev=L;
-            h+=`<div class="rkmv-row r1"><span class="n">${i+1}</span><span class="s"><b>${s.t?'T'+esc(s.t):'—'}</b> ${s.no}号 ${esc(s.liq)}<br><small>上槽 ${rkL0(s.L)}L</small></span><input class="in" inputmode="numeric" placeholder="${last?'最後の尺':'尺(任意)'}" data-k="m${s.k}" data-mm="${s.k}" value="${esc(m)}"><span class="v">${L!==null?rkL0(L)+'L':'—'}<small>${sub}</small></span></div>`; });
-          const FL=rkVol(S.dst,S.mm[sel[sel.length-1].k]);
-          if(FL!==null) h+=`<div class="rkmv-plan">実際：T${esc(S.dst)} <b>${rkL0(FL)} L</b>${unk?'':`（見込み ${rkL0(tot)} L、差 <span class="${Math.abs(FL-tot)>tot*.03?'ng':''}">${rkL0(FL-tot)} L</span>）`}</div>`;
+          if(sel.length>1){
+            h+=`<div class="rk-lb">途中の尺（任意。1本入れるごとに測ったとき）</div>`;
+            let prev=0, ok=true, cum=0;
+            sel.slice(0,-1).forEach((s,i)=>{ const m=S.mm[s.k]||'', L=rkVol(S.dst,m); cum+=s.L||0;
+              const inc=L!==null&&ok?L-prev:null;
+              const sub=L===null?'入れた後':inc!==null?(i?'＋'+rkL0(inc)+(s.L!==null?'（差 '+rkL0(inc-s.L)+'）':''):(s.L!==null?'差 '+rkL0(inc-s.L):'')):'上槽'+(i+1)+'本分との差 '+rkL0(L-cum);
+              ok=L!==null; if(L!==null) prev=L;
+              h+=`<div class="rkmv-row r1"><span class="n">${i+1}</span><span class="s"><b>${s.t?'T'+esc(s.t):'—'}</b> ${s.no}号 ${esc(s.liq)}<br><small>上槽 ${rkL0(s.L)}L</small></span><input class="in" inputmode="numeric" placeholder="尺(任意)" data-k="m${s.k}" data-mm="${s.k}" value="${esc(m)}"><span class="v">${L!==null?rkL0(L)+'L':'—'}<small>${sub}</small></span></div>`; });
+          }
           if(f===null) h+=`<div class="rk-lim" style="color:var(--ng)">T${esc(S.dst)} は早見表にありません（尺から量を出せません）</div>`;
         }
         h+=`</div>`;
       } else { const s=SRC[S.open];
         if(s){ const t=S.pd[s.k]||'', m=S.pm[s.k]||'', L=t?rkVol(t,m):null;
           h+=`<div class="rkmv-ed"><div class="rk-lb" style="margin-top:0">${s.t?'T'+esc(s.t):'—'}（${s.no}号 ${esc(s.liq)}・上槽 ${rkL0(s.L)}L）の移動先</div>${dstPick(t,'data-pt')}
-            <div class="rkmv-row r3"><span class="s">入れた後の実際の尺</span><input class="in" inputmode="numeric" placeholder="尺" data-k="p${s.k}" data-pm="${s.k}" value="${esc(m)}"><span class="v">${L!==null?rkL0(L)+'L':'—'}<small>${L!==null&&s.L!==null?'差 '+rkL0(L-s.L):'入れた後'}</small></span></div>
+            <div class="rkmv-row r3"><span class="s">濾過後の尺</span><input class="in" inputmode="numeric" placeholder="尺" data-k="p${s.k}" data-pm="${s.k}" value="${esc(m)}"><span class="v">${L!==null?rkL0(L)+'L':'—'}<small>${L!==null&&s.L!==null?'差 '+rkL0(L-s.L):'入れた後'}</small></span></div>
             <div class="rk-lim">${t?(rkFull(t)===null?`<span style="color:var(--ng)">T${esc(t)} は早見表にありません</span>`:`見込み：T${esc(t)} ${s.L!==null?'<b>'+rkMmTxt(t,s.L)+'</b>':'（上槽の量が分かりません）'}`):'移動先のタンクを選ぶと見込みの尺が出ます'}</div></div>`; }
       }
     }
@@ -18083,6 +18088,7 @@ async function rkfDialog(nos){
     const di=box.querySelector('[data-dt-in]'); if(di) di.oninput=e=>{ S.dst=rkT(di.value); rkKeepFocus(box,draw)(e); };
     const pi=box.querySelector('[data-pt-in]'); if(pi) pi.oninput=e=>{ S.pd[S.open]=rkT(pi.value); rkKeepFocus(box,draw)(e); };
     box.querySelectorAll('[data-mm]').forEach(x=>x.oninput=e=>{ S.mm[x.dataset.mm]=x.value; rkKeepFocus(box,draw)(e); });
+    box.querySelectorAll('[data-fin]').forEach(x=>x.oninput=e=>{ S.fin=x.value; rkKeepFocus(box,draw)(e); });
     box.querySelectorAll('[data-pm]').forEach(x=>x.oninput=e=>{ S.pm[x.dataset.pm]=x.value; rkKeepFocus(box,draw)(e); });
   }
   draw();
@@ -18102,7 +18108,7 @@ async function rkfDialog(nos){
     const staff=$('#rkStaff').value, busy=shChk(); if(staff) lsSet('rk.staff',staff);
     /* 移送先ごとの結果（調合の「いまの尺」に使う） */
     const sel=S.sel.map(k=>SRC[k]), out=[]; let tank1='', qty1={};
-    if(S.mode==1){ const lk=sel[sel.length-1].k, mm=S.mm[lk]||'', L=rkVol(S.dst,mm); out.push({t:S.dst, mm, L, lq:[...new Set(sel.map(x=>x.liq))].join('・')}); tank1=S.dst; s.forEach(n=>qty1[n]=L!==null?String(L):''); }
+    if(S.mode==1){ const mm=S.fin||'', L=rkVol(S.dst,mm); out.push({t:S.dst, mm, L, lq:[...new Set(sel.map(x=>x.liq))].join('・')}); tank1=S.dst; s.forEach(n=>qty1[n]=L!==null?String(L):''); }
     else { sel.forEach(x=>{ const t=S.pd[x.k]||'', mm=S.pm[x.k]||'', L=t?rkVol(t,mm):null; if(t) out.push({t, mm, L, lq:x.liq, from:x.k}); }); }
     const btn=$('#rkSave'); btn.disabled=true; btn.textContent='保存中…';
     try{
@@ -18244,7 +18250,10 @@ async function chDialog(it){
 .rkmv-dic button.empty{border-style:dashed}.rkmv-dic button.empty b{color:var(--sub);font-size:15px}
 .rkmv-dic button.on{background:#e8eef6;border-color:var(--navy);box-shadow:0 2px 6px rgba(31,58,95,.3)}
 .rkmv-ed{background:#fff;border:2px solid var(--navy);border-radius:12px;padding:8px;margin:8px 0 4px}
-.rkmv-row.r3{grid-template-columns:1fr 90px 96px}
+.rkmv-row.r3{grid-template-columns:1fr 90px 96px;background:#fffbe6;border:1px solid #e8d9a8;border-radius:10px;padding:7px}
+.rkmv-fin{display:grid;grid-template-columns:1fr 96px 104px;gap:6px;align-items:center;margin-top:8px;padding:7px;background:#fffbe6;border:1px solid #e8d9a8;border-radius:10px}
+.rkmv-fin .s{font-size:14px;font-weight:800;color:var(--navy)}.rkmv-fin .s small{display:block;font-size:11px;font-weight:400;color:var(--sub)}
+.rkmv-fin .v{text-align:right;font-size:15px;font-weight:800;color:var(--navy);line-height:1.15}.rkmv-fin .v small{display:block;font-size:10px;font-weight:400;color:var(--sub)}
 .rkmv-seg{display:flex;gap:6px;margin:6px 0 4px}.rkmv-seg button{flex:1;padding:8px 4px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:13px;font-weight:700;color:var(--sub);line-height:1.25}
 .rkmv-seg button.on{background:#e8eef6;border:2px solid var(--navy);color:var(--navy)}.rkmv-seg button small{display:block;font-weight:400;font-size:10px}
 .rkmv-grp{background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 8px;margin-bottom:6px}
