@@ -9474,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-17-2','🧴','濾過','濾過・火入の一覧の上（🧴濾過 › ⚗️調合 › 🔥火入 の横）に「📅予定」を足しました。押すと日にちごとに濾過・調合・火入の予定と済が並びます。日の「＋ この日に予定」から濾過・調合・火入を選ぶと、その日が予定日に入った窓が開きます。予定を押すとその記録が開きます。'],
   ['2026-11-17-1','🧴','濾過','濾過・火入を開いたときに、一瞬ホームの画面が崩れて見えるのを直しました。開いたらすぐ、手元にある予定の一覧を出します。'],
   ['2026-11-16-5','🧴','濾過','濾過の窓に「移動前の尺」の欄を足しました。選んだ上槽タンクごとに、初めは📝記録の上槽の尺が入っていて、測り直したら打ち直せます。打ち直した量で見込みの尺・空き・差を計算します（📝記録は書き換えません）。上槽先を入れていない仕込みは、ここでタンク番号と尺を入れられます。'],
   ['2026-11-16-4','🧴','濾過','濾過の窓の上の統合・別々の横に「📅予定」を足しました。押すと［予定日｜済んだ日］と、きょうから2週間の日にちが横に並び、押すだけで日にちが決まります（上槽から5日の期限を過ぎる日は赤っぽく、その日にもう入っている予定の数も出ます）。下にあった予定日・済んだ日の欄はなくしました。'],
@@ -17947,6 +17948,7 @@ function kjsPlanPop(id){
    ・2026-11-16 泰広さん指示（見本 製造ツール_濾過_予定アイコン_見本.html の案A）：統合・別々の横に📅予定。押すと［予定日｜済んだ日］と2週間の日にちが横に並び、押して選ぶ。下の予定日・済んだ日の欄は隠す（値の置き場として残す）
    ・2026-11-16 泰広さん指示：移動前のタンク（上槽タンク）の尺も入れる → 移動先の欄の下に「移動前の尺」（初めは📝記録の上槽先の尺、打ち直すとその量で見込み・差を計算。S.pre／上槽先未入力は S.preT にタンク番号）。📝記録は書き換えない
    ・2026-11-17 泰広さん指摘：濾過・火入を開くと一瞬ホームが崩れて見える → rokaScreen で見出しを変えたらすぐ手元のデータで描く
+   ・2026-11-17 泰広さん指示：一覧の上部（濾過 › 調合 › 火入 の横）に📅予定。日にちごとの予定一覧（ykDraw）。日の「＋」から予定日入りの窓
    控え：seishu-workbook_github\_src_rkmv1115.js　差し込み：_濾過調合火入_20261115.py（<!-- rkmv1115 --> ブロック、</body> の直前） */
 const RKMV_REC='濾過移送', CH_NAME='調合';
 const RK_ICONS=[['濾過','🧴'],['調合','⚗️'],['火入','🔥']];
@@ -17972,12 +17974,13 @@ function chItems(){ return (MW.items||[]).filter(x=>!x.deleted&&x.name===CH_NAME
 function rkIcBar(){
   let all=[]; try{ all=rkAll(); }catch(e){}
   const n=k=>all.reduce((a,o)=>a+o.warn.filter(w=>w.k===k).length,0);
-  return `<div class="rk-ic">${RK_ICONS.map(([k,e],i)=>`${i?'<span class="ar">›</span>':''}<button data-rk="${k}" class="${RK_TAB===k?'on':''}"><i>${e}</i>${k}${k!=='調合'&&n(k)?`<b>${n(k)}</b>`:''}</button>`).join('')}</div>`;
+  return `<div class="rk-ic">${RK_ICONS.map(([k,e],i)=>`${i?'<span class="ar">›</span>':''}<button data-rk="${k}" class="${RK_TAB===k?'on':''}"><i>${e}</i>${k}${k!=='調合'&&n(k)?`<b>${n(k)}</b>`:''}</button>`).join('')}<span class="sep"></span><button data-rk="予定" class="yt ${RK_TAB==='予定'?'on':''}"><i>📅</i>予定</button></div>`;
 }
 function rkIcBind(){ app.querySelectorAll('.rk-ic [data-rk]').forEach(b=>b.onclick=()=>{ RK_TAB=b.dataset.rk; lsSet('rk.tab',RK_TAB); rkDraw(); }); }
 const _rkDraw0=rkDraw;
 rkDraw=function(){
   if(RK_TAB==='調合'){ chDraw(); return; }
+  if(RK_TAB==='予定'){ ykDraw(); return; }
   _rkDraw0();
   const t=app.querySelector('.rk-tabs'); if(t){ t.outerHTML=rkIcBar(); rkIcBind(); }
 };
@@ -17987,14 +17990,14 @@ rokaScreen=async function(){
      → 見出しを変えたらすぐ、手元にあるデータで描く（無ければ「読み込んでいます」）。あとで読み直して描き直す */
   try{ head('濾過・火入','予定日と済んだ日'); if(dpState()) rkDraw(); else rcLoading('読み込んでいます…'); }catch(e){ try{ rcLoading('読み込んでいます…'); }catch(_){} }
   try{ loadTanks(); }catch(e){}
-  try{ mwLoad(false).then(()=>{ if(RK_TAB==='調合' && document.getElementById('chBox')) chDraw(); }); }catch(e){}
+  try{ mwLoad(false).then(()=>{ if(RK_TAB==='調合' && document.getElementById('chBox')) chDraw(); if(RK_TAB==='予定' && document.getElementById('ykBox')) ykDraw(); }); }catch(e){}
   return _rokaScreen0();
 };
 
 /* ================= 🧴 濾過の入力窓 ================= */
 const _rkDialog0=rkDialog;
-rkDialog=function(K,nos){ if(K!=='濾過') return _rkDialog0(K,nos); rkfDialog(nos||[]); };
-async function rkfDialog(nos){
+rkDialog=function(K,nos,pre){ if(K!=='濾過') return _rkDialog0(K,nos); rkfDialog(nos||[],pre); };
+async function rkfDialog(nos,pre){
   const st=dpState(); if(!st) return;
   try{ await Promise.all([loadTanks(), mwLoad(false)]); }catch(e){}
   const today=dtoday(), K='濾過';
@@ -18020,7 +18023,7 @@ async function rkfDialog(nos){
   const d=document.createElement('div'); d.className='rk-dlg';
   d.innerHTML=`<div class="rk-in"><div class="rk-hd">🧴 濾過の予定・記録<button class="x" data-x>×</button></div>
     <div id="rkmvBox"></div>
-    <label class="rk-f" style="display:none">予定日<input type="date" id="rkPlan" value="${first&&first.plan||''}"></label>
+    <label class="rk-f" style="display:none">予定日<input type="date" id="rkPlan" value="${first&&first.plan||pre&&pre.plan||''}"></label>
     <label class="rk-f" style="display:none">済んだ日<input type="date" id="rkDate" value="${first&&first.date||''}"><button type="button" class="rc-ghost" id="rkToday">きょう</button></label>
     <label class="rk-f">担当<select id="rkStaff"><option value="">（出勤表に入れない）</option>${rkStaffList().map(x=>`<option ${nrmS(x)===nrmS(first&&first.staff||lsGet('rk.staff',''))?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
     <div class="rk-lim" id="rkSh"></div>
@@ -18199,7 +18202,7 @@ function chDraw(){
   app.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>chDialog(chItems().find(x=>x.id===b.dataset.ch)||null));
   $('#chReload').onclick=async()=>{ await mwLoad(true); chDraw(); };
 }
-async function chDialog(it){
+async function chDialog(it,pre){
   try{ await loadTanks(); }catch(e){}
   const today=dtoday(), j0=it?ydJ(it):null;
   const S=j0?JSON.parse(JSON.stringify(j0)):{ src:[], dst:[] };
@@ -18209,7 +18212,7 @@ async function chDialog(it){
   d.innerHTML=`<div class="rk-in"><div class="rk-hd">⚗️ 調合の計算・記録<button class="x" data-x>×</button></div>
     <label class="rk-f">調合の名前<input id="chName" value="${esc(it&&it.liquid||'')}" placeholder="例 伝辛 調合"></label>
     <div id="chBox2"></div>
-    <label class="rk-f">予定日<input type="date" id="chPlan" value="${it&&it.plan||''}"></label>
+    <label class="rk-f">予定日<input type="date" id="chPlan" value="${it&&it.plan||pre&&pre.plan||''}"></label>
     <label class="rk-f">済んだ日<input type="date" id="chDate" value="${it&&it.date||''}"><button type="button" class="rc-ghost" id="chToday">きょう</button></label>
     <label class="rk-f">メモ<input id="chMemo" value="${esc(S.memo||'')}"></label>
     <div class="rc-actions"><button class="rc-btn" id="chSave">保存</button>${it?`<button class="rc-ghost" id="chDel" style="color:var(--ng)">消す</button>`:''}</div></div>`;
@@ -18272,13 +18275,70 @@ async function chDialog(it){
   const del=$('#chDel'); if(del) del.onclick=async()=>{ if(!confirm('この調合の記録を消しますか？')) return;
     try{ mwKeep(await mwApi({action:'delete', id:it.id})); close(); rcToast('消しました'); chDraw(); }catch(e){ rcToast(String(e.message||e),true,8000); } };
 }
+
+/* ================= 📅 予定（2026-11-17 泰広さん指示：濾過・火入の一覧の上部に予定アイコン。見本 製造ツール_濾過_予定アイコン_見本.html の案C） =================
+   日にちごとに 濾過・調合・火入 の予定・済を並べる（きょう〜13日後は毎日、ほかは予定がある日だけ。過ぎた日で済になっていない予定は上に）。
+   日の「＋この日に予定」→ 濾過／調合／火入 を選ぶと、予定日が入った窓が開く。行を押すとその記録の窓 */
+function ykItems(){
+  const out=[];
+  const g={};
+  (RK.items||[]).forEach(x=>{ const d=x.date||x.plan; if(!d||(x.name!=='濾過'&&x.name!=='火入')) return;
+    const k=x.name+'|'+d+'|'+(x.date?'済':'予')+'|'+(x.kind||x.no);
+    (g[k]=g[k]||{name:x.name, d, done:!!x.date, nos:[], tank:'', liq:[]}); g[k].nos.push(String(x.no)); if(x.tank&&!g[k].tank) g[k].tank=x.tank; if(x.liquid&&!g[k].liq.includes(x.liquid)) g[k].liq.push(x.liquid); });
+  Object.values(g).forEach(o=>{ o.nos.sort((a,b)=>+a-+b); out.push(o); });
+  try{ chItems().forEach(it=>{ const d=it.date||it.plan; if(!d) return; out.push({name:'調合', d, done:!!it.date, it, tank:it.tank||'', liq:[it.liquid||'']}); }); }catch(e){}
+  return out;
+}
+function ykDraw(){
+  const today=dtoday(), all=ykItems();
+  let warn=[]; try{ warn=rkAll(); }catch(e){}
+  const wn=k=>warn.filter(o=>o.warn.some(w=>w.k===k));
+  const wr=['濾過','火入'].map(k=>{ const L=wn(k); return L.length?`<button class="yk-warn" data-wk="${k}">⚠ ${k}の予定が足りない：${L.map(o=>o.m.no+'号').join('・')}（押して${k}へ）</button>`:''; }).join('');
+  const days=[]; for(let i=0;i<14;i++) days.push(dadd(today,i));
+  all.forEach(o=>{ if(o.d>today&&!days.includes(o.d)) days.push(o.d); }); days.sort();
+  const late=all.filter(o=>o.d<today&&!o.done).sort((a,b)=>a.d.localeCompare(b.d));
+  const row=(o,i)=>`<button class="yk-it" data-yi="${i}"><span class="tg ${o.name==='濾過'?'r':o.name==='調合'?'c':'h'}">${o.name}</span><span class="t">${o.name==='調合'?esc(o.liq[0]||'調合'):o.nos.join('・')+'号 '+esc(o.liq.join('・'))}${o.tank?` <small>→ T${esc(String(o.tank).replace(/^T/i,''))}</small>`:''}</span>${o.done?'<span class="ok">済</span>':`<span class="pl${o.d<today?' ng':''}">予定</span>`}</button>`;
+  const IDX=[];
+  const put=o=>{ IDX.push(o); return row(o,IDX.length-1); };
+  let h=rkIcBar()+`<div id="ykBox">${RK.err?`<div class="tl-warn">${esc(RK.err)}</div>`:''}${wr}`;
+  if(late.length) h+=`<div class="shk-sec">過ぎた予定（まだ済になっていない）<small>${late.length}件</small></div><div class="yk-day late">${late.map(o=>`<div class="yk-d0">${rcMD(o.d)}</div>`+put(o)).join('')}</div>`;
+  h+=days.map(d=>{ const its=all.filter(o=>o.d===d).sort((a,b)=>['濾過','調合','火入'].indexOf(a.name)-['濾過','調合','火入'].indexOf(b.name));
+    const w='日月火水木金土'[dparse(d).getDay()];
+    return `<div class="yk-day${d===today?' td':''}"><div class="h">${rcMD(d)}<small class="w${w==='日'?' sun':w==='土'?' sat':''}">（${w}）${d===today?'きょう':d===dadd(today,1)?'あした':''}</small><button class="add" data-ya="${d}">＋ この日に予定</button></div>${its.map(put).join('')}<div class="yk-pick" data-yp="${d}" hidden>${['濾過','調合','火入'].map(k=>`<button data-yn="${k}" data-yd="${d}">${k==='濾過'?'🧴':k==='調合'?'⚗️':'🔥'} ${k}</button>`).join('')}</div></div>`; }).join('');
+  h+=`<div class="rc-bar" style="margin-top:8px"><button class="rc-ghost" id="ykReload">更新</button></div></div>`;
+  app.innerHTML=h; rkIcBind();
+  app.querySelectorAll('[data-wk]').forEach(b=>b.onclick=()=>{ RK_TAB=b.dataset.wk; lsSet('rk.tab',RK_TAB); rkDraw(); });
+  app.querySelectorAll('[data-ya]').forEach(b=>b.onclick=()=>{ const p=app.querySelector(`[data-yp="${b.dataset.ya}"]`); app.querySelectorAll('.yk-pick').forEach(x=>{ if(x!==p) x.hidden=true; }); p.hidden=!p.hidden; });
+  app.querySelectorAll('[data-yn]').forEach(b=>b.onclick=()=>{ const K=b.dataset.yn, d=b.dataset.yd; b.parentNode.hidden=true;
+    if(K==='濾過') rkfDialog([], {plan:d});
+    else if(K==='調合') chDialog(null, {plan:d});
+    else { _rkDialog0('火入', []); const i=document.querySelector('.rk-dlg #rkPlan'); if(i){ i.value=d; i.dispatchEvent(new Event('change')); } } });
+  app.querySelectorAll('[data-yi]').forEach(b=>b.onclick=()=>{ const o=IDX[+b.dataset.yi]; if(!o) return;
+    if(o.name==='調合') chDialog(o.it); else rkDialog(o.name, o.nos); });
+  $('#ykReload').onclick=async()=>{ await Promise.all([recState(true), rkLoad(true), mwLoad(true)]); ykDraw(); };
+}
 (function(){ const s=document.createElement('style'); s.textContent=`
 .rk-ic{display:flex;gap:6px;align-items:center;justify-content:center;margin:4px 0 10px}
 .rk-ic button{position:relative;width:84px;padding:6px 0 5px;border:1px solid var(--line);border-radius:14px;background:#fff;font:inherit;font-size:12.5px;font-weight:700;color:var(--navy);line-height:1.2}
 .rk-ic button i{display:block;font-style:normal;font-size:26px;line-height:1.15}
 .rk-ic button.on{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:0 2px 6px rgba(31,58,95,.35)}
 .rk-ic button b{position:absolute;top:-6px;right:-4px;background:var(--ng);color:#fff;border-radius:999px;font-size:11px;padding:1px 6px}
-.rk-ic .ar{color:#aab;font-size:15px}
+.rk-ic .ar{color:#aab;font-size:14px}
+.rk-ic{gap:4px}.rk-ic button{width:72px}.rk-ic .sep{width:1px;height:40px;background:var(--line);margin:0 3px}
+.rk-ic button.yt{border:2px solid #b45309;color:#b45309}.rk-ic button.yt.on{background:#b45309;border-color:#b45309;color:#fff;box-shadow:0 2px 6px rgba(180,83,9,.35)}
+.yk-warn{display:block;width:100%;text-align:left;background:#fff6f6;border:1px solid #e7a3a3;border-radius:10px;padding:8px 10px;font:inherit;font-size:13px;color:#7a1d14;font-weight:700;margin:0 0 8px}
+.yk-day{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;overflow:hidden}
+.yk-day.td{border:2px solid var(--navy)}.yk-day.late{border-color:#e7a3a3}
+.yk-day .h{display:flex;align-items:center;gap:6px;padding:7px 10px;background:#f6f3ea;font-weight:800;color:var(--navy);font-size:15px}
+.yk-day .h small{font-weight:400;color:var(--sub);font-size:12px}.yk-day .h small.sun{color:#c0392b}.yk-day .h small.sat{color:#1f6fa8}
+.yk-day .h .add{margin-left:auto;border:1px dashed #b45309;color:#b45309;background:#fff;border-radius:8px;font:inherit;font-size:12px;padding:4px 8px}
+.yk-d0{font-size:12px;color:var(--ng);font-weight:700;padding:5px 10px 0}
+.yk-it{display:flex;gap:8px;align-items:center;width:100%;text-align:left;background:none;border:0;border-top:1px solid #eee;padding:8px 10px;font:inherit;font-size:14px;color:inherit}
+.yk-it .tg{font-size:11px;border-radius:6px;padding:2px 7px;color:#fff;font-weight:700;flex:none}.yk-it .tg.r{background:#6b8e23}.yk-it .tg.c{background:#7a4d9b}.yk-it .tg.h{background:#c0392b}
+.yk-it .t{flex:1}.yk-it .t small{color:var(--sub)}.yk-it .ok{color:var(--ok);font-weight:700;font-size:12px}.yk-it .pl{color:#b45309;font-weight:700;font-size:12px}.yk-it .pl.ng{color:var(--ng)}
+.yk-pick{display:flex;gap:6px;padding:8px 10px;border-top:1px dashed #b45309;background:#fff8ef}
+.yk-pick[hidden]{display:none}
+.yk-pick button{flex:1;padding:9px 4px;border:1px solid #b45309;border-radius:9px;background:#fff;font:inherit;font-size:14px;font-weight:700;color:var(--navy)}
 .rkmv-md{display:flex;gap:10px;justify-content:center;margin:6px 0 4px}
 .rkmv-md button{width:104px;padding:7px 4px 6px;border:1px solid var(--line);border-radius:14px;background:#fff;font:inherit;font-size:14px;font-weight:800;color:var(--navy);line-height:1.2}
 .rkmv-md button i{display:block;font-style:normal;font-size:26px;line-height:1.15}.rkmv-md button small{display:block;font-size:10px;font-weight:400;color:var(--sub)}
