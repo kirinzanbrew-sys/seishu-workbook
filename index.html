@@ -9474,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-16-4','🧴','濾過','濾過の窓の上の統合・別々の横に「📅予定」を足しました。押すと［予定日｜済んだ日］と、きょうから2週間の日にちが横に並び、押すだけで日にちが決まります（上槽から5日の期限を過ぎる日は赤っぽく、その日にもう入っている予定の数も出ます）。下にあった予定日・済んだ日の欄はなくしました。'],
   ['2026-11-16-3','🧴','濾過','濾過の移動先の入力欄に「濾過後の尺」の欄をはっきり置きました。統合は移動先のタンクを選ぶ欄のすぐ下、別々は上槽タンクごとの欄にあります。1本入れるごとに測る「途中の尺」は任意で、その下に入れられます。'],
   ['2026-11-16-2','🧴','濾過','濾過の窓で「まとめて1本へ」を「🔗統合」、「それぞれ別のタンクへ」を「🔀別々」のアイコンにしました。上槽したタンクを選ぶと、上に「移動先」のタンクのアイコンが出ます。押すとその下で移動先のタンクと尺を入れられます（統合は1つ、別々は上槽タンクごと）。'],
   ['2026-11-15-4','🧹','麹','麹室の清掃の表：決まった曜日の作業を別の日にしたときは、その日の灰色のマスを押して ○ を付けられます。同じ週（月〜日）の別の日に済ませていれば、決まった曜日のマスは × ではなく「→（済ませた日）」になり、アイコンの数にも入りません。'],
@@ -17941,6 +17942,7 @@ function kjsPlanPop(id){
        保存：表「醪作業」 name＝調合（liquid＝調合の名前、tank＝移送先、plan・date、memo＝JSON）。カレンダー・出勤表には入れない
    ・2026-11-16 泰広さん指示：濾過の「まとめて1本へ」→🔗統合、「それぞれ」→🔀別々 のアイコンに。上槽タンクを選ぶと「移動先」のタンクアイコンを上に出し、押してそこで入力（統合＝1つ、別々＝上槽タンクごと）
    ・2026-11-16 泰広さん指摘「濾過後の尺を入力するところがない」→ 移動先の入力欄に「濾過後の尺」をはっきり置く（統合＝タンクを選ぶ欄のすぐ下・S.fin、別々＝「濾過後の尺」）。途中の尺は任意の欄として下に
+   ・2026-11-16 泰広さん指示（見本 製造ツール_濾過_予定アイコン_見本.html の案A）：統合・別々の横に📅予定。押すと［予定日｜済んだ日］と2週間の日にちが横に並び、押して選ぶ。下の予定日・済んだ日の欄は隠す（値の置き場として残す）
    控え：seishu-workbook_github\_src_rkmv1115.js　差し込み：_濾過調合火入_20261115.py（<!-- rkmv1115 --> ブロック、</body> の直前） */
 const RKMV_REC='濾過移送', CH_NAME='調合';
 const RK_ICONS=[['濾過','🧴'],['調合','⚗️'],['火入','🔥']];
@@ -18011,8 +18013,8 @@ async function rkfDialog(nos){
   const d=document.createElement('div'); d.className='rk-dlg';
   d.innerHTML=`<div class="rk-in"><div class="rk-hd">🧴 濾過の予定・記録<button class="x" data-x>×</button></div>
     <div id="rkmvBox"></div>
-    <label class="rk-f">予定日<input type="date" id="rkPlan" value="${first&&first.plan||''}"></label>
-    <label class="rk-f">済んだ日<input type="date" id="rkDate" value="${first&&first.date||''}"><button type="button" class="rc-ghost" id="rkToday">きょう</button></label>
+    <label class="rk-f" style="display:none">予定日<input type="date" id="rkPlan" value="${first&&first.plan||''}"></label>
+    <label class="rk-f" style="display:none">済んだ日<input type="date" id="rkDate" value="${first&&first.date||''}"><button type="button" class="rc-ghost" id="rkToday">きょう</button></label>
     <label class="rk-f">担当<select id="rkStaff"><option value="">（出勤表に入れない）</option>${rkStaffList().map(x=>`<option ${nrmS(x)===nrmS(first&&first.staff||lsGet('rk.staff',''))?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
     <div class="rk-lim" id="rkSh"></div>
     <label class="rk-f">炭 kg<input id="rkNum" inputmode="decimal" value="${esc(num0)}"></label>
@@ -18024,6 +18026,13 @@ async function rkfDialog(nos){
   const close=()=>d.remove();
   d.addEventListener('click',e=>{ if(e.target===d||e.target.dataset.x!==undefined) close(); });
   const selNos=()=>{ const a=[]; S.sel.forEach(k=>{ const n=SRC[k].no; if(!a.includes(n)) a.push(n); }); return a; };
+  /* 2026-11-16 泰広さん指示（案A）：予定日・済んだ日は上の📅予定から日にちを選ぶ（下の欄は隠す） */
+  const CAL={ open:!(first&&(first.plan||first.date)), kind:(first&&first.date)?'done':'plan' };
+  const limDay=()=>{ const os=selNos().map(n=>cand.find(o=>String(o.m.no)===n)).filter(Boolean); return os.map(o=>dadd(o.J||today,RK_DAYS.濾過)).sort()[0]||''; };
+  const rkBusy=d=>{ const out=[], sn=selNos();
+    (RK.items||[]).filter(x=>(x.date||x.plan)===d && !(x.name==='濾過'&&sn.includes(String(x.no)))).forEach(x=>{ const t=x.name+' '+x.no+'号'; if(!out.includes(t)) out.push(t); });
+    try{ chItems().filter(x=>(x.date||x.plan)===d).forEach(x=>out.push('調合 '+(x.liquid||''))); }catch(e){}
+    return out; };
   const lim=()=>{ const os=selNos().map(n=>cand.find(o=>String(o.m.no)===n)).filter(Boolean);
     const L=os.map(o=>dadd(o.J||today,RK_DAYS.濾過)).sort()[0]; const p=$('#rkPlan').value;
     $('#rkLim').innerHTML=L?`上槽から${RK_DAYS.濾過}日：<b>${rcMD(L)}</b> までに${p&&p>L?' <span style="color:var(--ng)">← 予定が期限を過ぎています</span>':''}`:''; };
@@ -18038,7 +18047,13 @@ async function rkfDialog(nos){
     const sel=S.sel.map(k=>SRC[k]), tot=sel.reduce((a,s)=>a+(s.L||0),0), unk=sel.some(s=>s.L===null);
     if(S.mode==1) S.open=S.open==='dst'||!S.open?'dst':S.open; 
     if(S.mode==2 && sel.length && !sel.some(s=>s.k===S.open)) S.open=(sel.find(s=>!S.pd[s.k]||!S.pm[s.k])||sel[0]).k;
-    let h=`<div class="rkmv-md">${[[1,'🔗','統合','何本かを1本へ'],[2,'🔀','別々','それぞれ別のタンクへ']].map(([v,e,n,sub])=>`<button type="button" data-md="${v}" class="${S.mode==v?'on':''}"><i>${e}</i>${n}<small>${sub}</small></button>`).join('')}</div>`;
+    const pv=$('#rkPlan').value, dv=$('#rkDate').value;
+    let h=`<div class="rkmv-md">${[[1,'🔗','統合','何本かを1本へ'],[2,'🔀','別々','それぞれ別のタンクへ']].map(([v,e,n,sub])=>`<button type="button" data-md="${v}" class="${S.mode==v?'on':''}"><i>${e}</i>${n}<small>${sub}</small></button>`).join('')}<button type="button" data-cal="1" class="cal ${pv||dv?'set':''} ${CAL.open?'open':''}"><i>📅</i>予定<small>${dv?'済 '+rcMD(dv):pv?'予定 '+rcMD(pv):'日を選ぶ'}</small></button></div>`;
+    if(CAL.open){ const cur=CAL.kind==='done'?dv:pv, Lm=limDay();
+      const ds=[]; for(let i=(CAL.kind==='done'?-6:0);i<14;i++) ds.push(dadd(today,i)); if(cur&&!ds.includes(cur)){ ds.push(cur); ds.sort(); }
+      h+=`<div class="rkmv-dp"><div class="seg"><button type="button" data-ck="plan" class="${CAL.kind==='plan'?'on':''}">予定日</button><button type="button" data-ck="done" class="${CAL.kind==='done'?'on':''}">済んだ日</button></div><div class="days">${ds.map(d=>{ const w=dparse(d).getDay(), n=rkBusy(d);
+        return `<button type="button" data-dd="${d}" class="${w==0?'sun':w==6?'sat':''} ${CAL.kind==='plan'&&Lm&&d>Lm?'lim':''} ${cur===d?'on':''}"><span class="w">${d===today?'きょう':d===dadd(today,1)?'あした':d===dadd(today,-1)?'きのう':'日月火水木金土'[w]}</span><b>${dparse(d).getDate()}</b><span class="dot">${n.length?'●'+n.length:''}</span></button>`; }).join('')}</div>
+        <div class="dpn">${CAL.kind==='plan'?(Lm?`上槽から${RK_DAYS.濾過}日：<b>${rcMD(Lm)}</b> までに（赤っぽい日は期限を過ぎます）`:'上槽タンクを選ぶと期限が出ます'):'済んだ日（きょうより前も選べます）'}${cur&&rkBusy(cur).length?`<br>${rcMD(cur)} にはもう：${rkBusy(cur).map(esc).join('・')}`:''}${cur?'　<span class="clr" data-clr="1">消す</span>':''}</div></div>`; }
     /* ---- 移動先のアイコン（上） ---- */
     if(sel.length){
       h+=`<div class="rk-lb">移動先（押して入力）</div><div class="rkmv-dic">`;
@@ -18078,6 +18093,11 @@ async function rkfDialog(nos){
     h+=G.map(g=>`<div class="rkmv-grp"><div class="g">${g.no}号 ${esc(g.liq)}<small>上槽 ${rcMD(g.J)}${g.done?'・濾過済 '+rcMD(g.done):''}</small></div><div class="rk-nos">${g.keys.map(k=>{ const s=SRC[k]; return `<button type="button" data-sk="${k}" class="${S.sel.includes(k)?'on':''}">${s.t?'T'+esc(s.t):'上槽先 未入力'}<small>${s.L!==null?rkL0(s.L)+'L':(s.t?'量 —':'📝記録で上槽先を入れると量が出ます')}</small></button>`; }).join('')}</div></div>`).join('')||'<div class="tl-note">対象の仕込がありません</div>';
     box.innerHTML=h;
     box.querySelectorAll('[data-md]').forEach(b=>b.onclick=()=>{ S.mode=+b.dataset.md; lsSet('rk.mode',S.mode); S.open=''; draw(); });
+    box.querySelectorAll('[data-cal]').forEach(b=>b.onclick=()=>{ CAL.open=!CAL.open; draw(); });
+    box.querySelectorAll('[data-ck]').forEach(b=>b.onclick=()=>{ CAL.kind=b.dataset.ck; draw(); });
+    const setD=v=>{ const el=$(CAL.kind==='done'?'#rkDate':'#rkPlan'); el.value=v; lim(); try{ shChk(); }catch(e){} draw(); };
+    box.querySelectorAll('[data-dd]').forEach(b=>b.onclick=()=>{ const v=b.dataset.dd, cur=$(CAL.kind==='done'?'#rkDate':'#rkPlan').value; setD(cur===v?'':v); });
+    box.querySelectorAll('[data-clr]').forEach(b=>b.onclick=()=>setD(''));
     box.querySelectorAll('[data-op]').forEach(b=>b.onclick=()=>{ S.open=b.dataset.op; draw(); });
     box.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>{ const k=b.dataset.sk, i=S.sel.indexOf(k);
       if(i<0){ S.sel.push(k); if(!S.pd[k]){ const prevK=S.sel[S.sel.length-2], pt=prevK&&S.pd[prevK]; if(pt&&/^\d+$/.test(pt)){ let n=String(+pt+1); const used=Object.values(S.pd); while(used.includes(n)&&+n<+pt+20) n=String(+n+1); if(rkFull(n)!==null) S.pd[k]=n; } }
@@ -18241,9 +18261,21 @@ async function chDialog(it){
 .rk-ic button b{position:absolute;top:-6px;right:-4px;background:var(--ng);color:#fff;border-radius:999px;font-size:11px;padding:1px 6px}
 .rk-ic .ar{color:#aab;font-size:15px}
 .rkmv-md{display:flex;gap:10px;justify-content:center;margin:6px 0 4px}
-.rkmv-md button{width:120px;padding:7px 4px 6px;border:1px solid var(--line);border-radius:14px;background:#fff;font:inherit;font-size:14px;font-weight:800;color:var(--navy);line-height:1.2}
+.rkmv-md button{width:104px;padding:7px 4px 6px;border:1px solid var(--line);border-radius:14px;background:#fff;font:inherit;font-size:14px;font-weight:800;color:var(--navy);line-height:1.2}
 .rkmv-md button i{display:block;font-style:normal;font-size:26px;line-height:1.15}.rkmv-md button small{display:block;font-size:10px;font-weight:400;color:var(--sub)}
 .rkmv-md button.on{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:0 2px 6px rgba(31,58,95,.35)}.rkmv-md button.on small{color:#dfe6f0}
+.rkmv-md button.cal{border:2px solid #b45309}.rkmv-md button.cal.set{background:#fff4e5}.rkmv-md button.cal small{color:#b45309;font-weight:700}.rkmv-md button.cal.open{box-shadow:0 0 0 3px rgba(180,83,9,.25)}
+.rkmv-md button.cal.on{background:#b45309}
+.rkmv-dp{background:#fff;border:2px solid #b45309;border-radius:12px;padding:8px;margin:6px 0 8px}
+.rkmv-dp .seg{display:flex;gap:5px;margin-bottom:6px}.rkmv-dp .seg button{flex:1;padding:6px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:13px;font-weight:700;color:var(--sub)}
+.rkmv-dp .seg button.on{background:#b45309;border-color:#b45309;color:#fff}
+.rkmv-dp .days{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px}
+.rkmv-dp .days button{flex:0 0 46px;border:1px solid var(--line);border-radius:10px;background:#fff;text-align:center;padding:4px 0;font:inherit;line-height:1.15;color:inherit}
+.rkmv-dp .days b{display:block;font-size:17px;color:var(--navy)}.rkmv-dp .days .w{display:block;font-size:10px;color:var(--sub)}.rkmv-dp .days .sun .w{color:#c0392b}.rkmv-dp .days .sat .w{color:#1f6fa8}
+.rkmv-dp .days .dot{display:block;font-size:9px;color:#b45309;min-height:11px}
+.rkmv-dp .days button.lim{border-color:#e7a3a3;background:#fff6f6}
+.rkmv-dp .days button.on{background:#b45309;border-color:#b45309}.rkmv-dp .days button.on b,.rkmv-dp .days button.on .w,.rkmv-dp .days button.on .dot{color:#fff}
+.rkmv-dp .dpn{font-size:11px;color:var(--sub);margin-top:4px;line-height:1.5}.rkmv-dp .clr{color:var(--ng);text-decoration:underline;cursor:pointer}
 .rkmv-dic{display:flex;flex-wrap:wrap;gap:8px}
 .rkmv-dic button{min-width:92px;padding:6px 8px;border:2px solid #9fb3c8;border-radius:14px;background:#fff;font:inherit;color:var(--navy);text-align:center;line-height:1.2}
 .rkmv-dic button .lb{display:block;font-size:10px;color:var(--sub)}.rkmv-dic button b{display:block;font-size:20px}.rkmv-dic button small{display:block;font-size:10.5px;color:var(--sub)}
