@@ -9474,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-18-1','🧴','濾過','濾過・火入の一覧で、仕込みごとの枠をアイコンくらいの小さい枠にしました（赤＝要注意・橙＝予定・灰＝もうすぐ上槽・薄い緑＝済）。注意は「⚠ 濾過予定 ○号」の短い文だけにし、押すと上槽日と期限が出ます。濾過の予定が入っていれば注意は出ません。火入の注意は濾過が済んでから出ます。'],
   ['2026-11-17-4','🍶','仕込み','上槽の翌日の箱（表の右に重なる箱）の中で、そのまま入力できるようにしました。いちばん上に上槽先のタンク番号、その下に 日本酒度・alc・酸度・アミノ酸度・尺 を打てます（窓は開きません）。マスを離れると保存され、Enter で下の欄→次のタンクへ進みます。日本酒度の「±」で＋と−を切り替えられます。上槽先を足すときは箱の右の「＋」。日にちの列の幅は変わりません。'],
   ['2026-11-17-3','🧴','濾過','濾過の統合で、「途中の尺」をふだんは隠しました。使うときは「途中の尺も入れる」のスイッチを入れると出ます（途中の尺が入っている記録は、開いたときから出ます）。'],
   ['2026-11-17-2','🧴','濾過','濾過・火入の一覧の上（🧴濾過 › ⚗️調合 › 🔥火入 の横）に「📅予定」を足しました。押すと日にちごとに濾過・調合・火入の予定と済が並びます。日の「＋ この日に予定」から濾過・調合・火入を選ぶと、その日が予定日に入った窓が開きます。予定を押すとその記録が開きます。'],
@@ -16827,10 +16828,10 @@ const atL=v=>{ const n=atN(v); return n===null?'':Math.round(n).toLocaleString('
 const atDg=v=>{ const n=atN(v); return n===null?'':n.toFixed(n>=50?2:1); };
 const atS=v=>{ const n=atN(v); return n===null?'':(n>0?'+':n<0?'−':'')+Math.abs(Math.round(n)).toLocaleString('ja-JP'); };
 function atVol(t, mm){ const x=atN(mm); if(x===null) return null; try{ if(typeof ydVol==='function') return ydVol(String(t), x); }catch(e){} return null; }
+const AT_KO={ 受入:1, 割水:2, 実測:3, 払出:4, ほかから:5 };   /* 2026-11-18 atRecs の中（return の後）に入っていて「初期化前」エラー→資材のアルコールタブが開けなかったので外へ */
 function atRecs(){
   return (ZAI.items||[]).filter(x=>x.name===AT_NAME && !x.deleted && x.kind!=='設定').map(x=>Object.assign({ id:x.id, kind:x.kind, date:String(x.date||'').slice(0,10), at:x.at||'', by:x.updBy||x.by||'', qty:x.qty }, atJ(x)))
     .sort((a,b)=>a.date.localeCompare(b.date)||String(a.at).localeCompare(String(b.at))||((AT_KO[a.kind]||9)-(AT_KO[b.kind]||9))||String(a.id).localeCompare(String(b.id)));
-const AT_KO={ 受入:1, 割水:2, 実測:3, 払出:4, ほかから:5 };
 }
 function atHas(){ return (ZAI.items||[]).some(x=>x.name===AT_NAME && !x.deleted && x.kind!=='設定'); }
 function atSetting(){ const x=(ZAI.items||[]).find(x=>x.name===AT_NAME && x.kind==='設定' && !x.deleted); return x?Object.assign({ id:x.id }, atJ(x)):{}; }
@@ -18524,5 +18525,103 @@ function ykDraw(){
 .ch-act{display:grid;grid-template-columns:auto 90px 1fr;gap:6px;align-items:center;margin-top:7px;font-size:12px;border-top:1px dashed var(--line);padding-top:7px}`; document.head.appendChild(s); })();
 </script>
 <!-- /rkmv1115 -->
+<!-- rksmall1118 -->
+<script>
+/* ================= 🧴 濾過・火入：小さい枠／短いアラート（2026-11-18 泰広さん指示） =================
+   見本：製造ツール_濾過火入_小さい枠とアラート_見本.html
+   ・濾過・火入の一覧で、各仕込みの枠をアイコンくらいの小さい枠に（1行に5つ。号数を大きく、液種・日付を小さく。色で状態）
+   ・アラートは短く「⚠ 濾過予定 ○号」「⚠ 火入予定 ○号」だけ。押すと中身（上槽日・期限・どうする）が下から出る（11/12 の決まり）
+   ・予定を入れているのにアラートが出る件：
+       濾過＝濾過予定が入っていればアラートを出さない（上槽から5日を超える予定でも出さない）
+       火入＝濾過が「済」になってから、火入の予定が無いときだけ出す（濾過の予定だけでは出さない）
+   控え：seishu-workbook_github\_src_rksmall1118.js（<!-- rksmall1118 --> ブロック、</body> の直前） */
+rkOf=function(m, today){
+  today=today||dtoday();
+  const J=rkJoso(m), ro=rkRow('濾過',m.no), hi=rkRow('火入',m.no);
+  const roD=ro&&ro.date||'', roP=ro&&ro.plan||'', hiD=hi&&hi.date||'', hiP=hi&&hi.plan||'';
+  const R=roD||roP;
+  const o={ m, J, ro, hi, roD, roP, hiD, hiP, R, warn:[] };
+  if(J && !roD && !roP && J<=dadd(today,RK_DAYS.濾過)) o.warn.push({k:'濾過', t:`濾過予定 ${m.no}号`, lim:dadd(J,RK_DAYS.濾過)});
+  if(roD && !hiD && !hiP && roD<=dadd(today,RK_DAYS.火入)) o.warn.push({k:'火入', t:`火入予定 ${m.no}号`, lim:dadd(roD,RK_DAYS.火入)});
+  return o;
+};
+/* 短いアラート（押すと中身） */
+function rksAlHTML(all,ks){
+  const L=[]; all.forEach(o=>o.warn.forEach(w=>{ if(ks.includes(w.k)) L.push({o,w}); }));
+  L.sort((a,b)=>String(a.w.lim).localeCompare(String(b.w.lim)));
+  window.RKS_AL=L;
+  return L.length?`<div class="rks-al">${L.map((x,i)=>`<button data-rksal="${i}">⚠ ${esc(x.w.t)}</button>`).join('')}</div>`:'';
+}
+function rksAlBind(){ app.querySelectorAll('[data-rksal]').forEach(b=>b.onclick=()=>{ const x=(window.RKS_AL||[])[+b.dataset.rksal]; if(x) rksPop(x.o,x.w); }); }
+function rksPop(o,w){
+  const m=o.m, isR=w.k==='濾過', today=dtoday(), over=w.lim<today;
+  const d=document.createElement('div'); d.className='rks-pop';
+  d.innerHTML=`<div class="in"><b class="t1">⚠ ${esc(w.t)}　${esc(m.liquid||'')}</b>
+    <div>${isR?'濾過の予定が入っていません。':'濾過は済みましたが、火入の予定が入っていません。'}</div>
+    <div>${isR?`上槽 ${rcMD(o.J)}`:`濾過 済 ${rcMD(o.roD)}`} → <b${over?' style="color:var(--ng)"':''}>${rcMD(w.lim)}までに${w.k}</b>${over?'（期限を過ぎています）':''}</div>
+    <div class="h">どうする：予定日を入れてください</div>
+    <div class="rc-actions"><button class="rc-btn" data-go>${w.k}の予定を入れる</button><button class="rc-ghost" data-x>閉じる</button></div></div>`;
+  document.body.appendChild(d);
+  d.addEventListener('click',e=>{ if(e.target===d||e.target.dataset.x!==undefined) d.remove(); });
+  d.querySelector('[data-go]').onclick=()=>{ d.remove(); rkDialog(w.k,[String(m.no)]); };
+}
+/* 一覧の枠を小さく（1本ずつのボタンはそのまま使い、中身と形だけ変える） */
+function rksTiles(K){
+  const box=document.getElementById('rkBox'); if(!box) return;
+  const isR=K==='濾過', all=rkAll(), byNo={}; all.forEach(o=>byNo[String(o.m.no)]=o);
+  const rows=[...box.querySelectorAll('.rk-row[data-no]')]; if(!rows.length) return;
+  rows.forEach(b=>{ const o=byNo[String(b.dataset.no)]; if(!o) return;
+    const D=isR?o.roD:o.hiD, P=isR?o.roP:o.hiP, w=o.warn.some(v=>v.k===K);
+    let s, c;
+    if(D){ s='済 '+rcMD(D); c='d'; }
+    else if(P){ s=rcMD(P); c='p'; }
+    else if(w){ s='予定なし'; c='w'; }
+    else { s=isR?(o.J?'槽 '+rcMD(o.J):'—'):(o.R?'濾 '+rcMD(o.R):'—'); c='g'; }
+    b.className='rks-t '+c;
+    b.innerHTML=`<span class="n">${esc(String(o.m.no))}</span><span class="l">${esc(o.m.liquid||'')}</span><span class="s">${esc(s)}</span>`; });
+  /* 続いているボタンを1つの並びにまとめる */
+  let grp=null, prev=null;
+  [...box.children].forEach(el=>{
+    if(el.classList&&el.classList.contains('rks-t')){
+      if(!grp||prev!==grp){ grp=document.createElement('div'); grp.className='rks-tiles'; el.before(grp); }
+      grp.appendChild(el); prev=grp;
+    } else { prev=el; }
+  });
+  const al=rksAlHTML(all,[K]); if(al) box.insertAdjacentHTML('afterbegin',al);
+  box.querySelectorAll('.rk-w').forEach(x=>x.remove());
+  rksAlBind();
+}
+const _rksDraw0=rkDraw;
+rkDraw=function(){
+  _rksDraw0();
+  try{ if(RK_TAB==='濾過'||RK_TAB==='火入') rksTiles(RK_TAB); }catch(e){}
+};
+const _rksYk0=ykDraw;
+ykDraw=function(){
+  _rksYk0();
+  try{
+    const ws=app.querySelectorAll('.yk-warn'); if(!ws.length) return;
+    const html=rksAlHTML(rkAll(),['濾過','火入']);
+    ws[0].insertAdjacentHTML('beforebegin',html); ws.forEach(x=>x.remove()); rksAlBind();
+  }catch(e){}
+};
+(function(){ const s=document.createElement('style'); s.textContent=`
+.rks-al{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.rks-al button{border:1px solid #e7a3a3;background:#fff6f6;color:#7a1d14;border-radius:999px;padding:5px 11px;font:inherit;font-size:13px;font-weight:800}
+.rks-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:0 0 6px}
+.rks-t{position:relative;border:1px solid var(--line);background:#fff;border-radius:12px;padding:5px 2px 4px;text-align:center;font:inherit;color:inherit;line-height:1.15;min-width:0}
+.rks-t .n{display:block;font-size:20px;font-weight:800;color:var(--navy)}
+.rks-t .l{display:block;font-size:10px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rks-t .s{display:block;font-size:10.5px;font-weight:700;margin-top:1px;white-space:nowrap}
+.rks-t.w{border:2px solid var(--ng);background:#fff6f6}.rks-t.w .s{color:var(--ng)}
+.rks-t.w::after{content:"";position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--ng)}
+.rks-t.p{border:2px solid #d08a2a}.rks-t.p .s{color:#b45309}
+.rks-t.d{opacity:.7}.rks-t.d .s{color:var(--ok)}
+.rks-t.g .s{color:var(--sub)}
+.rks-pop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:950;display:flex;align-items:flex-end;justify-content:center}
+.rks-pop .in{background:#fff;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:14px 16px calc(16px + env(safe-area-inset-bottom));font-size:14px;line-height:1.7}
+.rks-pop .t1{font-size:16px;color:var(--ng)}.rks-pop .h{color:var(--sub);font-size:13px}`; document.head.appendChild(s); })();
+</script>
+<!-- /rksmall1118 -->
 </body>
 </html>
