@@ -9474,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-18-3','🔔','ホーム','本日の予定の上の札（穴あけ・泡消し器・米入荷・A重油など）を絵なしで1段にまとめました。穴あけは「穴あけ 20・21号」のように1枚にまとめます。A重油の札の「発注」の文字はなくしました。「分析 ◯本」は出勤の氏名の下に移しました。'],
   ['2026-11-18-2','🔔','ホーム','本日の予定の上の「穴あけ」「泡消し器」の大きな帯を、A重油と同じ大きさの小さな札にしました。米の入荷（引取予定）がある日は「🌾 米入荷 品種 ◯袋」の札も並べて出します（予定の表の「米引取」はそのままです）。'],
   ['2026-11-18-1','🧴','濾過','濾過・火入の一覧で、仕込みごとの枠をアイコンくらいの小さい枠にしました（赤＝要注意・橙＝予定・灰＝もうすぐ上槽・薄い緑＝済）。注意は「⚠ 濾過予定 ○号」の短い文だけにし、押すと上槽日と期限が出ます。濾過の予定が入っていれば注意は出ません。火入の注意は濾過が済んでから出ます。'],
   ['2026-11-17-4','🍶','仕込み','上槽の翌日の箱（表の右に重なる箱）の中で、そのまま入力できるようにしました。いちばん上に上槽先のタンク番号、その下に 日本酒度・alc・酸度・アミノ酸度・尺 を打てます（窓は開きません）。マスを離れると保存され、Enter で下の欄→次のタンクへ進みます。日本酒度の「±」で＋と−を切り替えられます。上槽先を足すときは箱の右の「＋」。日にちの列の幅は変わりません。'],
@@ -12809,9 +12810,12 @@ function mwDayList(date){
     try{ const date=dpDate(), L=mwDayList(date);
       /* 2026-11-18 泰広さん指示：大きな帯をやめ、A重油と同じ大きさの小さな札に。米入荷（引取予定表）も同じ札で出す（米引取の棒はそのまま） */
       const H=MFG&&MFG.hikitori, hk=H&&H.days&&H.days[date];
-      const R=hk?Object.keys(hk).filter(v=>(Number(hk[v])||0)>0).map(v=>`<span class="c">🌾 米入荷 ${esc(v)} ${esc(String(hk[v]))}袋</span>`):[];
+      const R=hk?Object.keys(hk).filter(v=>(Number(hk[v])||0)>0).map(v=>`<span class="c">米入荷 ${esc(v)} ${esc(String(hk[v]))}袋</span>`):[];
       if(L.length||R.length){
-        h=`<div class="mw-al2">`+L.map(x=>`<span class="c${x.done?' dn':''}">${x.done?'✓':x.job.icon} ${esc(x.job.name)} No.${esc(String(x.m.no))}${x.m.tank?' T'+esc(x.m.tank):''}</span>`).join('')+R.join('')+`</div>`+h; } }catch(e){ console.log('mw dp',e); }
+        /* 2026-11-18 泰広さん指示：絵は出さない。同じ作業は1枚にまとめて「穴あけ 20・21号」（済は ✓、全部済なら緑） */
+        const G={}, K=[]; L.forEach(x=>{ const n=x.job.short||x.job.name; if(!G[n]){ G[n]=[]; K.push(n); } G[n].push(x); });
+        const C=K.map(n=>{ const a=G[n]; return `<span class="c${a.every(x=>x.done)?' dn':''}">${esc(n)} `+a.map(x=>(x.done?'✓':'')+esc(String(x.m.no))).join('・')+`号</span>`; });
+        h=`<div class="mw-al2">`+C.join('')+R.join('')+`</div>`+h; } }catch(e){ console.log('mw dp',e); }
     return h; };
 })();
 /* 日付の一覧の右の主な作業にも「穴あけ」「泡消」 */
@@ -18630,5 +18634,48 @@ ykDraw=function(){
 .rks-pop .t1{font-size:16px;color:var(--ng)}.rks-pop .h{color:var(--sub);font-size:13px}`; document.head.appendChild(s); })();
 </script>
 <!-- /rksmall1118 -->
+<!-- chips1118 -->
+<script>
+/* ================= 本日の予定：札を1段に／分析は出勤の下（2026-11-18 泰広さん指示） =================
+   ・穴あけ・泡消し器・米入荷（moromiwork の .mw-al2）と、A重油・酒粕箱の札（資材の .szo-chips）を1つの段にまとめる（絵は出さない）
+   ・A重油の札の「発注」の文字は出さない（「A重油 約◯ℓ」）
+   ・「分析 ◯本（酒母◯・醪◯）」（.dp-bn）は予定の上から外し、出勤の氏名の下に出す
+   ・1段に入りきらない日は横にずらして見る（折り返さない）
+   控え：seishu-workbook_github\_src_chips1118.js（<!-- chips1118 --> ブロック、</body> の直前） */
+(function(){
+  const o=window.dpBunHTML; if(typeof o!=='function') return;
+  window.dpBunHTML=function(){
+    let h=o.apply(this, arguments);
+    try{
+      const t=document.createElement('template'); t.innerHTML=h; const R=t.content;
+      const chips=[];
+      R.querySelectorAll('.mw-al2').forEach(m=>{ m.querySelectorAll('.c').forEach(c=>chips.push(c.outerHTML)); m.remove(); });
+      R.querySelectorAll('.szo-chips').forEach(s=>{ s.querySelectorAll('.szo-chip').forEach(c=>{
+        if(c.dataset.szoal==='oil') c.textContent=c.textContent.replace(/\s*発注\s*$/,'');
+        chips.push(c.outerHTML); }); s.remove(); });
+      R.querySelectorAll('.dp-bn').forEach(b=>b.remove());
+      const div=document.createElement('div'); div.appendChild(R.cloneNode(true)); h=div.innerHTML;
+      if(chips.length) h=`<div class="dp-chip1">${chips.join('')}</div>`+h;
+    }catch(e){ console.log('chips1118',e); }
+    return h; };
+})();
+(function(){
+  const o=window.dpKinmuHTML; if(typeof o!=='function') return;
+  window.dpKinmuHTML=function(){
+    let h=o.apply(this, arguments);
+    try{ const b=dpBunseki(dpDate());
+      if(b&&b.n) h+=`<div class="dp-bn dp-bn2">分析 <b class="${b.n>DP_BUN_MAX?'ov':''}">${b.n}本</b>（酒母${b.sb.length}・醪${b.mr.length}）</div>`;
+    }catch(e){ console.log('chips1118 bn',e); }
+    return h; };
+})();
+(function(){ const s=document.createElement('style'); s.textContent=`
+.dp-chip1{display:flex;flex-wrap:nowrap;gap:3px;align-items:center;margin:0 0 6px;overflow-x:auto;scrollbar-width:none}
+.dp-chip1::-webkit-scrollbar{display:none}
+.dp-chip1 .c{display:inline-block;flex:none;font-size:10.5px;font-weight:700;line-height:1.4;padding:2px 4px;border-radius:999px;background:#fff8e6;border:1px solid #e0a23a;color:#8a5300;white-space:nowrap}
+.dp-chip1 .c.dn{color:#2e7d32;font-weight:400}
+.dp-chip1 .dp-al.szo-chip{flex:none;font-size:10.5px;padding:2px 4px;margin:0;white-space:nowrap}
+.dp-bn.dp-bn2{margin:4px 2px 2px}`; document.head.appendChild(s); })();
+</script>
+<!-- /chips1118 -->
 </body>
 </html>
