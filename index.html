@@ -9474,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-17-4','🍶','仕込み','上槽の翌日の箱（表の右に重なる箱）の中で、そのまま入力できるようにしました。いちばん上に上槽先のタンク番号、その下に 日本酒度・alc・酸度・アミノ酸度・尺 を打てます（窓は開きません）。マスを離れると保存され、Enter で下の欄→次のタンクへ進みます。日本酒度の「±」で＋と−を切り替えられます。上槽先を足すときは箱の右の「＋」。日にちの列の幅は変わりません。'],
   ['2026-11-17-3','🧴','濾過','濾過の統合で、「途中の尺」をふだんは隠しました。使うときは「途中の尺も入れる」のスイッチを入れると出ます（途中の尺が入っている記録は、開いたときから出ます）。'],
   ['2026-11-17-2','🧴','濾過','濾過・火入の一覧の上（🧴濾過 › ⚗️調合 › 🔥火入 の横）に「📅予定」を足しました。押すと日にちごとに濾過・調合・火入の予定と済が並びます。日の「＋ この日に予定」から濾過・調合・火入を選ぶと、その日が予定日に入った窓が開きます。予定を押すとその記録が開きます。'],
   ['2026-11-17-1','🧴','濾過','濾過・火入を開いたときに、一瞬ホームの画面が崩れて見えるのを直しました。開いたらすぐ、手元にある予定の一覧を出します。'],
@@ -14969,13 +14970,16 @@ document.addEventListener('click', e=>{ const td=e.target.closest&&e.target.clos
 const YD_SCH='四段日程', YD_REC='上槽記録', YD_ANA='上槽後分析';
 const YD_ALC_PCT=40, YD_ALC_SM=73.6, YD_YON_SM=-150, YD_YON_ALC=1;   // アル添計算と同じ初期値（醸造アルコール40%）
 const YD_RANGE={alc:[12,23], ta:[0.5,3.5], aa:[0.3,3.0]};
-const YD={ chain:true };
+const YD={ chain:true, add:{} };
+/* 2026-11-17 案B：上槽後の分析を表の箱で直接入力。送信待ちをタンクごとに持つ（key＝順号|タンク、_del＝削除待ち） */
+const YDA={};
 const ydN=v=>{ if(v===''||v===null||v===undefined) return null; const n=typeof pnum==='function'?pnum(String(v)):Number(v); return (n===null||isNaN(n))?null:n; };
 const ydF1=v=>{ const n=ydN(v); return n===null?'—':n.toFixed(1); };
 const ydSg=v=>{ const n=ydN(v); return n===null?'—':(n>0?'+':'')+n.toFixed(1); };
 const ydL=v=>{ const n=ydN(v); return n===null?'—':Math.round(n).toLocaleString('ja-JP'); };
 const ydMD=d=>{ if(!d) return '—'; const x=dparse(d); return `${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`; };
 function ydItem(name, no, tank){
+  if(name===YD_ANA && tank!==undefined){ const p=YDA[String(no)+'|'+String(tank)]; if(p) return p._del?null:p; }   // 2026-11-17 送信待ちを先に
   const L=(MW.items||[]).filter(x=>!x.deleted && x.name===name && String(x.no)===String(no) && (tank===undefined || String(x.tank)===String(tank)));
   L.sort((a,b)=>String(a.upd||a.at||'').localeCompare(String(b.upd||b.at||'')));
   return L.length?L[L.length-1]:null;
@@ -15265,7 +15269,7 @@ async function ydSaveJo(m, d){
 document.addEventListener('click', e=>{
   const td=e.target.closest&&e.target.closest('.kg-home .kg-t tr.top td[data-i]'); if(!td) return;
   if(!document.getElementById('kgHd')) return;   // 🍶仕込みの画面だけ
-  if(e.target.closest('input,select,textarea,a,.yd-box')) return;
+  if(e.target.closest('input,select,textarea,a,.yd-box,.yd-pm,.yd-tkadd')) return;
   const tr=td.closest('tr[data-kg]'); const m=tr&&rcMaster(tr.dataset.kg); if(!m||!m.tome) return;
   const i=Number(td.dataset.i); if(!(i>=1)) return;
   e.stopImmediatePropagation(); e.preventDefault();
@@ -15315,11 +15319,11 @@ function ydBoxHTML(m){
 }
 function ydPaint(box){
   try{
-    { const ae=document.activeElement; if(ae&&ae.classList&&ae.classList.contains('yd-sk')) return; }   // 尺を打っている間は描き直さない
+    { const ae=document.activeElement; if(ae&&ae.closest&&ae.closest('.yd-ov')) return; }   // 箱の中（上槽先・分析値・尺）を打っている間は描き直さない（2026-11-17 尺だけ→箱の中すべて）
     box=box||document.querySelector('.kg-home[data-mk]')||document.querySelector('.kg-home'); if(!box) return;
     box.querySelectorAll('.yd-tg.yd-in').forEach(x=>x.remove());
     box.querySelectorAll('.yd-box,.yd-b3t,.yd-b3h,.yd-b3s').forEach(x=>x.remove());
-    box.querySelectorAll('.yd-s1,.yd-ov').forEach(x=>x.remove());
+    box.querySelectorAll('.yd-s1,.yd-ov,.yd-tkadd').forEach(x=>x.remove());
     box.querySelectorAll('td.yd-ovc').forEach(x=>x.classList.remove('yd-ovc'));
     box.querySelectorAll('td.yd-band').forEach(x=>{ x.classList.remove('yd-band','yd-done','yd-b3c','yd-s1c'); x.style.minWidth=''; });
     box.querySelectorAll('td.yd-has').forEach(x=>x.classList.remove('yd-has','yd-hasjo'));
@@ -15350,21 +15354,24 @@ function ydB3(box, m){   // 2026-11-06 泰広さん：案B（上槽翌日のマ�
   const use=rows.slice(0, 7);   // 日付〜品温AM の7行に重ねる（品温PM・BMD はそのまま）
   use.forEach(tr=>{ const td=tr.querySelector(`td[data-i="${i}"]`); if(!td) return; td.classList.add('yd-band'); if(done) td.classList.add('yd-done');
     const inp=td.querySelector('.kg-i'); if(inp && !inp.value) inp.classList.add('yd-hide'); });
-  const nC=Math.max(1,D.length)+(multi?1:0), W=Math.max(60, 58*nC);
+  /* 2026-11-17 泰広さん：案B（窓を開かずに箱の中で直接入力）。見出し＝上槽先のタンク番号、Be/度〜ｱﾐﾉ＝上槽後の分析、尺＝今までどおり。
+     上槽先がまだ無い・「＋」を押したときは、右に空のタンク欄を1つ出す。箱は右の日へ重ねるだけなので〇日目の列の幅は変わらない */
+  const Dc=D.map(d=>({t:String(d.t), d})); if(!D.length||YD.add[String(m.no)]) Dc.push({t:'', d:null});
+  const nC=Dc.length+(multi?1:0), W=Math.max(60, 58*nC);
   const line=(cells, sum)=>`<div class="yd-ovr"><span class="yd-s1">${cells.join('')}${multi?`<span class="yd-s1s">${sum||''}</span>`:''}</span></div>`;
-  let h=`<div class="yd-ovr yd-ovh" title="${rcMD(dadd(m.joso,1))} 上槽後の分析"><span class="yd-s1 yd-s1t">${D.length?D.map(d=>`<span>T${esc(String(d.t))}</span>`).join('')+(multi?'<span class="yd-s1s">合算</span>':''):'<span>上槽先</span>'}</span></div>`;
+  const NA={smv:'度', alc:'alc', ta:'酸', aa:'ｱﾐﾉ'};
+  let h=`<div class="yd-ovr yd-ovh" title="${rcMD(dadd(m.joso,1))} 上槽後の分析（上槽先のタンク番号を打つ）"><span class="yd-s1 yd-s1t">${Dc.map((c,ci)=>`<span class="yd-tkw"><i>T</i><input type="text" inputmode="numeric" class="yd-tki" data-ig-skip="1" data-ydno="${no}" data-ydt="${esc(c.t)}" data-ydc="${ci}" data-ydr="0" value="${esc(c.t)}" placeholder="${D.length?'追加':'上槽先'}" autocomplete="off"></span>`).join('')+(multi?'<span class="yd-s1s">合算</span>':'')}</span></div>`;
   for(let r=1;r<use.length;r++){
-    if(!D.length){ h+=r===1?`<div class="yd-ovr"><span class="yd-s1"><button type="button" class="yd-box yd-s1b" data-ydno="${no}"><span class="mi">上槽先 ›</span></button></span></div>`:'<div class="yd-ovr"></div>'; continue; }
     if(KEY[r]){ const k=KEY[r];
-      h+=line(D.map(d=>{ const a=ydAna(m,d.t), t=esc(String(d.t)), v=a?f(a[k],k):'';
-        return `<button type="button" class="yd-box yd-s1b" data-ydno="${no}" data-ydt="${t}">${v?`<b>${v}</b>`:(!a&&r===1?'<span class="mi">未 ›</span>':'')}</button>`; }), sumK(k)?`<b>${sumK(k)}</b>`:(r===1&&sm.needL?'<span class="yd-needL">量待ち</span>':'')); }
-    else if(r===5) h+=line(D.map(d=>`<span class="yd-s1i"><i>尺</i><input type="text" inputmode="numeric" class="yd-sk" data-ydno="${no}" data-ydt="${esc(String(d.t))}" value="${esc(String(d.mm||''))}" autocomplete="off"></span>`), '');
+      h+=line(Dc.map((c,ci)=>{ if(!c.d) return '<span></span>'; const a=ydAna(m,c.t), t=esc(c.t), v=a?f(a[k],k):'';
+        return `<span class="yd-s1i yd-aic">${k==='smv'?`<button type="button" class="yd-pm" data-ydno="${no}" data-ydt="${t}" title="＋／−を切り替え">±</button>`:''}<input type="text" inputmode="decimal" class="yd-ai" data-ig-skip="1" data-ydno="${no}" data-ydt="${t}" data-k="${k}" data-ydc="${ci}" data-ydr="${r}" value="${esc(v)}" placeholder="${!a&&r===1?'未':NA[k]}" autocomplete="off"></span>`; }), sumK(k)?`<b>${sumK(k)}</b>`:(r===1&&sm.needL?'<span class="yd-needL">量待ち</span>':'')); }
+    else if(r===5) h+=line(Dc.map((c,ci)=>c.d?`<span class="yd-s1i"><i>尺</i><input type="text" inputmode="numeric" class="yd-sk" data-ydno="${no}" data-ydt="${esc(c.t)}" data-ydc="${ci}" data-ydr="5" value="${esc(String(c.d.mm||''))}" autocomplete="off"></span>`:'<span></span>'), '');
     else if(r===6){ const tot=D.reduce((a,d)=>a+(ydN(d.L)||0),0);
-      h+=line(D.map(d=>`<span class="yd-s1i"><i>L</i><b class="yd-skL" data-ydno="${no}" data-ydt="${esc(String(d.t))}">${ydN(d.L)===null?'—':ydL(d.L)}</b></span>`), tot?`<span class="yd-s1i"><i>L</i><b>${ydL(tot)}</b></span>`:''); }
+      h+=line(Dc.map(c=>c.d?`<span class="yd-s1i"><i>L</i><b class="yd-skL" data-ydno="${no}" data-ydt="${esc(c.t)}">${ydN(c.d.L)===null?'—':ydL(c.d.L)}</b></span>`:'<span></span>'), tot?`<span class="yd-s1i"><i>L</i><b>${ydL(tot)}</b></span>`:''); }
     else h+='<div class="yd-ovr"></div>';
   }
   dtd.classList.add('yd-ovc');
-  dtd.insertAdjacentHTML('beforeend', `<div class="yd-ov${done?' yd-done':''}" style="width:${W}px">${h}</div>`);
+  dtd.insertAdjacentHTML('beforeend', `<div class="yd-ov${done?' yd-done':''}" style="width:${W}px">${h}</div>`+(D.length&&!YD.add[String(m.no)]?`<button type="button" class="yd-tkadd" data-ydno="${no}" style="left:${W+2}px" title="上槽先のタンクを追加">＋</button>`:''));
   const ov=dtd.querySelector('.yd-ov'), rs=ov?ov.querySelectorAll(':scope > .yd-ovr'):[];
   use.forEach((tr,k)=>{ if(rs[k]) rs[k].style.height=tr.getBoundingClientRect().height+'px'; });
 }
@@ -15385,8 +15392,97 @@ document.addEventListener('input', e=>{ const el=e.target; if(!el||!el.classList
   const L=ydVol(el.dataset.ydt, el.value), b=document.querySelector(`.yd-skL[data-ydno="${CSS.escape(el.dataset.ydno)}"][data-ydt="${CSS.escape(el.dataset.ydt)}"]`);
   if(b) b.textContent=L===null?'—':ydL(L); }, true);
 document.addEventListener('change', e=>{ const el=e.target; if(!el||!el.classList||!el.classList.contains('yd-sk')) return; ydSaveMm(el.dataset.ydno, el.dataset.ydt, el.value); }, true);
-document.addEventListener('keydown', e=>{ const el=e.target; if(e.key==='Enter' && el&&el.classList&&el.classList.contains('yd-sk')){ e.preventDefault(); el.blur(); } }, true);
-document.addEventListener('click', e=>{ const el=e.target; if(el&&el.classList&&el.classList.contains('yd-sk')) e.stopPropagation(); }, true);
+document.addEventListener('keydown', e=>{ const el=e.target; if(e.key!=='Enter'||!el||!el.closest||!el.matches||!el.matches('input')) return;
+  const ov=el.closest('.yd-ov'); if(!ov) return; e.preventDefault();
+  const L=[...ov.querySelectorAll('input[data-ydc]')].sort((a,b)=>(Number(a.dataset.ydc)-Number(b.dataset.ydc))||(Number(a.dataset.ydr)-Number(b.dataset.ydr)));
+  const nx=L[L.indexOf(el)+1]; if(nx){ nx.focus(); try{ nx.select(); }catch(_){} } else el.blur(); }, true);
+document.addEventListener('click', e=>{ const el=e.target; if(el&&el.classList&&(el.classList.contains('yd-sk')||el.classList.contains('yd-ai')||el.classList.contains('yd-tki'))) e.stopPropagation(); }, true);
+/* ---------- 2026-11-17 案B：箱の中で 上槽先・上槽後の分析 を直接入力（マスを離れたら保存・送信は裏で） ---------- */
+function ydAnaParse(raw){ let v=String(raw==null?'':raw).trim().replace(/[０-９．]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/^[−－ー]/,'-').replace(/^＋/,'+');
+  if(v==='') return null; const n=Number(v); return isNaN(n)?NaN:n; }
+function ydFlash(el){ if(!el) return; el.classList.remove('ok'); void el.offsetWidth; el.classList.add('ok'); }
+function ydRepaintSoon(){ clearTimeout(YD.rpT); YD.rpT=setTimeout(()=>{ const ae=document.activeElement; if(ae&&ae.closest&&ae.closest('.yd-ov')) return; ydRepaint(); }, 250); }
+/* 1タンク分の上槽後の分析を入れる（val＝{smv,alc,ta,aa}、全部空欄なら記録を消す）。窓（ydAnaOpen）と同じ記録（醪作業 name＝上槽後分析） */
+function ydAnaPut(m, t, val){
+  t=String(t); const key=String(m.no)+'|'+t, old=ydItem(YD_ANA, m.no, t);
+  const K=['smv','alc','ta','aa'], empty=!val||K.every(x=>val[x]===''||val[x]===null||val[x]===undefined);
+  if(empty&&!old) return;
+  const now=new Date().toISOString(), blank=!empty&&K.some(x=>val[x]==='');
+  YDA[key]=empty?{_del:true, name:YD_ANA, no:String(m.no), tank:t}
+    :{id:(old&&old.id)||'', name:YD_ANA, kind:blank?'空欄あり':'済', no:String(m.no), tank:t, liquid:m.liquid||'', plan:m.joso||'', date:dtoday(), memo:JSON.stringify(val), upd:now, at:(old&&old.at)||now, updBy:String(ST.name||'')};
+  ydRepaintSoon();
+  ydBg('上槽後の分析', async()=>{
+    const sent=YDA[key]; if(!sent) return true;
+    const cur=(MW.items||[]).filter(x=>!x.deleted&&x.name===YD_ANA&&String(x.no)===String(m.no)&&String(x.tank)===t&&x.id);
+    if(sent._del){ for(const x of cur) mwKeep(await mwApi({action:'delete', id:x.id})); }
+    else { const it=Object.assign({}, sent, {id:cur.length?cur[cur.length-1].id:''}); delete it.upd; delete it.at; delete it.updBy;
+      mwKeep(await mwApi({action:'save', item:it})); }
+    if(YDA[key]===sent) delete YDA[key];
+    ydReapply(); ydJosoAna(m, !!sent._del); ydRepaintSoon(); return true; }, []).then(r=>{ if(r===null){ delete YDA[key]; ydRepaintSoon(); } });
+}
+function ydAnaVal(m, t){ const a=ydAna(m,t), v={smv:'',alc:'',ta:'',aa:''};
+  if(a) Object.keys(v).forEach(x=>{ const y=ydN(a[x]); v[x]=y===null?'':(x==='smv'?y:String(y)); }); return v; }
+function ydSaveAna(no, t, k, raw, el){
+  const m=rcMaster(no); if(!m) return;
+  const n=ydAnaParse(raw);
+  if(Number.isNaN(n)){ if(el) el.classList.add('bad'); rcToast(`T${t} の分析値：数字で入れてください`, true, 4000); return; }
+  if(el) el.classList.remove('bad');
+  const val=ydAnaVal(m,t), nv=n===null?'':(k==='smv'?Math.round(n*10)/10:String(n));
+  if(String(val[k])===String(nv)) return;
+  val[k]=nv; ydAnaPut(m, t, val); ydFlash(el);
+}
+/* 上槽先のタンク番号（oldT＝今の番号、空＝新しく足す）。空にすると上槽先から外す。番号を変えると分析値も付け替える */
+function ydSetDest(no, oldT, raw, el){
+  const m=rcMaster(no); if(!m) return;
+  oldT=String(oldT||'');
+  const nt=String(raw||'').trim().replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/^[TtＴ]/,'').trim();
+  if(nt===oldT){ if(!nt&&YD.add[String(m.no)]){ delete YD.add[String(m.no)]; ydRepaintSoon(); } return; }
+  const it0=ydItem(YD_REC, m.no), out=ydJ(it0)||{}; if(!Array.isArray(out.dests)) out.dests=[];
+  out.dests=out.dests.filter(d=>d&&String(d.t||'').trim());
+  if(nt && out.dests.some(d=>String(d.t)===nt)){ rcToast(`T${nt} はもう上槽先に入っています`, true, 4000); if(el) el.value=oldT; return; }
+  const aOld=oldT?ydAna(m,oldT):null;
+  if(!nt){
+    if(aOld && !confirm(`T${oldT} を上槽先から外しますか？\n（このタンクの上槽後の分析も消えます）`)){ if(el) el.value=oldT; return; }
+    out.dests=out.dests.filter(d=>String(d.t)!==oldT);
+    if(aOld) ydAnaPut(m, oldT, null);
+  } else if(oldT){
+    const d=out.dests.find(x=>String(x.t)===oldT);
+    if(d){ d.t=nt; if(d.mm){ const L=ydVol(nt, d.mm); if(L!==null) d.L=String(L); } }
+    if(aOld){ ydAnaPut(m, nt, ydAnaVal(m, oldT)); ydAnaPut(m, oldT, null); }
+  } else out.dests.push({t:nt, L:''});
+  delete YD.add[String(m.no)];
+  const item={name:YD_REC, kind:'記録', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:m.joso||'', date:dtoday(), memo:JSON.stringify(out)};
+  const k=ydLocal('mw', item); ydFlash(el);
+  ydBg('上槽先', async()=>{ const it=(MW.items||[]).find(x=>!x.deleted&&x.name===YD_REC&&String(x.no)===String(m.no)&&x.id);
+    mwKeep(await mwApi({action:'save', item:Object.assign({}, item, {id:it?it.id:''})})); ydReapply(); ydRepaintSoon(); ydJosoAna(m);
+    if(out.dests.length && m.joso && dtoday()>=m.joso)   // 📝記録の保存と同じ：上槽先を入れて上槽日を過ぎていれば 上槽日（→上槽済）
+      recApi({action:'joso_save', no:m.no, values:{'上槽日':m.joso}}, 40000).then(r=>{ if(!(r&&r.ok)) rcToast('仕込カルテへの書き込みができませんでした：'+((r&&r.err)||''), true, 6000); else if(RC.karte) RC.karte[m.no]=null; }).catch(()=>{});
+    return true; }, [['mw',k]]);
+  if(nt && !oldT){   // 新しく足したタンク：すぐ箱を描き直して、そのタンクの日本酒度へ
+    setTimeout(()=>{ const ae=document.activeElement; if(ae&&ae.closest&&ae.closest('.yd-ov')) ae.blur(); ydRepaint();
+      const nx=document.querySelector(`.yd-ai[data-ydno="${CSS.escape(String(m.no))}"][data-ydt="${CSS.escape(nt)}"][data-k="smv"]`); if(nx){ try{ nx.focus(); }catch(_){} } }, 0);
+  } else ydRepaintSoon();
+}
+document.addEventListener('change', e=>{ const el=e.target; if(!el||!el.classList) return;
+  if(el.classList.contains('yd-ai')) ydSaveAna(el.dataset.ydno, el.dataset.ydt, el.dataset.k, el.value, el);
+  else if(el.classList.contains('yd-tki')) ydSetDest(el.dataset.ydno, el.dataset.ydt, el.value, el); }, true);
+document.addEventListener('input', e=>{ const el=e.target; if(el&&el.classList&&el.classList.contains('yd-ai')) el.classList.toggle('bad', Number.isNaN(ydAnaParse(el.value))); }, true);
+/* 日本酒度の ±（スマホの数字キーに − が無いため）。数字があれば符号を変えて保存、空なら「-」を入れて打てるように */
+document.addEventListener('click', e=>{ const b=e.target&&e.target.closest&&e.target.closest('.yd-pm[data-ydno]'); if(!b) return;
+  e.stopPropagation(); e.preventDefault();
+  const el=b.parentElement&&b.parentElement.querySelector('.yd-ai'); if(!el) return;
+  const n=ydAnaParse(el.value);
+  if(n===null||Number.isNaN(n)){ el.value=/^-/.test(el.value)?el.value.replace(/^-/,''):'-'+el.value; el.focus(); return; }
+  el.value=ydSg(-n); ydSaveAna(b.dataset.ydno, b.dataset.ydt, 'smv', String(-n), el); }, true);
+/* 上槽先のタンクを追加（右の空欄を出す） */
+document.addEventListener('click', e=>{ const b=e.target&&e.target.closest&&e.target.closest('.yd-tkadd[data-ydno]'); if(!b) return;
+  e.stopPropagation(); e.preventDefault();
+  const no=String(b.dataset.ydno); YD.add[no]=true; ydRepaint();
+  const nx=document.querySelector(`.yd-tki[data-ydno="${CSS.escape(no)}"][data-ydt=""]`); if(nx){ try{ nx.focus(); }catch(_){} } }, true);
+/* 箱から出たら描き直す（合算・済の色など） */
+document.addEventListener('focusout', e=>{ const el=e.target; if(!(el&&el.closest&&el.closest('.yd-ov'))) return;
+  setTimeout(()=>{ const ae=document.activeElement; if(ae&&ae.closest&&ae.closest('.yd-ov')) return;
+    for(const no of Object.keys(YD.add)){ delete YD.add[no]; } ydRepaint(); }, 300); }, true);
 /* 2026-11-06 濾過火入の表（上槽日）を読み直して上槽日が変わったら、仕込みの表を描き直す（端末に残っていた古い上槽日のまま「上槽」の印が残る件） */
 (function(){ const o=window.rkKeep; if(typeof o!=='function') return;
   window.rkKeep=function(...a){
@@ -15758,6 +15854,21 @@ function ydRecOpen(no, date, step){
 .yd-s1i b{font-weight:800;color:#1d5b7a}
 .kg-t input.yd-sk{width:42px;box-sizing:border-box;border:1.5px solid #0f7c80;border-radius:5px;font:inherit;font-size:12px;font-weight:700;text-align:right;padding:0 3px;height:20px;background:#fff;color:var(--ink)}
 .kg-t td.yd-s1c{text-align:right;padding:1px 2px!important}
+/* 2026-11-17 案B：箱の中の入力欄 */
+.kg-t input.yd-ai,.kg-t input.yd-tki{flex:1 1 auto;width:100%;min-width:0;box-sizing:border-box;border:1px solid #8cc7c9;border-radius:4px;font:inherit;font-size:12.5px;font-weight:800;text-align:right;padding:0 3px;height:20px;background:#fff;color:var(--ink)}
+.kg-t input.yd-ai::placeholder{color:#9bb;font-weight:600;font-size:10.5px}
+.kg-t input.yd-ai[placeholder="未"]::placeholder{color:#0f7c80;font-weight:800;font-size:12px}
+.kg-t input.yd-ai.bad{border-color:#c0392b;background:#fdecea}
+.kg-t input.yd-ai.ok,.kg-t input.yd-tki.ok{animation:ydOk .9s}
+@keyframes ydOk{0%{background:#c8f0d8}100%{background:#fff}}
+.kg-t input.yd-ai:focus,.kg-t input.yd-tki:focus,.kg-t input.yd-sk:focus{outline:2px solid #f0a500;outline-offset:-1px}
+.yd-aic{gap:1px;padding:0 2px!important}
+.kg-t button.yd-pm{flex:0 0 12px;width:12px;height:20px;padding:0;border:0;background:none;color:#0f7c80;font-weight:800;font-size:11px;cursor:pointer;font-family:inherit}
+.yd-ovh .yd-s1t .yd-tkw{display:flex!important;align-items:center;gap:1px;padding:0 2px}
+.yd-tkw i{font-style:normal;font-size:11px;font-weight:800}
+.kg-t input.yd-tki{text-align:center;height:18px;border-color:#fff;color:#0f5f62;font-size:12px}
+.kg-t input.yd-tki::placeholder{color:#7aa;font-size:10px;font-weight:600}
+.kg-t button.yd-tkadd{position:absolute;top:2px;z-index:2;width:18px;height:18px;border-radius:50%;border:1.5px solid #0f7c80;background:#fff;color:#0f7c80;font-size:12px;line-height:14px;padding:0;font-weight:800;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .yd-s1{display:flex;width:100%}.yd-s1>*{flex:1 1 0;min-width:0;text-align:right;padding:0 3px}.yd-s1>*+*{border-left:1px dashed #8cc7c9}
 .yd-s1t span{display:block;font-size:12px;font-weight:800;text-align:center}
 .kg-t button.yd-box.yd-s1b{display:block;border:0;background:none;margin:0;border-radius:0;box-shadow:none;font-family:inherit;font-size:13px;line-height:1.3;color:var(--ink);cursor:pointer;white-space:nowrap;min-height:18px;text-align:right;padding:0 3px}
