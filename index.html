@@ -9474,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-18-2','🔔','ホーム','本日の予定の上の「穴あけ」「泡消し器」の大きな帯を、A重油と同じ大きさの小さな札にしました。米の入荷（引取予定）がある日は「🌾 米入荷 品種 ◯袋」の札も並べて出します（予定の表の「米引取」はそのままです）。'],
   ['2026-11-18-1','🧴','濾過','濾過・火入の一覧で、仕込みごとの枠をアイコンくらいの小さい枠にしました（赤＝要注意・橙＝予定・灰＝もうすぐ上槽・薄い緑＝済）。注意は「⚠ 濾過予定 ○号」の短い文だけにし、押すと上槽日と期限が出ます。濾過の予定が入っていれば注意は出ません。火入の注意は濾過が済んでから出ます。'],
   ['2026-11-17-4','🍶','仕込み','上槽の翌日の箱（表の右に重なる箱）の中で、そのまま入力できるようにしました。いちばん上に上槽先のタンク番号、その下に 日本酒度・alc・酸度・アミノ酸度・尺 を打てます（窓は開きません）。マスを離れると保存され、Enter で下の欄→次のタンクへ進みます。日本酒度の「±」で＋と−を切り替えられます。上槽先を足すときは箱の右の「＋」。日にちの列の幅は変わりません。'],
   ['2026-11-17-3','🧴','濾過','濾過の統合で、「途中の尺」をふだんは隠しました。使うときは「途中の尺も入れる」のスイッチを入れると出ます（途中の尺が入っている記録は、開いたときから出ます）。'],
@@ -12806,8 +12807,11 @@ function mwDayList(date){
   window.dpBunHTML=function(){
     let h=o.apply(this, arguments);
     try{ const date=dpDate(), L=mwDayList(date);
-      if(L.length){ const d=dparse(date);
-        h=`<div class="dp-al mw-al">🔔 ${d.getMonth()+1}/${d.getDate()} `+L.map(x=>`<span class="${x.done?'dn':''}">${x.done?'✓':x.job.icon} ${esc(x.job.name)} No.${esc(String(x.m.no))}${x.m.tank?' T'+esc(x.m.tank):''}</span>`).join('')+`</div>`+h; } }catch(e){ console.log('mw dp',e); }
+      /* 2026-11-18 泰広さん指示：大きな帯をやめ、A重油と同じ大きさの小さな札に。米入荷（引取予定表）も同じ札で出す（米引取の棒はそのまま） */
+      const H=MFG&&MFG.hikitori, hk=H&&H.days&&H.days[date];
+      const R=hk?Object.keys(hk).filter(v=>(Number(hk[v])||0)>0).map(v=>`<span class="c">🌾 米入荷 ${esc(v)} ${esc(String(hk[v]))}袋</span>`):[];
+      if(L.length||R.length){
+        h=`<div class="mw-al2">`+L.map(x=>`<span class="c${x.done?' dn':''}">${x.done?'✓':x.job.icon} ${esc(x.job.name)} No.${esc(String(x.m.no))}${x.m.tank?' T'+esc(x.m.tank):''}</span>`).join('')+R.join('')+`</div>`+h; } }catch(e){ console.log('mw dp',e); }
     return h; };
 })();
 /* 日付の一覧の右の主な作業にも「穴あけ」「泡消」 */
@@ -12835,7 +12839,10 @@ setTimeout(()=>{ try{ if(ST&&ST.token) mwLoad(false).then(()=>{ if(document.getE
 .dp-al.mw-al{background:#fff8e6;border-color:#e0a23a;color:#8a5300;animation:none;cursor:default}
 .dp-al.mw-al span{display:inline-block;margin:0 8px 0 2px;font-weight:700}
 .dp-al.mw-al span.dn{color:#2e7d32;font-weight:400}
-.dp-al.mw-al small{display:block;font-weight:600;font-size:11px;color:#8a5a2a}`; document.head.appendChild(s); })();
+.dp-al.mw-al small{display:block;font-weight:600;font-size:11px;color:#8a5a2a}
+.mw-al2{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:0 0 6px}
+.mw-al2 .c{display:inline-block;font-size:11px;font-weight:700;line-height:1.4;padding:2px 8px;border-radius:999px;background:#fff8e6;border:1px solid #e0a23a;color:#8a5300;white-space:nowrap}
+.mw-al2 .c.dn{color:#2e7d32;font-weight:400}`; document.head.appendChild(s); })();
 </script>
 <!-- /moromiwork -->
 <!-- shk1019 -->
