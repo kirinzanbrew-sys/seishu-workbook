@@ -9474,6 +9474,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-23-1','🍶','仕込み','設定温度ボタンを変えました。⚙ を押すと、リールがいまの設定温度の位置で開きます（少し回すだけ）。温度を決めて「変更」を押すと、⚙ が新しい温度の数字になって赤く点滅し、順号のマス全体も赤く点滅して「温度変更」と出ます。タンクの設定を変えたら赤いボタンを押して「✓ 設定しました」を押すと止まります。'],
   ['2026-11-18-3','🔔','ホーム','本日の予定の上の札（穴あけ・泡消し器・米入荷・A重油など）を絵なしで1段にまとめました。穴あけは「穴あけ 20・21号」のように1枚にまとめます。A重油の札の「発注」の文字はなくしました。「分析 ◯本」は出勤の氏名の下に移しました。'],
   ['2026-11-18-2','🔔','ホーム','本日の予定の上の「穴あけ」「泡消し器」の大きな帯を、A重油と同じ大きさの小さな札にしました。米の入荷（引取予定）がある日は「🌾 米入荷 品種 ◯袋」の札も並べて出します（予定の表の「米引取」はそのままです）。'],
   ['2026-11-18-1','🧴','濾過','濾過・火入の一覧で、仕込みごとの枠をアイコンくらいの小さい枠にしました（赤＝要注意・橙＝予定・灰＝もうすぐ上槽・薄い緑＝済）。注意は「⚠ 濾過予定 ○号」の短い文だけにし、押すと上槽日と期限が出ます。濾過の予定が入っていれば注意は出ません。火入の注意は濾過が済んでから出ます。'],
@@ -14179,6 +14180,8 @@ setInterval(()=>{ try{ if(document.getElementById('dpBox') && ST && ST.token) mw
      name＝'設定温度'、no＝順号、tank、liquid、plan＝指示した日、kind＝'指示'（設定待ち）／'済'（設定した）、
      memo＝「前の温度→新しい温度｜ひとこと」、date＝設定した日。by/at＝指示した人・時刻、updBy/upd＝最後に直した人（済なら設定した人）
      取り消しは delete（削除欄に日時）。mwDone（穴あけ・泡消し器）は作業名で探すので混ざらない
+   2026-11-23 案5：設定待ちは ⚙ が新しい温度の数字になり赤く点滅（消えない点滅）、順号のマス全体も赤枠・薄赤で点滅、下に「温度変更」の帯。
+     リールは いまの設定（無ければきょうの品温）から。窓のボタンは「変更」、いま→新しく（差）を表示。見本 Claude outputs\製造ツール_設定温度ボタン_表示案_見本.html
    控え：seishu-workbook_github\_src_settemp.js。差し込み _設定温度ボタンを足す.py */
 const STO_JOB='設定温度', STO_IMIN=0, STO_IMAX=30, STO_H=40;
 const stoBoss=()=>/伊藤/.test(String((ST&&ST.name)||''));
@@ -14192,11 +14195,11 @@ function stoAllPending(){ const seen={}; (MW.items||[]).forEach(x=>{ if(!x.delet
 const stoF=v=>{ const n=Number(v); return v===''||v==null||isNaN(n)?'—':n.toFixed(1); };
 function stoBtn(no){
   const p=stoPending(no), now=stoNow(no);
-  return `<span class="sto-pr"><span class="sto-pl"></span><button type="button" class="sto-b${p?' on':''}" data-stono="${esc(String(no))}" aria-label="順号${esc(String(no))}の設定温度" title="設定温度">⚙</button></span>`+
+  return `<span class="sto-pr"><span class="sto-pl"></span><button type="button" class="sto-b${p?' on num':''}" data-stono="${esc(String(no))}" aria-label="順号${esc(String(no))}の設定温度" title="設定温度">${p?stoF(stoParse(p).to):'⚙'}</button></span>`+
     `<span class="sto-v${p?' on':''}" data-stov="${esc(String(no))}">${stoLabel(no)}</span>`;
 }
 function stoLabel(no){ const p=stoPending(no), now=stoNow(no);
-  if(p){ const q=stoParse(p); return `設定 <span class="sto-vv">${stoF(q.from||now)}→<br>${stoF(q.to)}℃</span>`; }
+  if(p){ return `<span class="sto-rib">温度変更</span>`; }
   return now!==''?`設定 <span class="sto-vv">${stoF(now)}℃</span>`:''; }
 /* 仕込みの表：ℹ の右に ⚙ */
 (function(){ const o=window.kgMoromiRows; if(typeof o!=='function') return;
@@ -14211,7 +14214,9 @@ function stoLabel(no){ const p=stoPending(no), now=stoNow(no);
 })();
 /* 表の ⚙ とラベル、ホームの🍶 を今の記録に合わせる（描き直さずにその場で） */
 function stoPaint(){
-  document.querySelectorAll('.sto-b[data-stono]').forEach(b=>{ b.classList.toggle('on', !!stoPending(b.dataset.stono)); });
+  document.querySelectorAll('.sto-b[data-stono]').forEach(b=>{ const p=stoPending(b.dataset.stono), t=p?stoF(stoParse(p).to):'⚙';
+    b.classList.toggle('on', !!p); b.classList.toggle('num', !!p); if(b.textContent!==t) b.textContent=t;
+    const td=b.closest('td'); if(td) td.classList.toggle('sto-cell', !!p); });
   document.querySelectorAll('.sto-v[data-stov]').forEach(v=>{ const no=v.dataset.stov; v.classList.toggle('on', !!stoPending(no)); v.innerHTML=stoLabel(no); });
   stoHomeApply();
 }
@@ -14232,6 +14237,9 @@ function stoAna(no){
       <div>Be/度<b>${f(d.be,1)}</b></div><div>alc<b>${f(d.alc)}</b></div><div>酸<b>${f(d.ta)}</b></div><div>品温<b>${f(hin)}</b></div><div>BMD<b>${f(c.bmd)}</b></div></div>`;
   }catch(e){ return ''; }
 }
+/* 設定の記録が無いときのリールの最初の位置：きょう（最新日）の品温 */
+function stoHin(no){ try{ const b=RC.bun&&RC.bun[no]; const L=(b&&b.days||[]).filter(d=>[d.tAM,d.tPM].some(v=>v!==''&&v!=null));
+  if(!L.length) return 12; const d=L[L.length-1], v=Number((d.tPM!==''&&d.tPM!=null)?d.tPM:d.tAM); return isNaN(v)?12:Math.round(v*10)/10; }catch(e){ return 12; } }
 /* リール */
 function stoPicker(){
   const pad='<div class="pad"></div><div class="pad"></div>'; let wi=pad, wd=pad, i;
@@ -14259,18 +14267,20 @@ function stoOpen(no){
   const hist=()=>{ const L=stoItems(no).slice(-5).reverse(); if(!L.length) return '';
     return `<div class="sto-log">${L.map(x=>{ const q=stoParse(x); return `<div>${esc(String(x.at||'').slice(5,16))} ${esc(x.by||'')}　${stoF(q.from)}→${stoF(q.to)}℃　${x.kind==='済'?`<b class="ok">設定済</b> ${esc(x.updBy||'')} ${esc(String(x.upd||'').slice(11,16))}`:'<b class="ng">設定待ち</b>'}${q.note?`<br><small>${esc(q.note)}</small>`:''}</div>`; }).join('')}</div>`; };
   const edit=()=>{
-    let val=p?Number(stoParse(p).to):(now!==''?Number(now):12);
+    let val=p?Number(stoParse(p).to):(now!==''?Number(now):stoHin(no));
     if(isNaN(val)) val=12;
     const from=p?(stoParse(p).from||now):now;
     mask.innerHTML=`<div class="o2-sheet sto-sh"><div class="sto-in">
       <h3>⚙ 設定温度　${ttl}</h3>${stoAna(no)}
-      ${stoPicker()}<div class="sto-nv">新しい設定 <b>${stoF(val)}℃</b></div>
-      <div class="sto-now">いまの設定 ${stoF(from)}℃${p?'（指示済・設定待ち）':''}</div>
+      ${stoPicker()}<div class="sto-nv">いま <b class="sto-nf">${stoF(from)}</b> → 新しく <b class="sto-nn">${stoF(val)}℃</b><span class="sto-df"></span></div>
+      ${p?'<div class="sto-now">（変更済・設定待ち）</div>':''}
       <input class="sto-memo" type="text" maxlength="60" placeholder="ひとこと（任意）例：切れ速い" value="${esc(p?stoParse(p).note:'')}">
-      <div class="sto-row">${p?'<button type="button" class="sto-x ng" data-a="cancel">指示を取り消す</button>':'<button type="button" class="sto-x" data-a="close">やめる</button>'}<button type="button" class="sto-go" data-a="go">${p?'直して指示する':'指示する'}</button></div>
+      <div class="sto-row">${p?'<button type="button" class="sto-x ng" data-a="cancel">変更を取り消す</button>':'<button type="button" class="sto-x" data-a="close">やめる</button>'}<button type="button" class="sto-go" data-a="go">${p?'直して変更':'変更'}</button></div>
       ${hist()}<div class="sto-msg"></div></div></div>`;
-    const nv=mask.querySelector('.sto-nv b');
-    stoPickerInit(mask, val, v=>{ val=v; nv.textContent=stoF(v)+'℃'; });
+    const nv=mask.querySelector('.sto-nv .sto-nn'), df=mask.querySelector('.sto-nv .sto-df');
+    stoPickerInit(mask, val, v=>{ val=v; nv.textContent=stoF(v)+'℃';
+      const d=(from===''||isNaN(Number(from)))?null:Math.round((v-Number(from))*10)/10;
+      df.textContent=d==null?'':d===0?'（同じ）':`（${d>0?'＋':'−'}${Math.abs(d).toFixed(1)}）`; });
     mask.querySelector('[data-a="go"]').onclick=async()=>{
       if(!p && from!=='' && Number(from)===val){ say('いまの設定と同じです'); return; }
       say('保存しています…');
@@ -14280,7 +14290,7 @@ function stoOpen(no){
       try{ mwKeep(await mwApi({action:'save', item})); done(); }catch(e){ say('保存できませんでした：'+(e.message||e)); }
     };
     const c=mask.querySelector('[data-a="cancel"]'); if(c) c.onclick=async()=>{
-      if(!confirm('この指示を取り消しますか？')) return; say('取り消しています…');
+      if(!confirm('この温度の変更を取り消しますか？')) return; say('取り消しています…');
       try{ mwKeep(await mwApi({action:'delete', id:p.id})); done(); }catch(e){ say('取り消せませんでした：'+(e.message||e)); } };
     const x=mask.querySelector('[data-a="close"]'); if(x) x.onclick=close;
   };
@@ -14326,7 +14336,12 @@ setTimeout(()=>{ try{ if(ST&&ST.token) mwLoad(false).then(stoPaint); }catch(e){}
 .sto-b{display:flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:0;border-radius:50%;background:#5b6b7d;color:#fff;font-size:15px;line-height:1;cursor:pointer;flex:none}
 .kg-t.ed .n .sto-b{width:40px;height:40px;font-size:21px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .sto-b.on{background:#d32f2f;animation:stoBl 1s ease-in-out infinite}
-@keyframes stoBl{0%,100%{box-shadow:0 0 0 0 rgba(211,47,47,.7);opacity:1}50%{box-shadow:0 0 0 7px rgba(211,47,47,0);opacity:.55}}
+.sto-b.num{font-size:10px;font-weight:800;letter-spacing:-.3px;font-family:inherit}
+.kg-t.ed .n .sto-b.num{font-size:14px}
+@keyframes stoBl{0%,100%{background:#d32f2f;box-shadow:0 0 0 0 rgba(211,47,47,.75)}50%{background:#9e1b1b;box-shadow:0 0 0 7px rgba(211,47,47,0)}}
+.kg-t td.n.sto-cell,.kg-t td.n:has(.sto-b.on){animation:stoCell 1s ease-in-out infinite;box-shadow:inset 0 0 0 3px #d32f2f}
+@keyframes stoCell{0%,100%{background:#faf7ef}50%{background:#ffd9d9}}
+.sto-v .sto-rib{display:block;margin:3px 0 0;border-radius:4px;background:#d32f2f;color:#fff;font-size:11px;font-weight:800;padding:2px 0;text-align:center;letter-spacing:.5px}
 .sto-v{display:block;text-align:center;font-size:10.5px;color:var(--sub);line-height:1.25;margin-top:2px}
 .sto-v .sto-vv{display:inline;color:var(--navy);font-size:12px;font-weight:700}.sto-v.on .sto-vv{color:#d32f2f}
 #bShk.sto-home .ico{animation:stoHm 1s ease-in-out infinite}
@@ -14351,12 +14366,12 @@ setTimeout(()=>{ try{ if(ST&&ST.token) mwLoad(false).then(stoPaint); }catch(e){}
 .sto-wh.wd{width:56px}.sto-wh.wd div{text-align:left;padding-left:2px}
 .sto-pk .sto-dot,.sto-pk .sto-un{position:relative;z-index:2;font-size:26px;font-weight:700}
 .sto-pk .sto-un{margin-left:6px;color:var(--sub);font-size:20px}
-.sto-nv{text-align:center;font-size:13px;color:var(--sub)}.sto-nv b{color:#d32f2f;font-size:18px}
+.sto-nv{text-align:center;font-size:13px;color:var(--sub)}.sto-nv b{font-size:18px}.sto-nv .sto-nf{color:var(--ink)}.sto-nv .sto-nn{color:#d32f2f}.sto-nv .sto-df{margin-left:4px}
 .sto-now{text-align:center;font-size:12px;color:var(--sub)}
 .sto-memo{width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:8px;border:1px solid var(--line);border-radius:10px;margin-top:8px}
 .sto-row{display:flex;gap:8px;margin-top:10px}
 .sto-row button{flex:1;border-radius:12px;padding:12px;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
-.sto-go{background:var(--navy);color:#fff;border:0}.sto-ok{background:#2f7d5d;color:#fff;border:0}
+.sto-go{background:#d32f2f;color:#fff;border:0}.sto-ok{background:#2f7d5d;color:#fff;border:0}
 .sto-x{background:#fff;border:1px solid var(--line);color:var(--navy)}.sto-x.ng{color:#d32f2f;border-color:#f0b4b4}.sto-x.sm{font-size:13px!important;padding:8px!important}
 .sto-big{text-align:center;margin:8px 0}.sto-big .sto-tk{font-size:22px;font-weight:800;color:#8a5a2b}.sto-big .sto-tk small{font-size:13px;color:var(--sub);font-weight:400}
 .sto-big .sto-ch{display:block;font-size:40px;font-weight:800;line-height:1.2;white-space:nowrap}.sto-big .sto-ch .sto-f{color:var(--sub);font-size:28px}.sto-big .sto-ch .sto-t{color:#d32f2f}
