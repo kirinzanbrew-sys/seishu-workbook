@@ -5834,6 +5834,8 @@ body.hm .dp-ics{margin:clamp(6px,1.6dvh,16px) 0 0;gap:clamp(4px,1.3dvh,12px) 6px
 (function(){ const s=document.createElement('style'); s.textContent=`
 .dp-dsel{display:flex;align-items:center;gap:6px;width:100%;border:1px solid var(--navy);border-radius:999px;background:#fff;padding:5px 12px;margin:0 0 4px;font-family:inherit;font-size:13.5px;font-weight:800;color:var(--navy);cursor:pointer}
 .dp-dsel i{font-style:normal;font-size:10px;margin-left:auto}
+/* 2026-11-23 泰広さん指示：スマホでは本日の予定のボタンを文字の分の大きさに */
+@media (max-width:700px){ .dp-dsel{display:inline-flex;width:auto;max-width:100%;padding:4px 10px} .dp-dsel i{margin-left:2px} }
 .dp-dl{border:1px solid var(--navy);border-radius:12px;background:#fff;margin:0 0 6px;max-height:260px;overflow-y:auto;overscroll-behavior:contain}
 .dp-dl button{display:flex;width:100%;gap:6px;align-items:baseline;border:0;border-top:1px solid #f1ecdf;background:none;padding:7px 12px;font-family:inherit;font-size:13px;text-align:left;cursor:pointer;color:var(--ink)}
 .dp-dl button:first-child{border-top:0}
@@ -6102,7 +6104,7 @@ function dpPlanHTML(){
       const cl=mt.some(y=>y.lane==='mtg'&&Math.abs(y.s-x.s)<60);   // 会議と始まりが近いときは「蔵見学」の文字を帯の右端に寄せる（重なり防止）
       h+=`<button type="button" class="dp-vis" data-dp="${idx}" style="top:0;left:${((x.s-lo)/span*100).toFixed(2)}%;width:${((x.e-x.s)/span*100).toFixed(2)}%"><span${cl?' style="left:auto;right:3px"':''}>${esc(x.label)}</span></button>`; return; }
     const i=rowOf(x.lane); const w=Math.max((x.e-x.s)/span*100, x.small?5.5:12);
-    h+=`<button type="button" class="dp-b ${x.cls} ${x.small?'s':''} ${DP_OFF===0&&x.e<nm&&x.cls!=='dp-on'?'done':''}" data-dp="${idx}" style="top:${AXH+RH*i+2}px;left:${Math.max(0,Math.min((x.s-lo)/span*100, 100-Math.max(w, x.label.length*3.7+2))).toFixed(2)}%;min-width:${w.toFixed(2)}%">${esc(x.label)}</button>`; });
+    h+=`<button type="button" class="dp-b ${x.cls} ${x.small?'s':''} ${DP_OFF===0&&x.e<nm&&x.cls!=='dp-on'?'done':''}" data-dp="${idx}" style="top:${AXH+RH*i+2}px;left:${Math.max(0,Math.min((x.s-lo)/span*100, 100-Math.max(w, x.label.length*3.7+2))).toFixed(2)}%;min-width:${w.toFixed(2)}%">${typeof dpLbl==='function'?dpLbl(x):esc(x.label)}</button>`; });
   h+=`</div></div>`;
   { const ng=items.map((x,i)=>[x,i]).filter(([x])=>x.night);
     if(ng.length) h+=`<div class="dp-nt">17時以降：${ng.map(([x,i])=>`<button type="button" data-dp="${i}">${esc(String(x.d&&x.d.title||x.label).replace(/^麹　/,'').replace(/（.*$/,''))} ${dpHM(x.s)}${x.d&&x.d.nin?` ${x.d.nin}人`:''}</button>`).join('　')}</div>`; }
@@ -9474,6 +9476,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-23-6','📅','ホーム','本日の予定の棒に量を出しました。「盛」は麹米kg、「蒸米」と「仕込み」は前日に洗米した米のkgです。量が多い日は数字が橙、とても多い日は赤になり、棒にも色の縁が付きます。'],
+  ['2026-11-23-5','📅','ホーム','スマホの「本日の予定」のボタンを、文字の分の大きさに小さくしました。押すと今までどおり日付の一覧が出ます。'],
   ['2026-11-23-4','🫧','タンク洗浄管理','担当者の選び方を変えました。スマホで開くと、担当（洗浄・仕上げ）と確認者に最初から自分の名前が出ます。変えたいときは名前をタップすると、製造・アグリのメンバー全員の一覧から選べます。チェックを付けずに保存したときは、自分の名前は記録されません。'],
   ['2026-11-23-3','🔥','濾過・火入','火入をしない液種のために「火入無」を選べるようにしました。🔥火入の窓で仕込順号のアイコンの中の「🚫 火入無」と仕込順号を選び、いつもの「保存」を押します（📅予定の「＋ この日に予定」からも選べます）。火入無の仕込みには火入予定の注意が出ず、火入の一覧と解析には「火入無」と出ます。カレンダー・出勤表には入りません。'],
   ['2026-11-23-2','🍶','仕込み','仕込みの表で、上槽の日のマスが点滅するようにしました。ヤブタが重なる上槽日は赤く点滅して「ヤ」（いつでも）、四段洗米が土曜になる上槽日は上槽の7日前から橙に点滅して「四洗」と出ます。点滅しているマスを押すと理由が出て、上槽日の前後3日から選ぶと四洗〜上槽の作業予定をまとめてずらせます（各日にヤブタの空きと四洗の曜日が出ます）。「1日ずつ作業を変える」でいつもの作業の窓も開けます。'],
@@ -19064,5 +19068,49 @@ new MutationObserver(ms=>{ ms.forEach(m=>m.addedNodes.forEach(n=>{ if(n.nodeType
 })();
 </script>
 <!-- /wsby1123 -->
+<!-- vol1123 -->
+<script>
+/* ================= 本日の予定：作業量（盛・蒸米・仕込み）を棒の中にkg 2026-11-23 =================
+   泰広さん指示：その日の作業量で麹の盛の量、仕込みの蒸米の量がパッと見て分かるように（多いと分かれば対策ができる）。
+   見本 Claude outputs/製造ツール_作業量_盛と蒸米_見本.html から 案3（予定の棒の中にkg）に決定。
+   ・盛＝麹管理の盛日の麹米kgの合計／蒸米＝前日の洗米予定表の合計kg／仕込み＝前日の洗米の 添・仲・留 の掛米kg
+   ・多い＝橙、とても多い＝赤（数字の色＋棒の縁）。目安は DP_VOL だけ直す（仮：盛 350/450kg、蒸米・仕込み 1,500/2,500kg）
+   ・dpItems を外側から包み、ラベルの後ろに「 480kg」を足す。描画は dpPlanHTML の棒の文字を dpLbl(x) で出す
+   控え：seishu-workbook_github\_src_vol1123.js（index.html の vol1123 の目印の間、</body> の直前） */
+const DP_VOL={mori:[350,450], mushi:[1500,2500], shk:[1500,2500]};
+(function(){
+  const s=document.createElement('style'); s.textContent=`
+.dp-b .dp-kg{font-style:normal;font-weight:800;margin-left:2px}
+.dp-b .dp-kg.l1{color:#c46a00}.dp-b .dp-kg.l2{color:#b31b14}
+.dp-b.dp-v1{box-shadow:inset 0 0 0 1.5px #e39a2d}.dp-b.dp-v2{box-shadow:inset 0 0 0 1.5px #d62b22}`;
+  document.head.appendChild(s);
+})();
+function dpVolLv(k,v){ const t=DP_VOL[k]; return !t||!(v>0)?0:v>=t[1]?2:v>=t[0]?1:0; }
+function dpLbl(x){
+  const L=String(x.label||'');
+  if(!x.kgs||L.slice(-x.kgs.length)!==x.kgs) return esc(L);
+  return esc(L.slice(0,-x.kgs.length).replace(/ $/,''))+`<em class="dp-kg ${x.kgl?'l'+x.kgl:''}">${esc(x.kgs)}</em>`;
+}
+(function(){
+  if(typeof dpItems!=='function') return;
+  const base=dpItems;
+  dpItems=function(date){
+    const out=base.apply(this,arguments);
+    try{
+      const S=MFG&&MFG.senmai, s=S&&S.days&&S.days[dadd(date,-1)];
+      let mu=0, sk=0;
+      if(s&&s.e) s.e.forEach(e=>{ const c=(S.cols||[])[e[0]]||[], q=Number(e[6]||0); mu+=q; if(/^(添|仲|留)$/.test(c[0]||'')&&c[1]==='掛') sk+=q; });
+      const j=RC&&RC.koji&&RC.koji[date]; let mo=0;
+      if(j&&j.koji) j.koji.forEach(r=>{ if(r['盛日']===date) mo+=Number(r['麹米kg']||0); });
+      const put=(x,k,v)=>{ if(!x||!(v>0)||x.kgs) return; const t=Math.round(v).toLocaleString('ja-JP')+'kg'; x.kgs=t; x.label=String(x.label)+' '+t; x.kgl=dpVolLv(k,v); if(x.kgl) x.cls=(x.cls||'')+' dp-v'+x.kgl; };
+      put(out.find(x=>x.lane==='koji'&&String(x.label).indexOf('盛')===0),'mori',mo);
+      put(out.find(x=>x.lane==='mushi'),'mushi',mu);
+      put(out.find(x=>x.lane==='shk'&&!x.odori&&x.d&&x.d.title==='仕込み'),'shk',sk);
+    }catch(e){}
+    return out;
+  };
+})();
+</script>
+<!-- /vol1123 -->
 </body>
 </html>
