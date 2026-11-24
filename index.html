@@ -9476,6 +9476,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-25-1','🍶','仕込み','設定温度のボタンで追水も指示できるようになりました。⚙ を押すと上に「🌡 温度」「💧 追水」が出るので、指示する方を選びます（両方も選べます）。リールは左が温度、右が追水（10ℓ刻み）。追水の欄には規定・済・残り・推奨の量と、入れられるかの色が出ます。指示すると、温度は今まで通り赤、追水は水色、両方は赤と水色が交互に点滅します（ホームの🍶にも「追水 ◯」）。点滅を押すと温度と追水が別々に出るので、済んだ方の「✓ 設定しました」「✓ 追水しました」を押してください。追水の量はこれまで通り分析の追水の欄にも入れてください。'],
   ['2026-11-24-1','🍶','仕込み（四段・アル添・上槽の記録）','③アルコール添加を小さくまとめました。アル添量を入れると、すぐ下に添加後の予測（日本酒度・アルコール・酸・アミノ酸）が出ます。目標と四段Beはリールをやめて数字を直接入力します（目標の＋・−は左のボタンで切り替え。−を打っても切り替わります）。「狙い」の表示はやめ、計算の値だけにしました。パターン表の「通常」はいつも四段Be 15.0、入れた四段Beが違うときは「今回」と差が並びます。「どのタンクから入れたか」は「添加アルコール」に名前を変え、前尺・後尺を入れるとそれぞれのℓが出て、差が「添加量」として出ます。醪タンクの尺は⑤上槽先の「上槽前 尺」に入れます（③で2か所になっていたため）。'],
   ['2026-11-23-6','📅','ホーム','本日の予定の棒に量を出しました。「盛」は麹米kg、「蒸米」と「仕込み」は前日に洗米した米のkgです。量が多い日は数字が橙、とても多い日は赤になり、棒にも色の縁が付きます。'],
   ['2026-11-23-5','📅','ホーム','スマホの「本日の予定」のボタンを、文字の分の大きさに小さくしました。押すと今までどおり日付の一覧が出ます。'],
@@ -14178,7 +14179,7 @@ setInterval(()=>{ try{ if(document.getElementById('dpBox') && ST && ST.token) mw
 <!-- /touban -->
 <!-- settemp -->
 <script>
-/* ================= ⚙ 仕込み：設定温度の指示 2026-10-29 =================
+/* ================= ⚙ 仕込み：設定温度の指示 2026-10-29 ／ 💧 追水の指示 2026-11-25 =================
    泰広さん指示：仕込みの表の ℹ の右に設定マークの丸ボタン。設定が必要なときは伊藤が押して設定温度を決める。
    決めるとそのボタンが赤く点滅し、ホームの仕込みアイコンも点滅。温度はiPhoneのようなリール（整数・小数1桁）で選ぶ。
    ・伊藤が灰色の ⚙ を押す → 窓（きょうの分析値＋リール＋ひとこと）→「指示する」→ ⚙ が赤く点滅・ホームの🍶も点滅「温度 ◯」
@@ -14190,24 +14191,43 @@ setInterval(()=>{ try{ if(document.getElementById('dpBox') && ST && ST.token) mw
      取り消しは delete（削除欄に日時）。mwDone（穴あけ・泡消し器）は作業名で探すので混ざらない
    2026-11-23 案5：設定待ちは ⚙ が新しい温度の数字になり赤く点滅（消えない点滅）、順号のマス全体も赤枠・薄赤で点滅、下に「温度変更」の帯。
      リールは いまの設定（無ければきょうの品温）から。窓のボタンは「変更」、いま→新しく（差）を表示。見本 Claude outputs\製造ツール_設定温度ボタン_表示案_見本.html
-   控え：seishu-workbook_github\_src_settemp.js。差し込み _設定温度ボタンを足す.py */
-const STO_JOB='設定温度', STO_IMIN=0, STO_IMAX=30, STO_H=40;
+   2026-11-25 追水の指示（見本 Claude outputs\製造ツール_温度と追水の指示_見本.html の 案C）：
+     窓の上の「🌡 温度」「💧 追水」を選ぶ（両方も可）。リールを横に2本（左＝温度、右＝追水 10ℓ刻み）。選ばない方は薄くなって回せない。
+     追水の欄に 規定・済・残り・推奨（醪DBの推奨追水）と、追水の信号（oiState の色）。リールの最初は 指示中の量 → 推奨 → 規定の1/3 → 50ℓ。
+     表示：温度だけ＝赤の点滅（今まで通り）／追水だけ＝水色の点滅（ボタンに「💧100」、帯「追水 100ℓ」）／両方＝赤と水色が交互に点滅。
+     点滅を押す → 温度と追水を別々の「✓ 設定しました」「✓ 追水しました」で済ませる（残った方の色で点滅を続ける）。
+     「✓ 追水しました」は指示の記録を済にするだけで、その日の分析の追水の欄には入れない（追水の量はこれまで通り入力する）。
+     記録：醪作業 name＝'追水指示'、kind＝'指示'／'済'、memo＝「量ℓ｜ひとこと」、plan＝指示した日、date＝追水した日。ホームの🍶に「追水 ◯」。
+   控え：seishu-workbook_github\_src_settemp.js。差し込み _設定温度ボタンを足す.py／_追水の指示_20261125.py */
+const STO_JOB='設定温度', STO_WJOB='追水指示', STO_IMIN=0, STO_IMAX=30, STO_H=40;
 const stoBoss=()=>/伊藤/.test(String((ST&&ST.name)||''));
 function stoParse(it){ const s=String((it&&it.memo)||''), k=s.indexOf('｜'), v=(k>=0?s.slice(0,k):s), a=v.split('→');
   return { from:a.length>1?a[0]:'', to:a.length>1?a[1]:a[0], note:k>=0?s.slice(k+1):'' }; }
-function stoItems(no){ return (MW.items||[]).filter(x=>!x.deleted && x.name===STO_JOB && String(x.no)===String(no))
+function stoWParse(it){ const s=String((it&&it.memo)||''), k=s.indexOf('｜'); return { l:(k>=0?s.slice(0,k):s).trim(), note:k>=0?s.slice(k+1):'' }; }
+function stoItemsJ(job,no){ return (MW.items||[]).filter(x=>!x.deleted && x.name===job && String(x.no)===String(no))
   .sort((a,b)=>String(a.at||'').localeCompare(String(b.at||''))); }
-function stoPending(no){ const L=stoItems(no).filter(x=>x.kind==='指示'); return L.length?L[L.length-1]:null; }
+function stoItems(no){ return stoItemsJ(STO_JOB,no); }
+function stoPendingJ(job,no){ const L=stoItemsJ(job,no).filter(x=>x.kind==='指示'); return L.length?L[L.length-1]:null; }
+function stoPending(no){ return stoPendingJ(STO_JOB,no); }
+function stoPendingW(no){ return stoPendingJ(STO_WJOB,no); }
 function stoNow(no){ const L=stoItems(no).filter(x=>x.kind==='済'); return L.length?stoParse(L[L.length-1]).to:''; }
-function stoAllPending(){ const seen={}; (MW.items||[]).forEach(x=>{ if(!x.deleted && x.name===STO_JOB && x.kind==='指示') seen[x.no]=1; }); return Object.keys(seen).length; }
+function stoAllPending(job){ const seen={}; (MW.items||[]).forEach(x=>{ if(!x.deleted && x.name===(job||STO_JOB) && x.kind==='指示') seen[x.no]=1; }); return Object.keys(seen).length; }
 const stoF=v=>{ const n=Number(v); return v===''||v==null||isNaN(n)?'—':n.toFixed(1); };
+/* ボタンの顔：温度だけ＝赤の数字／追水だけ＝水色の「💧量」／両方＝交互 */
+function stoFace(no){ const p=stoPending(no), w=stoPendingW(no), t=p?stoF(stoParse(p).to):'', l=w?esc(stoWParse(w).l):'';
+  if(p&&w) return { c:' on num tw', h:`<span class="sa">${t}</span><span class="sb"><i>💧</i>${l}</span>` };
+  if(p) return { c:' on num t', h:t };
+  if(w) return { c:' on num w', h:`<i>💧</i>${l}` };
+  return { c:'', h:'⚙' }; }
 function stoBtn(no){
-  const p=stoPending(no), now=stoNow(no);
-  return `<span class="sto-pr"><span class="sto-pl"></span><button type="button" class="sto-b${p?' on num':''}" data-stono="${esc(String(no))}" aria-label="順号${esc(String(no))}の設定温度" title="設定温度">${p?stoF(stoParse(p).to):'⚙'}</button></span>`+
-    `<span class="sto-v${p?' on':''}" data-stov="${esc(String(no))}">${stoLabel(no)}</span>`;
+  const f=stoFace(no), any=!!(stoPending(no)||stoPendingW(no));
+  return `<span class="sto-pr"><span class="sto-pl"></span><button type="button" class="sto-b${f.c}" data-stono="${esc(String(no))}" aria-label="順号${esc(String(no))}の設定温度・追水" title="設定温度・追水">${f.h}</button></span>`+
+    `<span class="sto-v${any?' on':''}" data-stov="${esc(String(no))}">${stoLabel(no)}</span>`;
 }
-function stoLabel(no){ const p=stoPending(no), now=stoNow(no);
-  if(p){ return `<span class="sto-rib">温度変更</span>`; }
+function stoLabel(no){ const p=stoPending(no), w=stoPendingW(no), now=stoNow(no); let h='';
+  if(p) h+=`<span class="sto-rib">温度変更</span>`;
+  if(w) h+=`<span class="sto-rib w">追水 ${esc(stoWParse(w).l)}ℓ</span>`;
+  if(h) return h;
   return now!==''?`設定 <span class="sto-vv">${stoF(now)}℃</span>`:''; }
 /* 仕込みの表：ℹ の右に ⚙ */
 (function(){ const o=window.kgMoromiRows; if(typeof o!=='function') return;
@@ -14222,18 +14242,22 @@ function stoLabel(no){ const p=stoPending(no), now=stoNow(no);
 })();
 /* 表の ⚙ とラベル、ホームの🍶 を今の記録に合わせる（描き直さずにその場で） */
 function stoPaint(){
-  document.querySelectorAll('.sto-b[data-stono]').forEach(b=>{ const p=stoPending(b.dataset.stono), t=p?stoF(stoParse(p).to):'⚙';
-    b.classList.toggle('on', !!p); b.classList.toggle('num', !!p); if(b.textContent!==t) b.textContent=t;
-    const td=b.closest('td'); if(td) td.classList.toggle('sto-cell', !!p); });
-  document.querySelectorAll('.sto-v[data-stov]').forEach(v=>{ const no=v.dataset.stov; v.classList.toggle('on', !!stoPending(no)); v.innerHTML=stoLabel(no); });
+  document.querySelectorAll('.sto-b[data-stono]').forEach(b=>{ const no=b.dataset.stono, f=stoFace(no), cn='sto-b'+f.c;
+    if(b.className!==cn) b.className=cn; if(b.dataset.face!==f.h){ b.innerHTML=f.h; b.dataset.face=f.h; }
+    const td=b.closest('td'); if(td){ const t=/ t$/.test(f.c), w=/ w$/.test(f.c), tw=/ tw$/.test(f.c);
+      td.classList.toggle('sto-cell', t); td.classList.toggle('sto-cw', w); td.classList.toggle('sto-ctw', tw); } });
+  document.querySelectorAll('.sto-v[data-stov]').forEach(v=>{ const no=v.dataset.stov; v.classList.toggle('on', !!(stoPending(no)||stoPendingW(no))); v.innerHTML=stoLabel(no); });
   stoHomeApply();
 }
 function stoHomeApply(){
   const b=document.getElementById('bShk'); if(!b) return;
-  const n=stoAllPending(); b.classList.toggle('sto-home', n>0);
-  let g=b.querySelector('.sto-tg');
-  if(n>0){ const t=`温度 ${n}`; if(!g) b.insertAdjacentHTML('beforeend',`<span class="sto-tg">${t}</span>`); else if(g.textContent!==t) g.textContent=t; }
-  else if(g) g.remove();
+  const nt=stoAllPending(STO_JOB), nw=stoAllPending(STO_WJOB);
+  b.classList.toggle('sto-home', nt>0); b.classList.toggle('sto-homew', nw>0);
+  [['t',nt,'温度'],['w',nw,'追水']].forEach(([k,n,lb])=>{
+    let g=b.querySelector(`.sto-tg[data-k="${k}"]`);
+    if(n>0){ const t=`${lb} ${n}`; if(!g) b.insertAdjacentHTML('beforeend',`<span class="sto-tg${k==='w'?' w':''}" data-k="${k}">${t}</span>`); else if(g.textContent!==t) g.textContent=t; }
+    else if(g) g.remove();
+  });
 }
 /* きょうの分析（いちばん新しい日） */
 function stoAna(no){
@@ -14248,83 +14272,132 @@ function stoAna(no){
 /* 設定の記録が無いときのリールの最初の位置：きょう（最新日）の品温 */
 function stoHin(no){ try{ const b=RC.bun&&RC.bun[no]; const L=(b&&b.days||[]).filter(d=>[d.tAM,d.tPM].some(v=>v!==''&&v!=null));
   if(!L.length) return 12; const d=L[L.length-1], v=Number((d.tPM!==''&&d.tPM!=null)?d.tPM:d.tAM); return isNaN(v)?12:Math.round(v*10)/10; }catch(e){ return 12; } }
-/* リール */
-function stoPicker(){
-  const pad='<div class="pad"></div><div class="pad"></div>'; let wi=pad, wd=pad, i;
-  for(i=STO_IMIN;i<=STO_IMAX;i++) wi+=`<div>${i}</div>`; for(i=0;i<=9;i++) wd+=`<div>${i}</div>`; wi+=pad; wd+=pad;
-  return `<div class="sto-pk"><div class="sto-band"></div><div class="sto-fd sto-ft"></div><div class="sto-fd sto-fb"></div>
-    <div class="sto-wh wi">${wi}</div><span class="sto-dot">.</span><div class="sto-wh wd">${wd}</div><span class="sto-un">℃</span></div>`;
+/* 追水の今の状態（規定・済・残り・推奨・信号）。追水の信号（oisig1101 の oiState）を借りる */
+function stoOi(no){ try{ return typeof oiState==='function'?oiState(no):null; }catch(e){ return null; } }
+const STO_OIS={g:['入れられる','#2e7d32'],y:['注意','#b07800'],r:['控える','#c62828'],n:['判定前','#56637a'],ok:['規定に到達','#7a8a7c'],x:['基準なし','#5d574c']};
+function stoOiInfo(o){
+  if(!o) return `<div class="sto-oi">追水の規定（配合表）が読めません</div>`;
+  const s=STO_OIS[o.s]||['',''];
+  return `<div class="sto-oi">規定 <b>${o.plan}ℓ</b>・済 <b>${o.cum}ℓ</b>・残り <b>${o.rest}ℓ</b>${o.rec>0?`　推奨 <b>${Math.round(o.rec)}ℓ</b>`:''}${s[0]?`<span class="sto-sig" style="background:${s[1]}">${s[0]}</span>`:''}</div>`;
 }
-function stoPickerInit(root, val, onch){
-  const wI=root.querySelector('.sto-wh.wi'), wD=root.querySelector('.sto-wh.wd');
+const sto10=v=>Math.max(10, Math.round(Number(v)/10)*10);
+/* リール：温度（整数・小数）と追水（10ℓ刻み）を横に並べる */
+function stoPicker2(wmax){
+  const pad='<div class="pad"></div><div class="pad"></div>'; let wi=pad, wd=pad, wl=pad, i;
+  for(i=STO_IMIN;i<=STO_IMAX;i++) wi+=`<div>${i}</div>`; for(i=0;i<=9;i++) wd+=`<div>${i}</div>`; for(i=10;i<=wmax;i+=10) wl+=`<div>${i}</div>`; wi+=pad; wd+=pad; wl+=pad;
+  return `<div class="sto-pk sto-pk2"><div class="sto-band"></div><div class="sto-fd sto-ft"></div><div class="sto-fd sto-fb"></div>
+    <span class="sto-col" data-k="t"><div class="sto-wh wi">${wi}</div><span class="sto-dot">.</span><div class="sto-wh wd">${wd}</div><span class="sto-un">℃</span></span>
+    <span class="sto-sep"></span>
+    <span class="sto-col" data-k="w"><div class="sto-wh wl">${wl}</div><span class="sto-un">ℓ</span></span></div>`;
+}
+function stoPickerInit(root, val, wv, onT, onW){
+  const wI=root.querySelector('.sto-wh.wi'), wD=root.querySelector('.sto-wh.wd'), wL=root.querySelector('.sto-wh.wl');
   let v=Math.min(STO_IMAX+0.9, Math.max(STO_IMIN, Number(val)||0)); const ip=Math.floor(v+1e-9), dp=Math.round((v-ip)*10)%10;
   const paint=w=>{ const k=Math.round(w.scrollTop/STO_H); w.querySelectorAll('div:not(.pad)').forEach((c,j)=>{ const d=Math.abs(j-k); c.style.opacity=d===0?1:d===1?.55:.28; c.style.fontSize=d===0?'28px':'22px'; }); };
-  const read=()=>{ const a=STO_IMIN+Math.round(wI.scrollTop/STO_H), b=Math.round(wD.scrollTop/STO_H); onch(Math.round((a+b/10)*10)/10); };
-  requestAnimationFrame(()=>{ wI.scrollTop=(ip-STO_IMIN)*STO_H; wD.scrollTop=dp*STO_H; paint(wI); paint(wD); read(); });
-  [wI,wD].forEach(w=>{ let t; w.addEventListener('scroll',()=>{ paint(w); clearTimeout(t); t=setTimeout(read,80); }, {passive:true});
+  const readT=()=>{ const a=STO_IMIN+Math.round(wI.scrollTop/STO_H), b=Math.round(wD.scrollTop/STO_H); onT(Math.round((a+b/10)*10)/10); };
+  const readW=()=>{ onW((Math.round(wL.scrollTop/STO_H)+1)*10); };
+  requestAnimationFrame(()=>{ wI.scrollTop=(ip-STO_IMIN)*STO_H; wD.scrollTop=dp*STO_H; wL.scrollTop=(wv/10-1)*STO_H; [wI,wD,wL].forEach(paint); readT(); readW(); });
+  [[wI,readT],[wD,readT],[wL,readW]].forEach(([w,rd])=>{ let t; w.addEventListener('scroll',()=>{ paint(w); clearTimeout(t); t=setTimeout(rd,80); }, {passive:true});
     w.querySelectorAll('div:not(.pad)').forEach((c,k)=>c.onclick=()=>w.scrollTo({top:k*STO_H, behavior:'smooth'})); });
 }
 /* 窓 */
 function stoOpen(no){
-  const m=(typeof rcMaster==='function'&&rcMaster(no))||{}, p=stoPending(no), now=stoNow(no), boss=stoBoss();
+  const m=(typeof rcMaster==='function'&&rcMaster(no))||{}, boss=stoBoss();
   const ttl=`${esc(String(no))}号 ${esc(m.liquid||'')}　T${esc(m.tank||'')}`;
   const mask=document.createElement('div'); mask.className='o2-mask'; document.body.appendChild(mask);
   const close=()=>mask.remove(); mask.onclick=e=>{ if(e.target===mask) close(); };
   const say=(t)=>{ const x=mask.querySelector('.sto-msg'); if(x) x.textContent=t; };
   const done=()=>{ close(); stoPaint(); };
-  const hist=()=>{ const L=stoItems(no).slice(-5).reverse(); if(!L.length) return '';
-    return `<div class="sto-log">${L.map(x=>{ const q=stoParse(x); return `<div>${esc(String(x.at||'').slice(5,16))} ${esc(x.by||'')}　${stoF(q.from)}→${stoF(q.to)}℃　${x.kind==='済'?`<b class="ok">設定済</b> ${esc(x.updBy||'')} ${esc(String(x.upd||'').slice(11,16))}`:'<b class="ng">設定待ち</b>'}${q.note?`<br><small>${esc(q.note)}</small>`:''}</div>`; }).join('')}</div>`; };
+  const hist=()=>{ const L=stoItemsJ(STO_JOB,no).concat(stoItemsJ(STO_WJOB,no)).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||''))).slice(0,6); if(!L.length) return '';
+    return `<div class="sto-log">${L.map(x=>{ const ok=x.kind==='済', st=ok?`<b class="ok">${x.name===STO_WJOB?'追水済':'設定済'}</b> ${esc(x.updBy||'')} ${esc(String(x.upd||'').slice(11,16))}`:`<b class="ng">${x.name===STO_WJOB?'追水待ち':'設定待ち'}</b>`;
+      if(x.name===STO_WJOB){ const q=stoWParse(x); return `<div>${esc(String(x.at||'').slice(5,16))} ${esc(x.by||'')}　<span class="lw">💧追水 ${esc(q.l)}ℓ</span>　${st}${q.note?`<br><small>${esc(q.note)}</small>`:''}</div>`; }
+      const q=stoParse(x); return `<div>${esc(String(x.at||'').slice(5,16))} ${esc(x.by||'')}　${stoF(q.from)}→${stoF(q.to)}℃　${st}${q.note?`<br><small>${esc(q.note)}</small>`:''}</div>`; }).join('')}</div>`; };
+  /* 伊藤：指示する（案C：温度と追水を選んで、横並びのリール） */
   const edit=()=>{
-    let val=p?Number(stoParse(p).to):(now!==''?Number(now):stoHin(no));
-    if(isNaN(val)) val=12;
+    const p=stoPending(no), pW=stoPendingW(no), now=stoNow(no), o=stoOi(no);
+    let val=p?Number(stoParse(p).to):(now!==''?Number(now):stoHin(no)); if(isNaN(val)) val=12;
+    const wq=pW?Number(stoWParse(pW).l):NaN;
+    let wmax=(o&&o.rest>=10)?Math.floor(o.rest/10)*10:300; if(wq>wmax) wmax=sto10(wq);
+    let wv=wq>0?sto10(wq):(o&&o.rec>0)?sto10(o.rec):(o&&o.plan>0)?sto10(o.plan/3):50; wv=Math.min(wmax,Math.max(10,wv));
     const from=p?(stoParse(p).from||now):now;
+    const sel={ t:!!p, w:!!pW };
+    const note0=p?stoParse(p).note:pW?stoWParse(pW).note:'';
     mask.innerHTML=`<div class="o2-sheet sto-sh"><div class="sto-in">
-      <h3>⚙ 設定温度　${ttl}</h3>${stoAna(no)}
-      ${stoPicker()}<div class="sto-nv">いま <b class="sto-nf">${stoF(from)}</b> → 新しく <b class="sto-nn">${stoF(val)}℃</b><span class="sto-df"></span></div>
-      ${p?'<div class="sto-now">（変更済・設定待ち）</div>':''}
-      <input class="sto-memo" type="text" maxlength="60" placeholder="ひとこと（任意）例：切れ速い" value="${esc(p?stoParse(p).note:'')}">
-      <div class="sto-row">${p?'<button type="button" class="sto-x ng" data-a="cancel">変更を取り消す</button>':'<button type="button" class="sto-x" data-a="close">やめる</button>'}<button type="button" class="sto-go" data-a="go">${p?'直して変更':'変更'}</button></div>
+      <h3>⚙ 指示　${ttl}</h3>${stoAna(no)}
+      <div class="sto-tgl"><button type="button" class="t" data-k="t">🌡 温度<span class="ck"></span></button><button type="button" class="w" data-k="w">💧 追水<span class="ck"></span></button></div>
+      ${stoOiInfo(o)}
+      ${stoPicker2(wmax)}
+      <div class="sto-cmps"><div class="sto-nv" data-k="t">いま <b class="sto-nf">${stoF(from)}</b> → 新しく <b class="sto-nn">${stoF(val)}℃</b><span class="sto-df"></span></div>
+        <div class="sto-wv" data-k="w">追水 <b class="sto-wn">${wv}ℓ</b><span class="sto-wr"></span></div></div>
+      ${p||pW?'<div class="sto-now">（指示済・まだ済んでいない）</div>':''}
+      <input class="sto-memo" type="text" maxlength="60" placeholder="ひとこと（任意）例：切れ速い・泡注意" value="${esc(note0)}">
+      <div class="sto-row">${p||pW?'<button type="button" class="sto-x ng" data-a="cancel">指示を取り消す</button>':'<button type="button" class="sto-x" data-a="close">やめる</button>'}<button type="button" class="sto-go" data-a="go"></button></div>
       ${hist()}<div class="sto-msg"></div></div></div>`;
-    const nv=mask.querySelector('.sto-nv .sto-nn'), df=mask.querySelector('.sto-nv .sto-df');
-    stoPickerInit(mask, val, v=>{ val=v; nv.textContent=stoF(v)+'℃';
+    const nv=mask.querySelector('.sto-nn'), df=mask.querySelector('.sto-df'), wn=mask.querySelector('.sto-wn'), wr=mask.querySelector('.sto-wr'), go=mask.querySelector('[data-a="go"]');
+    const upd=()=>{
+      mask.querySelectorAll('.sto-tgl button').forEach(b=>{ const k=b.dataset.k; b.classList.toggle('on', !!sel[k]); b.querySelector('.ck').textContent=sel[k]?'✓':''; });
+      mask.querySelectorAll('.sto-col').forEach(c=>c.classList.toggle('sto-off', !sel[c.dataset.k]));
+      mask.querySelectorAll('.sto-cmps [data-k]').forEach(c=>c.style.display=sel[c.dataset.k]?'':'none');
+      go.className='sto-go'+(sel.t&&sel.w?' tw':sel.w?' w':'');
+      go.disabled=!(sel.t||sel.w);
+      go.textContent=!(sel.t||sel.w)?'温度・追水を選んでください':sel.t&&sel.w?'温度と追水を指示する':sel.t?'温度を指示する':'追水を指示する';
+    };
+    mask.querySelectorAll('.sto-tgl button').forEach(b=>b.onclick=()=>{ sel[b.dataset.k]=!sel[b.dataset.k]; upd(); });
+    upd();
+    stoPickerInit(mask, val, wv, v=>{ val=v; nv.textContent=stoF(v)+'℃';
       const d=(from===''||isNaN(Number(from)))?null:Math.round((v-Number(from))*10)/10;
-      df.textContent=d==null?'':d===0?'（同じ）':`（${d>0?'＋':'−'}${Math.abs(d).toFixed(1)}）`; });
-    mask.querySelector('[data-a="go"]').onclick=async()=>{
-      if(!p && from!=='' && Number(from)===val){ say('いまの設定と同じです'); return; }
+      df.textContent=d==null?'':d===0?'（同じ）':`（${d>0?'＋':'−'}${Math.abs(d).toFixed(1)}）`; },
+      v=>{ wv=v; wn.textContent=v+'ℓ'; wr.textContent=o?`　→ 入れた後の残り ${Math.max(0,o.rest-v)}ℓ`:''; });
+    go.onclick=async()=>{
+      if(!(sel.t||sel.w)){ say('温度か追水を選んでください'); return; }
+      if(sel.t && !p && from!=='' && Number(from)===val){ say('いまの設定温度と同じです'); return; }
       say('保存しています…');
       const note=mask.querySelector('.sto-memo').value.replace(/[｜|]/g,'/').trim();
-      const item={ name:STO_JOB, kind:'指示', no:String(no), liquid:m.liquid||'', tank:m.tank||'', plan:dtoday(), date:'', memo:`${from===''?'':stoF(from)}→${stoF(val)}`+(note?'｜'+note:'') };
-      if(p) item.id=p.id;
-      try{ mwKeep(await mwApi({action:'save', item})); done(); }catch(e){ say('保存できませんでした：'+(e.message||e)); }
+      const base={ no:String(no), liquid:m.liquid||'', tank:m.tank||'', plan:dtoday(), date:'' };
+      const jobs=[];
+      if(sel.t){ const it=Object.assign({ name:STO_JOB, kind:'指示', memo:`${from===''?'':stoF(from)}→${stoF(val)}`+(note?'｜'+note:'') }, base); if(p) it.id=p.id; jobs.push({action:'save', item:it}); }
+      else if(p) jobs.push({action:'delete', id:p.id});
+      if(sel.w){ const it=Object.assign({ name:STO_WJOB, kind:'指示', memo:`${wv}`+(note?'｜'+note:'') }, base); if(pW) it.id=pW.id; jobs.push({action:'save', item:it}); }
+      else if(pW) jobs.push({action:'delete', id:pW.id});
+      try{ for(const j of jobs) mwKeep(await mwApi(j)); done(); }catch(e){ say('保存できませんでした：'+(e.message||e)); stoPaint(); }
     };
     const c=mask.querySelector('[data-a="cancel"]'); if(c) c.onclick=async()=>{
-      if(!confirm('この温度の変更を取り消しますか？')) return; say('取り消しています…');
-      try{ mwKeep(await mwApi({action:'delete', id:p.id})); done(); }catch(e){ say('取り消せませんでした：'+(e.message||e)); } };
+      if(!confirm('この仕込みの指示（温度・追水）を取り消しますか？')) return; say('取り消しています…');
+      try{ if(p) mwKeep(await mwApi({action:'delete', id:p.id})); if(pW) mwKeep(await mwApi({action:'delete', id:pW.id})); done(); }catch(e){ say('取り消せませんでした：'+(e.message||e)); stoPaint(); } };
     const x=mask.querySelector('[data-a="close"]'); if(x) x.onclick=close;
   };
-  const confirmSet=()=>{ const q=stoParse(p);
+  /* 点滅を押した：温度と追水を別々に済ませる */
+  const confirmSet=()=>{ const p=stoPending(no), pW=stoPendingW(no); if(!p&&!pW){ done(); return; }
+    const o=stoOi(no), who=p||pW, q=p?stoParse(p):null, w=pW?stoWParse(pW):null, note=(q&&q.note)||(w&&w.note)||'';
+    const wl=w?Number(w.l):0;
     mask.innerHTML=`<div class="o2-sheet sto-sh"><div class="sto-in">
-      <h3>⚙ 温度の設定をお願いします</h3>
-      <div class="sto-big"><div class="sto-tk">T${esc(m.tank||'')}　<small>${esc(String(no))}号 ${esc(m.liquid||'')}</small></div>
-      <div class="sto-ch"><span class="sto-f">${stoF(q.from)}</span> → <span class="sto-t">${stoF(q.to)}℃</span></div></div>
-      <div class="sto-by">${esc(p.by||'')} ${esc(String(p.at||'').slice(5,16))}${q.note?'「'+esc(q.note)+'」':''}</div>
-      <div class="sto-row"><button type="button" class="sto-x" data-a="close">あとで</button><button type="button" class="sto-ok" data-a="ok">✓ 設定しました</button></div>
-      ${stoBoss()?'<div class="sto-row"><button type="button" class="sto-x sm" data-a="edit">温度を直す・取り消す</button></div>':''}
+      <h3>⚙ お願いします</h3>
+      <div class="sto-big"><div class="sto-tk">T${esc(m.tank||'')}　<small>${esc(String(no))}号 ${esc(m.liquid||'')}</small></div></div>
+      ${p?`<div class="sto-cf t"><div class="k">🌡 設定温度を変えてください</div><div class="sto-ch"><span class="sto-f">${stoF(q.from)}</span> → <span class="sto-t">${stoF(q.to)}℃</span></div>
+        <button type="button" class="sto-ok t" data-a="okT">✓ 設定しました</button></div>`:''}
+      ${pW?`<div class="sto-cf w"><div class="k">💧 追水してください</div><div class="sto-ch"><span class="sto-t">${esc(w.l)}ℓ</span></div>
+        ${o?`<div class="s">規定 ${o.plan}ℓ・済 ${o.cum}ℓ${wl>0?` → 入れたら ${o.cum+wl}ℓ`:''}</div>`:''}
+        <button type="button" class="sto-ok w" data-a="okW">✓ 追水しました</button></div>`:''}
+      <div class="sto-by">${esc(who.by||'')} ${esc(String(who.at||'').slice(5,16))}${note?'「'+esc(note)+'」':''}</div>
+      <div class="sto-row"><button type="button" class="sto-x" data-a="close">あとで</button></div>
+      ${stoBoss()?'<div class="sto-row"><button type="button" class="sto-x sm" data-a="edit">指示を直す・取り消す</button></div>':''}
       <div class="sto-msg"></div></div></div>`;
     mask.querySelector('[data-a="close"]').onclick=close;
     const ed=mask.querySelector('[data-a="edit"]'); if(ed) ed.onclick=edit;
-    mask.querySelector('[data-a="ok"]').onclick=async()=>{ say('保存しています…');
-      const item={ id:p.id, name:STO_JOB, kind:'済', no:String(no), liquid:p.liquid||m.liquid||'', tank:p.tank||m.tank||'', plan:p.plan||'', date:dtoday(), memo:p.memo||'' };
-      try{ mwKeep(await mwApi({action:'save', item})); done(); }catch(e){ say('保存できませんでした：'+(e.message||e)); } };
+    const fin=async(it,job)=>{ say('保存しています…');
+      const item={ id:it.id, name:job, kind:'済', no:String(no), liquid:it.liquid||m.liquid||'', tank:it.tank||m.tank||'', plan:it.plan||'', date:dtoday(), memo:it.memo||'' };
+      try{ mwKeep(await mwApi({action:'save', item})); stoPaint(); confirmSet(); }catch(e){ say('保存できませんでした：'+(e.message||e)); } };
+    const bT=mask.querySelector('[data-a="okT"]'); if(bT) bT.onclick=()=>fin(p,STO_JOB);
+    const bW=mask.querySelector('[data-a="okW"]'); if(bW) bW.onclick=()=>fin(pW,STO_WJOB);
   };
-  const view=()=>{
+  const view=()=>{ const now=stoNow(no);
     mask.innerHTML=`<div class="o2-sheet sto-sh"><div class="sto-in">
-      <h3>⚙ 設定温度　${ttl}</h3><div class="sto-big"><div class="sto-ch">${stoF(now)}℃</div></div>
+      <h3>⚙ 設定温度・追水　${ttl}</h3><div class="sto-big"><div class="sto-ch">${stoF(now)}℃</div></div>
       ${hist()||'<div class="sto-by">まだ記録がありません</div>'}
       <div class="sto-row"><button type="button" class="sto-x" data-a="close">閉じる</button></div></div></div>`;
     mask.querySelector('[data-a="close"]').onclick=close;
   };
-  if(p) confirmSet(); else if(boss) edit(); else view();
+  if(stoPending(no)||stoPendingW(no)) confirmSet(); else if(boss) edit(); else view();
 }
 document.addEventListener('click', e=>{
   const b=e.target.closest && e.target.closest('.sto-b[data-stono]'); if(!b) return;
@@ -14341,51 +14414,91 @@ setTimeout(()=>{ try{ if(ST&&ST.token) mwLoad(false).then(stoPaint); }catch(e){}
 (function(){ const s=document.createElement('style'); s.textContent=`
 .kg-t .n .sto-pr{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px auto 2px}
 .kg-t .n .sto-pr .kg-info{margin:0!important}
-.sto-b{display:flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:0;border-radius:50%;background:#5b6b7d;color:#fff;font-size:15px;line-height:1;cursor:pointer;flex:none}
+.sto-b{display:flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:0;border-radius:50%;background:#5b6b7d;color:#fff;font-size:15px;line-height:1;cursor:pointer;flex:none;position:relative;overflow:visible}
 .kg-t.ed .n .sto-b{width:40px;height:40px;font-size:21px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
-.sto-b.on{background:#d32f2f;animation:stoBl 1s ease-in-out infinite}
+.sto-b.on.t{background:#d32f2f;animation:stoBl 1s ease-in-out infinite}
+.sto-b.on.w{background:#0f8fd6;animation:stoBlW 1s ease-in-out infinite}
+.sto-b.on.tw{background:#d32f2f;animation:stoBlTW 2s ease-in-out infinite}
 .sto-b.num{font-size:10px;font-weight:800;letter-spacing:-.3px;font-family:inherit}
 .kg-t.ed .n .sto-b.num{font-size:14px}
+.sto-b i{font-style:normal;font-size:.68em;margin-right:-1px}
+.sto-b.tw .sa,.sto-b.tw .sb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.sto-b.tw .sa{animation:stoSA 2s infinite}.sto-b.tw .sb{animation:stoSB 2s infinite}
 @keyframes stoBl{0%,100%{background:#d32f2f;box-shadow:0 0 0 0 rgba(211,47,47,.75)}50%{background:#9e1b1b;box-shadow:0 0 0 7px rgba(211,47,47,0)}}
-.kg-t td.n.sto-cell,.kg-t td.n:has(.sto-b.on){animation:stoCell 1s ease-in-out infinite;box-shadow:inset 0 0 0 3px #d32f2f}
+@keyframes stoBlW{0%,100%{background:#0f8fd6;box-shadow:0 0 0 0 rgba(15,143,214,.75)}50%{background:#065f94;box-shadow:0 0 0 7px rgba(15,143,214,0)}}
+@keyframes stoBlTW{0%,40%{background:#d32f2f;box-shadow:0 0 0 0 rgba(211,47,47,.7)}25%{box-shadow:0 0 0 6px rgba(211,47,47,0)}50%,90%{background:#0f8fd6;box-shadow:0 0 0 0 rgba(15,143,214,.7)}75%{box-shadow:0 0 0 6px rgba(15,143,214,0)}100%{background:#d32f2f}}
+@keyframes stoSA{0%,45%{opacity:1}50%,95%{opacity:0}100%{opacity:1}}
+@keyframes stoSB{0%,45%{opacity:0}50%,95%{opacity:1}100%{opacity:0}}
+.kg-t td.n.sto-cell,.kg-t td.n:has(.sto-b.on.t){animation:stoCell 1s ease-in-out infinite;box-shadow:inset 0 0 0 3px #d32f2f}
+.kg-t td.n.sto-cw,.kg-t td.n:has(.sto-b.on.w){animation:stoCellW 1s ease-in-out infinite;box-shadow:inset 0 0 0 3px #0f8fd6}
+.kg-t td.n.sto-ctw,.kg-t td.n:has(.sto-b.on.tw){animation:stoCellTW 2s ease-in-out infinite}
 @keyframes stoCell{0%,100%{background:#faf7ef}50%{background:#ffd9d9}}
+@keyframes stoCellW{0%,100%{background:#faf7ef}50%{background:#cfeaff}}
+@keyframes stoCellTW{0%,40%{background:#ffd9d9;box-shadow:inset 0 0 0 3px #d32f2f}50%,90%{background:#cfeaff;box-shadow:inset 0 0 0 3px #0f8fd6}100%{background:#ffd9d9;box-shadow:inset 0 0 0 3px #d32f2f}}
 .sto-v .sto-rib{display:block;margin:3px 0 0;border-radius:4px;background:#d32f2f;color:#fff;font-size:11px;font-weight:800;padding:2px 0;text-align:center;letter-spacing:.5px}
+.sto-v .sto-rib.w{background:#0f8fd6;letter-spacing:0}
 .sto-v{display:block;text-align:center;font-size:10.5px;color:var(--sub);line-height:1.25;margin-top:2px}
 .sto-v .sto-vv{display:inline;color:var(--navy);font-size:12px;font-weight:700}.sto-v.on .sto-vv{color:#d32f2f}
 #bShk.sto-home .ico{animation:stoHm 1s ease-in-out infinite}
+#bShk.sto-homew .ico{animation:stoHmW 1s ease-in-out infinite}
+#bShk.sto-home.sto-homew .ico{animation:stoHmTW 2s ease-in-out infinite}
 @keyframes stoHm{0%,100%{box-shadow:0 0 0 0 rgba(211,47,47,0)}50%{box-shadow:0 0 0 4px rgba(211,47,47,.75);filter:saturate(1.4) brightness(1.08)}}
+@keyframes stoHmW{0%,100%{box-shadow:0 0 0 0 rgba(15,143,214,0)}50%{box-shadow:0 0 0 4px rgba(15,143,214,.75);filter:saturate(1.4) brightness(1.08)}}
+@keyframes stoHmTW{0%,40%{box-shadow:0 0 0 4px rgba(211,47,47,.75)}50%,90%{box-shadow:0 0 0 4px rgba(15,143,214,.75)}100%{box-shadow:0 0 0 4px rgba(211,47,47,.75)}}
 .dp-ic .sto-tg{background:#d62b22;color:#fff;font-size:9.5px;font-weight:700;border-radius:4px;padding:1px 4px;margin-top:-2px;animation:dpBl 1.4s ease-in-out infinite}
+.dp-ic .sto-tg.w{background:#0f8fd6}
 .sto-sh .sto-in{overflow:auto;padding:14px 16px calc(16px + env(safe-area-inset-bottom))}
 .sto-sh h3{margin:0 0 6px;font-size:16px;color:var(--navy)}
 .sto-h{font-size:11px;color:var(--sub);margin:2px 0 4px}
 .sto-ana{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:0 0 6px}
 .sto-ana div{border:1px solid var(--line);border-radius:8px;text-align:center;padding:2px 0;font-size:11px;color:var(--sub)}
 .sto-ana b{display:block;font-size:16px;color:var(--ink)}
+.sto-tgl{display:flex;gap:8px;margin:4px 0 6px}
+.sto-tgl button{flex:1;position:relative;border-radius:14px;padding:9px 4px;font:inherit;font-weight:800;font-size:16px;border:2px solid var(--line);background:#fff;color:var(--sub);cursor:pointer}
+.sto-tgl button .ck{position:absolute;top:3px;right:8px;font-size:13px}
+.sto-tgl button.t.on{border-color:#d32f2f;background:#fff0f0;color:#d32f2f}
+.sto-tgl button.w.on{border-color:#0f8fd6;background:#eaf6ff;color:#065f94}
+.sto-oi{font-size:12px;color:var(--sub);text-align:center;margin:2px 0}.sto-oi b{color:var(--ink)}
+.sto-sig{display:inline-block;border-radius:6px;padding:0 6px;margin-left:5px;font-size:11px;font-weight:700;color:#fff}
 .sto-pk{position:relative;display:flex;justify-content:center;align-items:center;height:200px;margin:2px auto;max-width:280px;overflow:hidden;-webkit-user-select:none;user-select:none}
+.sto-pk.sto-pk2{max-width:420px}
 .sto-pk .sto-band{position:absolute;left:8px;right:8px;top:80px;height:40px;background:#f0f0f3;border-radius:9px;z-index:0}
 .sto-pk .sto-fd{position:absolute;left:0;right:0;height:80px;z-index:3;pointer-events:none}
 .sto-pk .sto-ft{top:0;background:linear-gradient(var(--card,#fff),rgba(255,255,255,.5))}
 .sto-pk .sto-fb{bottom:0;background:linear-gradient(rgba(255,255,255,.5),var(--card,#fff))}
+.sto-pk .sto-col{position:relative;z-index:1;display:flex;align-items:center;transition:opacity .2s}
+.sto-pk .sto-col.sto-off{opacity:.22;pointer-events:none}
+.sto-pk .sto-sep{position:relative;z-index:2;width:1px;height:120px;background:var(--line);margin:0 12px}
 .sto-wh{position:relative;z-index:1;height:200px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .sto-wh::-webkit-scrollbar{display:none}
 .sto-wh div{border:0;margin:0;padding-top:0;padding-bottom:0;box-sizing:border-box;background:none;height:40px;line-height:40px;scroll-snap-align:center;font-size:26px;font-weight:700;color:var(--ink);cursor:pointer}
 .sto-wh .pad{scroll-snap-align:none;cursor:default}
-.sto-wh.wi{width:76px}.sto-wh.wi div{text-align:right;padding-right:2px}
-.sto-wh.wd{width:56px}.sto-wh.wd div{text-align:left;padding-left:2px}
+.sto-wh.wi{width:62px}.sto-wh.wi div{text-align:right;padding-right:2px}
+.sto-wh.wd{width:42px}.sto-wh.wd div{text-align:left;padding-left:2px}
+.sto-wh.wl{width:82px}.sto-wh.wl div{text-align:right;padding-right:4px}
 .sto-pk .sto-dot,.sto-pk .sto-un{position:relative;z-index:2;font-size:26px;font-weight:700}
-.sto-pk .sto-un{margin-left:6px;color:var(--sub);font-size:20px}
-.sto-nv{text-align:center;font-size:13px;color:var(--sub)}.sto-nv b{font-size:18px}.sto-nv .sto-nf{color:var(--ink)}.sto-nv .sto-nn{color:#d32f2f}.sto-nv .sto-df{margin-left:4px}
+.sto-pk .sto-un{margin-left:4px;color:var(--sub);font-size:19px}
+.sto-cmps{display:flex;justify-content:center;gap:4px 16px;flex-wrap:wrap}
+.sto-nv,.sto-wv{text-align:center;font-size:13px;color:var(--sub)}.sto-nv b,.sto-wv b{font-size:18px}.sto-nv .sto-nf{color:var(--ink)}.sto-nv .sto-nn{color:#d32f2f}.sto-nv .sto-df{margin-left:4px}.sto-wv .sto-wn{color:#065f94}
 .sto-now{text-align:center;font-size:12px;color:var(--sub)}
 .sto-memo{width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:8px;border:1px solid var(--line);border-radius:10px;margin-top:8px}
 .sto-row{display:flex;gap:8px;margin-top:10px}
 .sto-row button{flex:1;border-radius:12px;padding:12px;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
-.sto-go{background:#d32f2f;color:#fff;border:0}.sto-ok{background:#2f7d5d;color:#fff;border:0}
+.sto-go{background:#d32f2f;color:#fff;border:0}.sto-go.w{background:#0f8fd6}.sto-go.tw{background:linear-gradient(90deg,#d32f2f 50%,#0f8fd6 50%)}.sto-go:disabled{background:#c9ced6;cursor:default}
+.sto-ok{background:#2f7d5d;color:#fff;border:0}
 .sto-x{background:#fff;border:1px solid var(--line);color:var(--navy)}.sto-x.ng{color:#d32f2f;border-color:#f0b4b4}.sto-x.sm{font-size:13px!important;padding:8px!important}
 .sto-big{text-align:center;margin:8px 0}.sto-big .sto-tk{font-size:22px;font-weight:800;color:#8a5a2b}.sto-big .sto-tk small{font-size:13px;color:var(--sub);font-weight:400}
-.sto-big .sto-ch{display:block;font-size:40px;font-weight:800;line-height:1.2;white-space:nowrap}.sto-big .sto-ch .sto-f{color:var(--sub);font-size:28px}.sto-big .sto-ch .sto-t{color:#d32f2f}
+.sto-big .sto-ch{display:block;font-size:40px;font-weight:800;line-height:1.2;white-space:nowrap}
+.sto-cf{border-radius:14px;padding:8px 10px;margin:8px 0;text-align:center}
+.sto-cf.t{background:#fff3f3;border:2px solid #f3c3c3}.sto-cf.w{background:#eef8ff;border:2px solid #b8dcf3}
+.sto-cf .k{font-size:13px;font-weight:800}.sto-cf.t .k{color:#d32f2f}.sto-cf.w .k{color:#065f94}
+.sto-cf .sto-ch{font-size:36px;font-weight:800;line-height:1.2;white-space:nowrap}.sto-cf .sto-f{color:var(--sub);font-size:26px}.sto-cf.t .sto-t{color:#d32f2f}.sto-cf.w .sto-t{color:#065f94}
+.sto-cf .s{font-size:11.5px;color:var(--sub)}
+.sto-cf .sto-ok{display:block;width:100%;margin-top:6px;border-radius:12px;padding:12px;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
+.sto-cf .sto-ok.t{background:#d32f2f}.sto-cf .sto-ok.w{background:#0f8fd6}
 .sto-by{font-size:12px;color:var(--sub);text-align:center}
 .sto-log{font-size:11.5px;color:var(--sub);background:#faf8f2;border-radius:8px;padding:6px 8px;margin-top:10px;line-height:1.5}
-.sto-log div+div{border-top:1px dashed var(--line);margin-top:3px;padding-top:3px}.sto-log .ok{color:#2f7d5d}.sto-log .ng{color:#d32f2f}
+.sto-log div+div{border-top:1px dashed var(--line);margin-top:3px;padding-top:3px}.sto-log .ok{color:#2f7d5d}.sto-log .ng{color:#d32f2f}.sto-log .lw{color:#065f94;font-weight:700}
 .sto-msg{margin-top:8px;font-size:12px;color:#b31b14}
 `; document.head.appendChild(s); })();
 </script>
