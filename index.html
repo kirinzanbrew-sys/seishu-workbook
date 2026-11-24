@@ -9476,6 +9476,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-25-2','🍶','仕込み','追水の指示で「✓ 追水しました」を押すと、その日の分析の追水の欄に量が自動で入るようになりました（すでに入っていれば足します。押す前の窓に「いま◯ℓ → ◯ℓ」と出ます）。追水の欄に手で入れなくてもかまいません。'],
   ['2026-11-25-1','🍶','仕込み','設定温度のボタンで追水も指示できるようになりました。⚙ を押すと上に「🌡 温度」「💧 追水」が出るので、指示する方を選びます（両方も選べます）。リールは左が温度、右が追水（10ℓ刻み）。追水の欄には規定・済・残り・推奨の量と、入れられるかの色が出ます。指示すると、温度は今まで通り赤、追水は水色、両方は赤と水色が交互に点滅します（ホームの🍶にも「追水 ◯」）。点滅を押すと温度と追水が別々に出るので、済んだ方の「✓ 設定しました」「✓ 追水しました」を押してください。追水の量はこれまで通り分析の追水の欄にも入れてください。'],
   ['2026-11-24-1','🍶','仕込み（四段・アル添・上槽の記録）','③アルコール添加を小さくまとめました。アル添量を入れると、すぐ下に添加後の予測（日本酒度・アルコール・酸・アミノ酸）が出ます。目標と四段Beはリールをやめて数字を直接入力します（目標の＋・−は左のボタンで切り替え。−を打っても切り替わります）。「狙い」の表示はやめ、計算の値だけにしました。パターン表の「通常」はいつも四段Be 15.0、入れた四段Beが違うときは「今回」と差が並びます。「どのタンクから入れたか」は「添加アルコール」に名前を変え、前尺・後尺を入れるとそれぞれのℓが出て、差が「添加量」として出ます。醪タンクの尺は⑤上槽先の「上槽前 尺」に入れます（③で2か所になっていたため）。'],
   ['2026-11-23-6','📅','ホーム','本日の予定の棒に量を出しました。「盛」は麹米kg、「蒸米」と「仕込み」は前日に洗米した米のkgです。量が多い日は数字が橙、とても多い日は赤になり、棒にも色の縁が付きます。'],
@@ -14196,7 +14197,7 @@ setInterval(()=>{ try{ if(document.getElementById('dpBox') && ST && ST.token) mw
      追水の欄に 規定・済・残り・推奨（醪DBの推奨追水）と、追水の信号（oiState の色）。リールの最初は 指示中の量 → 推奨 → 規定の1/3 → 50ℓ。
      表示：温度だけ＝赤の点滅（今まで通り）／追水だけ＝水色の点滅（ボタンに「💧100」、帯「追水 100ℓ」）／両方＝赤と水色が交互に点滅。
      点滅を押す → 温度と追水を別々の「✓ 設定しました」「✓ 追水しました」で済ませる（残った方の色で点滅を続ける）。
-     「✓ 追水しました」は指示の記録を済にするだけで、その日の分析の追水の欄には入れない（追水の量はこれまで通り入力する）。
+     「✓ 追水しました」で、押した日の日目の分析の追水の欄に量を自動で入れる（bunseki_save を裏で送る。すでに値があれば足す）。窓に「いま◯ℓ → ◯ℓ」を表示（2026-11-25 泰広さん指示）。
      記録：醪作業 name＝'追水指示'、kind＝'指示'／'済'、memo＝「量ℓ｜ひとこと」、plan＝指示した日、date＝追水した日。ホームの🍶に「追水 ◯」。
    控え：seishu-workbook_github\_src_settemp.js。差し込み _設定温度ボタンを足す.py／_追水の指示_20261125.py */
 const STO_JOB='設定温度', STO_WJOB='追水指示', STO_IMIN=0, STO_IMAX=30, STO_H=40;
@@ -14300,6 +14301,17 @@ function stoPickerInit(root, val, wv, onT, onW){
   [[wI,readT],[wD,readT],[wL,readW]].forEach(([w,rd])=>{ let t; w.addEventListener('scroll',()=>{ paint(w); clearTimeout(t); t=setTimeout(rd,80); }, {passive:true});
     w.querySelectorAll('div:not(.pad)').forEach((c,k)=>c.onclick=()=>w.scrollTo({top:k*STO_H, behavior:'smooth'})); });
 }
+/* 追水しました → 分析の追水の欄へ（いまの日目。すでに入っていれば足す） */
+function stoOiDay(no){ try{ const m=rcMaster(no), day=rcMoromiDay(m); if(!day||day<2) return null;
+  const b=RC.bun&&RC.bun[no], D=b&&b.days&&b.days[day-1], c=Number(D&&D.oimizu); return { day, cur:isNaN(c)?0:c }; }catch(e){ return null; } }
+function stoOiSave(no,it){ try{
+  const od=stoOiDay(no), l=Number(stoWParse(it).l)||0;
+  if(!od||!(l>0)){ rcToast('追水の日目が分からないため、分析の追水の欄には入れていません'); return; }
+  const tot=Math.round((od.cur+l)*10)/10, b=RC.bun&&RC.bun[no], D=b&&b.days&&b.days[od.day-1]; if(D) D.oimizu=String(tot);
+  recSaveBg({action:'bunseki_save', no:Number(no)||no, day:od.day, values:{oimizu:String(tot)}}, `仕込み 順号${no} ${od.day}日目 追水（指示から）`, true);
+  rcToast(`${no}号 ${od.day}日目の追水に ${tot}ℓ を入れました`);
+  try{ if(typeof MKE!=='undefined' && MKE && MKE.draw) MKE.draw(); }catch(e){}
+}catch(e){ console.log('stoOiSave',e); } }
 /* 窓 */
 function stoOpen(no){
   const m=(typeof rcMaster==='function'&&rcMaster(no))||{}, boss=stoBoss();
@@ -14369,14 +14381,15 @@ function stoOpen(no){
   /* 点滅を押した：温度と追水を別々に済ませる */
   const confirmSet=()=>{ const p=stoPending(no), pW=stoPendingW(no); if(!p&&!pW){ done(); return; }
     const o=stoOi(no), who=p||pW, q=p?stoParse(p):null, w=pW?stoWParse(pW):null, note=(q&&q.note)||(w&&w.note)||'';
-    const wl=w?Number(w.l):0;
+    const wl=w?Number(w.l):0, od=pW?stoOiDay(no):null;
+    const oiLine=pW?(od?`<div class="s">押すと ${od.day}日目の分析の追水に入ります：${od.cur>0?`いま ${od.cur}ℓ → `:''}<b>${Math.round((od.cur+wl)*10)/10}ℓ</b></div>`:'<div class="s">日目が分からないため、分析の追水には入りません</div>'):'';
     mask.innerHTML=`<div class="o2-sheet sto-sh"><div class="sto-in">
       <h3>⚙ お願いします</h3>
       <div class="sto-big"><div class="sto-tk">T${esc(m.tank||'')}　<small>${esc(String(no))}号 ${esc(m.liquid||'')}</small></div></div>
       ${p?`<div class="sto-cf t"><div class="k">🌡 設定温度を変えてください</div><div class="sto-ch"><span class="sto-f">${stoF(q.from)}</span> → <span class="sto-t">${stoF(q.to)}℃</span></div>
         <button type="button" class="sto-ok t" data-a="okT">✓ 設定しました</button></div>`:''}
       ${pW?`<div class="sto-cf w"><div class="k">💧 追水してください</div><div class="sto-ch"><span class="sto-t">${esc(w.l)}ℓ</span></div>
-        ${o?`<div class="s">規定 ${o.plan}ℓ・済 ${o.cum}ℓ${wl>0?` → 入れたら ${o.cum+wl}ℓ`:''}</div>`:''}
+        ${o?`<div class="s">規定 ${o.plan}ℓ・済 ${o.cum}ℓ${wl>0?` → 入れたら ${o.cum+wl}ℓ`:''}</div>`:''}${oiLine}
         <button type="button" class="sto-ok w" data-a="okW">✓ 追水しました</button></div>`:''}
       <div class="sto-by">${esc(who.by||'')} ${esc(String(who.at||'').slice(5,16))}${note?'「'+esc(note)+'」':''}</div>
       <div class="sto-row"><button type="button" class="sto-x" data-a="close">あとで</button></div>
@@ -14386,7 +14399,7 @@ function stoOpen(no){
     const ed=mask.querySelector('[data-a="edit"]'); if(ed) ed.onclick=edit;
     const fin=async(it,job)=>{ say('保存しています…');
       const item={ id:it.id, name:job, kind:'済', no:String(no), liquid:it.liquid||m.liquid||'', tank:it.tank||m.tank||'', plan:it.plan||'', date:dtoday(), memo:it.memo||'' };
-      try{ mwKeep(await mwApi({action:'save', item})); stoPaint(); confirmSet(); }catch(e){ say('保存できませんでした：'+(e.message||e)); } };
+      try{ mwKeep(await mwApi({action:'save', item})); if(job===STO_WJOB) stoOiSave(no, it); stoPaint(); confirmSet(); }catch(e){ say('保存できませんでした：'+(e.message||e)); } };
     const bT=mask.querySelector('[data-a="okT"]'); if(bT) bT.onclick=()=>fin(p,STO_JOB);
     const bW=mask.querySelector('[data-a="okW"]'); if(bW) bW.onclick=()=>fin(pW,STO_WJOB);
   };
@@ -14493,7 +14506,7 @@ setTimeout(()=>{ try{ if(ST&&ST.token) mwLoad(false).then(stoPaint); }catch(e){}
 .sto-cf.t{background:#fff3f3;border:2px solid #f3c3c3}.sto-cf.w{background:#eef8ff;border:2px solid #b8dcf3}
 .sto-cf .k{font-size:13px;font-weight:800}.sto-cf.t .k{color:#d32f2f}.sto-cf.w .k{color:#065f94}
 .sto-cf .sto-ch{font-size:36px;font-weight:800;line-height:1.2;white-space:nowrap}.sto-cf .sto-f{color:var(--sub);font-size:26px}.sto-cf.t .sto-t{color:#d32f2f}.sto-cf.w .sto-t{color:#065f94}
-.sto-cf .s{font-size:11.5px;color:var(--sub)}
+.sto-cf .s{font-size:11.5px;color:var(--sub)}.sto-cf .s b{color:#065f94}
 .sto-cf .sto-ok{display:block;width:100%;margin-top:6px;border-radius:12px;padding:12px;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
 .sto-cf .sto-ok.t{background:#d32f2f}.sto-cf .sto-ok.w{background:#0f8fd6}
 .sto-by{font-size:12px;color:var(--sub);text-align:center}
