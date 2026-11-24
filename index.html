@@ -9476,6 +9476,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-24-1','🍶','仕込み（四段・アル添・上槽の記録）','③アルコール添加を小さくまとめました。アル添量を入れると、すぐ下に添加後の予測（日本酒度・アルコール・酸・アミノ酸）が出ます。目標と四段Beはリールをやめて数字を直接入力します（目標の＋・−は左のボタンで切り替え。−を打っても切り替わります）。「狙い」の表示はやめ、計算の値だけにしました。パターン表の「通常」はいつも四段Be 15.0、入れた四段Beが違うときは「今回」と差が並びます。「どのタンクから入れたか」は「添加アルコール」に名前を変え、前尺・後尺を入れるとそれぞれのℓが出て、差が「添加量」として出ます。醪タンクの尺は⑤上槽先の「上槽前 尺」に入れます（③で2か所になっていたため）。'],
   ['2026-11-23-6','📅','ホーム','本日の予定の棒に量を出しました。「盛」は麹米kg、「蒸米」と「仕込み」は前日に洗米した米のkgです。量が多い日は数字が橙、とても多い日は赤になり、棒にも色の縁が付きます。'],
   ['2026-11-23-5','📅','ホーム','スマホの「本日の予定」のボタンを、文字の分の大きさに小さくしました。押すと今までどおり日付の一覧が出ます。'],
   ['2026-11-23-4','🫧','タンク洗浄管理','担当者の選び方を変えました。スマホで開くと、担当（洗浄・仕上げ）と確認者に最初から自分の名前が出ます。変えたいときは名前をタップすると、製造・アグリのメンバー全員の一覧から選べます。チェックを付けずに保存したときは、自分の名前は記録されません。'],
@@ -15078,7 +15079,8 @@ function ydPre(m, R){
   return {last:{smv,alc,ta,aa}, G:Math.max(0,G), tot, used, pre};
 }
 /* 四段Be：計算に使う通常の値（リール。基準15.0） */
-function ydYbe(R){ const v=ydN(R.ybec); return v===null?-YD_YON_SM/10:v; }
+const YD_BE_STD=15.0;   // 2026-11-24 泰広さん：パターン表の「通常」の四段Beはいつも15.0
+function ydYbe(R){ const v=ydN(R.ybec); if(v!==null) return v; const h=ydN(R.hbe); return h!==null?h:YD_BE_STD; }   // 2026-11-24 今回の四段Be（入力。無ければ払出のBe、それも無ければ15.0）
 /* アル添パターン（Aｌｃ添加.xlsx 伝辛と同じ式）。目標tgt(計算)、四段Be be */
 function ydPat(m, R, t, be){
   const L=ydLast(m), smv=ydN(R.lsmv)!==null?ydN(R.lsmv):L.smv, alc=ydN(R.lalc)!==null?ydN(R.lalc):L.alc;
@@ -15088,14 +15090,14 @@ function ydPat(m, R, t, be){
   return {g, tot, a:alc===null?null:(moL*alc+yl*YD_YON_ALC+YD_ALC_PCT*g)/tot};
 }
 function ydPatHTML(m, R){
-  const t0=ydN(R.tgt), nb=ydYbe(R), kb=ydN(R.hbe), two=kb!==null&&Math.abs(kb-nb)>=0.05;
+  const t0=ydN(R.tgt), nb=YD_BE_STD, kb=ydYbe(R), two=kb!==null&&Math.abs(kb-nb)>=0.05;   // 2026-11-24 通常＝15.0固定、今回＝入力した四段Be
   if(t0===null||!ydPat(m,R,t0,nb)) return `<div class="yd-sm">合併前の量（②）と醪の最終値（④）を入れると、目標ごとのパターンが出ます</div>`;
   const used=ydN(R.alcL), f1=v=>(Math.round(v*10)/10).toFixed(1);
   const cell=(r,cl)=>{ const v=Math.round(r.g), on=used!==null&&Math.round(used)===v; return `<td class="L ${cl}${on?' sel':''}" data-pg="${v}"><b>${ydL(v)}</b> L<small>${r.a!==null?'alc '+r.a.toFixed(1)+'%・':''}${ydL(r.tot)}L</small></td>`; };
-  let h=`<table class="yd-pt"><tr><th>狙い<small>（計算）</small></th><th class="n">${two?'通常':'アルコール'}<small>四段Be ${f1(nb)}</small></th>${two?`<th class="k">今回<small>四段Be ${f1(kb)}</small></th><th>差</th>`:''}</tr>`;
+  let h=`<table class="yd-pt"><tr><th>目標</th><th class="n">${two?'通常':'アルコール'}<small>四段Be ${f1(nb)}</small></th>${two?`<th class="k">今回<small>四段Be ${f1(kb)}</small></th><th>差</th>`:''}</tr>`;
   [-1,-0.5,0,0.5,1].forEach(d=>{ const t=Math.round((t0+d)*10)/10, n=ydPat(m,R,t,nb), k=two?ydPat(m,R,t,kb):null;
-    h+=`<tr class="${d===0?'base':''}"><td class="tg">${ydSg(t-1)}<small>計算 ${ydSg(t)}</small></td>${cell(n,'n')}${two?cell(k,'k')+`<td class="d">${(n.g-k.g)>=0?'−':'＋'}${ydL(Math.abs(Math.round(n.g)-Math.round(k.g)))}</td>`:''}</tr>`; });
-  return h+`</table><div class="yd-sm">マスを押すと、その量が「入れた量」に入ります${two?'。差＝今回の四段Beが通常と違うぶんの量':''}</div>`;
+    h+=`<tr class="${d===0?'base':''}"><td class="tg">${ydSg(t)}</td>${cell(n,'n')}${two?cell(k,'k')+`<td class="d">${(n.g-k.g)>=0?'−':'＋'}${ydL(Math.abs(Math.round(n.g)-Math.round(k.g)))}</td>`:''}</tr>`; });
+  return h+`</table><div class="yd-sm">マスを押すと、その量が「アル添量」に入ります${two?'。差＝今回の四段Beが通常と違うぶんの量':''}</div>`;
 }
 /* 合算（量で重み付け。量が無いタンクは同じ重み） */
 function ydSum(m){   // 2026-11-06 泰広さん：合算は ℓ数（上槽先の量）で重み付け。2タンク以上で量の無いタンクがあれば合算は出さない（needL）
@@ -15704,10 +15706,9 @@ function ydRecOpen(no, date, step){
   const draw=()=>{
     const P=ydPre(m,R), A=ydAnaState(m), today=dtoday(), cls=(id,done,d)=>done?'done':(d&&d===today?'now':'');
     const D=R.dests;
-    const tgtBox=`<div class="yd-tgt"><div class="yd-tgr"><div class="lb">目標（計算） <b data-v="tgt">${R.tgt===''?'—':ydSg(R.tgt)}</b><span class="nr" data-v="nrai">${R.tgt===''?'':'狙い '+ydSg(ydN(R.tgt)-1)}</span></div>
-      <div class="yd-tgw"><div><div class="yd-dl">符号</div>${ydWheelHTML('ytg_s')}</div><div><div class="yd-dl">十</div>${ydWheelHTML('ytg_t')}</div><div><div class="yd-dl">一</div>${ydWheelHTML('ytg_o')}</div><div class="yd-dot">.</div><div><div class="yd-dl">小数</div>${ydWheelHTML('ytg_d')}</div></div></div>
-      <div class="yd-tgr yd-ber"><div class="lb">四段Be（計算用） <b data-v="ybec">${ydYbe(R).toFixed(1)}</b></div>
-      <div class="yd-tgw be"><div><div class="yd-dl">十</div>${ydWheelHTML('ybc_t')}</div><div><div class="yd-dl">一</div>${ydWheelHTML('ybc_o')}</div><div class="yd-dot">.</div><div><div class="yd-dl">小数</div>${ydWheelHTML('ybc_d')}</div></div></div></div>
+    const tgN=ydN(R.tgt); if(R._tsg===undefined) R._tsg=(tgN!==null&&tgN<0)?-1:1;   // 2026-11-24 泰広さん：目標と四段Beは数字を直接入力（±はボタン）
+    const tgtBox=`<div class="yd-tgt yd-tgi"><div class="yd-tgf"><span class="lb">目標</span><span class="yd-tgx"><button type="button" class="yd-tsg" data-a="tsg">${R._tsg<0?'−':'＋'}</button><input type="text" inputmode="decimal" data-tk="tgt" value="${tgN===null?'':Math.abs(tgN).toFixed(1)}" placeholder="—" autocomplete="off"></span></div>
+      <div class="yd-tgf"><span class="lb">四段Be（今回）</span><span class="yd-tgx"><input type="text" inputmode="decimal" data-tk="ybec" value="${ydYbe(R).toFixed(1)}" placeholder="15.0" autocomplete="off"></span></div></div>
       <div data-pt>${ydPatHTML(m,R)}</div>`;
     const anaT=`<div class="yd-ana4"><div></div><div class="h">日本酒度</div><div class="h">alc</div><div class="h">酸度</div><div class="h">ｱﾐﾉ</div>
       <div class="r">醪 最終</div>${['smv','alc','ta','aa'].map(k=>`<input type="text" inputmode="decimal" data-k="l${k}" value="${esc(String(R['l'+k]||''))}" placeholder="—">`).join('')}
@@ -15725,10 +15726,10 @@ function ydRecOpen(no, date, step){
       `<div class="yd-gp">四段の払出（T${esc(T4()||'—')}）</div><div class="yd-f">${fi('尺 mm','hsk')}${fi('量 L','hL',{auto:1})}${fi('Be','hbe')}</div>
        <div class="yd-gp">醪タンク T${esc(TM)}</div><div class="yd-f yd-f4">${fi('合併前 尺','msk0')}${fi('合併前 L','mL0',{auto:1})}${fi('合併後 尺','msk1')}${fi('合併後 L','mL1',{auto:1})}</div>`);
     h+=st('3','③ アルコール添加', s?rcMD(s.alc):'', cls('3',!!R.alcL,s&&s.alc), sm['3'],
-      tgtBox+'<div data-atsrc></div>'+`<div class="yd-f">${fi('入れた量 L','alcL')}${fi('添加後 尺','jsk')}${fi('添加後 L','jL',{auto:1})}</div>`);
+      tgtBox+`<div class="yd-alrow">${fi('アル添量 L','alcL')}<div class="yd-pre3"><div class="t" data-v="q_lb">添加後の予測</div><div class="g"><span>日本酒度<b data-v="q_smv">—</b></span><span>alc<b data-v="q_alc">—</b></span><span>酸<b data-v="q_ta">—</b></span><span>ｱﾐﾉ<b data-v="q_aa">—</b></span></div></div></div>`+'<div data-atsrc></div>');
     h+=st('4','④ 添加後の予想値', '', P.pre?'done':'', sm['4'], anaT);
     h+=st('5','⑤ 上槽先', rcMD(m.joso), cls('5',D.some(d=>String(d.t||'').trim()&&ydN(d.L)!==null),m.joso), sm['5'],
-      `<div class="yd-gp">醪タンク T${esc(TM)}（上槽前）</div><div class="yd-f">${fi('上槽前 尺','jsk')}${fi('上槽前 L','jL',{auto:1})}</div><div class="yd-sm" style="margin:-2px 0 6px">純米など添加しないときはここに。アル添したときは③の「添加後 尺」と同じ欄です</div><div class="yd-gp">上槽先</div>`+   // 2026-11-09 泰広さん指示：上槽前の尺（純米用）
+      `<div class="yd-gp">醪タンク T${esc(TM)}（上槽前）</div><div class="yd-f">${fi('上槽前 尺','jsk')}${fi('上槽前 L','jL',{auto:1})}</div><div class="yd-sm" style="margin:-2px 0 6px">上槽前の醪タンクの尺はここに入れます（アル添したときも）</div><div class="yd-gp">上槽先</div>`+   // 2026-11-09 泰広さん指示：上槽前の尺（純米用）
       dests+`<div class="yd-tot"><span>上槽先の合計</span><b data-v="dL">${ydL(D.reduce((a,d)=>a+(ydN(d.L)||0),0))} L</b></div>`);
     { const kr=typeof kxRec==='function'?kxRec(m.no):null, kt=kr?kr.total:null, kp=(kt!=null&&m.soumai)?(Number(kt)/Number(m.soumai)*100):null;
       h+=st('6','⑥ 粕', kr&&kr.date?rcMD(kr.date):(m.joso?rcMD(dadd(m.joso,1)):''), kt!=null?'done':'', kt!=null?`${ydL(kt)}kg　${kp!==null?kp.toFixed(1)+'%':''}`:'',
@@ -15751,25 +15752,26 @@ function ydRecOpen(no, date, step){
     if(R._a_msk1!==R.msk1){ R._a_msk1=R.msk1; setAuto('mL1', ydVol(TM, R.msk1)); }
     if(R._a_jsk!==R.jsk){ R._a_jsk=R.jsk; setAuto('jL', ydVol(TM, R.jsk)); }
     const P=ydPre(m,R), V=(k,t)=>{ const e=w.querySelector(`[data-v="${k}"]`); if(e) e.innerHTML=t; };
-    V('tgt', R.tgt===''?'—':ydSg(R.tgt)); V('nrai', R.tgt===''?'':'狙い '+ydSg(ydN(R.tgt)-1)); V('ybec', ydYbe(R).toFixed(1));
+    V('tgt', R.tgt===''?'—':ydSg(R.tgt)); V('nrai', R.tgt===''?'':'狙い '+ydSg(ydN(R.tgt)-1)); { const be=w.querySelector('input[data-tk="ybec"]'); if(be&&document.activeElement!==be&&ydN(R.ybec)===null) be.value=ydYbe(R).toFixed(1); }
     { const pt=w.querySelector('[data-pt]'); if(pt){ pt.innerHTML=ydPatHTML(m,R); pt.querySelectorAll('[data-pg]').forEach(c=>c.onclick=()=>{ R.alcL=c.dataset.pg; dirty=true; const el=w.querySelector('input[data-k="alcL"]'); if(el) el.value=R.alcL; calc(); }); } }
     ['smv','alc','ta','aa'].forEach(k=>V('p'+k, P.pre?(k==='smv'?ydSg(P.pre[k]):ydF1(P.pre[k])):'—'));
+    ['smv','alc','ta','aa'].forEach(k=>V('q_'+k, P.pre&&P.pre[k]!==null&&P.pre[k]!==undefined?(k==='smv'?ydSg(P.pre[k]):ydF1(P.pre[k])+(k==='alc'?'%':'')):'—'));   // 2026-11-24 ③のアル添量のすぐ下に予測
+    V('q_lb', !P.pre?'添加後の予測 <small>（②の合併前の量と④の醪の最終値が要ります）</small>':(ydN(R.alcL)!==null?'添加後の予測':'添加後の予測 <small>（計算量 '+ydL(P.G)+'L で）</small>'));
     V('dL', ydL(R.dests.reduce((a,d)=>a+(ydN(d.L)||0),0))+' L');
     const cP=R.kasu&&m.soumai?(ydN(R.kasu)/Number(m.soumai)*100):null; V('kasuP', cP!==null?cP.toFixed(1)+'%':'—');
     const sm=sumText(); Object.keys(sm).forEach(id=>{ const e=w.querySelector(`[data-sum="${id}"]`); if(e) e.innerHTML=sm[id]; });
   };
-  const tgtReel=()=>{
-    const E=id=>w.querySelector('#'+id); if(!E('ytg_s')) return;
-    const D10=[0,1,2,3,4,5,6,7,8,9].map(n=>({v:String(n),t:String(n)}));
-    const W={ s:ydWheel(E('ytg_s'),[{v:'+',t:'＋'},{v:'-',t:'−'}]), t:ydWheel(E('ytg_t'),D10), o:ydWheel(E('ytg_o'),D10), d:ydWheel(E('ytg_d'),D10) };
-    const v0=ydN(R.tgt)===null?0:ydN(R.tgt), x=Math.min(999,Math.round(Math.abs(v0)*10));
-    requestAnimationFrame(()=>{ W.s.set(v0<0?1:0); W.t.set(Math.floor(x/100)); W.o.set(Math.floor(x/10)%10); W.d.set(x%10);
-      const rd=()=>{ const n=Number(W.t.val())*10+Number(W.o.val())+Number(W.d.val())/10; const v=Math.round((W.s.val()==='-'?-n:n)*10)/10; if(String(v)!==String(ydN(R.tgt))){ R.tgt=String(v); dirty=true; } calc(); };
-      setTimeout(()=>{ Object.values(W).forEach(o=>o.onChange=rd); },150); });
-    if(E('ybc_t')){ const B={ t:ydWheel(E('ybc_t'),D10), o:ydWheel(E('ybc_o'),D10), d:ydWheel(E('ybc_d'),D10) }, b0=Math.min(999,Math.round(ydYbe(R)*10));
-      requestAnimationFrame(()=>{ B.t.set(Math.floor(b0/100)); B.o.set(Math.floor(b0/10)%10); B.d.set(b0%10);
-        const rb=()=>{ const v=Math.round((Number(B.t.val())*10+Number(B.o.val())+Number(B.d.val())/10)*10)/10; if(v!==ydYbe(R)){ R.ybec=String(v); dirty=true; } calc(); };
-        setTimeout(()=>{ Object.values(B).forEach(o=>o.onChange=rb); },150); }); }
+  const tgtReel=()=>{   // 2026-11-24 リールをやめて直接入力（目標は ±ボタン＋数字。−を打っても符号が変わる。四段Beは数字）
+    const ti=w.querySelector('input[data-tk="tgt"]'), sb=w.querySelector('[data-a="tsg"]'), bi=w.querySelector('input[data-tk="ybec"]'); if(!ti) return;
+    const setT=()=>{ const raw=String(ti.value||''); if(/[-−－ー]/.test(raw)) R._tsg=-1; else if(/[+＋]/.test(raw)) R._tsg=1;
+      const clean=raw.replace(/[-−－ー+＋\s]/g,''); if(clean!==raw) ti.value=clean; if(sb) sb.textContent=R._tsg<0?'−':'＋';
+      const n=ydN(clean), v=n===null?'':String(Math.round(R._tsg*Math.abs(n)*10)/10); if(v!==String(R.tgt==null?'':R.tgt)){ R.tgt=v; dirty=true; } calc(); };
+    ti.addEventListener('input', setT); ti.addEventListener('keydown',e=>{ if(e.key==='Enter') ti.blur(); });
+    ti.addEventListener('blur',()=>{ const n=ydN(R.tgt); if(n!==null) ti.value=Math.abs(n).toFixed(1); });
+    if(sb) sb.onclick=()=>{ R._tsg=R._tsg<0?1:-1; sb.textContent=R._tsg<0?'−':'＋'; const n=ydN(R.tgt); if(n!==null){ R.tgt=String(Math.round(R._tsg*Math.abs(n)*10)/10); dirty=true; } calc(); };
+    if(bi){ bi.addEventListener('input',()=>{ const n=ydN(bi.value); R.ybec=n===null?'':String(Math.round(Math.abs(n)*10)/10); dirty=true; calc(); });
+      bi.addEventListener('keydown',e=>{ if(e.key==='Enter') bi.blur(); });
+      bi.addEventListener('blur',()=>{ bi.value=ydYbe(R).toFixed(1); }); }
   };
   const bind=()=>{
     w.querySelectorAll('[data-a="close"]').forEach(b=>b.onclick=close);
@@ -16001,6 +16003,17 @@ function ydRecOpen(no, date, step){
 .yd-fi:focus-within{border-color:var(--blue,#1f6fa8);box-shadow:0 0 0 2px rgba(31,111,168,.15)}
 .yd-fi.big input{font-size:22px}
 .yd-tgt{display:flex;align-items:center;gap:8px;background:#f8f3ff;border:1px solid #e3d6f3;border-radius:12px;padding:4px 8px;margin:0 0 5px}
+.yd-tgi{flex-wrap:wrap;gap:6px 14px;padding:5px 8px}
+.yd-alrow{display:flex;gap:8px;align-items:stretch;margin:4px 0}.yd-alrow>.yd-fi{flex:0 0 7.5em}
+.yd-pre3{flex:1;min-width:0;background:#fff7ee;border:1px solid #f0d9bd;border-radius:9px;padding:2px 6px 3px}
+.yd-pre3 .t{font-size:11px;color:#a0601a;font-weight:800}.yd-pre3 .t small{font-weight:400;color:var(--sub)}
+.yd-pre3 .g{display:grid;grid-template-columns:1.15fr 1.15fr .85fr .85fr;gap:4px}.yd-pre3 .g span{font-size:10px;color:var(--sub);display:flex;flex-direction:column;align-items:center}
+.yd-pre3 .g b{font-size:15px;color:#b5651d;white-space:nowrap;letter-spacing:-.02em}
+.yd-tgf{display:flex;align-items:center;gap:5px}
+.yd-tgx{display:inline-flex;align-items:center;border:1px solid #d7c6ee;border-radius:9px;background:#fff;overflow:hidden}
+.yd-tgx input{width:3.6em;border:0;font:inherit;font-size:17px;font-weight:800;padding:3px 6px;text-align:right;background:transparent;color:var(--ink);outline:none}
+.yd-tgx:focus-within{border-color:#7b4bb3;box-shadow:0 0 0 2px rgba(123,75,179,.15)}
+.yd-tsg{border:0;border-right:1px solid #e3d6f3;background:#f3ecfb;color:#7b4bb3;font:inherit;font-size:17px;font-weight:800;width:30px;height:32px;padding:0;cursor:pointer}
 .yd-tgt .lb{font-size:12px;color:#7b4bb3;font-weight:800}
 .yd-stp{display:flex;align-items:center;gap:4px}.yd-stp button{width:34px;height:34px;border-radius:50%;border:1px solid #d9cbee;background:#fff;color:#7b4bb3;font-size:18px;font-weight:800;cursor:pointer}
 .yd-stp b{font-size:21px;min-width:58px;text-align:center;color:#7b4bb3}
@@ -17209,24 +17222,23 @@ function atYdRows(m){
 }
 function atYdL(row){ if(row.t==='他') return atN(row.q); const b=atVol(row.t,row.b), a=atVol(row.t,row.a); return b!==null&&a!==null?b-a:null; }
 function atYdTotal(rows){ let s=0, any=false; for(const r of rows){ const v=atYdL(r); if(v===null) continue; s+=v; any=true; } return any?Math.round(s):null; }
-function atYdHTML(R){
+function atYdV(t,mm){ if(t==='他'||String(mm==null?'':mm).trim()==='') return ''; const v=atVol(t,mm); return v===null?'— L':atL(v)+' L'; }   // 2026-11-24 尺→ℓ（前尺・後尺それぞれ）
+function atYdHTML(R){   // 2026-11-24 前尺・後尺の位置をそろえる（タンクの行 → 前尺／後尺の2段、添加量は右）
   const rows=R.atRows||[], tot=atYdTotal(rows), S=atState();
   const opt=t=>['57','56','55','50','他'].map(v=>`<option value="${v}" ${v===t?'selected':''}>${v==='他'?'ほかから':'T'+v}${v!=='他'&&S[v]&&S[v].has?'（'+(S[v].empty?'空':atL(S[v].L)+'L')+'）':''}</option>`).join('');
-  return `<div class="at-yd"><div class="yd-gp">どのタンクから入れたか（実際の尺）</div>
-    ${rows.map((r,i)=>`<div class="at-ydr"><select data-atyd="${i}" data-f="t">${opt(r.t)}</select>
-      ${r.t==='他'?`<input type="text" data-atyd="${i}" data-f="src" value="${esc(r.src||'')}" placeholder="どこから 例 T77 昨年の残り" style="flex:1;min-width:8em"><input type="text" inputmode="decimal" data-atyd="${i}" data-f="q" value="${esc(r.q||'')}" placeholder="量 L" style="width:5em">`
-        :`<label>前<input type="text" inputmode="numeric" data-atyd="${i}" data-f="b" value="${esc(r.b||'')}" placeholder="尺"></label><label>後<input type="text" inputmode="numeric" data-atyd="${i}" data-f="a" value="${esc(r.a||'')}" placeholder="尺"></label>`}
-      <b class="l" data-atydl="${i}">${(v=>v===null?'—':atL(v))(atYdL(r))} L</b>${rows.length>1?`<button type="button" class="del" data-atydx="${i}">✕</button>`:''}
-      ${r.t!=='他'?`<label class="e"><input type="checkbox" data-atyd="${i}" data-f="e" ${r.e?'checked':''}> 空になった</label>`:''}</div>`).join('')}
-    <div class="at-ydf"><button type="button" class="yd-add" data-atyda="1">＋ もう1つ（タンクを替えた・昨年の残りなど）</button><span>合計 <b data-atydt>${tot===null?'—':atL(tot)+' L'}</b></span></div>
-    <div class="yd-sm">保存すると 資材 › アルコール のタンクの払出にも入ります（帳簿の尺は 資材 › アルコール の履歴で）。</div></div>`;
+  const Lt=r=>(v=>v===null?'—':atL(v))(atYdL(r));
+  return `<div class="at-yd"><div class="yd-gp">添加アルコール</div>
+    ${rows.map((r,i)=>`<div class="at-ydr"><div class="at-top"><select data-atyd="${i}" data-f="t">${opt(r.t)}</select>${r.t!=='他'?`<label class="e"><input type="checkbox" data-atyd="${i}" data-f="e" ${r.e?'checked':''}> 空になった</label>`:''}${rows.length>1?`<button type="button" class="del" data-atydx="${i}">✕</button>`:''}</div>
+      ${r.t==='他'?`<div class="at-oth"><input type="text" data-atyd="${i}" data-f="src" value="${esc(r.src||'')}" placeholder="どこから 例 T77 昨年の残り" style="flex:1;min-width:8em"><input type="text" inputmode="decimal" data-atyd="${i}" data-f="q" value="${esc(r.q||'')}" placeholder="量 L" style="width:5em"><span class="ad">添加量 <b class="l" data-atydl="${i}">${Lt(r)} L</b></span></div>`
+        :`<div class="at-g"><span class="k">前尺</span><input type="text" inputmode="numeric" data-atyd="${i}" data-f="b" value="${esc(r.b||'')}" placeholder="尺"><small class="v" data-atydv="${i}b">${atYdV(r.t,r.b)}</small><span class="ad">添加量<b class="l" data-atydl="${i}">${Lt(r)} L</b></span><span class="k">後尺</span><input type="text" inputmode="numeric" data-atyd="${i}" data-f="a" value="${esc(r.a||'')}" placeholder="尺"><small class="v" data-atydv="${i}a">${atYdV(r.t,r.a)}</small></div>`}</div>`).join('')}
+    <div class="at-ydf"><button type="button" class="yd-add" data-atyda="1">＋ もう1つ（タンクを替えた・昨年の残りなど）</button><span>合計 <b data-atydt>${tot===null?'—':atL(tot)+' L'}</b></span></div></div>`;
 }
 function atYdMount(w, m, R, onTot){
   const box=w.querySelector('[data-atsrc]'); if(!box) return;
   if(!R.atRows){ R.atRows=atYdRows(m); R._atTouched=false;
     if(!R._atRef){ R._atRef=1; try{ zaiApi({action:'list'}).then(j=>{ zaiKeep(j); if(!R._atTouched){ R.atRows=atYdRows(m); atYdMount(w, m, R, onTot); } }).catch(()=>{}); }catch(e){} } }
   box.innerHTML=atYdHTML(R);
-  const upd=()=>{ R.atRows.forEach((r,i)=>{ const e=box.querySelector(`[data-atydl="${i}"]`); if(e){ const v=atYdL(r); e.textContent=(v===null?'—':atL(v))+' L'; } });
+  const upd=()=>{ R.atRows.forEach((r,i)=>{ ['b','a'].forEach(k=>{ const x=box.querySelector(`[data-atydv="${i}${k}"]`); if(x) x.textContent=atYdV(r.t,r[k]); }); const e=box.querySelector(`[data-atydl="${i}"]`); if(e){ const v=atYdL(r); e.textContent=(v===null?'—':atL(v))+' L'; } });
     const t=atYdTotal(R.atRows), te=box.querySelector('[data-atydt]'); if(te) te.textContent=t===null?'—':atL(t)+' L'; onTot(t); };
   box.querySelectorAll('[data-atyd]').forEach(el=>{
     const i=Number(el.dataset.atyd), f=el.dataset.f, r=R.atRows[i]; if(!r) return;
@@ -17261,6 +17273,16 @@ async function atYdSave(m, R, date){
 .at-ydr label{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--sub)}
 .at-ydr input[type=text]{font:inherit;font-size:16px;padding:5px 6px;border:1px solid var(--line);border-radius:8px;width:4.6em;text-align:right;box-sizing:border-box}
 .at-ydr .l{font-size:16px;min-width:4.5em;text-align:right;color:#1565c0}
+.at-ydr label .v{font-size:12px;color:#1565c0;font-weight:700;min-width:3.8em}
+.at-ydr .ad{font-size:12px;color:var(--sub);margin-left:auto}
+.at-ydr{display:block;margin:0 0 8px}
+.at-top{display:flex;align-items:center;gap:8px;margin-bottom:5px}.at-top label.e{width:auto;margin-left:auto}
+.at-g{display:grid;grid-template-columns:2.6em 5.4em 5em 1fr;gap:5px 6px;align-items:center}
+.at-g .k{font-size:12px;color:var(--sub);font-weight:700}
+.at-g input[type=text]{width:100%}
+.at-g .v{font-size:12px;color:#1565c0;font-weight:700;white-space:nowrap}
+.at-g .ad{grid-column:4;grid-row:1 / span 2;justify-self:end;display:flex;flex-direction:column;align-items:flex-end;margin:0}
+.at-oth{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .at-ydr .del{border:1px solid #e3b4b4;background:#fff;color:#b23b3b;border-radius:8px;font-size:12px;padding:2px 8px}
 .at-ydr label.e{width:100%;font-size:12px}
 .at-ydf{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}.at-ydf b{font-size:17px}
