@@ -9476,6 +9476,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-26-1','📅','本日の予定','米入荷・穴あけ・A重油などの札を「本日の予定」ボタンの右に並べるようにしました。'],
   ['2026-11-25-2','🍶','仕込み','追水の指示で「✓ 追水しました」を押すと、その日の分析の追水の欄に量が自動で入るようになりました（すでに入っていれば足します。押す前の窓に「いま◯ℓ → ◯ℓ」と出ます）。追水の欄に手で入れなくてもかまいません。'],
   ['2026-11-25-1','🍶','仕込み','設定温度のボタンで追水も指示できるようになりました。⚙ を押すと上に「🌡 温度」「💧 追水」が出るので、指示する方を選びます（両方も選べます）。リールは左が温度、右が追水（10ℓ刻み）。追水の欄には規定・済・残り・推奨の量と、入れられるかの色が出ます。指示すると、温度は今まで通り赤、追水は水色、両方は赤と水色が交互に点滅します（ホームの🍶にも「追水 ◯」）。点滅を押すと温度と追水が別々に出るので、済んだ方の「✓ 設定しました」「✓ 追水しました」を押してください。追水の量はこれまで通り分析の追水の欄にも入れてください。'],
   ['2026-11-24-1','🍶','仕込み（四段・アル添・上槽の記録）','③アルコール添加を小さくまとめました。アル添量を入れると、すぐ下に添加後の予測（日本酒度・アルコール・酸・アミノ酸）が出ます。目標と四段Beはリールをやめて数字を直接入力します（目標の＋・−は左のボタンで切り替え。−を打っても切り替わります）。「狙い」の表示はやめ、計算の値だけにしました。パターン表の「通常」はいつも四段Be 15.0、入れた四段Beが違うときは「今回」と差が並びます。「どのタンクから入れたか」は「添加アルコール」に名前を変え、前尺・後尺を入れるとそれぞれのℓが出て、差が「添加量」として出ます。醪タンクの尺は⑤上槽先の「上槽前 尺」に入れます（③で2か所になっていたため）。'],
@@ -18838,13 +18839,30 @@ ykDraw=function(){
     }catch(e){ console.log('chips1118 bn',e); }
     return h; };
 })();
+(function(){
+  /* 2026-11-26 泰広さん指示：米入荷などの札（.dp-chip1）は「本日の予定」ボタンの右に並べる */
+  const o=window.dpPlanHTML; if(typeof o!=='function') return;
+  window.dpPlanHTML=function(){
+    let h=o.apply(this, arguments);
+    try{
+      const t=document.createElement('template'); t.innerHTML=h; const R=t.content;
+      const b=Array.from(R.children).find(e=>e.classList.contains('dp-dsel')), c=R.querySelector('.dp-chip1');
+      if(b&&c){ const w=document.createElement('div'); w.className='dp-top1'; R.insertBefore(w,b); w.appendChild(b); w.appendChild(c);
+        const d=document.createElement('div'); d.appendChild(R.cloneNode(true)); h=d.innerHTML; }
+    }catch(e){ console.log('chips1118 top',e); }
+    return h; };
+})();
 (function(){ const s=document.createElement('style'); s.textContent=`
 .dp-chip1{display:flex;flex-wrap:nowrap;gap:3px;align-items:center;margin:0 0 6px;overflow-x:auto;scrollbar-width:none}
 .dp-chip1::-webkit-scrollbar{display:none}
 .dp-chip1 .c{display:inline-block;flex:none;font-size:10.5px;font-weight:700;line-height:1.4;padding:2px 4px;border-radius:999px;background:#fff8e6;border:1px solid #e0a23a;color:#8a5300;white-space:nowrap}
 .dp-chip1 .c.dn{color:#2e7d32;font-weight:400}
 .dp-chip1 .dp-al.szo-chip{flex:none;font-size:10.5px;padding:2px 4px;margin:0;white-space:nowrap}
-.dp-bn.dp-bn2{margin:4px 2px 2px}`; document.head.appendChild(s); })();
+.dp-bn.dp-bn2{margin:4px 2px 2px}
+.dp-top1{display:flex;align-items:center;gap:6px;margin:0 0 4px}
+.dp-top1 .dp-dsel{flex:none;width:auto;margin:0}
+.dp-top1 .dp-dsel i{margin-left:2px}
+.dp-top1 .dp-chip1{flex:1 1 auto;min-width:0;margin:0}`; document.head.appendChild(s); })();
 </script>
 <!-- /chips1118 -->
 <!-- jsflash1123 -->
