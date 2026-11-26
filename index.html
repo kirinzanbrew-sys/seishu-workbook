@@ -9476,6 +9476,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-26-4','🍶','仕込み','追水の指示のリールを、残りの量までに限らず 10ℓ単位で 10〜500ℓ まで選べるようにしました。規定を超える量を選ぶと「規定を◯ℓ超えます」と出ます。'],
   ['2026-11-26-3','📅','ホーム','「本日の予定」ボタンを右上の名前と同じく固定しました（スマホで消えていたのを直しました）。予定を上へ流しても、予定が名前のボタンや「本日の予定」ボタンの下にもぐらなくなります。'],
   ['2026-11-26-2','🏔','ホーム','上の麒麟山の写真をホームの背景にして、本日の予定を写真の上に重ねました。予定の欄が広くなり、勤務や予定まで見やすくなります。「本日の予定」ボタンは右上の名前と同じ高さに並び、米入荷・A重油などの札はボタンの下に出ます。'],
   ['2026-11-26-1','📅','本日の予定','米入荷・穴あけ・A重油などの札を「本日の予定」ボタンの右に並べるようにしました。'],
@@ -14200,6 +14201,7 @@ setInterval(()=>{ try{ if(document.getElementById('dpBox') && ST && ST.token) mw
      追水の欄に 規定・済・残り・推奨（醪DBの推奨追水）と、追水の信号（oiState の色）。リールの最初は 指示中の量 → 推奨 → 規定の1/3 → 50ℓ。
      表示：温度だけ＝赤の点滅（今まで通り）／追水だけ＝水色の点滅（ボタンに「💧100」、帯「追水 100ℓ」）／両方＝赤と水色が交互に点滅。
      点滅を押す → 温度と追水を別々の「✓ 設定しました」「✓ 追水しました」で済ませる（残った方の色で点滅を続ける）。
+     2026-11-26 追水のリールは 残りまででなく 10〜500ℓ（規定がそれより大きければ規定まで）の10ℓ単位。規定を超えるときは「規定を◯ℓ超えます」。
      「✓ 追水しました」で、押した日の日目の分析の追水の欄に量を自動で入れる（bunseki_save を裏で送る。すでに値があれば足す）。窓に「いま◯ℓ → ◯ℓ」を表示（2026-11-25 泰広さん指示）。
      記録：醪作業 name＝'追水指示'、kind＝'指示'／'済'、memo＝「量ℓ｜ひとこと」、plan＝指示した日、date＝追水した日。ホームの🍶に「追水 ◯」。
    控え：seishu-workbook_github\_src_settemp.js。差し込み _設定温度ボタンを足す.py／_追水の指示_20261125.py */
@@ -14332,7 +14334,7 @@ function stoOpen(no){
     const p=stoPending(no), pW=stoPendingW(no), now=stoNow(no), o=stoOi(no);
     let val=p?Number(stoParse(p).to):(now!==''?Number(now):stoHin(no)); if(isNaN(val)) val=12;
     const wq=pW?Number(stoWParse(pW).l):NaN;
-    let wmax=(o&&o.rest>=10)?Math.floor(o.rest/10)*10:300; if(wq>wmax) wmax=sto10(wq);
+    let wmax=Math.max(500, sto10((o&&o.plan)||0)); if(wq>wmax) wmax=sto10(wq);   // 2026-11-26 残りまでに限らず10ℓ単位で選べる
     let wv=wq>0?sto10(wq):(o&&o.rec>0)?sto10(o.rec):(o&&o.plan>0)?sto10(o.plan/3):50; wv=Math.min(wmax,Math.max(10,wv));
     const from=p?(stoParse(p).from||now):now;
     const sel={ t:!!p, w:!!pW };
@@ -14362,7 +14364,7 @@ function stoOpen(no){
     stoPickerInit(mask, val, wv, v=>{ val=v; nv.textContent=stoF(v)+'℃';
       const d=(from===''||isNaN(Number(from)))?null:Math.round((v-Number(from))*10)/10;
       df.textContent=d==null?'':d===0?'（同じ）':`（${d>0?'＋':'−'}${Math.abs(d).toFixed(1)}）`; },
-      v=>{ wv=v; wn.textContent=v+'ℓ'; wr.textContent=o?`　→ 入れた後の残り ${Math.max(0,o.rest-v)}ℓ`:''; });
+      v=>{ wv=v; wn.textContent=v+'ℓ'; wr.textContent=!o?'':o.rest-v>=0?`　→ 入れた後の残り ${o.rest-v}ℓ`:`　→ 規定を ${v-o.rest}ℓ 超えます`; });
     go.onclick=async()=>{
       if(!(sel.t||sel.w)){ say('温度か追水を選んでください'); return; }
       if(sel.t && !p && from!=='' && Number(from)===val){ say('いまの設定温度と同じです'); return; }
