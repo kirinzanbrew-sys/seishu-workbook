@@ -9476,6 +9476,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-26-3','📅','ホーム','「本日の予定」ボタンを右上の名前と同じく固定しました。予定を上へ流しても、予定が名前のボタンや「本日の予定」ボタンの下にもぐらなくなります。'],
   ['2026-11-26-2','🏔','ホーム','上の麒麟山の写真をホームの背景にして、本日の予定を写真の上に重ねました。予定の欄が広くなり、勤務や予定まで見やすくなります。「本日の予定」ボタンは右上の名前と同じ高さに並び、米入荷・A重油などの札はボタンの下に出ます。'],
   ['2026-11-26-1','📅','本日の予定','米入荷・穴あけ・A重油などの札を「本日の予定」ボタンの右に並べるようにしました。'],
   ['2026-11-25-2','🍶','仕込み','追水の指示で「✓ 追水しました」を押すと、その日の分析の追水の欄に量が自動で入るようになりました（すでに入っていれば足します。押す前の窓に「いま◯ℓ → ◯ℓ」と出ます）。追水の欄に手で入れなくてもかまいません。'],
@@ -19286,17 +19287,23 @@ function dpLbl(x){
 /* ================= ホーム：麒麟山の写真を背景に（2026-11-26 泰広さん指示：案A-4） =================
    ・上の写真の帯（.kz）を画面の上に敷く背景にし、本日の予定をその上に重ねる
    ・予定のカードの白い枠はなくし、表（.dp-g）・勤務（.dp-kn）・カレンダー（.dp-cal）などだけを半透明の板に
-   ・「本日の予定」ボタンを右上のIDと同じ高さ（28px）に並べる。米入荷などの札はボタンの下（chips1118 の 11-26 分を直した）
+   ・「本日の予定」ボタンを右上のIDと同じ高さ（28px）に並べ、IDと同じく固定（スクロールしない）。米入荷などの札はボタンの下（chips1118 の 11-26 分を直した）
    控え：seishu-workbook_github\_src_bg1126.css */
-body.hm #app>.kz{position:fixed;left:0;right:0;top:0;margin:0;z-index:0;background:none;
+body.hm #app>.kz{position:fixed;left:0;right:0;top:0;margin:0;z-index:-1;background:none;
   height:calc(410px + min(env(safe-area-inset-top),48px))}
 body.hm #app>.kz img{height:calc(100% + 30px);margin-top:-30px;object-fit:cover;object-position:60% 50%}
 body.hm #app>.kz .fade{height:140px;background:linear-gradient(180deg,rgba(247,244,236,0),var(--paper) 95%)}
-body.hm #app>*:not(.kz){position:relative;z-index:1}
+body.hm #app{position:relative;z-index:1}
+body.hm #app>*:not(.kz):not(#dpBox){position:relative;z-index:1}
 body.hm header .who{height:28px;box-sizing:border-box;display:inline-flex;align-items:center}
-body.hm #app>#dpBox{background:none;border:0;box-shadow:none;border-radius:0;padding:0 0 4px;
-  margin-top:calc(12px + min(env(safe-area-inset-top),48px))}
-body.hm #dpBox .dp-dsel{display:inline-flex;width:auto;max-width:calc(100% - 130px);height:28px;box-sizing:border-box;padding:0 10px;margin:0 0 6px;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+/* header は画面の上に全幅で重なっているので、ホームでは素通しにして「本日の予定」ボタンを押せるように（名前のボタンだけ押せる） */
+body.hm header{pointer-events:none}
+body.hm header .who{pointer-events:auto}
+/* 2026-11-26 泰広さん指示（3回目）：「本日の予定」ボタンもIDと同じく固定。予定の欄（スクロールする所）はIDの段の下から始める＝IDと予定が重ならない */
+body.hm #app>#dpBox{position:static;background:none;border:0;box-shadow:none;border-radius:0;padding:0 0 4px;
+  margin-top:calc(12px + min(env(safe-area-inset-top),48px) + 28px + 8px)}
+body.hm #dpBox .dp-dsel{position:absolute;top:calc(12px + min(env(safe-area-inset-top),48px));z-index:3;
+  display:inline-flex;width:auto;max-width:calc(100% - 130px);height:28px;box-sizing:border-box;padding:0 10px;margin:0;box-shadow:0 2px 6px rgba(0,0,0,.25)}
 body.hm #dpBox .dp-dsel i{margin-left:2px}
 body.hm #dpBox .dp-chip1{margin:0 0 6px}
 body.hm #dpBox .dp-g,body.hm #dpBox .dp-empty,body.hm #dpBox .dp-nt{background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-radius:12px}
