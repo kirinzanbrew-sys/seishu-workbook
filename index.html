@@ -9476,7 +9476,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
-  ['2026-11-26-3','📅','ホーム','「本日の予定」ボタンを右上の名前と同じく固定しました。予定を上へ流しても、予定が名前のボタンや「本日の予定」ボタンの下にもぐらなくなります。'],
+  ['2026-11-26-3','📅','ホーム','「本日の予定」ボタンを右上の名前と同じく固定しました（スマホで消えていたのを直しました）。予定を上へ流しても、予定が名前のボタンや「本日の予定」ボタンの下にもぐらなくなります。'],
   ['2026-11-26-2','🏔','ホーム','上の麒麟山の写真をホームの背景にして、本日の予定を写真の上に重ねました。予定の欄が広くなり、勤務や予定まで見やすくなります。「本日の予定」ボタンは右上の名前と同じ高さに並び、米入荷・A重油などの札はボタンの下に出ます。'],
   ['2026-11-26-1','📅','本日の予定','米入荷・穴あけ・A重油などの札を「本日の予定」ボタンの右に並べるようにしました。'],
   ['2026-11-25-2','🍶','仕込み','追水の指示で「✓ 追水しました」を押すと、その日の分析の追水の欄に量が自動で入るようになりました（すでに入っていれば足します。押す前の窓に「いま◯ℓ → ◯ℓ」と出ます）。追水の欄に手で入れなくてもかまいません。'],
@@ -19294,7 +19294,7 @@ body.hm #app>.kz{position:fixed;left:0;right:0;top:0;margin:0;z-index:-1;backgro
 body.hm #app>.kz img{height:calc(100% + 30px);margin-top:-30px;object-fit:cover;object-position:60% 50%}
 body.hm #app>.kz .fade{height:140px;background:linear-gradient(180deg,rgba(247,244,236,0),var(--paper) 95%)}
 body.hm #app{position:relative;z-index:1}
-body.hm #app>*:not(.kz):not(#dpBox){position:relative;z-index:1}
+body.hm #app>*:not(.kz):not(#dpBox):not(#dpTop){position:relative;z-index:1}
 body.hm header .who{height:28px;box-sizing:border-box;display:inline-flex;align-items:center}
 /* header は画面の上に全幅で重なっているので、ホームでは素通しにして「本日の予定」ボタンを押せるように（名前のボタンだけ押せる） */
 body.hm header{pointer-events:none}
@@ -19302,15 +19302,34 @@ body.hm header .who{pointer-events:auto}
 /* 2026-11-26 泰広さん指示（3回目）：「本日の予定」ボタンもIDと同じく固定。予定の欄（スクロールする所）はIDの段の下から始める＝IDと予定が重ならない */
 body.hm #app>#dpBox{position:static;background:none;border:0;box-shadow:none;border-radius:0;padding:0 0 4px;
   margin-top:calc(12px + min(env(safe-area-inset-top),48px) + 28px + 8px)}
-body.hm #dpBox .dp-dsel{position:absolute;top:calc(12px + min(env(safe-area-inset-top),48px));z-index:3;
-  display:inline-flex;width:auto;max-width:calc(100% - 130px);height:28px;box-sizing:border-box;padding:0 10px;margin:0;box-shadow:0 2px 6px rgba(0,0,0,.25)}
-body.hm #dpBox .dp-dsel i{margin-left:2px}
+/* 2026-11-26（4回目）：iPhone などでスクロールの枠の中に置いたボタンが消えたので、ボタンは枠の外の #dpTop（下の script で移す）に置く */
+body.hm #app>#dpTop{position:absolute;top:calc(12px + min(env(safe-area-inset-top),48px));height:0;z-index:3;flex:none;max-width:calc(100% - 130px)}
+body.hm #app .dp-dsel{display:inline-flex;width:auto;max-width:100%;height:28px;box-sizing:border-box;padding:0 10px;margin:0;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+body.hm #app .dp-dsel i{margin-left:2px}
+body.hm #dpBox .dp-dsel{visibility:hidden;position:absolute}
 body.hm #dpBox .dp-chip1{margin:0 0 6px}
 body.hm #dpBox .dp-g,body.hm #dpBox .dp-empty,body.hm #dpBox .dp-nt{background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-radius:12px}
 body.hm #dpBox .dp-g{padding:4px 6px 4px 4px}
 body.hm #dpBox .dp-nt{padding:4px 8px;margin:6px 0 0}
 body.hm #dpBox .dp-kn,body.hm #dpBox .dp-cal,body.hm #dpBox .dp-bn2{background:rgba(255,255,255,.78);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:0;border-radius:10px;padding:5px 8px;margin:6px 0 0}
 </style>
+<script>
+/* 2026-11-26（4回目）泰広さん：「本日の予定」ボタンが消えた → ボタンをスクロールの枠（#dpBox）の外、IDと同じ段の #dpTop に移す。
+   予定を描き直すたび（dpRedraw など）に #dpPlan の中に新しいボタンができるので、見張って毎回移す。押したときの動きは document の click で拾っているのでそのまま */
+(function(){
+  function mv(){
+    if(!document.body.classList.contains('hm')) return;
+    const app=document.getElementById('app'), box=document.getElementById('dpBox'); if(!app||!box) return;
+    const b=box.querySelector('.dp-dsel'); if(!b) return;
+    let t=document.getElementById('dpTop');
+    if(!t||t.parentNode!==app){ t=document.createElement('div'); t.id='dpTop'; app.insertBefore(t,box); }
+    t.innerHTML=''; t.appendChild(b);
+  }
+  function start(){ const app=document.getElementById('app'); if(!app) return;
+    new MutationObserver(()=>{ try{ mv(); }catch(e){} }).observe(app,{childList:true,subtree:true}); try{ mv(); }catch(e){} }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
+})();
+</script>
 <!-- /bg1126 -->
 </body>
 </html>
