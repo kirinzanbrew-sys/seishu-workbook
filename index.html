@@ -9688,6 +9688,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-27-11','🍶','仕込み','仕込みの表の上槽後（上槽先タンク・分析値・尺・量）を、浮いた箱ではなく表のマスにそろえて出すようにしました。上槽翌日から右の日の列に T◯｜T◯｜合算 が1列ずつ入ります（右に日の列が足りないときだけ今までの箱）。入力のしかたは今までどおりです。'],
   ['2026-11-27-10','🌾','米管理','「在庫0を隠す」をボタンからスイッチにして、表の左上（品種のマス）に移しました。スイッチを入れる（緑）と在庫0の品種を隠します。'],
   ['2026-11-27-9','🌾','米管理','在庫管理の上に「在庫0を隠す」スイッチを付けました。押すと（紺色になります）、表示している期間ずっと在庫が0で入荷・払出も無い品種を表から隠します。もう一度押すと全品種に戻ります。'],
   ['2026-11-27-8','🌾','米管理','在庫管理の上のアイコン（入荷・全体・引取予定・⚠）を、絵の下に小さく字を出す形にして1段にまとめました。表が上に上がって広く見えます。'],
@@ -15777,6 +15778,8 @@ async function ydSaveJo(m, d){
   const j=await rkApi({action:'save', item:{id:o?o.id:'', name:'上槽', no:String(m.no), liquid:m.liquid||'', tank:String(m.tank||''), plan:d, memo:'計画 '+p}});
   rkKeep(j); return j;
 }
+/* 2026-11-27 上槽後をマスにはめ込んだところ（td.yd-c1）の空いた所を押しても、ほかの窓が開かないように */
+document.addEventListener('click', e=>{ const c=e.target&&e.target.closest&&e.target.closest('td.yd-c1'); if(c && !e.target.closest('input,button')){ e.stopImmediatePropagation(); e.preventDefault(); } }, true);
 /* 日付の行のマスを押したとき（joso の「上槽日にしますか」より先に受け取る） */
 document.addEventListener('click', e=>{
   const td=e.target.closest&&e.target.closest('.kg-home .kg-t tr.top td[data-i]'); if(!td) return;
@@ -15837,7 +15840,7 @@ function ydPaint(box){
     box.querySelectorAll('.yd-box,.yd-b3t,.yd-b3h,.yd-b3s').forEach(x=>x.remove());
     box.querySelectorAll('.yd-s1,.yd-ov,.yd-tkadd').forEach(x=>x.remove());
     box.querySelectorAll('td.yd-ovc').forEach(x=>x.classList.remove('yd-ovc'));
-    box.querySelectorAll('td.yd-band').forEach(x=>{ x.classList.remove('yd-band','yd-done','yd-b3c','yd-s1c'); x.style.minWidth=''; });
+    box.querySelectorAll('td.yd-band').forEach(x=>{ x.classList.remove('yd-band','yd-done','yd-b3c','yd-s1c','yd-c1','yd-c1s'); x.style.minWidth=''; });
     box.querySelectorAll('td.yd-has').forEach(x=>x.classList.remove('yd-has','yd-hasjo'));
     box.querySelectorAll('.kg-i.yd-hide').forEach(x=>x.classList.remove('yd-hide'));
     const today=dtoday();
@@ -15882,6 +15885,30 @@ function ydB3(box, m){   // 2026-11-06 泰広さん：案B（上槽翌日のマ�
       h+=line(Dc.map(c=>c.d?`<span class="yd-s1i"><i>L</i><b class="yd-skL" data-ydno="${no}" data-ydt="${esc(c.t)}">${ydN(c.d.L)===null?'—':ydL(c.d.L)}</b></span>`:'<span></span>'), tot?`<span class="yd-s1i"><i>L</i><b>${ydL(tot)}</b></span>`:''); }
     else h+='<div class="yd-ovr"></div>';
   }
+  /* 2026-11-27 泰広さん：案1（浮かせない）。上槽翌日から右の日の列に、タンクを1列ずつ表のマスとしてはめ込む（T◯｜T◯｜合算）。
+     右に日の列が足りないときだけ、今までの重ねる箱で出す */
+  const cols=[...Dc.map((c,ci)=>({c,ci})), ...(multi?[{sum:1}]:[])];
+  const cell=(r,o)=>{ if(o.sum){ if(r===0) return '<span class="yd-ch">合算</span>';
+      if(KEY[r]){ const v=sumK(KEY[r]); return v?`<b>${v}</b>`:(r===1&&sm.needL?'<span class="yd-needL">量待ち</span>':''); }
+      if(r===6){ const tot=D.reduce((a,d)=>a+(ydN(d.L)||0),0); return tot?`<span class="yd-s1i"><i>L</i><b>${ydL(tot)}</b></span>`:''; } return ''; }
+    const c=o.c, ci=o.ci, tt=esc(c.t);
+    if(r===0) return `<span class="yd-tkw"><i>T</i><input type="text" inputmode="numeric" class="yd-tki" data-ig-skip="1" data-ydno="${no}" data-ydt="${tt}" data-ydc="${ci}" data-ydr="0" value="${tt}" placeholder="${D.length?'追加':'上槽先'}" autocomplete="off"></span>`;
+    if(!c.d) return '';
+    if(KEY[r]){ const k=KEY[r], a=ydAna(m,c.t), v=a?f(a[k],k):'';
+      return `<span class="yd-s1i yd-aic">${k==='smv'?`<button type="button" class="yd-pm" data-ydno="${no}" data-ydt="${tt}" title="＋／−を切り替え">±</button>`:''}<input type="text" inputmode="decimal" class="yd-ai" data-ig-skip="1" data-ydno="${no}" data-ydt="${tt}" data-k="${k}" data-ydc="${ci}" data-ydr="${r}" value="${esc(v)}" placeholder="${!a&&r===1?'未':NA[k]}" autocomplete="off"></span>`; }
+    if(r===5) return `<span class="yd-s1i"><i>尺</i><input type="text" inputmode="numeric" class="yd-sk" data-ydno="${no}" data-ydt="${tt}" data-ydc="${ci}" data-ydr="5" value="${esc(String(c.d.mm||''))}" autocomplete="off"></span>`;
+    if(r===6) return `<span class="yd-s1i"><i>L</i><b class="yd-skL" data-ydno="${no}" data-ydt="${tt}">${ydN(c.d.L)===null?'—':ydL(c.d.L)}</b></span>`;
+    return ''; };
+  const fits=cols.every((o,k)=>use.every(tr=>tr.querySelector(`td[data-i="${i+k}"]`)));
+  if(fits){
+    cols.forEach((o,k)=>use.forEach((tr,r)=>{ const td=tr.querySelector(`td[data-i="${i+k}"]`);
+      td.classList.add('yd-band','yd-c1'); if(o.sum) td.classList.add('yd-c1s'); if(done) td.classList.add('yd-done');
+      const inp=td.querySelector('.kg-i'); if(inp && !inp.value) inp.classList.add('yd-hide');
+      td.insertAdjacentHTML('beforeend', `<div class="yd-ov yd-cell${done?' yd-done':''}${r===0?' yd-cellh':''}">${cell(r,o)}</div>`); }));
+    if(D.length&&!YD.add[String(m.no)]){ const nx=use[0].querySelector(`td[data-i="${i+cols.length}"]`), td=nx||use[0].querySelector(`td[data-i="${i+Dc.length-1}"]`); if(nx) nx.classList.add('yd-c1');
+      if(td) td.insertAdjacentHTML('beforeend', `<button type="button" class="yd-tkadd yd-tkadd2${nx?' nx':''}" data-ydno="${no}" title="上槽先のタンクを追加">＋</button>`); }
+    return;
+  }
   dtd.classList.add('yd-ovc');
   dtd.insertAdjacentHTML('beforeend', `<div class="yd-ov${done?' yd-done':''}" style="width:${W}px">${h}</div>`+(D.length&&!YD.add[String(m.no)]?`<button type="button" class="yd-tkadd" data-ydno="${no}" style="left:${W+2}px" title="上槽先のタンクを追加">＋</button>`:''));
   const ov=dtd.querySelector('.yd-ov'), rs=ov?ov.querySelectorAll(':scope > .yd-ovr'):[];
@@ -15905,8 +15932,9 @@ document.addEventListener('input', e=>{ const el=e.target; if(!el||!el.classList
   if(b) b.textContent=L===null?'—':ydL(L); }, true);
 document.addEventListener('change', e=>{ const el=e.target; if(!el||!el.classList||!el.classList.contains('yd-sk')) return; ydSaveMm(el.dataset.ydno, el.dataset.ydt, el.value); }, true);
 document.addEventListener('keydown', e=>{ const el=e.target; if(e.key!=='Enter'||!el||!el.closest||!el.matches||!el.matches('input')) return;
-  const ov=el.closest('.yd-ov'); if(!ov) return; e.preventDefault();
-  const L=[...ov.querySelectorAll('input[data-ydc]')].sort((a,b)=>(Number(a.dataset.ydc)-Number(b.dataset.ydc))||(Number(a.dataset.ydr)-Number(b.dataset.ydr)));
+  let ov=el.closest('.yd-ov'); if(!ov) return; e.preventDefault();
+  if(ov.classList.contains('yd-cell')) ov=ov.closest('table')||ov;
+  const L=[...ov.querySelectorAll(`input[data-ydc][data-ydno="${CSS.escape(el.dataset.ydno||'')}"]`)].sort((a,b)=>(Number(a.dataset.ydc)-Number(b.dataset.ydc))||(Number(a.dataset.ydr)-Number(b.dataset.ydr)));
   const nx=L[L.indexOf(el)+1]; if(nx){ nx.focus(); try{ nx.select(); }catch(_){} } else el.blur(); }, true);
 document.addEventListener('click', e=>{ const el=e.target; if(el&&el.classList&&(el.classList.contains('yd-sk')||el.classList.contains('yd-ai')||el.classList.contains('yd-tki'))) e.stopPropagation(); }, true);
 /* ---------- 2026-11-17 案B：箱の中で 上槽先・上槽後の分析 を直接入力（マスを離れたら保存・送信は裏で） ---------- */
@@ -16350,6 +16378,19 @@ function ydRecOpen(no, date, step){
 .yd-dtog.on i{background:#2f7d5d}.yd-dtog.on i::after{left:18px}.yd-dtog small{font-size:11px;color:#6b7480;font-weight:600}
 .kg-t tr.yd-donerow td{background:#f2f4f2!important;color:#777}.kg-t tr.yd-donerow td .kg-i{color:#777}
 .yd-djt{display:inline-block;margin-top:3px;font-size:10px;font-weight:800;color:#fff;background:#2f7d5d;border-radius:4px;padding:0 4px;white-space:nowrap}
+/* 2026-11-27 案1：上槽後はマスにそろえる（浮かせない） */
+.yd-ov.yd-cell{position:static;outline:0;box-shadow:none;border-radius:0;background:transparent;overflow:visible;display:flex;align-items:center;justify-content:flex-end;min-height:18px}
+.yd-ov.yd-cell .yd-s1i{width:100%}
+.yd-ov.yd-cellh{justify-content:center;font-weight:800}
+.yd-ov.yd-cellh .yd-tkw{display:flex;align-items:center;gap:1px;color:#fff}.yd-ov.yd-cellh .yd-tkw i{font-style:normal;font-size:10px;color:#fff}
+.yd-ov.yd-cellh .yd-ch{color:#fff;font-size:12px}
+.kg-t td.yd-c1{padding:1px 2px!important}
+.kg-t td.yd-c1s{background:#d4ebe5!important}.kg-t tr.top td.yd-c1s{background:#1f6b4c!important}
+.kg-t td.yd-c1 b{font-weight:800}
+.kg-t td.yd-c1 .yd-needL{font-size:10px;color:#0f7c80}
+.kg-t td.yd-c1{position:relative}
+.kg-t button.yd-tkadd.yd-tkadd2{position:absolute;top:1px;right:1px;left:auto;width:15px;height:15px;font-size:11px;line-height:11px}
+.kg-t button.yd-tkadd.yd-tkadd2.nx{top:auto;bottom:2px;left:3px;right:auto;width:18px;height:18px;font-size:12px;line-height:14px}
 .kg-t td.yd-ovc{position:relative;overflow:visible}
 .yd-ov{position:absolute;left:-1px;top:0;z-index:1;background:#eaf5ee;outline:1.5px solid #0f7c80;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.14);overflow:hidden;text-align:right}
 .yd-ov.yd-done{outline-color:#2f7d5d}
