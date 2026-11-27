@@ -9688,6 +9688,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-27-14','🖥','ホーム','PCの Pro ホームの醪の表で、順号の下に「🍚 麹」の札を付けました。その仕込みに使った麹を種麹ごとにまとめて、麹米の品種・精米歩合と kg を出します。'],
+  ['2026-11-27-13','🖥','ホーム','画面が広いPC（幅1400px以上）でホームを開くと「Pro」の配置になります。左にアイコンの一覧、左上に本日の予定・担当、右上に麹の経過（引込〜出麹の時刻と品温）、下に醪の経過の表（そのまま入力・⚙で温度と追水の指示）。スマホ・タブレットは今までどおりです。'],
   ['2026-11-27-12','🍶','仕込み','上槽後の日本酒度の「±」ボタンを表からなくしました。日本酒度の欄を押すと、数字キーボードのすぐ上に「＋」「−」の帯が出ます。押すと符号が切り替わります（「完了」で閉じる）。'],
   ['2026-11-27-11','🍶','仕込み','仕込みの表の上槽後（上槽先タンク・分析値・尺・量）を、浮いた箱ではなく表のマスにそろえて出すようにしました。上槽翌日から右の日の列に T◯｜T◯｜合算 が1列ずつ入ります（右に日の列が足りないときだけ今までの箱）。入力のしかたは今までどおりです。'],
   ['2026-11-27-10','🌾','米管理','「在庫0を隠す」をボタンからスイッチにして、表の左上（品種のマス）に移しました。スイッチを入れる（緑）と在庫0の品種を隠します。'],
@@ -19757,5 +19759,210 @@ body.hm #dpBox .dp-kn,body.hm #dpBox .dp-cal,body.hm #dpBox .dp-bn2{background:r
 })();
 </script>
 <!-- /bg1126 -->
+<!-- prohome1127 -->
+<script>
+/* ================= 🖥 PC用 Pro ホーム（見本4 案C）2026-11-27 泰広さん指示 =================
+   ・画面が広いPC（幅1400px以上・マウス操作）でホームを開くと自動で Pro の配置。スマホ・タブレットは今までどおり
+   ・左＝今までのアイコン（縦の一覧）／左上＝本日の予定（今までの予定・担当・カレンダーをそのまま移す）
+     右上＝麹の経過（その日の 引込〜出麹の麹を1行ずつ：引込・種切・切返し・盛・仲仕事・留仕事・出麹の 時刻と品温。
+           済＝緑・次＝オレンジ・まだ＝灰。品温は R7BY 基準（kJudge）で △ 橙・✕ 赤。右に品温の線 kRowBg）
+     左下＝醪の経過の表（🍶仕込みの表と同じもの。マスに直接入力 → 保存。⚙ で温度・追水の指示）
+     （右下の指示の一覧は 2026-11-27 泰広さん指示で削除。醪の表を横いっぱいに。proInsDraw は #proIns が無いので何もしない）
+   ・指示の窓は今までの ⚙（_src_settemp.js の stoOpen）。指示を出せるのは今までどおり伊藤だけ（stoBoss）。ほかの人は見るだけ
+   ・原エキス分＝エキス分＋alc×1.5848（溶解度と同じ式）。エキス分・AB線・BMD・推奨追水は 醪DB の計算（bunseki_get の calc）
+   2026-11-27 泰広さん指示（見本 Claude outputs\製造ツール_仕込みに使った麹_見本.html の 案A）：醪の表の順号の下に「🍚 麹」の札。
+     その仕込み（順号）に使った麹を 種麹（＋種麹2）ごとにまとめ、麹米の品種・精米歩合と kg を出す。
+     データ＝麹DBの 順号・区分（koji_compare の行。端末に rec.cmp で控え、6時間より古ければ裏で取り直す）＋その日までに読んだ koji_today の行
+   控え：seishu-workbook_github\_src_prohome1127.js（index.html の <!-- prohome1127 --> の間） */
+const PRO={ w:1400, mor:null, tick:null };
+function proIs(){ try{ return window.innerWidth>=PRO.w && !!(window.matchMedia&&matchMedia('(pointer:fine)').matches); }catch(e){ return false; } }
+const PRO_KS=[['引込','引込 時刻','引込 品温','引込'],['種切','種切 時刻','種切 品温','種切'],['切返し','切返し 時刻','切返し 品温','切返し'],['盛','盛 時刻','盛後 品温','盛後'],['仲仕事','仲仕事 時刻','仲仕事 品温','仲仕事'],['留仕事','留仕事 時刻','留仕事 品温','留仕事'],['出麹','出麹 時刻','出麹 品温','出麹']];
+const proV=v=>v!==''&&v!==null&&v!==undefined&&isFinite(Number(v));
+const proF1=v=>proV(v)?Number(v).toFixed(1):'—';
+function proTm(t){ const s=String(t||''); const m=s.match(/(\d{1,2}):(\d{2})/); return m?(+m[1])+':'+m[2]:(s||''); }
+
+/* ---- 麹の経過 ---- */
+function proKojiRows(){
+  const d=dtoday(), j=RC.koji&&RC.koji[d]; if(!j) return null;
+  const seen=new Set();
+  return (j.koji||[]).filter(r=>{ const id=r['麹ID']; if(!id||seen.has(id)) return false; seen.add(id);
+      return (r['引込日']===d||r['盛日']===d||r['出麹日']===d); })
+    .sort((a,b)=>String(a['引込日']||'').localeCompare(String(b['引込日']||''))||((a['引込 順番']||99)-(b['引込 順番']||99)));
+}
+function proKojiRow(r){
+  const sk=(typeof kIsKaga==='function'&&kIsKaga(r))?'kaga':'ippan', S=(typeof KSTD!=='undefined'&&KSTD[sk])||{st:{}};
+  let nx=PRO_KS.findIndex(s=>!proV(r[s[2]])); if(nx<0) nx=PRO_KS.length;
+  let warn='';
+  const cells=PRO_KS.map((s,i)=>{ const v=r[s[2]], t=r[s[1]], has=proV(v), st=S.st[s[3]];
+    let jd=null; if(has&&typeof kJudge==='function'){ try{ jd=kJudge(sk,s[3],Number(v)); }catch(e){} }
+    if(jd&&jd.lv>=1&&!warn) warn=`${s[0]} ${proF1(v)}℃（基準 ${jd.ref}）`;
+    const c=has?'dn':(i===nx?'nx':'fu');
+    return `<div class="${c}${jd&&jd.lv===2?' x':jd&&jd.lv===1?' w':''}"><b>${s[0]}${i===nx?' ▶':''}</b><span>${esc(has||t?proTm(t)||'—':'')}</span><i>${has?proF1(v):(st?`(${proF1(st[0])})`:'')}</i></div>`; }).join('');
+  const done=nx>=PRO_KS.length;
+  return `<button type="button" class="pro-kr${warn?' wn':''}${done?' done':''}" data-kid="${esc(r['麹ID'])}">
+    <span class="l"><b>${esc(r['麹ID'])}</b> <span class="lq">${esc(r['液種']||'')}</span><small>${esc(r['品種']||'')} ${esc(String(r['精米歩合']||''))}%・${esc(String(r['麹米kg']||''))}kg${r['種麹']?'<br>'+esc(r['種麹'])+(r['種麹2']?'＋'+esc(r['種麹2']):''):''}</small>${warn?`<small class="wt">⚠ ${esc(warn)}</small>`:''}</span>
+    <span class="s7">${cells}</span>
+    <span class="g">${(typeof kRowBg==='function'?kRowBg(r):'')}</span></button>`;
+}
+function proKojiDraw(){
+  const el=document.getElementById('proKoji'); if(!el) return;
+  const L=proKojiRows();
+  if(L===null){ el.innerHTML='<p class="muted" style="padding:10px">麹の予定を読み込んでいます…</p>'; return; }
+  const j=RC.koji[dtoday()]||{}, rm=j.room||{}, kr=document.getElementById('proKr');
+  if(kr) kr.innerHTML=(typeof rcRoomTag==='function')?`1号室 ${rcRoomTag(rm.r1)}　2号室 ${rcRoomTag(rm.r2)}`:'';
+  el.innerHTML=L.length?L.map(proKojiRow).join(''):'<p class="muted" style="padding:10px">きょうの麹はありません</p>';
+  el.querySelectorAll('.pro-kr').forEach(b=>b.onclick=()=>go(()=>kojiScreen(dtoday())));
+}
+
+
+/* ---- 仕込みに使った麹（順号の下の札） ---- */
+function proKjAll(){ const seen={}, out=[];
+  const add=r=>{ const id=r&&r['麹ID']; if(!id) return; seen[id]=r; };
+  try{ const d=RC.cmp||lsGet('rec.cmp',null); if(d&&d.cols&&d.rows) d.rows.forEach(a=>{ const r={}; d.cols.forEach((c,i)=>r[c]=a[i]); add(r); }); }catch(e){}
+  try{ Object.values(RC.koji||{}).forEach(j=>(j&&j.koji||[]).forEach(add)); }catch(e){}
+  Object.keys(seen).forEach(k=>out.push(seen[k])); return out; }
+function proKjHTML(no, all){
+  const ks=all.filter(r=>String(r['順号'])!==''&&Number(r['順号'])===Number(no)); if(!ks.length) return '';
+  const g={}, ord=[];
+  ks.forEach(r=>{ const t=r['種麹']?(r['種麹']+(r['種麹2']?'＋'+r['種麹2']:'')):'種麹未入力';
+    if(!g[t]){ g[t]={kg:0, rice:[]}; ord.push(t); }
+    const kg=Number(r['麹米kg']); if(isFinite(kg)) g[t].kg+=kg;
+    const rc=[r['品種']||'', (r['精米歩合']!==''&&r['精米歩合']!=null)?r['精米歩合']+'%':''].filter(Boolean).join(' ');
+    if(rc&&!g[t].rice.includes(rc)) g[t].rice.push(rc); });
+  return `<span class="pro-kj">🍚 麹${ord.map(t=>`<br><b>${esc(t)}</b> ${esc(g[t].rice.join('・'))}${g[t].kg?' '+Math.round(g[t].kg)+'kg':''}`).join('')}</span>`; }
+async function proKjLoad(){
+  const at=Number(lsGet('pro.cmpAt',0))||0;
+  if(!RC.cmp){ const d=lsGet('rec.cmp',null); if(d) RC.cmp=d; }
+  if(RC.cmp && Date.now()-at<6*3600000) return;
+  if(PRO.kjBusy) return; PRO.kjBusy=1;
+  try{ const r=await recApi({action:'koji_compare'},90000); if(r&&r.ok){ RC.cmp=r; try{ lsSet('rec.cmp',r); }catch(e){} lsSet('pro.cmpAt',Date.now());
+      const box=document.getElementById('proMor'), a=document.activeElement;
+      if(PRO.mor&&box&&!(a&&box.contains(a)&&a.matches&&a.matches('input,select,textarea'))) PRO.mor(); } }catch(e){}
+  PRO.kjBusy=0; }
+
+/* ---- 醪の表（🍶仕込みの表と同じ） ---- */
+function proMorList(){ const st=RC.state; if(!st||!st.master) return [];
+  const T=st.today||{}, today=dtoday();
+  return st.master.filter(m=>(typeof ydKeep==='function'?ydKeep(m,T,today):(T[m.no]||{}).state!=='上槽済') && m.tome && m.soe && today>=m.soe)
+    .sort((a,b)=>String(a.tome).localeCompare(String(b.tome))||a.no-b.no); }
+function proMorDraw(){
+  const box=document.getElementById('proMor'); if(!box) return;
+  const st=RC.state; if(!st||!st.master){ box.innerHTML='<p class="muted" style="padding:10px">仕込の一覧を読み込んでいます…</p>'; return; }
+  const today=dtoday(), T=st.today||{}, list=proMorList();
+  const hd=document.getElementById('kgHd'); if(hd){ const s=hd.querySelector('small'); if(s) s.textContent=`仕込中・醪中 ${list.length}本`; }
+  const draw=()=>{ if(!document.body.contains(box)) return; const rows=kgMoromiRows(list,today,T), kjA=proKjAll(); rows.forEach(r=>{ try{ const h=proKjHTML(r.no,kjA); if(h) r.sub=(r.sub||'')+h; }catch(e){} });
+    kgBox(box, kgFieldsMoromi, rows, {setKind:'moromi', today:true, jo:'上槽予定', outLabel:'上槽予定の後', empty:'仕込中・醪中の仕込はありません'});
+    try{ if(typeof oiPaint==='function') oiPaint(box); }catch(e){} try{ if(typeof stoPaint==='function') stoPaint(); }catch(e){} proInsDraw(); };
+  PRO.mor=draw; draw();
+  let tm=null; shFetchMany(list.filter(m=>!RC.bun[m.no]).map(m=>m.no),'bunseki_get',RC.bun,()=>{ clearTimeout(tm); tm=setTimeout(draw,150); });
+}
+
+/* ---- 指示の一覧 ---- */
+function proLast(no){ const b=RC.bun&&RC.bun[no]; if(!b||!b.days) return null; let L=null;
+  b.days.forEach(d=>{ if(proV(d.be)||proV(d.alc)) L=d; }); if(!L) return null;
+  return {d:L, c:((b.calc||{})[L.day])||{}}; }
+function proInsDraw(){
+  const el=document.getElementById('proIns'); if(!el) return;
+  const list=proMorList(); if(!list.length){ el.innerHTML='<p class="muted" style="padding:10px">醪はありません</p>'; return; }
+  const boss=typeof stoBoss==='function'&&stoBoss();
+  const rows=list.map(m=>{ const x=proLast(m.no), o=(typeof oiState==='function')?oiState(m.no):null, day=rcMoromiDay(m,dtoday());
+    if(!x) return `<tr><td class="l"><b>${esc(String(m.no))}</b><small>${esc(m.liquid||'')}</small></td><td colspan="6" class="mu">${day>=1?day+'日目・分析まだ':'留まで'+(1-day)+'日'}</td><td>${typeof stoBtn==='function'?stoBtn(m.no):''}</td></tr>`;
+    const d=x.d, c=x.c, ext=Number(c.ext), ab=Number(c.abExt), alc=Number(d.alc);
+    const gen=proV(c.ext)&&proV(d.alc)?ext+alc*1.5848:null;
+    const dif=proV(c.ext)&&proV(c.abExt)?Math.round((ext-ab)*10)/10:null;
+    const abT=dif===null?'—':(Math.abs(dif)<0.3?'<span class="jg o">線どおり</span>':dif>0?`<span class="jg u">線より上 +${dif.toFixed(1)}</span>`:`<span class="jg d">線より下 ${dif.toFixed(1)}</span>`);
+    const bd=proV(c.bmd)&&proV(c.bmdStd)?Math.round((c.bmd-c.bmdStd)*10)/10:null;
+    const oiC=o&&o.s?`oi-${o.s}`:'', rec=o&&proV(o.rec)?o.rec:(proV(c.rec)?c.rec:null);
+    const p=typeof stoPending==='function'?stoPending(m.no):null, w=typeof stoPendingW==='function'?stoPendingW(m.no):null;
+    const pend=[p?`🌡 ${esc(stoF(stoParse(p).to))}℃`:'', w?`💧 ${esc(stoWParse(w).l)}ℓ`:''].filter(Boolean).join(' ');
+    return `<tr><td class="l"><b>${esc(String(m.no))}</b><small>${esc(m.liquid||'')}・${d.day}日</small></td>
+      <td>${proF1(d.be)}</td><td>${proF1(d.alc)}</td>
+      <td>${proF1(c.ext)}<small>AB ${proF1(c.abExt)}</small>${abT}</td>
+      <td>${gen===null?'—':gen.toFixed(1)}</td>
+      <td>${proF1(c.bmd)}${bd!==null?`<small class="${Math.abs(bd)>=6?'bad':''}">標準 ${proF1(c.bmdStd)}</small>`:''}</td>
+      <td class="${oiC}">${rec!==null?`<b>${Math.round(rec)}ℓ</b>`:'—'}${o&&proV(o.rest)?`<small>残 ${Math.round(o.rest)}ℓ</small>`:''}</td>
+      <td>${pend?`<small class="pd">${pend}</small>`:''}${typeof stoBtn==='function'?stoBtn(m.no):''}</td></tr>`; }).join('');
+  el.innerHTML=`<table class="pro-it"><thead><tr><th>醪</th><th>日本酒度<br>(Be)</th><th>alc</th><th>エキス分<br>AB直線</th><th>原ｴｷｽ</th><th>BMD</th><th>推奨追水</th><th>指示</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="tl-note" style="margin:6px 2px 0">${boss?'⚙ を押すと温度・追水の指示。':'指示は伊藤だけが出せます（⚙ で今の指示と記録を見る）。'}推奨追水の色＝追水の信号（緑 予定どおり・黄 やや遅れ・赤 遅れ）。原エキス分＝エキス分＋alc×1.5848。</p>`;
+  try{ if(typeof stoPaint==='function') stoPaint(); }catch(e){}
+}
+
+/* ---- 配置を作る ---- */
+function proSize(){ const g=document.querySelector('#app .pro-g'); if(!g) return; const t=g.getBoundingClientRect().top+window.scrollY; g.style.height=Math.max(560, window.innerHeight-t-10)+'px'; }
+function proBuild(){
+  const box=document.getElementById('dpBox'), ics=app.querySelector('.dp-ics'); if(!box||!ics) return;
+  if(app.querySelector('.pro-g')) return;
+  document.body.classList.add('pro'); document.body.classList.remove('hm'); document.documentElement.classList.remove('hm'); document.body.style.height='';
+  const g=document.createElement('div'); g.className='pro-g';
+  g.innerHTML=`<nav class="pro-nav"></nav>
+    <section class="pro-pn pro-plan"><div class="pro-h">📅 本日の予定<small>${esc(djp(dtoday()))}</small><span>押すと中身・必要人数</span></div><div class="pro-b" id="proPlan"></div></section>
+    <section class="pro-pn pro-koji"><div class="pro-h">🍚 麹の経過<small>引込〜出麹（上＝時刻・下＝品温。( )は基準）</small><span id="proKr"></span></div><div class="pro-b" id="proKoji"></div></section>
+    <section class="pro-pn pro-mor"><div class="pro-h" id="kgHd">🍶 醪の経過<small></small><span>マスに直接入力 → 保存　⚙ 温度・追水の指示</span></div><div class="pro-b"><div class="kg-home" id="proMor"></div></div></section>`;
+  box.before(g);
+  g.querySelector('.pro-nav').appendChild(ics);
+  g.querySelector('#proPlan').appendChild(box);
+  box.style.height=''; box.style.maxHeight='';
+  requestAnimationFrame(()=>{ box.style.height=''; box.style.maxHeight=''; proSize(); });
+  proKojiDraw(); proMorDraw(); proKjLoad();
+  const myTop=nav[nav.length-1];
+  (async()=>{ try{ await dpLoad(dtoday()); }catch(e){} if(nav[nav.length-1]!==myTop) return; proKojiDraw(); if(!RC.state||!RC.state.master){ try{ await recState(false); }catch(e){} } if(nav[nav.length-1]===myTop&&!PRO.mor) proMorDraw(); })();
+  (async()=>{ try{ if(!RC.state||!RC.state.master) await recState(false); }catch(e){} if(nav[nav.length-1]===myTop) proMorDraw(); })();
+  clearInterval(PRO.tick); PRO.tick=setInterval(()=>{ if(!document.querySelector('#app .pro-g')){ clearInterval(PRO.tick); return; } proKojiDraw(); proInsDraw(); }, 60000);
+}
+(function(){ const o=window.home; if(typeof o!=='function') return;
+  window.home=function(){ PRO.mor=null; const r=o.apply(this, arguments);
+    try{ if(proIs()) proBuild(); else document.body.classList.remove('pro'); }catch(e){ console.log('proHome',e); } return r; }; })();
+/* ほかの画面へ移ったら Pro の印を外す／画面の幅が変わったらホームを描き直す */
+(function(){ const o=window.go; if(typeof o!=='function') return;
+  window.go=function(f){ if(f!==window.home) document.body.classList.remove('pro'); return o.apply(this, arguments); }; })();
+let PRO_RS=null;
+window.addEventListener('resize',()=>{ clearTimeout(PRO_RS); PRO_RS=setTimeout(()=>{ const onHome=!!document.getElementById('dpBox'); if(!onHome) return;
+  const isG=!!document.querySelector('#app .pro-g'); if(isG!==proIs()){ try{ go(home,false); }catch(e){} } else proSize(); },250); });
+(function(){ const s=document.createElement('style'); s.textContent=`
+body.pro .wrap, body.pro header .hin{max-width:none}
+body.pro #app{padding-left:10px;padding-right:10px}
+body.pro #kzBand{display:none}
+.pro-g{display:grid;grid-template-columns:158px minmax(0,560px) minmax(0,1fr) minmax(0,520px);grid-template-rows:minmax(0,45fr) minmax(0,55fr);gap:8px;height:calc(100vh - 80px);margin-top:6px}
+.pro-nav{grid-column:1;grid-row:1/3;overflow-y:auto;background:#24344d;border-radius:12px;padding:6px 4px}
+.pro-plan{grid-column:2;grid-row:1}.pro-koji{grid-column:3/5;grid-row:1}.pro-mor{grid-column:2/5;grid-row:2}
+.pro-pn{background:var(--card,#fff);border:1px solid var(--line,#e4ded1);border-radius:12px;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+.pro-h{display:flex;align-items:baseline;gap:8px;padding:6px 10px 4px;font-weight:800;font-size:14px;color:#1b2a41;flex:none;margin:0;border:0;background:none}
+.pro-h small{font-weight:400;color:var(--sub,#6b7280);font-size:11px}.pro-h span{margin-left:auto;font-weight:400;font-size:11px;color:var(--sub,#6b7280)}
+.pro-b{flex:1;min-height:0;overflow:auto;padding:0 8px 8px}
+body.pro .pro-plan #dpBox{margin:0;border:0;box-shadow:none;padding:0;height:auto!important;max-height:none!important;overflow:visible}
+body.pro .pro-nav .dp-ics{display:flex;flex-direction:column;gap:2px;margin:0}
+body.pro .pro-nav .dp-ic{flex-direction:row;align-items:center;justify-content:flex-start;gap:6px;padding:4px 5px;border-radius:8px;color:#dfe6ef;width:100%}
+body.pro .pro-nav .dp-ic:hover{background:#3b5072}
+body.pro .pro-nav .dp-ic .ico{width:26px;height:26px;border-radius:7px;font-size:15px;flex:none;box-shadow:none}
+body.pro .pro-nav .dp-ic .ico img{width:20px;height:20px}
+body.pro .pro-nav .dp-ic .lb{font-size:12px;text-align:left;color:#eef2f7;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+body.pro .pro-nav .dp-ic .lb small{display:inline;color:#a9b6c8;margin-left:2px}
+body.pro .pro-nav .dp-ic .n{position:static;margin-left:auto}
+body.pro .pro-nav .dp-ic .tg{position:absolute;right:2px;bottom:-2px;left:auto;top:auto;transform:none;font-size:8.5px;white-space:nowrap;padding:0 3px;line-height:1.4}
+body.pro .pro-nav .dp-ic{position:relative;min-height:32px}
+.pro-kr{display:grid;grid-template-columns:150px minmax(0,1fr) 170px;gap:8px;align-items:center;width:100%;text-align:left;font:inherit;color:inherit;background:#fff;border:1px solid var(--line,#e4ded1);border-radius:10px;padding:5px 7px;margin:0 0 5px;cursor:pointer}
+.pro-kr.wn{border:2px solid #c9821b;background:#fffaf0}.pro-kr.done{opacity:.75}
+.pro-kr .l b{font-size:14px;color:#1b2a41}.pro-kr .l .lq{font-weight:800;font-size:12px}.pro-kr .l small{display:block;font-size:10.5px;color:#666;line-height:1.35}.pro-kr .l small.wt{color:#b8660b;font-weight:700}
+.pro-kr .s7{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.pro-kr .s7 div{border:1px solid #eee;border-radius:7px;text-align:center;line-height:1.25;padding:2px 1px;font-size:11px}
+.pro-kr .s7 b{display:block;font-size:10.5px;color:#1b2a41}.pro-kr .s7 span{display:block;color:#555}.pro-kr .s7 i{display:block;font-style:normal;font-weight:800;font-size:13px}
+.pro-kr .s7 .dn{background:#e9f6ee;border-color:#bfe0cc}.pro-kr .s7 .nx{background:#fff1dc;border:2px solid #d48a2a}.pro-kr .s7 .fu{background:#f5f5f7;color:#9aa0aa}.pro-kr .s7 .fu b,.pro-kr .s7 .fu i{color:#9aa0aa;font-weight:400}
+.pro-kr .s7 .w i{color:#c9821b}.pro-kr .s7 .x i{color:#c62828}
+.pro-kr .g{position:relative;height:44px;display:block}.pro-kr .g .kbg-svg{position:absolute;inset:0;width:100%;height:100%}
+.pro-it{border-collapse:collapse;width:100%;font-size:12px}
+.pro-it th{background:#faf8f2;color:#555;font-weight:700;font-size:10.5px;padding:3px 4px;position:sticky;top:0;z-index:1;border-bottom:1px solid #e4ded1}
+.pro-it td{border-bottom:1px solid #efe9dc;padding:4px 4px;text-align:right;white-space:nowrap;vertical-align:middle}
+.pro-it td small{display:block;font-size:10px;color:#777}.pro-it td small.bad{color:#c62828;font-weight:700}.pro-it td small.pd{color:#c62828;font-weight:800}
+.pro-it td.l{text-align:left}.pro-it td.l b{font-size:15px;color:#1b2a41;margin-right:3px}.pro-it td.mu{text-align:left;color:#999}
+.pro-it .jg{display:block;border-radius:5px;padding:0 4px;font-size:10px;font-weight:800;text-align:center;margin-top:1px}
+.pro-it .jg.o{background:#e3f4ea;color:#2f7d5d}.pro-it .jg.u{background:#fde3dc;color:#b23b3b}.pro-it .jg.d{background:#e7f0fb;color:#1f5fa8}
+.pro-it td.oi-g{background:#e3f4ea}.pro-it td.oi-y{background:#fff6cc}.pro-it td.oi-r{background:#fde3dc}.pro-it td.oi-ok{color:#999}
+.pro-it td .sto-pr{display:inline-flex;vertical-align:middle;margin:0}.pro-it td .sto-v{display:none}
+body.pro .pro-mor .kg-home{margin:0}
+.pro-kj{display:block;margin:5px 0 0;border:1px solid #d9cfee;background:#f6f2fc;border-radius:6px;padding:2px 5px;font-size:10.5px;line-height:1.4;color:#3d2a73;text-align:left;white-space:normal;font-weight:400}
+.pro-kj b{color:#5b3fa0;font-size:10.5px;display:inline}
+`; document.head.appendChild(s); })();
+</script>
+<!-- /prohome1127 -->
 </body>
 </html>
