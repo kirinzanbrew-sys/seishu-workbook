@@ -9688,6 +9688,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-27-12','🍶','仕込み','上槽後の日本酒度の「±」ボタンを表からなくしました。日本酒度の欄を押すと、数字キーボードのすぐ上に「＋」「−」の帯が出ます。押すと符号が切り替わります（「完了」で閉じる）。'],
   ['2026-11-27-11','🍶','仕込み','仕込みの表の上槽後（上槽先タンク・分析値・尺・量）を、浮いた箱ではなく表のマスにそろえて出すようにしました。上槽翌日から右の日の列に T◯｜T◯｜合算 が1列ずつ入ります（右に日の列が足りないときだけ今までの箱）。入力のしかたは今までどおりです。'],
   ['2026-11-27-10','🌾','米管理','「在庫0を隠す」をボタンからスイッチにして、表の左上（品種のマス）に移しました。スイッチを入れる（緑）と在庫0の品種を隠します。'],
   ['2026-11-27-9','🌾','米管理','在庫管理の上に「在庫0を隠す」スイッチを付けました。押すと（紺色になります）、表示している期間ずっと在庫が0で入荷・払出も無い品種を表から隠します。もう一度押すと全品種に戻ります。'],
@@ -15879,7 +15880,7 @@ function ydB3(box, m){   // 2026-11-06 泰広さん：案B（上槽翌日のマ�
   for(let r=1;r<use.length;r++){
     if(KEY[r]){ const k=KEY[r];
       h+=line(Dc.map((c,ci)=>{ if(!c.d) return '<span></span>'; const a=ydAna(m,c.t), t=esc(c.t), v=a?f(a[k],k):'';
-        return `<span class="yd-s1i yd-aic">${k==='smv'?`<button type="button" class="yd-pm" data-ydno="${no}" data-ydt="${t}" title="＋／−を切り替え">±</button>`:''}<input type="text" inputmode="decimal" class="yd-ai" data-ig-skip="1" data-ydno="${no}" data-ydt="${t}" data-k="${k}" data-ydc="${ci}" data-ydr="${r}" value="${esc(v)}" placeholder="${!a&&r===1?'未':NA[k]}" autocomplete="off"></span>`; }), sumK(k)?`<b>${sumK(k)}</b>`:(r===1&&sm.needL?'<span class="yd-needL">量待ち</span>':'')); }
+        return `<span class="yd-s1i yd-aic"><input type="text" inputmode="decimal" class="yd-ai" data-ig-skip="1" data-ydno="${no}" data-ydt="${t}" data-k="${k}" data-ydc="${ci}" data-ydr="${r}" value="${esc(v)}" placeholder="${!a&&r===1?'未':NA[k]}" autocomplete="off"></span>`; }), sumK(k)?`<b>${sumK(k)}</b>`:(r===1&&sm.needL?'<span class="yd-needL">量待ち</span>':'')); }
     else if(r===5) h+=line(Dc.map((c,ci)=>c.d?`<span class="yd-s1i"><i>尺</i><input type="text" inputmode="numeric" class="yd-sk" data-ydno="${no}" data-ydt="${esc(c.t)}" data-ydc="${ci}" data-ydr="5" value="${esc(String(c.d.mm||''))}" autocomplete="off"></span>`:'<span></span>'), '');
     else if(r===6){ const tot=D.reduce((a,d)=>a+(ydN(d.L)||0),0);
       h+=line(Dc.map(c=>c.d?`<span class="yd-s1i"><i>L</i><b class="yd-skL" data-ydno="${no}" data-ydt="${esc(c.t)}">${ydN(c.d.L)===null?'—':ydL(c.d.L)}</b></span>`:'<span></span>'), tot?`<span class="yd-s1i"><i>L</i><b>${ydL(tot)}</b></span>`:''); }
@@ -15895,7 +15896,7 @@ function ydB3(box, m){   // 2026-11-06 泰広さん：案B（上槽翌日のマ�
     if(r===0) return `<span class="yd-tkw"><i>T</i><input type="text" inputmode="numeric" class="yd-tki" data-ig-skip="1" data-ydno="${no}" data-ydt="${tt}" data-ydc="${ci}" data-ydr="0" value="${tt}" placeholder="${D.length?'追加':'上槽先'}" autocomplete="off"></span>`;
     if(!c.d) return '';
     if(KEY[r]){ const k=KEY[r], a=ydAna(m,c.t), v=a?f(a[k],k):'';
-      return `<span class="yd-s1i yd-aic">${k==='smv'?`<button type="button" class="yd-pm" data-ydno="${no}" data-ydt="${tt}" title="＋／−を切り替え">±</button>`:''}<input type="text" inputmode="decimal" class="yd-ai" data-ig-skip="1" data-ydno="${no}" data-ydt="${tt}" data-k="${k}" data-ydc="${ci}" data-ydr="${r}" value="${esc(v)}" placeholder="${!a&&r===1?'未':NA[k]}" autocomplete="off"></span>`; }
+      return `<span class="yd-s1i yd-aic"><input type="text" inputmode="decimal" class="yd-ai" data-ig-skip="1" data-ydno="${no}" data-ydt="${tt}" data-k="${k}" data-ydc="${ci}" data-ydr="${r}" value="${esc(v)}" placeholder="${!a&&r===1?'未':NA[k]}" autocomplete="off"></span>`; }
     if(r===5) return `<span class="yd-s1i"><i>尺</i><input type="text" inputmode="numeric" class="yd-sk" data-ydno="${no}" data-ydt="${tt}" data-ydc="${ci}" data-ydr="5" value="${esc(String(c.d.mm||''))}" autocomplete="off"></span>`;
     if(r===6) return `<span class="yd-s1i"><i>L</i><b class="yd-skL" data-ydno="${no}" data-ydt="${tt}">${ydN(c.d.L)===null?'—':ydL(c.d.L)}</b></span>`;
     return ''; };
@@ -16014,6 +16015,31 @@ document.addEventListener('click', e=>{ const b=e.target&&e.target.closest&&e.ta
   const n=ydAnaParse(el.value);
   if(n===null||Number.isNaN(n)){ el.value=/^-/.test(el.value)?el.value.replace(/^-/,''):'-'+el.value; el.focus(); return; }
   el.value=ydSg(-n); ydSaveAna(b.dataset.ydno, b.dataset.ydt, 'smv', String(-n), el); }, true);
+/* 2026-11-27 泰広さん：案B。日本酒度の欄を打つときだけ、キーボードのすぐ上に「＋」「−」の帯（表には出さない）。数字キーボードのまま */
+(function(){
+  let bar=null, cur=null;
+  const mk=()=>{ if(bar) return bar; bar=document.createElement('div'); bar.className='yd-smbar';
+    bar.innerHTML='<span class="l">日本酒度</span><button type="button" data-s="+">＋</button><button type="button" data-s="-">−</button><button type="button" class="d" data-s="ok">完了</button>';
+    bar.addEventListener('mousedown',e=>e.preventDefault()); bar.addEventListener('touchstart',e=>{ if(e.target.closest('button')) e.preventDefault(); },{passive:false});
+    bar.addEventListener('touchend',e=>{ const b=e.target.closest('button'); if(b){ e.preventDefault(); act(b.dataset.s); } });
+    bar.addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) act(b.dataset.s); });
+    document.body.appendChild(bar); return bar; };
+  const mark=()=>{ if(!bar||!cur) return; const neg=/^\s*[-−－ー]/.test(cur.value);
+    bar.querySelector('[data-s="+"]').classList.toggle('on',!neg); bar.querySelector('[data-s="-"]').classList.toggle('on',neg); };
+  const place=()=>{ if(!bar) return; const vv=window.visualViewport; const off=vv?Math.max(0, window.innerHeight-(vv.height+vv.offsetTop)):0; bar.style.bottom=off+'px'; };
+  function act(s){ const el=cur; if(!el) return;
+    if(s==='ok'){ el.blur(); return; }
+    let v=String(el.value||'').trim().replace(/^[+＋\-−－ー]/,'');
+    el.value=(s==='-'?'-':'')+v;
+    if(v!==''){ const n=ydAnaParse(el.value); if(n!==null && !Number.isNaN(n)){ el.value=ydSg(n); ydSaveAna(el.dataset.ydno, el.dataset.ydt, 'smv', String(n), el); } }
+    try{ el.focus(); const L=el.value.length; el.setSelectionRange(L,L); }catch(_){} mark(); }
+  document.addEventListener('focusin', e=>{ const el=e.target; if(!(el&&el.classList&&el.classList.contains('yd-ai')&&el.dataset.k==='smv')) return;
+    cur=el; mk().classList.add('on'); place(); mark(); }, true);
+  document.addEventListener('focusout', e=>{ const el=e.target; if(el!==cur) return;
+    setTimeout(()=>{ const a=document.activeElement; if(a&&a.classList&&a.classList.contains('yd-ai')&&a.dataset.k==='smv') return; if(bar) bar.classList.remove('on'); cur=null; }, 120); }, true);
+  document.addEventListener('input', e=>{ if(e.target===cur) mark(); }, true);
+  if(window.visualViewport){ visualViewport.addEventListener('resize', place); visualViewport.addEventListener('scroll', place); }
+})();
 /* 上槽先のタンクを追加（右の空欄を出す） */
 document.addEventListener('click', e=>{ const b=e.target&&e.target.closest&&e.target.closest('.yd-tkadd[data-ydno]'); if(!b) return;
   e.stopPropagation(); e.preventDefault();
@@ -16378,6 +16404,18 @@ function ydRecOpen(no, date, step){
 .yd-dtog.on i{background:#2f7d5d}.yd-dtog.on i::after{left:18px}.yd-dtog small{font-size:11px;color:#6b7480;font-weight:600}
 .kg-t tr.yd-donerow td{background:#f2f4f2!important;color:#777}.kg-t tr.yd-donerow td .kg-i{color:#777}
 .yd-djt{display:inline-block;margin-top:3px;font-size:10px;font-weight:800;color:#fff;background:#2f7d5d;border-radius:4px;padding:0 4px;white-space:nowrap}
+/* 2026-11-27 日本酒度の＋／−の帯（案B） */
+.yd-smbar{position:fixed;left:0;right:0;bottom:0;z-index:2000;display:none;align-items:center;gap:8px;background:#f3f4f6;border-top:1px solid #c8ccd2;padding:6px 10px calc(6px + env(safe-area-inset-bottom))}
+.yd-smbar.on{display:flex}
+.yd-smbar .l{font-size:12px;color:#555}
+.yd-smbar button{border:1px solid #c8ccd2;background:#fff;border-radius:8px;padding:5px 18px;font-size:19px;font-weight:800;color:#0f7c80;font-family:inherit}
+.yd-smbar button.on{background:#0f7c80;color:#fff;border-color:#0f7c80}
+.yd-smbar button.d{margin-left:auto;border:0;background:none;color:#1f6fe5;font-size:15px;font-weight:700;padding:5px 6px}
+/* 2026-11-27 日本酒度の＋／−を入力の枠の中に（枠の外のボタンをなくす） */
+.yd-smw{display:flex;align-items:center;flex:1 1 auto;min-width:0;border:1px solid #8cc7c9;border-radius:4px;background:#fff;height:20px;overflow:hidden}
+.yd-smw:focus-within{outline:2px solid #f0a500;outline-offset:-1px}
+.kg-t .yd-smw button.yd-pm{flex:0 0 14px;width:14px;height:100%;border:0;border-right:1px solid #d6e9dc;background:#eef7f7;color:#0f7c80;font-size:10px}
+.kg-t .yd-smw input.yd-ai{border:0!important;border-radius:0;height:100%;outline:0!important;padding-left:2px}
 /* 2026-11-27 案1：上槽後はマスにそろえる（浮かせない） */
 .yd-ov.yd-cell{position:static;outline:0;box-shadow:none;border-radius:0;background:transparent;overflow:visible;display:flex;align-items:center;justify-content:flex-end;min-height:18px}
 .yd-ov.yd-cell .yd-s1i{width:100%}
