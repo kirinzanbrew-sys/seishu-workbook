@@ -2236,7 +2236,7 @@ function bindDayNav(fn){
 
 /* ---------- 米引き取り予定：この先の分だけ（在庫管理の中） ---------- */
 function hikitoriSoon(day){
-  const H = MFG && MFG.hikitori;
+  const H = hkGet();
   if(!H || !H.days || !Object.keys(H.days).length){
     return `<div class="mf-sec">米の引き取り予定</div>
       <div class="card" style="color:var(--sub);font-size:13px">引取予定のデータがまだ届いていません。<br>
@@ -2283,7 +2283,7 @@ function hikitoriScreen(){
 
 /* ---------- 米引き取り予定：日付×品種の表 ---------- */
 function hikitoriView(){
-  const H = MFG && MFG.hikitori, Z = MFG && MFG.zaiko;
+  const H = hkGet(), Z = MFG && MFG.zaiko;
   if(!H || !H.days || !Object.keys(H.days).length){
     return `<div class="card" style="color:var(--sub);font-size:13px">引取予定のデータがまだ届いていません。<br>
       会社PCの「AI参照データ＼米引き取り予定」に予定表のExcelを置くと、数分でここに出ます。</div>`;
@@ -2319,7 +2319,7 @@ function hikitoriView(){
    不足の判定は「前日までの在庫」だけで見る（当日の引取は当てにしない）。 */
 let RICE = null, RICE_AT = 0;
 function riceCalc(){
-  const Z = MFG && MFG.zaiko, H = MFG && MFG.hikitori, S = MFG && MFG.senmai;
+  const Z = MFG && MFG.zaiko, H = hkGet(), S = MFG && MFG.senmai;
   if(!Z || !Z.vars) return null;
   if(RICE && RICE_AT === (MFG._at||0)) return RICE;
   const vars = Z.vars, idx = {}; vars.forEach((v,i)=>idx[v]=i);
@@ -2444,6 +2444,249 @@ function riceTightView(){
   return h;
 }
 
+/* ===== 入荷予定（引取予定表）の変更 2026-11-26 泰広さん指示 =====
+   在庫管理の表の「予＋◯」を押すと、日付・袋数を変える窓。記録は共有データ「米増減」に 区分＝引取変更
+   （id＝hc_元の日付_品種、date＝元の日付、qty＝新しい袋数、memo＝{"to":新しい日付,"b0":元の袋数}）。
+   引取予定Excelの元の行が書き換わっていたら（袋数が b0 と違う・行が無い）、Excel を優先してこの変更は使わない。 */
+let HKE=null, HKE_K='';
+function hkOv(){ try{ return (RZ.items||[]).filter(x=>x.kind==='引取変更' && x.date); }catch(e){ return []; } }
+function hkMemo(x){ try{ return JSON.parse(x.memo||'{}')||{}; }catch(e){ return {}; } }
+function hkGet(){
+  const H=MFG&&MFG.hikitori; if(!H||!H.days) return H;
+  const ov=hkOv(); if(!ov.length) return H;
+  const key=(MFG._at||0)+'|'+JSON.stringify(ov.map(x=>[x.id,x.qty,x.memo]));
+  if(HKE&&HKE_K===key) return HKE;
+  const days=JSON.parse(JSON.stringify(H.days)), src={};
+  ov.forEach(x=>{ const m=hkMemo(x), o=days[x.date], cur=o?Number(o[x.name])||0:0;
+    if(!(cur>0) || (m.b0!=null && Math.abs(cur-Number(m.b0))>0.01)) return;   // Excel側が変わっていたらExcelを優先
+    delete o[x.name]; if(!Object.keys(o).length) delete days[x.date];
+    const to=/^\d{4}-\d\d-\d\d$/.test(m.to||'')?m.to:x.date, nb=Number(x.qty)||0;
+    (src[to]=src[to]||{})[x.name]={from:x.date, b0:cur, id:x.id, nb};
+    if(nb>0){ days[to]=days[to]||{}; days[to][x.name]=(Number(days[to][x.name])||0)+nb; }
+  });
+  const ks=Object.keys(days).sort();
+  HKE=Object.assign({},H,{days, src, first:(ks[0]&&(!H.first||ks[0]<H.first))?ks[0]:H.first, last:(ks.length&&(!H.last||ks[ks.length-1]>H.last))?ks[ks.length-1]:H.last});
+  HKE_K=key; return HKE;
+}
+/* ===== 在庫管理：見通し表（案B-1）2026-11-26 泰広さん指示 =====
+   品種×これから14日の表（kg）。マスを押すと、その日の入荷・増減・確認を入れる画面が下から出る。
+   品種名を押すと、その品種の減り方のグラフ。足りる品種には状態を出さない。 */
+let ZBF = null, ZB_RENDER = null, ZB_LAND = null;
+function zbN(){ return window.innerWidth>window.innerHeight ? 21 : 14; }   // 縦14日・横21日
+function zbMd(d){ return Number(d.slice(5,7))+'/'+Number(d.slice(8,10)); }
+function zbW(d){ return WD[dparse(d).getDay()]; }
+function zbCtx(){
+  const Z=MFG&&MFG.zaiko; if(!Z||!Z.vars) return null;
+  const keys=Object.keys(Z.days).sort();
+  const RC=riceCalc(), hk=!!(RC&&RC.hasHiki), H=hkGet(), bag=(H&&H.bag)||BAG_KG;
+  const raw=(i,d)=>{ let k=null; for(const x of keys){ if(x<=d) k=x; else break; } return k?(Z.days[k].s[i]||0):0; };
+  const stock=(v,i,d)=>{ const b=hk?((RC.balAt(dadd(d,1))||[])[i]||0):raw(i,d); return b+rzCum(v,d)+(hk?0:rkCum(v,d)); };
+  const hy=(v,d)=>(hk&&H&&H.days&&H.days[d]&&(!RC.R||d>RC.R))?(Number(H.days[d][v])||0)*bag:0;
+  const zi=(i,d)=>(Z.days[d]&&Z.days[d].i[i])||0, zo=(i,d)=>(Z.days[d]&&Z.days[d].o[i])||0;
+  return {Z,keys,RC,hk,H,bag,raw,stock,hy,zi,zo};
+}
+function zbStat(C,v,i,day){
+  const lim = (C.hk&&C.RC.coverTo)?C.RC.coverTo:null;
+  for(let k=0;k<=60;k++){ const d=dadd(day,k); if(lim&&d>lim) break; if(C.Z.last&&d>C.Z.last) break;
+    if(C.stock(v,i,d)<-0.05){ const lv=k<=7?'ng':k<=14?'wn':''; return lv?{lv,txt:k===0?'不足中':zbMd(d)+'不足',d}:null; } }
+  return null;
+}
+function zbTop(day){
+  const C=zbCtx(); const t=dtoday();
+  let ng=0,wn=0,ck=0,live=0;
+  if(C){ const zv=zvOf(day); C.Z.vars.forEach((v,i)=>{ const s=zbStat(C,v,i,day); if(s&&s.lv==='ng')ng++; if(s&&s.lv==='wn')wn++;
+    if(C.raw(i,day)||C.zi(i,day)||C.zo(i,day)){ live++; if(zv[v]) ck++; } }); }
+  return `<div class="zb-top"><div class="zb-dn"><button id="dPrev">◀</button><button id="dToday" class="d" title="今日に戻る">${dshort(day)}${day===t?'':' <small>今日へ</small>'}</button><button id="dNext">▶</button></div>
+    <button id="zbIn" class="zb-ic" title="米の入荷を手で入れる">🚚<span>入荷</span></button>
+    <div class="zb-sm">${ng?`<span class="ng">不足${ng}</span>`:''}${wn?`<span class="wn">少${wn}</span>`:''}<span>確認${ck}/${live}</span></div></div>`;
+}
+function zbView(day){
+  const C=zbCtx(); if(!C) return '';
+  const days=[...Array(zbN())].map((_,k)=>dadd(day,k));
+  const difs={}; days.forEach(d=>{ (zaiDiff(d)||[]).forEach(r=>{ difs[d+'|'+r.v]=r; }); });
+  const zvs={}; days.forEach(d=>zvs[d]=zvOf(d));
+  const rows=[]; C.Z.vars.forEach((v,i)=>{ const any=days.some(d=>Math.abs(C.stock(v,i,d))>0.05||C.zi(i,d)||C.zo(i,d)||C.hy(v,d)||rkDay(v,d)); if(any) rows.push({v,i,st:zbStat(C,v,i,day)}); });
+  const ord={ng:0,wn:1}; rows.sort((a,b)=>((a.st?ord[a.st.lv]:2)-(b.st?ord[b.st.lv]:2))||(a.i-b.i));
+  const f=n=>kgfmt(Math.round(n));
+  let h=`<div class="zb-lg"><span><i style="background:#fdecea;border:1px solid #b23b3b"></i>足りない</span><span><i style="background:#fff6e0"></i>翌日の分が無い</span><span><b style="color:#1b7f3b">緑</b>入荷済み</span><span><b class="zb-hl">青</b>入荷予定（押すと変更）</span><span style="color:#8a6d1f">−払出</span><span>kg</span><span style="color:#2f7d5d">✓確認</span></div>
+    <div class="zb-mx zb-f" id="zbMx"><table><thead><tr><th class="v">品種</th><th class="k"></th>${days.map(d=>{const w=dparse(d).getDay();return `<th class="${w===0||w===6?'we':''}">${zbMd(d)}<br>${WD[w]}</th>`;}).join('')}</tr></thead><tbody>`;
+  // 2026-11-27 泰広さん指示：受払表の形（品種ごとに 入・払・在 の3行）
+  rows.forEach(r=>{
+    const m=r.v.match(/^(.+?)(\d+)%$/);
+    const cs=days.map((d,k)=>{ const s=C.stock(r.v,r.i,d), o=C.zo(r.i,d), inn=C.zi(r.i,d)+rkDay(r.v,d), hyv=C.hy(r.v,d), adj=rzVal(r.v,d), mvd=C.H&&C.H.src&&C.H.src[d]&&C.H.src[d][r.v];
+      const nx=C.zo(r.i,dadd(d,1)), zr=zvs[d][r.v];
+      let c=''; if(s<-0.05)c='z'; else if(nx&&s<nx-0.05)c='lo'; else if(Math.abs(s)<0.05&&!inn&&!hyv&&!o)c='em';
+      if(k===0)c+=' tdy'; if(zr)c+=zr.mode==='現状維持'?' ckk':' ck'; if(rkDay(r.v,d)||adj)c+=' ed';
+      return {d,s,o,inn,hyv,adj,mvd,c,k}; });
+    const at=x=>`data-zbc="${esc(r.v)}|${x.d}"`;
+    h+=`<tr class="r-i"><th class="v" rowspan="3" data-zbv="${esc(r.v)}"><span class="nm"><b>${esc(m?m[1]:r.v)}</b>${m?ratioBadge(Number(m[2])):''}</span>${r.st?`<span class="stt ${r.st.lv}">${r.st.txt}</span>`:''}</th><th class="k">入</th>`;
+    cs.forEach(x=>{ h+=`<td ${at(x)}>${x.hyv?`<span class="h${x.mvd?' mv':''}" data-zbh="${esc(r.v)}|${x.d}">${f(x.hyv)}</span>`:''}${x.inn?`<span class="i">${f(x.inn)}</span>`:''}</td>`; });
+    h+=`</tr><tr class="r-o"><th class="k">払</th>`;
+    cs.forEach(x=>{ h+=`<td ${at(x)}>${x.o?'−'+f(x.o):''}${x.adj?`<span class="a">${x.adj>0?'＋':'−'}${kgfmt(Math.abs(x.adj))}増減</span>`:''}</td>`; });
+    h+=`</tr><tr class="r-s"><th class="k">在</th>`;
+    cs.forEach(x=>{ h+=`<td class="${x.c}" ${at(x)}>${difs[x.d+'|'+r.v]?'<span class="zx">※</span>':''}${f(x.s)}</td>`; });
+    h+='</tr>';
+  });
+  h+=`</tbody><tfoot><tr><th class="v">合計</th><th class="k">在</th>${days.map(d=>{ let s=0,o=0; rows.forEach(r=>{ s+=C.stock(r.v,r.i,d); o+=C.zo(r.i,d); }); return `<td class="${s<0?'neg':''}">${f(s)}${o?`<span class="o">−${f(o)}</span>`:''}</td>`; }).join('')}</tr></tfoot></table></div>
+    <div class="zb-nt">マスを押す＝その日の入荷・増減・確認　品種名を押す＝その品種の動き${C.hk?'　在庫は引取予定を入れて計算した数':''}${Object.keys(difs).length?'　<b style="color:#b02a26">※</b>＝品種受払の在庫欄と計算が合わない日':''}</div>
+    <div id="zbSh"></div>`;
+  return h;
+}
+function zbClose(){ const b=$('#zbSh'); if(b) b.innerHTML=''; ZBF=null; }
+function zbOpen(v,d,render){ ZBF={v,d,bag:0,frac:0,adj:rzVal(v,d),ck:null,undo:false,busy:false}; zbDraw(render); }
+function zbDraw(render){
+  const b=$('#zbSh'); if(!b||!ZBF) return; const C=zbCtx(); if(!C) return;
+  const F=ZBF, v=F.v, d=F.d, i=C.Z.vars.indexOf(v); if(i<0) return;
+  const m=v.match(/^(.+?)(\d+)%$/), lab=m?`<b>${esc(m[1])}</b>${ratioBadge(Number(m[2]))}`:esc(v);
+  const prev=C.stock(v,i,dadd(d,-1)), zi=C.zi(i,d), hy=C.hy(v,d), rk=rkDay(v,d), o=C.zo(i,d);
+  const add=F.bag*BAG_KG+F.frac, adj0=rzVal(v,d), end=C.stock(v,i,d)+add+(F.adj-adj0);
+  const zr=zvOf(d)[v], dif=(zaiDiff(d)||[]).find(r=>r.v===v);
+  const rks=rkItems().filter(x=>x.name===v&&x.date===d);
+  const row=(a,bb,st)=>`<div class="tr"><span>${a}</span><b${st?` style="${st}"`:''}>${bb}</b></div>`;
+  let h=`<div class="zb-bg" data-zbx="1"></div><div class="zb-sheet"><span class="x" data-zbx="1">✕</span><h4>${lab}　${dshort(d)}</h4>
+    <div class="calc">${row('前日の在庫',kgfmt(prev)+' kg')}
+    ${zi?row('＋ 受入（造りex）',kgfmt(zi),'color:#1b7f3b'):''}${hy?`<div class="tr" data-zbh="${esc(v)}|${d}" style="cursor:pointer"><span>＋ 入荷予定 <small style="color:#1f5fa8;text-decoration:underline">変更</small></span><b style="color:#1f5fa8">${kgfmt(hy)}</b></div>`:''}${rk?row('＋ 入荷（手入力）',kgfmt(rk),'color:#1b7f3b'):''}${add?row('＋ いま入れる入荷',kgfmt(add),'color:#1b7f3b'):''}
+    ${row('− 払出（洗米）',o?kgfmt(o):'0')}${F.adj?row('± 増減',(F.adj>0?'＋':'')+kgfmt(F.adj)):''}
+    <div class="tr eq"><span>＝ この日の終わり</span><b class="${end<0?'mf-neg':''}">${kgfmt(end)} kg（${bags(end).replace(/<\/?b>/g,'')}）</b></div></div>`;
+  if(dif) h+=`<div class="zb-dif">※ 品種受払の在庫欄（${kgfmt(dif.s)}kg）と計算（${kgfmt(dif.calc)}kg）が <b>${dif.diff>0?'＋':''}${kgfmt(dif.diff)}kg</b> 合っていません</div>`;
+  h+=`<div class="fl">入荷（この日に受け入れた米を足す）</div>
+    <div class="stp"><button data-zbb="-1">−</button><div class="val">${F.bag} 袋</div><button data-zbb="1">＋</button>
+    <select id="zbFr">${[...Array(BAG_KG)].map((_,k)=>`<option value="${k}" ${k===F.frac?'selected':''}>＋${k}kg</option>`).join('')}</select></div>
+    <div class="qk">${[10,50,100,200].map(n=>`<span data-zbb="${n}">＋${n}袋</span>`).join('')}<span data-zbb0="1">0に戻す</span></div>`;
+  if(rks.length) h+=`<div class="zb-rk">${rks.map(x=>`<div><span>入力済み ${kgfmt(rzNum(x))}kg${x.memo?'　'+esc(x.memo):''}${x.by?'　'+esc(nrm(x.by)):''}</span><button data-zbdel="${esc(x.id)}">消す</button></div>`).join('')}</div>`;
+  h+=`<div class="fl">増減（計量の差・こぼれなど）　いま <b>${F.adj>0?'＋':''}${kgfmt(F.adj)} kg</b></div>
+    <div class="qk">${[-30,-10,-5,-1,1,5,10,30].map(n=>`<span data-zba="${n}">${n>0?'＋':''}${n}</span>`).join('')}<span data-zba0="1">0</span></div>
+    <div class="fl">在庫の確認</div>`;
+  if(zr) h+=`<div class="zb-done"><span class="ok">✓ 在庫確認 完了</span><small>${esc(nrm(zr.by))}${zr.at?'　'+esc(tjp(zr.at)):''}</small><button data-zbu1="1">取消</button></div>`;
+  else h+=`<button class="zb-ck" data-zbok="1">在庫確認</button>`;
+  h+=`<button class="btn p zb-save" id="zbSave" ${F.busy?'disabled':''}>${F.busy?'保存しています…':'この内容で保存'}</button></div>`;
+  b.innerHTML=h;
+  b.querySelectorAll('[data-zbx]').forEach(e=>e.onclick=zbClose);
+  b.querySelectorAll('[data-zbh]').forEach(e=>e.onclick=()=>{ const [hv,hd]=e.dataset.zbh.split('|'); hkOpen(hv,hd,render); });
+  b.querySelectorAll('[data-zbb]').forEach(e=>e.onclick=()=>{ F.bag=Math.max(0,F.bag+Number(e.dataset.zbb)); zbDraw(render); });
+  b.querySelectorAll('[data-zbb0]').forEach(e=>e.onclick=()=>{ F.bag=0; F.frac=0; zbDraw(render); });
+  const fr=$('#zbFr'); if(fr) fr.onchange=()=>{ F.frac=Number(fr.value)||0; zbDraw(render); };
+  b.querySelectorAll('[data-zba]').forEach(e=>e.onclick=()=>{ F.adj=Math.round((F.adj+Number(e.dataset.zba))*10)/10; zbDraw(render); });
+  b.querySelectorAll('[data-zba0]').forEach(e=>e.onclick=()=>{ F.adj=0; zbDraw(render); });
+  b.querySelectorAll('[data-zbk]').forEach(e=>e.onclick=()=>{ F.ck=F.ck?null:e.dataset.zbk; zbDraw(render); });
+  b.querySelectorAll('[data-zbu]').forEach(e=>e.onclick=()=>{ F.undo=!F.undo; zbDraw(render); });
+  const zck=async(body,btn,msg)=>{ btn.disabled=true; btn.textContent='送信しています…';
+    try{ const j=await apiT(Object.assign({token:ST.token},body),40000);
+      if(j&&j.ok){ if(j.zchecks) MFG.zchecks=j.zchecks; if(j.zvchecks) MFG.zvchecks=j.zvchecks; lsSet('mfg.cache',MFG); rzToast(msg); const keep={v:F.v,d:F.d}; render(); zbOpen(keep.v,keep.d,render); }
+      else { btn.disabled=false; rzToast(mfgErrJP(j&&j.err),true); zbDraw(render); } }
+    catch(err){ rzToast('通信できませんでした。電波の良い場所でもう一度お試しください。',true); zbDraw(render); } };
+  b.querySelectorAll('[data-zbok]').forEach(e=>e.onclick=()=>zck({action:'mfg_zv', date:d, v, mode:'確認', diff:dif?dif.diff:0, stock:C.raw(i,d)}, e, v+'（'+dshort(d)+'）の在庫確認をしました'));
+  b.querySelectorAll('[data-zbu1]').forEach(e=>e.onclick=()=>{ if(confirm('この在庫確認を取り消しますか？')) zck({action:'mfg_zv_undo', id:zr.id}, e, '在庫確認を取り消しました'); });
+  b.querySelectorAll('[data-zbdel]').forEach(e=>e.onclick=async()=>{
+    const x=rkItems().find(x=>x.id===e.dataset.zbdel); if(!x) return;
+    if(!confirm(dshort(x.date)+' '+x.name+' '+kgfmt(rzNum(x))+'kg の入荷を消しますか？')) return;
+    e.disabled=true; e.textContent='…';
+    try{ rzKeep(await rzApi({action:'delete', id:x.id})); RICE=null; rzToast('入荷を消しました'); render(); zbDraw(render); }
+    catch(err){ e.disabled=false; e.textContent='消す'; rzToast('消せませんでした：'+String(err.message||err),true); }
+  });
+  $('#zbSave').onclick=async()=>{
+    if(F.busy) return;
+    const add=Math.round((F.bag*BAG_KG+F.frac)*10)/10, adjCh=Math.abs(F.adj-rzVal(v,d))>0.05;
+    if(!add && !adjCh && !F.ck && !F.undo){ zbClose(); return; }
+    F.busy=true; zbDraw(render); const done=[];
+    try{
+      if(add>0){ rzKeep(await rzApi({action:'save', item:{ id:'rk_'+Date.now().toString(36)+Math.floor(Math.random()*1296).toString(36), name:v, kind:'入荷', qty:String(add), unit:'kg', date:d, memo:'' }})); done.push('入荷 '+kgfmt(add)+'kg'); }
+      if(adjCh){ const n=Math.round(F.adj*10)/10, id='rz_'+d+'_'+v, old=RZ.items.find(x=>x.id===id);
+        if(old) old.qty=n?String(n):''; else RZ.items.push({ id, name:v, date:d, qty:String(n), unit:'kg' });
+        rzKeep(await rzApi({action:'save', item:{ id, name:v, kind:'増減', qty:n?String(n):'', unit:'kg', date:d, memo:'' }})); done.push('増減 '+(n?((n>0?'＋':'')+n+'kg'):'（取消）')); }
+      if(F.ck||F.undo){
+        const body=F.undo?{action:'mfg_zv_undo', id:zr.id}:{action:'mfg_zv', date:d, v, mode:F.ck, diff:dif?dif.diff:0, stock:C.raw(i,d)};
+        const j=await apiT(Object.assign({token:ST.token},body),40000);
+        if(j&&j.ok){ if(j.zchecks) MFG.zchecks=j.zchecks; if(j.zvchecks) MFG.zvchecks=j.zvchecks; lsSet('mfg.cache',MFG); done.push(F.undo?'確認の取消':F.ck); }
+        else throw new Error(mfgErrJP(j&&j.err));
+      }
+      RICE=null; rzToast(v+'（'+dshort(d)+'）'+done.join('・')+' を保存しました'); ZBF=null; render();
+    }catch(err){
+      F.busy=false; RICE=null; zbDraw(render);
+      rzToast((done.length?done.join('・')+' は保存しました。':'')+'保存できませんでした：'+String(err.message||err),true);
+    }
+  };
+}
+/* 入荷予定を変える窓（予＋◯ を押したとき） */
+function hkOpen(v,d,render){
+  const H=hkGet(); if(!H||!H.days) return;
+  const sv=H.src&&H.src[d]&&H.src[d][v];
+  const from=sv?sv.from:d, b0=sv?sv.b0:(Number((H.days[d]||{})[v])||0);
+  const cur=sv?sv.nb:b0;
+  ZBF={hk:1, v, from, b0, to:d, nb:cur, id:sv?sv.id:null, busy:false};
+  hkDraw(render);
+}
+function hkDraw(render){
+  const b=$('#zbSh'), F=ZBF; if(!b||!F||!F.hk) return;
+  const m=F.v.match(/^(.+?)(\d+)%$/), lab=m?`<b>${esc(m[1])}</b>${ratioBadge(Number(m[2]))}`:esc(F.v);
+  const bag=((MFG&&MFG.hikitori&&MFG.hikitori.bag)||BAG_KG);
+  const opts=[]; for(let k=-14;k<=45;k++){ const x=dadd(F.from,k); opts.push(`<option value="${x}" ${x===F.to?'selected':''}>${dshort(x)}${x===F.from?'（元の予定）':''}</option>`); }
+  const ch=(F.to!==F.from)||(F.nb!==F.b0);
+  b.innerHTML=`<div class="zb-bg" data-zbx="1"></div><div class="zb-sheet"><span class="x" data-zbx="1">✕</span>
+    <h4>入荷予定の変更　${lab}</h4>
+    <div class="hk-was">引取予定表：<b>${dshort(F.from)}　${F.b0}袋（${kgfmt(F.b0*bag)}kg）</b>${F.id?'　→ いまは変更しています':''}</div>
+    <div class="fl">入荷する日</div>
+    <div class="hk-d"><button data-hkd="-1">◀</button><select id="hkTo">${opts.join('')}</select><button data-hkd="1">▶</button></div>
+    <div class="fl">袋数（1袋＝${bag}kg）</div>
+    <div class="stp"><button data-hkb="-1">−</button><div class="val">${F.nb} 袋</div><button data-hkb="1">＋</button></div>
+    <div class="qk">${[-50,-10,-5,5,10,50].map(n=>`<span data-hkb="${n}">${n>0?'＋':''}${n}</span>`).join('')}<span data-hkb0="1">0（取りやめ）</span></div>
+    <div class="calc" style="margin-top:10px"><div class="tr eq"><span>変更後</span><b>${F.nb?`${dshort(F.to)}　${F.nb}袋（${kgfmt(F.nb*bag)}kg）`:'<span class="mf-neg">取りやめ</span>'}</b></div></div>
+    <div class="two">${F.id?'<span class="btn" data-hkr="1">元の予定に戻す</span>':''}<button class="btn p zb-save" id="hkSave" style="margin:0" ${F.busy||!ch&&!F.id?'disabled':''}>${F.busy?'保存しています…':'この予定にする'}</button></div>
+    <div class="ro" style="font-size:11px;color:var(--sub);margin-top:6px">引取予定表（Excel）はそのままです。Excelの元の行を書き換えたときは、Excelのほうが使われます。</div></div>`;
+  b.querySelectorAll('[data-zbx]').forEach(e=>e.onclick=zbClose);
+  b.querySelectorAll('[data-hkd]').forEach(e=>e.onclick=()=>{ F.to=dadd(F.to,Number(e.dataset.hkd)); hkDraw(render); });
+  const sel=$('#hkTo'); if(sel) sel.onchange=()=>{ F.to=sel.value; hkDraw(render); };
+  b.querySelectorAll('[data-hkb]').forEach(e=>e.onclick=()=>{ F.nb=Math.max(0,F.nb+Number(e.dataset.hkb)); hkDraw(render); });
+  b.querySelectorAll('[data-hkb0]').forEach(e=>e.onclick=()=>{ F.nb=0; hkDraw(render); });
+  const done=async(fn,msg)=>{ F.busy=true; hkDraw(render);
+    try{ rzKeep(await fn()); RICE=null; HKE=null; rzToast(msg); ZBF=null; render(); }
+    catch(err){ F.busy=false; hkDraw(render); rzToast('保存できませんでした：'+String(err.message||err),true); } };
+  const r=b.querySelector('[data-hkr]'); if(r) r.onclick=()=>done(()=>rzApi({action:'delete', id:F.id}), F.v+' の入荷予定を元（'+dshort(F.from)+' '+F.b0+'袋）に戻しました');
+  $('#hkSave').onclick=()=>{
+    if(F.to===F.from && F.nb===F.b0){ if(F.id) r&&r.onclick(); else zbClose(); return; }
+    const id='hc_'+F.from+'_'+F.v;
+    done(()=>rzApi({action:'save', item:{ id, name:F.v, kind:'引取変更', qty:String(F.nb), unit:'袋', date:F.from, memo:JSON.stringify({to:F.to,b0:F.b0}) }}),
+      F.v+' の入荷予定を '+(F.nb?dshort(F.to)+' '+F.nb+'袋':'取りやめ')+' にしました');
+  };
+}
+function zbSum(v){
+  const b=$('#zbSh'); const C=zbCtx(); if(!b||!C) return; const i=C.Z.vars.indexOf(v); if(i<0) return;
+  const day=ZAI_DAY, from=dadd(day,-7), N=45, pts=[]; for(let k=0;k<N;k++){ const d=dadd(from,k); pts.push({d,s:C.stock(v,i,d),inn:C.zi(i,d)+rkDay(v,d)+C.hy(v,d)}); }
+  const mx=Math.max(BAG_KG,...pts.map(p=>p.s)), mn=Math.min(0,...pts.map(p=>p.s)), W=320,Ht=120,pl=30,pr=4,pt=6,pb=14;
+  const X=k=>pl+(W-pl-pr)*k/(N-1), Y=q=>pt+(Ht-pt-pb)*(mx-q)/((mx-mn)||1);
+  let p=''; pts.forEach((q,k)=>{ p+=(k?`L${X(k)},${Y(pts[k-1].s)}L`:'M')+`${X(k)},${Y(q.s)}`; });
+  let svg=`<svg viewBox="0 0 ${W} ${Ht}" width="100%">`; if(mn<0) svg+=`<rect x="${pl}" y="${Y(0)}" width="${W-pl-pr}" height="${Y(mn)-Y(0)}" fill="#fdecea"/>`;
+  svg+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(0)}" y2="${Y(0)}" stroke="#b23b3b"/><text x="${pl-3}" y="${Y(mx)+6}" font-size="8" text-anchor="end" fill="#888">${Math.round(mx/BAG_KG)}袋</text><text x="${pl-3}" y="${Y(0)+3}" font-size="8" text-anchor="end" fill="#888">0</text>`;
+  svg+=`<line x1="${X(7)}" x2="${X(7)}" y1="${pt}" y2="${Ht-pb}" stroke="#e6c34a" stroke-width="2"/><text x="${X(7)}" y="${Ht-3}" font-size="8" text-anchor="middle" fill="#9a7b12">${zbMd(day)}</text><text x="${X(N-1)}" y="${Ht-3}" font-size="8" text-anchor="end" fill="#999">${zbMd(pts[N-1].d)}</text>`;
+  svg+=`<path d="${p}" fill="none" stroke="#1b2a41" stroke-width="2"/>`; pts.forEach((q,k)=>{ if(q.inn) svg+=`<path d="M${X(k)},${Y(q.s)-3}l-4,-7h8z" fill="#1b7f3b"/>`; }); svg+='</svg>';
+  let use14=0, useAll=0; for(let k=1;k<=400;k++){ const d=dadd(day,k); if(C.Z.last&&d>C.Z.last) break; const o=C.zo(i,d); if(k<=14) use14+=o; useAll+=o; }
+  const st=zbStat(C,v,i,day), s=C.stock(v,i,day), m=v.match(/^(.+?)(\d+)%$/);
+  b.innerHTML=`<div class="zb-bg" data-zbx="1"></div><div class="zb-sheet"><span class="x" data-zbx="1">✕</span><h4>${m?`<b>${esc(m[1])}</b>${ratioBadge(Number(m[2]))}`:esc(v)}${st?`　<span class="stt ${st.lv}" style="font-size:12px">${st.txt}</span>`:''}</h4>${svg}
+    <div style="font-size:10.5px;color:var(--sub);text-align:center">線＝在庫　▼＝入荷　赤い帯＝0より下</div>
+    <div class="calc"><div class="tr"><span>${dshort(day)} の在庫</span><b class="${s<0?'mf-neg':''}">${kgfmt(s)} kg（${bags(s).replace(/<\/?b>/g,'')}）</b></div>
+    <div class="tr"><span>14日で使う</span><b>${kgfmt(use14)} kg</b></div><div class="tr"><span>この先の使用合計</span><b>${kgfmt(useAll)} kg</b></div></div></div>`;
+  b.querySelectorAll('[data-zbx]').forEach(e=>e.onclick=zbClose);
+}
+function zbBind(render){
+  ZB_RENDER=render; ZB_LAND=window.innerWidth>window.innerHeight;
+  app.querySelectorAll('[data-zbc]').forEach(td=>td.onclick=()=>{ const [v,d]=td.dataset.zbc.split('|'); zbOpen(v,d,render); });
+  app.querySelectorAll('[data-zbv]').forEach(th=>th.onclick=()=>zbSum(th.dataset.zbv));
+  const zin=$('#zbIn'); if(zin) zin.onclick=()=>{ const b=$('#zbSh'); if(!b) return; ZBF=null;
+    RKIN.open=true; RKIN.draft={ v:'', date:ZAI_DAY, bag:'', kg:'', memo:'' };
+    b.innerHTML=`<div class="zb-bg" data-zbx="1"></div><div class="zb-sheet zb-rkin"><span class="x" data-zbx="1">✕</span><h4>🚚 入荷</h4>${rkView(ZAI_DAY, MFG&&MFG.zaiko)}</div>`;
+    b.querySelectorAll('[data-zbx]').forEach(e=>e.onclick=()=>{ RKIN.open=false; RKIN.draft=null; zbClose(); });
+    rkBind(render); };
+  app.querySelectorAll('#zbMx [data-zbh]').forEach(e=>e.onclick=ev=>{ ev.stopPropagation(); const [v,d]=e.dataset.zbh.split('|'); hkOpen(v,d,render); });
+  document.body.classList.add('yo-wide');   // 横にしたとき画面いっぱいに（洗米予定表と同じ。ほかの画面に移ると head() で外れる）
+  zbFit();
+}
+function zbFit(){ const mx=$('#zbMx'); if(!mx) return; const land=window.innerWidth>window.innerHeight;
+  const r=mx.getBoundingClientRect(); const top=land?0:Math.max(r.top+window.scrollY-window.scrollY,0);
+  mx.style.maxHeight=Math.max(land?200:260, window.innerHeight-(land?16:top+40))+'px'; }
+window.addEventListener('resize',()=>{ if(!(app&&app.dataset&&app.dataset.mfg==='zaiRender')) return;
+  const land=window.innerWidth>window.innerHeight;
+  if(ZB_RENDER && land!==ZB_LAND && !ZBF && !(document.activeElement&&document.activeElement.classList&&document.activeElement.classList.contains('rkin'))) ZB_RENDER(); else zbFit(); });   // 向きが変わったら日数を変えて描き直す（入力中は描き直さない）
+
 /* ---------- 在庫管理（品種受払） ---------- */
 let ZAI_DAY = null;
 function zaikoScreen(day){
@@ -2452,7 +2695,7 @@ function zaikoScreen(day){
     app.dataset.mfg='zaiRender';
     head('在庫管理','品種・精米歩合ごとの在庫');
     const Z = MFG && MFG.zaiko;
-    let h = mfgErrView() + dayNav(ZAI_DAY);
+    let h = mfgErrView() + zbTop(ZAI_DAY);
     if(!Z){ app.innerHTML = h + '<div class="card">品種受払のデータがこの端末にまだありません。<button class="btn p" style="margin-top:10px" onclick="mfgReload()">もう一度読み込む</button></div>' + mfgSrcInfo('zaiko','造りex 仕込調整 品種受払'); bindDayNav(zaikoScreen); return; }
     const keys = Object.keys(Z.days).sort();
     const at = keys.filter(d=>d<=ZAI_DAY).pop();
@@ -2468,41 +2711,7 @@ function zaikoScreen(day){
     const zv = zvOf(ZAI_DAY);
     const live = Z.vars.filter((v,i)=>((at?Z.days[at].s[i]:0)||0)||(today?today.i[i]||today.o[i]:0));
     const doneN = live.filter(v=>zv[v]).length;
-    h += `<div class="mf-sec">${djp(ZAI_DAY)} 終わりの在庫<span>確認 ${doneN}/${live.length} 品種</span></div>
-      <div class="tl-scroll"><table class="tl-tbl zt" style="width:100%"><thead><tr><th>品種・歩合</th><th>在庫</th><th>袋</th><th>受入</th><th>払出</th><th>増減</th><th>確認</th></tr></thead><tbody>`;
-    let tS=0,tI=0,tO=0,tF=0,tM=0;
-    const RC = riceCalc();
-    const mib = (RC && RC.hasHiki) ? RC.balAt(dadd(ZAI_DAY,1)) : null;   // 引取予定を足した見通し（この日の終わり）
-    Z.vars.forEach((v,i)=>{
-      const m=v.match(/^(.+?)(\d+)%$/); const lab = m?`<b>${esc(m[1])}</b>${ratioBadge(Number(m[2]))}`:esc(v);
-      const raw=st[i]||0, mi = mib ? (mib[i]||0) : null;
-      const rzc = rzCum(v, ZAI_DAY), rzd = rzVal(v, ZAI_DAY);   // 増減（累計／この日の分）
-      const rkd = rkDay(v, ZAI_DAY), rkc = (mi===null) ? rkCum(v, ZAI_DAY) : 0;   // 手入力の入荷（見通しには riceCalc で入っている）
-      const s = ((mi===null) ? raw : mi) + rzc + rkc;      // 表に出すのは「引取予定・手入力の入荷・増減を入れた在庫」
-      const dim = !s && !raw && !inn[i] && !out[i] && !fut[i] && !rzd && !rkd;
-      tS+=s; tI+=(inn[i]||0)+rkd; tO+=out[i]||0; tF+=rzd; tM+=raw;
-      const dq = difMap[v];
-      const gap = (mi!==null && Math.abs(mi-raw)>0.05);
-      const zr = zv[v];
-      let btn;
-      if(zr) btn = `<button class="zvb done ${zr.mode==='現状維持'?'keep':''}" data-zvx="${esc(zr.id)}" title="${esc(nrm(zr.by))} ${tjp(zr.at)}">${zr.mode==='現状維持'?'現状<br>維持':'✓'}</button>`;
-      else if(dq) btn = `<button class="zvb keep" data-zvk="${esc(v)}">現状<br>維持</button>`;
-      else btn = `<button class="zvb ok" data-zvc="${esc(v)}">確認</button>`;
-      if(dim) btn = '';
-      h += `<tr style="${dim?'opacity:.4':''}"><td style="white-space:nowrap">${lab}</td>
-        <td class="${s<0?'mf-neg':''}" style="font-weight:700">${kgfmt(s)}${dq?`<span class="zx" data-zdif="${esc(v)}">※</span>`:''}
-          ${gap?`<div style="font-size:10.5px;font-weight:400;color:var(--sub);white-space:nowrap">受払欄 ${kgfmt(raw)}</div>`:''}
-          ${Math.abs(rzc)>=0.05?`<div style="font-size:10.5px;font-weight:400;color:var(--sub);white-space:nowrap">増減 ${rzc>0?'＋':''}${kgfmt(rzc)}込み</div>`:''}</td>
-        <td class="${s<0?'mf-neg':''}" style="white-space:nowrap;font-size:12px">${s?bags(s):'—'}</td>
-        <td>${(inn[i]||rkd)?kgfmt((inn[i]||0)+rkd):''}${rkd?`<div style="font-size:10px;color:#1b7f3b;white-space:nowrap">手入力</div>`:''}</td><td>${out[i]?kgfmt(out[i]):''}</td><td class="rzc">${dim?'':`<input class="rzin" type="text" inputmode="text" enterkeyhint="next" autocomplete="off" data-rz="${esc(v)}" value="${rzd?((rzd>0?'+':'')+(Math.round(rzd*10)/10)):''}" placeholder="±">`}</td>
-        <td class="zvc">${btn}</td></tr>`;
-    });
-    h += `<tr class="tot"><td>合計</td><td class="${tS<0?'mf-neg':''}">${kgfmt(tS)}</td><td></td><td>${tI?kgfmt(tI):''}</td><td>${tO?kgfmt(tO):''}</td><td>${Math.abs(tF)>=0.05?(tF>0?'＋':'')+kgfmt(tF):''}</td><td></td></tr></tbody></table></div>
-      <p class="tl-note">単位はkg。${mib?`<b>在庫</b>は<b>引取予定を入れて計算した数</b>です（受入が品種受払にまだ入力されていなくても正しく出ます）。<br>
-        小さい「受払欄」は、造りexの品種受払にいま入っている在庫の値です。受入を入力していない分だけマイナスになります。`
-        :'いまの数は品種受払の在庫欄そのままです。引取予定が届くと、それを入れて計算した数に変わります。'}
-      ${dif&&dif.length?`<br><b style="color:#b02a26">※</b> は前日の在庫・受入・払出から計算した数と合わないところです。押すと内訳が出ます。`:''}</p>
-      <div id="zdifBox"></div>`;
+    h += zbView(ZAI_DAY);   // 2026-11-26 7列の表 → 見通し表（案B-1）
     if(Z.first && ZAI_DAY<Z.first) h += `<div class="mf-warn">この日は品種受払の期間（${djp(Z.first,true)}〜）より前です。</div>`;
     if(Z.last && ZAI_DAY>Z.last) h += `<div class="mf-warn">この日は品種受払の期間（〜${djp(Z.last,true)}）より後です。最終日の在庫を表示しています。</div>`;
     // 在庫チェック（品種ごと）
@@ -2511,25 +2720,13 @@ function zaikoScreen(day){
     const restOk = rest.filter(v=>!difMap[v]);
     const since = zaiSince() || {};
     const ngNow = live.filter(v=>difMap[v]);
-    h += rkView(ZAI_DAY, Z);
-    h += `<div class="mf-sec">在庫チェック<span>${doneN?doneN+'品種すんでいます':'まだ確認されていません'}</span></div>`;
-    h += `<div class="card" style="font-size:13px;line-height:1.7">
-      表のいちばん右で、<b>品種ごとに1つずつ</b>確認します。<br>
-      <b class="zvl ok">確認</b>＝計算と合っているのを見た。
-      <b class="zvl keep">現状維持</b>＝合っていないが、いまは直さずこのままにする。<br>
-      <span style="color:var(--sub)">現状維持を押しても <b style="color:#b02a26">※</b> は消えません。造りexを直して数が合うまで出続けます。</span></div>`;
-    if(restOk.length) h += `<button class="btn p" id="zAllOk" style="background:var(--ok);border-color:var(--ok);margin-top:8px">合っている ${restOk.length}品種 をまとめて確認</button>`;
-    if(ngNow.length){
-      h += `<div class="mf-warn" style="margin-top:8px"><b>合っていない品種が ${ngNow.length} あります</b>`;
-      ngNow.forEach(v=>{ const sc=since[v];
-        h += `<div style="font-size:12.5px;padding:2px 0">${esc(v)}　${kgfmt(difMap[v].diff)}kg ちがい${sc?`　<b style="color:#b02a26">${djp(sc.from,true)}から ${sc.days}日</b>`:''}</div>`; });
-      h += `</div>`;
-    }
+    // 2026-11-27 米の入荷（手入力）は上の「入荷」アイコンへ、在庫チェックの窓は削除（確認は表のマスから）
     h += `<button class="tl-link" id="zHist">ずれと確認の履歴を見る ›</button>`;
     h += hikitoriSoon(ZAI_DAY);
     app.innerHTML = h + mfgSrcInfo('zaiko','造りex 仕込調整 品種受払');
     bindDayNav(zaikoScreen);
     rzBind(render);
+    zbBind(render);
     rkBind(render);
     $('#zHist').onclick=()=>go(zcheckScreen);
     const hall=$('#hkAll'); if(hall) hall.onclick=()=>go(()=>hikitoriScreen());
@@ -5969,7 +6166,7 @@ function dpItems(date){
     add('bun',DP_BUN_T,len,'分析'+dpNin('分析'),'dp-o',{title:`分析（${b.n}本：酒母${b.sb.length}・醪${b.mr.length}）`,nin:DP_NIN['分析'],time:`${DP_BUN_T}〜${dpHM(dpMin(DP_BUN_T)+len)}（目安・1本約${DP_BUN_PER}分）`,
       lines:[...b.sb.map(m=>`酒母　${nm2(m)}`),...b.mr.map(m=>`醪　${nm2(m)}`)],open:()=>bunsekiScreen(),openL:'分析の画面を開く'}); } }
   // 米の引き取り（2026-10-06 泰広さん指示）：引取予定表（MFG.hikitori）から自動。15:30〜 米移動（5人ほど・約15分）
-  const H=MFG&&MFG.hikitori, hk=H&&H.days&&H.days[date];
+  const H=(typeof hkGet==='function')?hkGet():(MFG&&MFG.hikitori), hk=H&&H.days&&H.days[date];
   if(hk&&Object.keys(hk).length){
     const bag=(H&&H.bag)||BAG_KG, vs=Object.keys(hk), nb=vs.reduce((a,v)=>a+(Number(hk[v])||0),0);
     add('kome',DP_T.kome[0],DP_T.kome[1],'米引取'+dpNin('米引取'),'dp-r',{nin:DP_NIN['米引取'],title:`米の引き取り（${nb}袋・${kgfmt(nb*bag)}kg）`,time:'15:30〜 米移動（5人ほど・約15分）',
@@ -9476,6 +9673,11 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-27-2','🌾','米管理','在庫管理の表を、紙の品種受払と同じ「受払表の形」にしました。品種ごとに 入（入荷）・払（払出）・在（在庫）の3行です。入荷予定は青（押すと変更）、入荷済みは緑。どのマスを押しても、その日の入荷・増減・在庫確認の窓が出ます。'],
+  ['2026-11-27-1','🌾','米管理','在庫管理：米の入荷（手入力）を上の「🚚 入荷」アイコンにまとめ、下の在庫チェックの窓はなくしました。在庫の確認は、表のマスを押して「在庫確認」を押すだけです（マスが緑になり ✓ が付きます）。入荷予定は「入 1,500」のようにkgだけで出します。'],
+  ['2026-11-26-7','🌾','米管理','在庫管理の表で、入荷予定の日に予定の袋数（例：入 50袋）とkgを出すようにしました。押すと今までどおり変更の窓が出ます。'],
+  ['2026-11-26-6','🌾','米管理','在庫管理の表に、引取予定表（入荷予定）の入荷を「予＋◯」で出しました。予定が変わったときは「予＋◯」を押すと、日付と袋数を変える窓が出ます（取りやめは0袋）。変えた予定は在庫・不足の判定とホームの「米入荷」にも入ります。品種名の精米歩合は右にそろえました。'],
+  ['2026-11-26-5','🌾','米管理','在庫管理の表を「見通し表」に変えました。品種ごとに、表示している日から14日先までの在庫（kg）と、入荷（緑）・払出（洗米）が1画面で見られます。足りなくなる日は赤いマス、品種名の下に「12/2不足」などと出ます（足りる品種は何も出ません）。マスを押すと、その日の入荷（袋）・増減・確認をまとめて入れられます。品種名を押すと、その品種の減り方のグラフが出ます。'],
   ['2026-11-26-4','🍶','仕込み','追水の指示のリールを、残りの量までに限らず 10ℓ単位で 10〜500ℓ まで選べるようにしました。規定を超える量を選ぶと「規定を◯ℓ超えます」と出ます。'],
   ['2026-11-26-3','📅','ホーム','「本日の予定」ボタンを右上の名前と同じく固定しました（スマホで消えていたのを直しました）。予定を上へ流しても、予定が名前のボタンや「本日の予定」ボタンの下にもぐらなくなります。'],
   ['2026-11-26-2','🏔','ホーム','上の麒麟山の写真をホームの背景にして、本日の予定を写真の上に重ねました。予定の欄が広くなり、勤務や予定まで見やすくなります。「本日の予定」ボタンは右上の名前と同じ高さに並び、米入荷・A重油などの札はボタンの下に出ます。'],
@@ -10037,8 +10239,8 @@ async function rzApi(body){
 function rzKeep(j){ const a=JSON.stringify(RZ.items); RZ.items=(j.items||[]); lsSet('rz.items', RZ.items); const ch=a!==JSON.stringify(RZ.items); if(ch) RICE=null; return ch; }
 async function rzFetch(){ return rzKeep(await rzApi({action:'list'})); }
 function rzNum(x){ const n=Number(x&&x.qty); return isFinite(n)?n:0; }
-function rzVal(v,d){ const x=RZ.items.find(x=>x.name===v && x.date===d && x.kind!=='入荷'); return x?rzNum(x):0; }
-function rzCum(v,d){ return Math.round(RZ.items.filter(x=>x.name===v && x.date && x.date<=d && x.kind!=='入荷').reduce((a,x)=>a+rzNum(x),0)*10)/10; }
+function rzVal(v,d){ const x=RZ.items.find(x=>x.name===v && x.date===d && x.kind!=='入荷' && x.kind!=='引取変更'); return x?rzNum(x):0; }
+function rzCum(v,d){ return Math.round(RZ.items.filter(x=>x.name===v && x.date && x.date<=d && x.kind!=='入荷' && x.kind!=='引取変更').reduce((a,x)=>a+rzNum(x),0)*10)/10; }
 /* 2026-11-05 入荷の手入力（区分＝入荷。1件ずつ別の行） */
 function rkItems(){ return RZ.items.filter(x=>x.kind==='入荷' && x.date); }
 function rkDay(v,d){ return Math.round(rkItems().filter(x=>x.name===v && x.date===d).reduce((a,x)=>a+rzNum(x),0)*10)/10; }
@@ -10168,6 +10370,101 @@ function rkBind(render){
   });
 }
 </script>
+<style>/* 在庫管理 見通し表（案B-1）2026-11-26 */
+.zb-mx th.v .nm{display:flex;justify-content:space-between;align-items:center;gap:2px}
+.zb-mx th.v .nm b{font-size:10.5px;white-space:nowrap;overflow:hidden}
+.zb-mx th.v .nm .mf-bdg{margin-left:0;flex:0 0 auto}
+.zb-mx td .h,.zb-hl{display:block;font-size:9px;color:#1f5fa8;font-weight:700;text-decoration:underline;text-underline-offset:2px}
+.zb-hl{display:inline}
+.zb-mx td .h{padding:1px 0;margin:-1px 0;font-size:10px}
+.zb-mx td .h small{display:block;font-size:9px;font-weight:400;text-decoration:none}
+.zb-mx td .h.mv{color:#7b3fa0}
+.zb-sheet .hk-d{display:flex;align-items:center;gap:6px}
+.zb-sheet .hk-d button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line,#e4ded1);background:#fff;font-size:18px}
+.zb-sheet .hk-d select{flex:1;height:40px;border-radius:10px;border:1px solid #cfc8b6;font-size:15px;padding:0 6px;background:#fffbe8}
+.zb-sheet .two .btn.p{background:var(--navy,#1b2a41);color:#fff;border-color:var(--navy,#1b2a41)}
+.zb-sheet .two .btn.p:disabled{opacity:.45}
+.zb-mx.zb-f th.k{position:sticky;left:66px;background:#faf8f2;z-index:1;font-size:9px;min-width:18px;max-width:18px;width:18px;text-align:center;color:#666;padding:0}
+.zb-mx.zb-f thead th.k{z-index:3;background:#f1ede2}
+.zb-mx.zb-f tfoot th.k{z-index:3;background:#f1ede2}
+.zb-mx.zb-f td{height:18px;font-size:10.5px;font-weight:400;padding:1px 3px}
+.zb-mx.zb-f tr.r-i td{color:#1b7f3b;font-weight:700}
+.zb-mx.zb-f tr.r-i td .h,.zb-mx.zb-f tr.r-i td .i{display:block;font-size:10.5px}
+.zb-mx.zb-f tr.r-o td{color:#8a6d1f}
+.zb-mx.zb-f tr.r-o td .a{display:block;font-size:9px;color:#1b7f3b}
+.zb-mx.zb-f tr.r-s td{font-weight:800;font-size:11.5px;height:22px;border-bottom:2px solid #e2dccd}
+.zb-mx.zb-f tr.r-s th.k{border-bottom:2px solid #e2dccd}
+.zb-mx.zb-f th.v{border-bottom:2px solid #e2dccd}
+.zb-mx.zb-f tr.r-i td,.zb-mx.zb-f tr.r-o td{border-bottom:1px dotted #eee5d3}
+.zb-ic{display:flex;align-items:center;gap:3px;border:1px solid var(--line,#e4ded1);background:#fff;border-radius:10px;padding:5px 9px;font-size:16px;cursor:pointer}
+.zb-ic span{font-size:12.5px;font-weight:700;color:var(--navy,#1b2a41)}
+.zb-sheet.zb-rkin .mf-sec{margin-top:0}
+.zb-sheet .zb-ck{display:block;width:100%;border:2px solid #2f7d5d;background:#fff;color:#2f7d5d;border-radius:12px;padding:12px;font-size:16px;font-weight:800;cursor:pointer}
+.zb-sheet .zb-ck:disabled{opacity:.5}
+.zb-sheet .zb-done{display:flex;align-items:center;gap:8px;background:#2f7d5d;color:#fff;border-radius:12px;padding:10px 12px}
+.zb-sheet .zb-done .ok{font-size:16px;font-weight:800}
+.zb-sheet .zb-done small{flex:1;font-size:11px;opacity:.9}
+.zb-sheet .zb-done button{border:1px solid rgba(255,255,255,.7);background:transparent;color:#fff;border-radius:8px;padding:4px 10px;font-size:12px}
+.zb-mx table td.ck{background:#e3f3e8}
+.zb-mx table td.ck::after{content:'✓';position:absolute;left:1px;top:0;width:13px;height:13px;line-height:13px;border-radius:50%;background:#2f7d5d;color:#fff;font-size:9px;text-align:center}
+.zb-sheet .hk-was{font-size:12px;color:var(--sub,#6b7280);margin:0 0 4px}
+
+.zb-top{display:flex;align-items:center;gap:6px;margin:0 0 6px}
+.zb-dn{display:flex;align-items:center;background:#fff;border:1px solid var(--line,#e4ded1);border-radius:10px;overflow:hidden}
+.zb-dn button{border:0;background:none;font-size:14px;padding:6px 10px;color:var(--navy,#1b2a41);cursor:pointer}
+.zb-dn button.d{font-weight:700;padding:6px 4px;white-space:nowrap}
+.zb-dn button.d small{font-weight:400;font-size:10px;color:var(--sub,#6b7280)}
+.zb-sm{display:flex;gap:4px;font-size:11.5px;margin-left:auto}
+.zb-sm span{border-radius:6px;padding:2px 6px;background:#fff;border:1px solid var(--line,#e4ded1);white-space:nowrap;font-weight:700}
+.zb-sm .ng{background:#b23b3b;color:#fff;border-color:#b23b3b}.zb-sm .wn{background:#c9821b;color:#fff;border-color:#c9821b}
+.zb-lg{display:flex;gap:8px;flex-wrap:wrap;font-size:10.5px;color:#555;margin:0 0 5px}
+.zb-lg span{display:inline-flex;align-items:center;gap:3px}.zb-lg i{width:11px;height:11px;border-radius:3px;display:inline-block}
+.zb-mx{overflow:auto;border-radius:10px;border:1px solid var(--line,#e4ded1);background:#fff;max-height:70vh;-webkit-overflow-scrolling:touch}
+.zb-mx table{border-collapse:separate;border-spacing:0;font-size:11px}
+.zb-mx th,.zb-mx td{padding:2px 3px;text-align:right;border-bottom:1px solid #efe9dc;border-right:1px solid #f4f0e6;white-space:nowrap}
+.zb-mx thead th{position:sticky;top:0;background:#f1ede2;z-index:2;font-size:10px;text-align:center;line-height:1.2;min-width:46px;padding:3px 2px}
+.zb-mx thead th.we{color:#c0392b}
+.zb-mx th.v{position:sticky;left:0;background:#fff;z-index:1;text-align:left;min-width:66px;max-width:66px;line-height:1.1;cursor:pointer;white-space:normal}
+.zb-mx th.v b{font-size:11px}.zb-mx th.v .mf-bdg{font-size:9px!important;padding:0 2px;margin-left:1px}
+.zb-mx thead th.v{z-index:3;background:#f1ede2}
+.zb-mx .stt{display:block;font-size:9px;font-weight:700;margin-top:1px}
+.stt.ng{color:#b23b3b}.stt.wn{color:#c9821b}
+.zb-mx td{min-width:46px;font-weight:700;position:relative;height:34px;cursor:pointer;line-height:1.15}
+.zb-mx td .o{display:block;font-size:9px;color:#8a6d1f;font-weight:400}
+.zb-mx td .i{display:block;font-size:9px;color:#1b7f3b;font-weight:700}
+.zb-mx td .zx{position:absolute;right:1px;top:0;font-size:9px;color:#b02a26}
+.zb-mx td.z{background:#fdecea;color:#b23b3b}
+.zb-mx td.lo{background:#fff6e0}
+.zb-mx td.em{color:#c8c2b4}
+.zb-mx td.tdy{box-shadow:inset 0 0 0 2px #e6c34a}
+.zb-mx td.ck::after{content:'✓';position:absolute;left:2px;top:0;font-size:9px;color:#2f7d5d}
+.zb-mx td.ckk::after{content:'維';position:absolute;left:2px;top:0;font-size:8px;color:#c9821b}
+.zb-mx td.ed{outline:2px dashed #1b7f3b;outline-offset:-3px}
+.zb-mx tfoot td,.zb-mx tfoot th{position:sticky;bottom:0;background:#f1ede2;font-size:10px;height:auto;cursor:default}
+.zb-mx tfoot th.v{z-index:3;cursor:default}
+.zb-mx td.neg{color:#b23b3b}
+.zb-nt{font-size:10.5px;color:var(--sub,#6b7280);margin:4px 2px 0;line-height:1.5}
+.zb-bg{position:fixed;inset:0;background:rgba(20,24,30,.35);z-index:900}
+.zb-sheet{position:fixed;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -6px 20px rgba(0,0,0,.2);padding:12px 14px calc(18px + env(safe-area-inset-bottom));font-size:13px;max-height:82vh;overflow:auto;z-index:901}
+.zb-sheet .x{float:right;color:var(--sub,#6b7280);cursor:pointer;font-size:20px;line-height:1;padding:0 4px}
+.zb-sheet h4{margin:0 0 6px;font-size:15px}
+.zb-sheet .calc{background:#f7f4ec;border-radius:10px;padding:6px 10px;margin:0 0 8px}
+.zb-sheet .tr{display:flex;justify-content:space-between;padding:2px 0;font-size:12.5px}
+.zb-sheet .tr.eq{border-top:1px solid #d9d1bf;margin-top:2px;padding-top:4px;font-size:14px}
+.zb-sheet .fl{font-size:11.5px;font-weight:700;color:var(--navy,#1b2a41);margin:9px 0 4px}
+.zb-sheet .stp{display:flex;align-items:center;gap:6px}
+.zb-sheet .stp button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line,#e4ded1);background:#fff;font-size:20px}
+.zb-sheet .stp .val{flex:1;text-align:center;font-size:20px;font-weight:800;border:1px solid #cfc8b6;border-radius:10px;padding:4px;background:#fffbe8}
+.zb-sheet .stp select{height:40px;border-radius:10px;border:1px solid #cfc8b6;font-size:15px;padding:0 4px;background:#fffbe8}
+.zb-sheet .qk{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.zb-sheet .qk span{border:1px solid var(--line,#e4ded1);background:#fff;border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer}
+.zb-sheet .two{display:flex;gap:6px}.zb-sheet .two .btn{flex:1;text-align:center;cursor:pointer;margin:0;border:1px solid #cfc8b6;background:#fff;border-radius:10px;padding:10px 8px;font-weight:700;display:block}
+.zb-sheet .zb-save{margin-top:12px;width:100%}
+.zb-sheet .zb-rk{margin-top:6px;font-size:12px}
+.zb-sheet .zb-rk div{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #f1ede2}
+.zb-sheet .zb-rk button{border:1px solid var(--line,#e4ded1);background:#fff;border-radius:7px;padding:2px 9px;font-size:12px}
+.zb-sheet .zb-dif{background:#fdeeee;border-radius:8px;padding:5px 8px;font-size:12px;color:#b02a26;margin:0 0 4px}
+</style>
 <style>/* 米の増減の入力欄 */
 .zt td.rzc{padding:2px 4px}
 .zt .rzin{width:58px;font-size:16px;padding:4px 5px;border:1px solid var(--line,#ccc);border-radius:6px;text-align:right;background:#fffef6}
@@ -12824,7 +13121,7 @@ function mwDayList(date){
     let h=o.apply(this, arguments);
     try{ const date=dpDate(), L=mwDayList(date);
       /* 2026-11-18 泰広さん指示：大きな帯をやめ、A重油と同じ大きさの小さな札に。米入荷（引取予定表）も同じ札で出す（米引取の棒はそのまま） */
-      const H=MFG&&MFG.hikitori, hk=H&&H.days&&H.days[date];
+      const H=(typeof hkGet==='function')?hkGet():(MFG&&MFG.hikitori), hk=H&&H.days&&H.days[date];
       const R=hk?Object.keys(hk).filter(v=>(Number(hk[v])||0)>0).map(v=>`<span class="c">米入荷 ${esc(v)} ${esc(String(hk[v]))}袋</span>`):[];
       if(L.length||R.length){
         /* 2026-11-18 泰広さん指示：絵は出さない。同じ作業は1枚にまとめて「穴あけ 20・21号」（済は ✓、全部済なら緑） */
