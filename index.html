@@ -2473,6 +2473,7 @@ function hkGet(){
    品種名を押すと、その品種の減り方のグラフ。足りる品種には状態を出さない。 */
 let ZBF = null, ZB_RENDER = null, ZB_LAND = null;
 function zbN(){ return window.innerWidth>window.innerHeight ? 21 : 14; }   // 縦14日・横21日
+let ZB_ALL = lsGet('zb.all', false);   // 2026-11-27 表全体を画面に収めて見る
 function zbMd(d){ return Number(d.slice(5,7))+'/'+Number(d.slice(8,10)); }
 function zbW(d){ return WD[dparse(d).getDay()]; }
 function zbCtx(){
@@ -2491,13 +2492,19 @@ function zbStat(C,v,i,day){
     if(C.stock(v,i,d)<-0.05){ const lv=k<=7?'ng':k<=14?'wn':''; return lv?{lv,txt:k===0?'不足中':zbMd(d)+'不足',d}:null; } }
   return null;
 }
+function zbAlIcon(){
+  const R=riceCalc(); if(!R||!R.hasHiki) return '';
+  const t=dtoday(), ns=R.short.filter(x=>x.d>=t).length, nt=(R.tight||[]).filter(x=>x.d>=t).length;
+  if(!ns&&!nt) return '';
+  return `<button id="zbAl" class="zb-ic al ${ns?'ng':'wn'}" title="洗米の日の米の不足・余裕">⚠<span>${ns?'不足'+ns:'余裕'+nt}</span></button>`;
+}
 function zbTop(day){
   const C=zbCtx(); const t=dtoday();
   let ng=0,wn=0,ck=0,live=0;
   if(C){ const zv=zvOf(day); C.Z.vars.forEach((v,i)=>{ const s=zbStat(C,v,i,day); if(s&&s.lv==='ng')ng++; if(s&&s.lv==='wn')wn++;
     if(C.raw(i,day)||C.zi(i,day)||C.zo(i,day)){ live++; if(zv[v]) ck++; } }); }
   return `<div class="zb-top"><div class="zb-dn"><button id="dPrev">◀</button><button id="dToday" class="d" title="今日に戻る">${dshort(day)}${day===t?'':' <small>今日へ</small>'}</button><button id="dNext">▶</button></div>
-    <button id="zbIn" class="zb-ic" title="米の入荷を手で入れる">🚚<span>入荷</span></button>
+    <button id="zbIn" class="zb-ic" title="米の入荷を手で入れる">🚚<span>入荷</span></button><button id="zbAll" class="zb-ic${ZB_ALL?' on':''}" title="表全体を画面に収める">🔍<span>${ZB_ALL?'元の大きさ':'全体'}</span></button><button id="zbHk" class="zb-ic" title="米の引き取り予定">📅<span>引取予定</span></button>${zbAlIcon()}
     <div class="zb-sm">${ng?`<span class="ng">不足${ng}</span>`:''}${wn?`<span class="wn">少${wn}</span>`:''}<span>確認${ck}/${live}</span></div></div>`;
 }
 function zbView(day){
@@ -2509,7 +2516,7 @@ function zbView(day){
   const ord={ng:0,wn:1}; rows.sort((a,b)=>((a.st?ord[a.st.lv]:2)-(b.st?ord[b.st.lv]:2))||(a.i-b.i));
   const f=n=>kgfmt(Math.round(n));
   let h=`<div class="zb-lg"><span><i style="background:#fdecea;border:1px solid #b23b3b"></i>足りない</span><span><i style="background:#fff6e0"></i>翌日の分が無い</span><span><b style="color:#1b7f3b">緑</b>入荷済み</span><span><b class="zb-hl">青</b>入荷予定（押すと変更）</span><span style="color:#8a6d1f">−払出</span><span>kg</span><span style="color:#2f7d5d">✓確認</span></div>
-    <div class="zb-mx zb-f" id="zbMx"><table><thead><tr><th class="v">品種</th><th class="k"></th>${days.map(d=>{const w=dparse(d).getDay();return `<th class="${w===0||w===6?'we':''}">${zbMd(d)}<br>${WD[w]}</th>`;}).join('')}</tr></thead><tbody>`;
+    <div class="zb-mx zb-f${ZB_ALL?' zb-all':''}" id="zbMx"><table><thead><tr><th class="v">品種</th><th class="k"></th>${days.map(d=>{const w=dparse(d).getDay();return `<th class="${w===0||w===6?'we':''}">${zbMd(d)}<br>${WD[w]}</th>`;}).join('')}</tr></thead><tbody>`;
   // 2026-11-27 泰広さん指示：受払表の形（品種ごとに 入・払・在 の3行）
   rows.forEach(r=>{
     const m=r.v.match(/^(.+?)(\d+)%$/);
@@ -2519,11 +2526,15 @@ function zbView(day){
       if(k===0)c+=' tdy'; if(zr)c+=zr.mode==='現状維持'?' ckk':' ck'; if(rkDay(r.v,d)||adj)c+=' ed';
       return {d,s,o,inn,hyv,adj,mvd,c,k}; });
     const at=x=>`data-zbc="${esc(r.v)}|${x.d}"`;
-    h+=`<tr class="r-i"><th class="v" rowspan="3" data-zbv="${esc(r.v)}"><span class="nm"><b>${esc(m?m[1]:r.v)}</b>${m?ratioBadge(Number(m[2])):''}</span>${r.st?`<span class="stt ${r.st.lv}">${r.st.txt}</span>`:''}</th><th class="k">入</th>`;
-    cs.forEach(x=>{ h+=`<td ${at(x)}>${x.hyv?`<span class="h${x.mvd?' mv':''}" data-zbh="${esc(r.v)}|${x.d}">${f(x.hyv)}</span>`:''}${x.inn?`<span class="i">${f(x.inn)}</span>`:''}</td>`; });
-    h+=`</tr><tr class="r-o"><th class="k">払</th>`;
-    cs.forEach(x=>{ h+=`<td ${at(x)}>${x.o?'−'+f(x.o):''}${x.adj?`<span class="a">差 ${x.adj>0?'＋':'−'}${kgfmt(Math.abs(x.adj))}</span>`:''}</td>`; });
-    h+=`</tr><tr class="r-s"><th class="k">在</th>`;
+    // 2026-11-27 「全体」表示のときは、14日のあいだ空の 入・払 の行をたたむ
+    const showI=!ZB_ALL||cs.some(x=>x.hyv||x.inn), showO=!ZB_ALL||cs.some(x=>x.o||x.adj), span=1+(showI?1:0)+(showO?1:0);
+    const thv=`<th class="v" rowspan="${span}" data-zbv="${esc(r.v)}"><span class="nm"><b>${esc(m?m[1]:r.v)}</b>${m?ratioBadge(Number(m[2])):''}</span>${r.st?`<span class="stt ${r.st.lv}">${r.st.txt}</span>`:''}</th>`;
+    let first=true; const lead=()=>{ const s=first?thv:''; first=false; return s; };
+    if(showI){ h+=`<tr class="r-i">${lead()}<th class="k">入</th>`;
+      cs.forEach(x=>{ h+=`<td ${at(x)}>${x.hyv?`<span class="h${x.mvd?' mv':''}" data-zbh="${esc(r.v)}|${x.d}">${f(x.hyv)}</span>`:''}${x.inn?`<span class="i">${f(x.inn)}</span>`:''}</td>`; }); h+='</tr>'; }
+    if(showO){ h+=`<tr class="r-o">${lead()}<th class="k">払</th>`;
+      cs.forEach(x=>{ h+=`<td ${at(x)}>${x.o?'−'+f(x.o):''}${x.adj?`<span class="a">差 ${x.adj>0?'＋':'−'}${kgfmt(Math.abs(x.adj))}</span>`:''}</td>`; }); h+='</tr>'; }
+    h+=`<tr class="r-s">${lead()}<th class="k">在</th>`;
     cs.forEach(x=>{ h+=`<td class="${x.c}" ${at(x)}>${difs[x.d+'|'+r.v]?'<span class="zx">※</span>':''}${f(x.s)}</td>`; });
     h+='</tr>';
   });
@@ -2662,6 +2673,14 @@ function zbBind(render){
   ZB_RENDER=render; ZB_LAND=window.innerWidth>window.innerHeight;
   app.querySelectorAll('[data-zbc]').forEach(td=>td.onclick=()=>{ const [v,d]=td.dataset.zbc.split('|'); zbOpen(v,d,render); });
   app.querySelectorAll('[data-zbv]').forEach(th=>th.onclick=()=>zbSum(th.dataset.zbv));
+  const zal=$('#zbAl'); if(zal) zal.onclick=()=>{ const b=$('#zbSh'); if(!b) return; ZBF=null;
+    b.innerHTML=`<div class="zb-bg" data-zbx="1"></div><div class="zb-sheet"><span class="x" data-zbx="1">✕</span><h4>⚠ 洗米の日の米</h4>${riceShortView(ZAI_DAY)}</div>`;
+    b.querySelectorAll('[data-zbx]').forEach(e=>e.onclick=zbClose); };
+  const zall=$('#zbAll'); if(zall) zall.onclick=()=>{ ZB_ALL=!ZB_ALL; lsSet('zb.all',ZB_ALL); render(); };
+  const zhk=$('#zbHk'); if(zhk) zhk.onclick=()=>{ const b=$('#zbSh'); if(!b) return; ZBF=null;
+    b.innerHTML=`<div class="zb-bg" data-zbx="1"></div><div class="zb-sheet zb-rkin"><span class="x" data-zbx="1">✕</span><h4>📅 米の引き取り予定</h4>${hikitoriSoon(ZAI_DAY)}</div>`;
+    b.querySelectorAll('[data-zbx]').forEach(e=>e.onclick=zbClose);
+    const ha=b.querySelector('#hkAll'); if(ha) ha.onclick=()=>{ zbClose(); go(()=>hikitoriScreen()); }; };
   const zin=$('#zbIn'); if(zin) zin.onclick=()=>{ const b=$('#zbSh'); if(!b) return; ZBF=null;
     RKIN.open=true; RKIN.draft={ v:'', date:ZAI_DAY, bag:'', kg:'', memo:'' };
     b.innerHTML=`<div class="zb-bg" data-zbx="1"></div><div class="zb-sheet zb-rkin"><span class="x" data-zbx="1">✕</span><h4>🚚 入荷</h4>${rkView(ZAI_DAY, MFG&&MFG.zaiko)}</div>`;
@@ -2672,6 +2691,9 @@ function zbBind(render){
   zbFit();
 }
 function zbFit(){ const mx=$('#zbMx'); if(!mx) return; const land=window.innerWidth>window.innerHeight;
+  const tb=mx.querySelector('table');
+  if(ZB_ALL&&tb){ tb.style.zoom=''; mx.style.maxHeight='none'; const w=tb.scrollWidth, cw=mx.clientWidth-2; tb.style.zoom=(w>cw)?String(Math.max(0.5,cw/w)):''; return; }
+  if(tb) tb.style.zoom='';
   const r=mx.getBoundingClientRect(); const top=land?0:Math.max(r.top+window.scrollY-window.scrollY,0);
   mx.style.maxHeight=Math.max(land?200:260, window.innerHeight-(land?16:top+40))+'px'; }
 window.addEventListener('resize',()=>{ if(!(app&&app.dataset&&app.dataset.mfg==='zaiRender')) return;
@@ -2696,7 +2718,7 @@ function zaikoScreen(day){
     // その先7日の払出予定
     const fut = Z.vars.map(()=>0);
     keys.filter(d=>d>ZAI_DAY && d<=dadd(ZAI_DAY,7)).forEach(d=>Z.days[d].o.forEach((v,i)=>fut[i]+=v));
-    h += riceShortView(ZAI_DAY);
+    // 2026-11-27 米の不足・余裕が少ない日の警告は、上の「⚠」アイコンに（押すと中身）
     const dif = zaiDiff(ZAI_DAY), difMap = {};
     if(dif) dif.forEach(r=>difMap[r.v]=r);
     const zv = zvOf(ZAI_DAY);
@@ -2713,7 +2735,7 @@ function zaikoScreen(day){
     const ngNow = live.filter(v=>difMap[v]);
     // 2026-11-27 米の入荷（手入力）は上の「入荷」アイコンへ、在庫チェックの窓は削除（確認は表のマスから）
     h += `<button class="tl-link" id="zHist">ずれと確認の履歴を見る ›</button>`;
-    h += hikitoriSoon(ZAI_DAY);
+    // 2026-11-27 米の引き取り予定は上の「📅 引取予定」アイコンへ（押すと中身）
     app.innerHTML = h + mfgSrcInfo('zaiko','造りex 仕込調整 品種受払');
     bindDayNav(zaikoScreen);
     rzBind(render);
@@ -9664,6 +9686,10 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-27-8','🌾','米管理','在庫管理の上のアイコン（入荷・全体・引取予定・⚠）を、絵の下に小さく字を出す形にして1段にまとめました。表が上に上がって広く見えます。'],
+  ['2026-11-27-7','🌾','米管理','在庫管理の下に出ていた「米の引き取り予定」を、上の一行の「📅 引取予定」アイコンにしました。押すと直近の引き取り予定が出ます（「ぜんぶ見る」も今までどおり）。'],
+  ['2026-11-27-6','🌾','米管理','在庫管理の上の一行に「🔍 全体」ボタンを付けました。押すと表を画面の幅に縮めて14日分（横向きは21日分）を一度に見せ、入荷も払出も無い品種は「在」の1行だけにたたみます。もう一度押すと元の大きさに戻ります。'],
+  ['2026-11-27-5','🌾','米管理','在庫管理の上に出ていた「洗米の日に米が足りません」「余裕が少ない日があります」の囲みを、上の一行の「⚠ 不足◯」（余裕が少ない日だけのときは「⚠ 余裕◯」）アイコンにしました。押すと中身が出ます。'],
   ['2026-11-27-4','🌾','米管理','在庫管理の表に、品種受払（Excel）にある品種をすべて出すようにしました（在庫も動きも無い品種も出ます）。品種受払は「品種受払」「原料米受け入れ」の2つのフォルダのうち、新しいほうのExcelを読みます。'],
   ['2026-11-27-3','🌾','米管理','在庫管理のマスを押したときの窓を変えました。入荷は右上の「🚚 入荷」アイコンから（入荷予定がある日は日にち・数量の変更、無い日は手入力の入荷）。増減のボタンをやめ、数えた在庫を「◯袋＋端数◯kg」で入れるようにしました（計算との差が自動で入り、その日の在庫が数えた数になります）。'],
   ['2026-11-27-2','🌾','米管理','在庫管理の表を、紙の品種受払と同じ「受払表の形」にしました。品種ごとに 入（入荷）・払（払出）・在（在庫）の3行です。入荷予定は青（押すと変更）、入荷済みは緑。どのマスを押しても、その日の入荷・増減・在庫確認の窓が出ます。'],
@@ -10395,6 +10421,19 @@ function rkBind(render){
 .zb-sheet .stp .u{font-size:15px;font-weight:700}
 .zb-sheet .zb-cnt{font-size:12px;color:#444;margin-top:6px;line-height:1.6}
 .zb-sheet .zb-cnt .rs{display:inline-block;margin-left:6px;border:1px solid var(--line,#e4ded1);border-radius:7px;padding:1px 8px;font-size:11.5px;color:var(--navy,#1b2a41);cursor:pointer}
+.zb-top{flex-wrap:wrap}
+.zb-ic.al{border-width:2px}.zb-ic.al.ng{border-color:#b23b3b;background:#fff5f4}.zb-ic.al.ng span{color:#b23b3b}
+.zb-ic.al.wn{border-color:#c9821b;background:#fff9ef}.zb-ic.al.wn span{color:#a86412}
+/* 2026-11-27 上のアイコンは案B（絵の下に小さく字・1段） */
+div.zb-top{flex-wrap:nowrap!important;gap:4px;align-items:stretch}
+.zb-top .zb-dn button{padding:6px 5px}
+.zb-top .zb-ic{flex-direction:column;justify-content:center;padding:2px 6px;font-size:16px;gap:0;line-height:1.1}
+.zb-top .zb-ic span{font-size:9.5px;white-space:nowrap}
+.zb-top .zb-sm{flex-direction:column;gap:2px;justify-content:center}
+.zb-top .zb-sm span{padding:1px 4px;font-size:10px}
+.zb-ic.on{background:var(--navy,#1b2a41);border-color:var(--navy,#1b2a41)}.zb-ic.on span{color:#fff}
+.zb-mx.zb-all{overflow-x:auto;overflow-y:visible}
+.zb-mx.zb-all thead th{position:static}
 .zb-ic{display:flex;align-items:center;gap:3px;border:1px solid var(--line,#e4ded1);background:#fff;border-radius:10px;padding:5px 9px;font-size:16px;cursor:pointer}
 .zb-ic span{font-size:12.5px;font-weight:700;color:var(--navy,#1b2a41)}
 .zb-sheet.zb-rkin .mf-sec{margin-top:0}
