@@ -9688,6 +9688,8 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-28-2','🖥','ホーム','ID（名前）が「会社PC」「会社PC2」「Pad」で入っている端末は、画面の幅にかかわらず必ず Pro ホームになるようにしました。'],
+  ['2026-11-28-1','🖥','ホーム','PCの Pro ホームが出ないことがあったので、出す条件を「横幅1100px以上のPC」に広げました。右上の麹の枠は、スマホの🍚麹の画面と同じ中身（上のボタン・注意・配置図・各麹の行）を、左に配置図・右に麹の行で出します。押すとスマホと同じ入力画面がその枠の中で開きます。'],
   ['2026-11-27-14','🖥','ホーム','PCの Pro ホームの醪の表で、順号の下に「🍚 麹」の札を付けました。その仕込みに使った麹を種麹ごとにまとめて、麹米の品種・精米歩合と kg を出します。'],
   ['2026-11-27-13','🖥','ホーム','画面が広いPC（幅1400px以上）でホームを開くと「Pro」の配置になります。左にアイコンの一覧、左上に本日の予定・担当、右上に麹の経過（引込〜出麹の時刻と品温）、下に醪の経過の表（そのまま入力・⚙で温度と追水の指示）。スマホ・タブレットは今までどおりです。'],
   ['2026-11-27-12','🍶','仕込み','上槽後の日本酒度の「±」ボタンを表からなくしました。日本酒度の欄を押すと、数字キーボードのすぐ上に「＋」「−」の帯が出ます。押すと符号が切り替わります（「完了」で閉じる）。'],
@@ -19773,9 +19775,22 @@ body.hm #dpBox .dp-kn,body.hm #dpBox .dp-cal,body.hm #dpBox .dp-bn2{background:r
    2026-11-27 泰広さん指示（見本 Claude outputs\製造ツール_仕込みに使った麹_見本.html の 案A）：醪の表の順号の下に「🍚 麹」の札。
      その仕込み（順号）に使った麹を 種麹（＋種麹2）ごとにまとめ、麹米の品種・精米歩合と kg を出す。
      データ＝麹DBの 順号・区分（koji_compare の行。端末に rec.cmp で控え、6時間より古ければ裏で取り直す）＋その日までに読んだ koji_today の行
+   2026-11-28 泰広さん指示：
+     ・PCで開いても Pro にならなかった → 条件を「幅1100px以上・スマホ／iPadでない」に（マウスの判定 pointer:fine はやめる）
+     ・麹の枠は スマホの🍚麹の画面そのもの（見本 Claude outputs\製造ツール_Pro_麹_スマホの情報_見本.html の 案1：左に配置図・右に行）。
+       同じ製造ツールを ?embed=koji で小さな窓（iframe）に開き、その中では ホーム＝麹の画面。上のボタン（O₂・日付・種・札・i・掃）・
+       苦み注意・盛高温・配置図・各行・押すと入力 はスマホと同じ動き（窓の中で開く。戻るは窓の上の ‹）。3分ごとに描き直す。
+       窓は #app の外に1つだけ置き、ホームの麹の枠の位置に重ねる（ホームを描き直しても読み込み直さない）
+     ・名前（ID）が「会社PC」「Pad」の端末は、幅や端末の種類にかかわらず必ず Pro（proForced）
    控え：seishu-workbook_github\_src_prohome1127.js（index.html の <!-- prohome1127 --> の間） */
-const PRO={ w:1400, mor:null, tick:null };
-function proIs(){ try{ return window.innerWidth>=PRO.w && !!(window.matchMedia&&matchMedia('(pointer:fine)').matches); }catch(e){ return false; } }
+const PRO={ w:1100, kif:null, mor:null, tick:null };
+const PRO_EMB=/[?&]embed=koji\b/.test(location.search);
+const PRO_IDS=['会社PC','Pad'];   // 2026-11-28 泰広さん指示：この名前（ID）で入っている端末は、幅・端末の種類にかかわらず Pro
+function proForced(){ try{ const n=(typeof igNorm==='function'?igNorm(ST&&ST.name):String((ST&&ST.name)||'').trim()); return PRO_IDS.some(x=>(typeof igNorm==='function'?igNorm(x):x)===n); }catch(e){ return false; } }
+function proIs(){ try{ if(PRO_EMB) return false; if(proForced()) return true; const ua=navigator.userAgent||'';
+  if(/iPhone|iPad|iPod|Android|Mobile/i.test(ua)) return false;
+  if(/Macintosh/.test(ua) && (navigator.maxTouchPoints||0)>1) return false;   // iPadOS（Macと名乗る）
+  return window.innerWidth>=PRO.w; }catch(e){ return false; } }
 const PRO_KS=[['引込','引込 時刻','引込 品温','引込'],['種切','種切 時刻','種切 品温','種切'],['切返し','切返し 時刻','切返し 品温','切返し'],['盛','盛 時刻','盛後 品温','盛後'],['仲仕事','仲仕事 時刻','仲仕事 品温','仲仕事'],['留仕事','留仕事 時刻','留仕事 品温','留仕事'],['出麹','出麹 時刻','出麹 品温','出麹']];
 const proV=v=>v!==''&&v!==null&&v!==undefined&&isFinite(Number(v));
 const proF1=v=>proV(v)?Number(v).toFixed(1):'—';
@@ -19887,8 +19902,39 @@ function proInsDraw(){
   try{ if(typeof stoPaint==='function') stoPaint(); }catch(e){}
 }
 
+
+/* ---- 麹の枠：スマホの麹の画面を小さな窓（iframe）で ---- */
+function proKifPlace(){ const k=PRO.kif, pn=document.getElementById('proKojiPn');
+  if(!k) return; if(!pn||!document.body.classList.contains('pro')){ k.style.display='none'; return; }
+  const r=pn.getBoundingClientRect(); k.style.display='block';
+  k.style.left=r.left+'px'; k.style.top=r.top+'px'; k.style.width=r.width+'px'; k.style.height=r.height+'px'; }
+function proKifShow(){
+  if(!PRO.kif){ const f=document.createElement('iframe'); f.id='proKif'; f.title='麹'; f.src=location.pathname+'?embed=koji';
+    document.body.appendChild(f); PRO.kif=f; }
+  requestAnimationFrame(proKifPlace); setTimeout(proKifPlace,300);
+}
+window.addEventListener('scroll',()=>{ if(PRO.kif) proKifPlace(); },{passive:true});
+if(PRO_EMB){
+  document.documentElement.classList.add('emb');
+  (function(){ const o0=window.home;
+    window.home=function(){ document.body.classList.add('emb-root'); RC.kday=dtoday(); return kojiScreen(dtoday()); };
+    const og=window.go; if(typeof og==='function') window.go=function(f){ document.body.classList.toggle('emb-root', f===window.home); return og.apply(this, arguments); };
+    const ok=window.kojiScreen; if(typeof ok==='function') window.kojiScreen=async function(){ const r=await ok.apply(this, arguments); try{ proEmbLayout(); }catch(e){} return r; };
+    if(typeof hBack!=='undefined'&&hBack) hBack.addEventListener('click',()=>setTimeout(()=>document.body.classList.toggle('emb-root', nav.length<=1),0));
+  })();
+  setInterval(()=>{ try{ const a=document.activeElement; if(nav.length<=1 && !(a&&a.matches&&a.matches('input,select,textarea')) && !document.querySelector('.o2-mask')) kojiScreen(RC.kday||dtoday()); }catch(e){} }, 180000);
+}
+/* 窓の中：配置図を左、作業の行を右に（案1） */
+function proEmbLayout(){
+  if(!PRO_EMB||nav.length>1) return; const mc=app.querySelector('.k-mapc'); if(!mc||app.querySelector('.emb-cols')) return;
+  const mh=mc.previousElementSibling&&mc.previousElementSibling.classList.contains('rc-h')?mc.previousElementSibling:null;
+  const cols=document.createElement('div'); cols.className='emb-cols'; const L=document.createElement('div'), R=document.createElement('div'); L.className='emb-l'; R.className='emb-r'; cols.append(L,R);
+  (mh||mc).before(cols); if(mh) L.appendChild(mh); L.appendChild(mc);
+  let n=cols.nextElementSibling; while(n){ const nx=n.nextElementSibling; if(!n.classList.contains('rc-status')) R.appendChild(n); n=nx; }
+}
+
 /* ---- 配置を作る ---- */
-function proSize(){ const g=document.querySelector('#app .pro-g'); if(!g) return; const t=g.getBoundingClientRect().top+window.scrollY; g.style.height=Math.max(560, window.innerHeight-t-10)+'px'; }
+function proSize(){ const g=document.querySelector('#app .pro-g'); if(!g) return; const t=g.getBoundingClientRect().top+window.scrollY; g.style.height=Math.max(560, window.innerHeight-t-10)+'px'; proKifPlace(); }
 function proBuild(){
   const box=document.getElementById('dpBox'), ics=app.querySelector('.dp-ics'); if(!box||!ics) return;
   if(app.querySelector('.pro-g')) return;
@@ -19896,28 +19942,29 @@ function proBuild(){
   const g=document.createElement('div'); g.className='pro-g';
   g.innerHTML=`<nav class="pro-nav"></nav>
     <section class="pro-pn pro-plan"><div class="pro-h">📅 本日の予定<small>${esc(djp(dtoday()))}</small><span>押すと中身・必要人数</span></div><div class="pro-b" id="proPlan"></div></section>
-    <section class="pro-pn pro-koji"><div class="pro-h">🍚 麹の経過<small>引込〜出麹（上＝時刻・下＝品温。( )は基準）</small><span id="proKr"></span></div><div class="pro-b" id="proKoji"></div></section>
+    <section class="pro-pn pro-koji" id="proKojiPn"></section>
     <section class="pro-pn pro-mor"><div class="pro-h" id="kgHd">🍶 醪の経過<small></small><span>マスに直接入力 → 保存　⚙ 温度・追水の指示</span></div><div class="pro-b"><div class="kg-home" id="proMor"></div></div></section>`;
   box.before(g);
   g.querySelector('.pro-nav').appendChild(ics);
   g.querySelector('#proPlan').appendChild(box);
   box.style.height=''; box.style.maxHeight='';
   requestAnimationFrame(()=>{ box.style.height=''; box.style.maxHeight=''; proSize(); });
-  proKojiDraw(); proMorDraw(); proKjLoad();
+  proKifShow(); proMorDraw(); proKjLoad();
   const myTop=nav[nav.length-1];
-  (async()=>{ try{ await dpLoad(dtoday()); }catch(e){} if(nav[nav.length-1]!==myTop) return; proKojiDraw(); if(!RC.state||!RC.state.master){ try{ await recState(false); }catch(e){} } if(nav[nav.length-1]===myTop&&!PRO.mor) proMorDraw(); })();
+  (async()=>{ try{ await dpLoad(dtoday()); }catch(e){} if(nav[nav.length-1]!==myTop) return; if(!RC.state||!RC.state.master){ try{ await recState(false); }catch(e){} } if(nav[nav.length-1]===myTop&&!PRO.mor) proMorDraw(); })();
   (async()=>{ try{ if(!RC.state||!RC.state.master) await recState(false); }catch(e){} if(nav[nav.length-1]===myTop) proMorDraw(); })();
-  clearInterval(PRO.tick); PRO.tick=setInterval(()=>{ if(!document.querySelector('#app .pro-g')){ clearInterval(PRO.tick); return; } proKojiDraw(); proInsDraw(); }, 60000);
+  clearInterval(PRO.tick); PRO.tick=setInterval(()=>{ if(!document.querySelector('#app .pro-g')){ clearInterval(PRO.tick); return; } proInsDraw(); }, 60000);
 }
 (function(){ const o=window.home; if(typeof o!=='function') return;
   window.home=function(){ PRO.mor=null; const r=o.apply(this, arguments);
     try{ if(proIs()) proBuild(); else document.body.classList.remove('pro'); }catch(e){ console.log('proHome',e); } return r; }; })();
 /* ほかの画面へ移ったら Pro の印を外す／画面の幅が変わったらホームを描き直す */
 (function(){ const o=window.go; if(typeof o!=='function') return;
-  window.go=function(f){ if(f!==window.home) document.body.classList.remove('pro'); return o.apply(this, arguments); }; })();
+  window.go=function(f){ if(f!==window.home){ document.body.classList.remove('pro'); if(PRO.kif) PRO.kif.style.display='none'; } return o.apply(this, arguments); }; })();
+if(typeof hBack!=='undefined'&&hBack) hBack.addEventListener('click',()=>setTimeout(()=>{ if(PRO.kif) proKifPlace(); },50));
 let PRO_RS=null;
 window.addEventListener('resize',()=>{ clearTimeout(PRO_RS); PRO_RS=setTimeout(()=>{ const onHome=!!document.getElementById('dpBox'); if(!onHome) return;
-  const isG=!!document.querySelector('#app .pro-g'); if(isG!==proIs()){ try{ go(home,false); }catch(e){} } else proSize(); },250); });
+  const isG=!!document.querySelector('#app .pro-g'); if(isG!==proIs()){ try{ go(home,false); }catch(e){} } else { proSize(); proKifPlace(); } },250); });
 (function(){ const s=document.createElement('style'); s.textContent=`
 body.pro .wrap, body.pro header .hin{max-width:none}
 body.pro #app{padding-left:10px;padding-right:10px}
@@ -19959,6 +20006,17 @@ body.pro .pro-nav .dp-ic{position:relative;min-height:32px}
 .pro-it td.oi-g{background:#e3f4ea}.pro-it td.oi-y{background:#fff6cc}.pro-it td.oi-r{background:#fde3dc}.pro-it td.oi-ok{color:#999}
 .pro-it td .sto-pr{display:inline-flex;vertical-align:middle;margin:0}.pro-it td .sto-v{display:none}
 body.pro .pro-mor .kg-home{margin:0}
+
+#proKif{position:fixed;z-index:5;border:1px solid var(--line,#e4ded1);border-radius:12px;background:#fff;display:none}
+body:not(.pro) #proKif{display:none!important}
+html.emb body.emb-root header{display:none}
+html.emb .wrap{max-width:none!important;padding-left:8px!important;padding-right:8px!important}
+html.emb #app{padding-top:4px}
+html.emb .rc-nav .rc-dbtn{flex:0 0 auto}
+.emb-cols{display:grid;grid-template-columns:minmax(300px,38%) 1fr;gap:10px;align-items:start}
+.emb-cols .emb-l .rc-h:first-child{margin-top:0}
+@media (max-width:760px){ .emb-cols{grid-template-columns:1fr} }
+@media (max-width:1500px){ .pro-g{grid-template-columns:150px minmax(0,420px) minmax(0,1fr) minmax(0,420px)} }.emb-cols .emb-r>.rc-h:first-child{margin-top:0}
 .pro-kj{display:block;margin:5px 0 0;border:1px solid #d9cfee;background:#f6f2fc;border-radius:6px;padding:2px 5px;font-size:10.5px;line-height:1.4;color:#3d2a73;text-align:left;white-space:normal;font-weight:400}
 .pro-kj b{color:#5b3fa0;font-size:10.5px;display:inline}
 `; document.head.appendChild(s); })();
