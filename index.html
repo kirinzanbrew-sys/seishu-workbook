@@ -2473,7 +2473,8 @@ function hkGet(){
    品種名を押すと、その品種の減り方のグラフ。足りる品種には状態を出さない。 */
 let ZBF = null, ZB_RENDER = null, ZB_LAND = null;
 function zbN(){ return window.innerWidth>window.innerHeight ? 21 : 14; }   // 縦14日・横21日
-let ZB_ALL = lsGet('zb.all', false);   // 2026-11-27 表全体を画面に収めて見る
+let ZB_ALL = lsGet('zb.all', false);
+let ZB_HZ = lsGet('zb.hz', false);   // 2026-11-27 在庫が0の品種を隠すスイッチ   // 2026-11-27 表全体を画面に収めて見る
 function zbMd(d){ return Number(d.slice(5,7))+'/'+Number(d.slice(8,10)); }
 function zbW(d){ return WD[dparse(d).getDay()]; }
 function zbCtx(){
@@ -2504,7 +2505,7 @@ function zbTop(day){
   if(C){ const zv=zvOf(day); C.Z.vars.forEach((v,i)=>{ const s=zbStat(C,v,i,day); if(s&&s.lv==='ng')ng++; if(s&&s.lv==='wn')wn++;
     if(C.raw(i,day)||C.zi(i,day)||C.zo(i,day)){ live++; if(zv[v]) ck++; } }); }
   return `<div class="zb-top"><div class="zb-dn"><button id="dPrev">◀</button><button id="dToday" class="d" title="今日に戻る">${dshort(day)}${day===t?'':' <small>今日へ</small>'}</button><button id="dNext">▶</button></div>
-    <button id="zbIn" class="zb-ic" title="米の入荷を手で入れる">🚚<span>入荷</span></button><button id="zbAll" class="zb-ic${ZB_ALL?' on':''}" title="表全体を画面に収める">🔍<span>${ZB_ALL?'元の大きさ':'全体'}</span></button><button id="zbHk" class="zb-ic" title="米の引き取り予定">📅<span>引取予定</span></button>${zbAlIcon()}
+    <button id="zbIn" class="zb-ic" title="米の入荷を手で入れる">🚚<span>入荷</span></button><button id="zbAll" class="zb-ic${ZB_ALL?' on':''}" title="表全体を画面に収める">🔍<span>${ZB_ALL?'元の大きさ':'全体'}</span></button><button id="zbHk" class="zb-ic" title="米の引き取り予定">📅<span>引取予定</span></button><button id="zbHz" class="zb-ic${ZB_HZ?' on':''}" title="在庫が0の品種を隠す／出す">0️⃣<span>在庫0を隠す</span></button>${zbAlIcon()}
     <div class="zb-sm">${ng?`<span class="ng">不足${ng}</span>`:''}${wn?`<span class="wn">少${wn}</span>`:''}<span>確認${ck}/${live}</span></div></div>`;
 }
 function zbView(day){
@@ -2512,7 +2513,7 @@ function zbView(day){
   const days=[...Array(zbN())].map((_,k)=>dadd(day,k));
   const difs={}; days.forEach(d=>{ (zaiDiff(d)||[]).forEach(r=>{ difs[d+'|'+r.v]=r; }); });
   const zvs={}; days.forEach(d=>zvs[d]=zvOf(d));
-  const rows=[]; C.Z.vars.forEach((v,i)=>{ rows.push({v,i,st:zbStat(C,v,i,day)}); });   // 2026-11-27 品種受払にある品種はすべて出す（在庫も動きも無い品種も）
+  const rows=[]; C.Z.vars.forEach((v,i)=>{ if(ZB_HZ && !days.some(d=>Math.abs(C.stock(v,i,d))>0.05||C.zi(i,d)||C.zo(i,d)||C.hy(v,d)||rkDay(v,d)||rzVal(v,d))) return; rows.push({v,i,st:zbStat(C,v,i,day)}); });   // 2026-11-27 「0を隠す」のときは、表示する日のあいだ在庫0・動きなしの品種を出さない   // 2026-11-27 品種受払にある品種はすべて出す（在庫も動きも無い品種も）
   const ord={ng:0,wn:1}; rows.sort((a,b)=>((a.st?ord[a.st.lv]:2)-(b.st?ord[b.st.lv]:2))||(a.i-b.i));
   const f=n=>kgfmt(Math.round(n));
   let h=`<div class="zb-lg"><span><i style="background:#fdecea;border:1px solid #b23b3b"></i>足りない</span><span><i style="background:#fff6e0"></i>翌日の分が無い</span><span><b style="color:#1b7f3b">緑</b>入荷済み</span><span><b class="zb-hl">青</b>入荷予定（押すと変更）</span><span style="color:#8a6d1f">−払出</span><span>kg</span><span style="color:#2f7d5d">✓確認</span></div>
@@ -2676,6 +2677,7 @@ function zbBind(render){
   const zal=$('#zbAl'); if(zal) zal.onclick=()=>{ const b=$('#zbSh'); if(!b) return; ZBF=null;
     b.innerHTML=`<div class="zb-bg" data-zbx="1"></div><div class="zb-sheet"><span class="x" data-zbx="1">✕</span><h4>⚠ 洗米の日の米</h4>${riceShortView(ZAI_DAY)}</div>`;
     b.querySelectorAll('[data-zbx]').forEach(e=>e.onclick=zbClose); };
+  const zhz=$('#zbHz'); if(zhz) zhz.onclick=()=>{ ZB_HZ=!ZB_HZ; lsSet('zb.hz',ZB_HZ); render(); };
   const zall=$('#zbAll'); if(zall) zall.onclick=()=>{ ZB_ALL=!ZB_ALL; lsSet('zb.all',ZB_ALL); render(); };
   const zhk=$('#zbHk'); if(zhk) zhk.onclick=()=>{ const b=$('#zbSh'); if(!b) return; ZBF=null;
     b.innerHTML=`<div class="zb-bg" data-zbx="1"></div><div class="zb-sheet zb-rkin"><span class="x" data-zbx="1">✕</span><h4>📅 米の引き取り予定</h4>${hikitoriSoon(ZAI_DAY)}</div>`;
@@ -9686,6 +9688,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-27-9','🌾','米管理','在庫管理の上に「在庫0を隠す」スイッチを付けました。押すと（紺色になります）、表示している期間ずっと在庫が0で入荷・払出も無い品種を表から隠します。もう一度押すと全品種に戻ります。'],
   ['2026-11-27-8','🌾','米管理','在庫管理の上のアイコン（入荷・全体・引取予定・⚠）を、絵の下に小さく字を出す形にして1段にまとめました。表が上に上がって広く見えます。'],
   ['2026-11-27-7','🌾','米管理','在庫管理の下に出ていた「米の引き取り予定」を、上の一行の「📅 引取予定」アイコンにしました。押すと直近の引き取り予定が出ます（「ぜんぶ見る」も今までどおり）。'],
   ['2026-11-27-6','🌾','米管理','在庫管理の上の一行に「🔍 全体」ボタンを付けました。押すと表を画面の幅に縮めて14日分（横向きは21日分）を一度に見せ、入荷も払出も無い品種は「在」の1行だけにたたみます。もう一度押すと元の大きさに戻ります。'],
