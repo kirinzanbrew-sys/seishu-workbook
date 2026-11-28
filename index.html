@@ -9688,6 +9688,7 @@ async function kiDialog(no, kind){
    控え：seishu-workbook_github\_src_upd.js（index.html の upd の目印の間）。差し込み _アップデート情報を足す.py
    ================================================================================== */
 const UPDATES=[
+  ['2026-11-28-3','🖥','ホーム','Pro ホームを見やすくしました。左のアイコンは1列の細い行で枠の中に全部入ります（知らせは赤い点）。本日の予定は入りきらないとき自動で縮めて枠に収めます。麹の枠の日付をなくし、ホームの日付に合わせます。麹の枠は上を1行にまとめ、各麹の行に 引込〜出麹の時刻と品温・吸水・種麹・使う日・品温計の今の品温 を足し、配置図は右上に小さくしました。'],
   ['2026-11-28-2','🖥','ホーム','ID（名前）が「会社PC」「会社PC2」「Pad」で入っている端末は、画面の幅にかかわらず必ず Pro ホームになるようにしました。'],
   ['2026-11-28-1','🖥','ホーム','PCの Pro ホームが出ないことがあったので、出す条件を「横幅1100px以上のPC」に広げました。右上の麹の枠は、スマホの🍚麹の画面と同じ中身（上のボタン・注意・配置図・各麹の行）を、左に配置図・右に麹の行で出します。押すとスマホと同じ入力画面がその枠の中で開きます。'],
   ['2026-11-27-14','🖥','ホーム','PCの Pro ホームの醪の表で、順号の下に「🍚 麹」の札を付けました。その仕込みに使った麹を種麹ごとにまとめて、麹米の品種・精米歩合と kg を出します。'],
@@ -19781,11 +19782,16 @@ body.hm #dpBox .dp-kn,body.hm #dpBox .dp-cal,body.hm #dpBox .dp-bn2{background:r
        同じ製造ツールを ?embed=koji で小さな窓（iframe）に開き、その中では ホーム＝麹の画面。上のボタン（O₂・日付・種・札・i・掃）・
        苦み注意・盛高温・配置図・各行・押すと入力 はスマホと同じ動き（窓の中で開く。戻るは窓の上の ‹）。3分ごとに描き直す。
        窓は #app の外に1つだけ置き、ホームの麹の枠の位置に重ねる（ホームを描き直しても読み込み直さない）
-     ・名前（ID）が「会社PC」「Pad」の端末は、幅や端末の種類にかかわらず必ず Pro（proForced）
+     ・名前（ID）が「会社PC」「会社PC2」「Pad」の端末は、幅や端末の種類にかかわらず必ず Pro（proForced）
+   2026-11-28 泰広さん指示（見本 Claude outputs\製造ツール_Pro_枠に収める_見本.html の 案B）：
+     ・左のアイコンは1列の細い行で、枠の中に全部収める（知らせの札は赤い点。マウスを乗せると文字）
+     ・本日の予定は枠の中に収める（入りきらないときは自動で縮める proPlanFit）
+     ・麹の枠の日付はなくし、ホームの日付（本日の予定の日付）に合わせる（proKdSync）
+     ・麹の枠：上のボタン・本数・注意を1行に。行を横いっぱい、配置図は右上に小さく。行に 引込〜出麹の7マス（時刻・品温）・吸水・種麹g・使う日・品温計の今の品温 を足す（proEmbRows）
    控え：seishu-workbook_github\_src_prohome1127.js（index.html の <!-- prohome1127 --> の間） */
 const PRO={ w:1100, kif:null, mor:null, tick:null };
 const PRO_EMB=/[?&]embed=koji\b/.test(location.search);
-const PRO_IDS=['会社PC','Pad'];   // 2026-11-28 泰広さん指示：この名前（ID）で入っている端末は、幅・端末の種類にかかわらず Pro
+const PRO_IDS=['会社PC','会社PC2','Pad'];   // 2026-11-28 泰広さん指示：この名前（ID）で入っている端末は、幅・端末の種類にかかわらず Pro
 function proForced(){ try{ const n=(typeof igNorm==='function'?igNorm(ST&&ST.name):String((ST&&ST.name)||'').trim()); return PRO_IDS.some(x=>(typeof igNorm==='function'?igNorm(x):x)===n); }catch(e){ return false; } }
 function proIs(){ try{ if(PRO_EMB) return false; if(proForced()) return true; const ua=navigator.userAgent||'';
   if(/iPhone|iPad|iPod|Android|Mobile/i.test(ua)) return false;
@@ -19924,17 +19930,50 @@ if(PRO_EMB){
   })();
   setInterval(()=>{ try{ const a=document.activeElement; if(nav.length<=1 && !(a&&a.matches&&a.matches('input,select,textarea')) && !document.querySelector('.o2-mask')) kojiScreen(RC.kday||dtoday()); }catch(e){} }, 180000);
 }
-/* 窓の中：配置図を左、作業の行を右に（案1） */
+/* 窓の中（案B）：上を1行に／行を横いっぱい・配置図は右上に小さく／行に工程の7マスなどを足す */
 function proEmbLayout(){
-  if(!PRO_EMB||nav.length>1) return; const mc=app.querySelector('.k-mapc'); if(!mc||app.querySelector('.emb-cols')) return;
-  const mh=mc.previousElementSibling&&mc.previousElementSibling.classList.contains('rc-h')?mc.previousElementSibling:null;
-  const cols=document.createElement('div'); cols.className='emb-cols'; const L=document.createElement('div'), R=document.createElement('div'); L.className='emb-l'; R.className='emb-r'; cols.append(L,R);
-  (mh||mc).before(cols); if(mh) L.appendChild(mh); L.appendChild(mc);
-  let n=cols.nextElementSibling; while(n){ const nx=n.nextElementSibling; if(!n.classList.contains('rc-status')) R.appendChild(n); n=nx; }
+  if(!PRO_EMB||nav.length>1) return; const mc=app.querySelector('.k-mapc'); if(!mc) return;
+  if(!app.querySelector('.emb-top')){ const t=document.createElement('div'); t.className='emb-top'; const nv=app.querySelector('.rc-nav'); if(nv){ nv.before(t); ['.rc-nav','.k-sum','.kgm-ban','.mhot-ban'].forEach(q=>app.querySelectorAll(':scope > '+q).forEach(e=>t.appendChild(e))); } }
+  if(!app.querySelector('.emb-cols')){
+    const mh=mc.previousElementSibling&&mc.previousElementSibling.classList.contains('rc-h')?mc.previousElementSibling:null;
+    const cols=document.createElement('div'); cols.className='emb-cols'; const L=document.createElement('div'), R=document.createElement('div'); L.className='emb-l'; R.className='emb-r'; cols.append(R,L);
+    (mh||mc).before(cols); if(mh) L.appendChild(mh); L.appendChild(mc);
+    let n=cols.nextElementSibling; while(n){ const nx=n.nextElementSibling; if(!n.classList.contains('rc-status')) R.appendChild(n); n=nx; } }
+  proEmbRows();
+}
+function proEmbRows(){
+  const d=RC.kday||dtoday(), j=RC.koji&&RC.koji[d]; if(!j) return;
+  app.querySelectorAll('.emb-r .rc-row[data-id]').forEach(b=>{ if(b.querySelector('.emb-x')) return;
+    const r=(j.koji||[]).find(x=>x['麹ID']===b.dataset.id); if(!r) return;
+    const sk=(typeof kIsKaga==='function'&&kIsKaga(r))?'kaga':'ippan', S=(typeof KSTD!=='undefined'&&KSTD[sk])||{st:{}};
+    let nx=PRO_KS.findIndex(s=>!proV(r[s[2]])); if(nx<0) nx=PRO_KS.length;
+    const cells=PRO_KS.map((s,i)=>{ const v=r[s[2]], has=proV(v), st=S.st[s[3]]; let jd=null;
+      if(has&&typeof kJudge==='function'){ try{ jd=kJudge(sk,s[3],Number(v)); }catch(e){} }
+      return `<span class="${has?'dn':(i===nx?'nx':'fu')}${jd&&jd.lv===2?' x':jd&&jd.lv===1?' w':''}"><b>${s[0]}</b>${esc(proTm(r[s[1]])||'')}<i>${has?proF1(v):(st?'('+proF1(st[0])+')':'')}</i></span>`; }).join('');
+    const tn=[r['種麹']?esc(r['種麹'])+(proV(r['種麹g'])?' '+r['種麹g']+'g':''):'', r['種麹2']?esc(r['種麹2'])+(proV(r['種麹2g'])?' '+r['種麹2g']+'g':''):''].filter(Boolean).join('＋');
+    const kv=[proV(r['吸水%'])?`吸水 <b>${proF1(r['吸水%'])}%</b>`:'', tn?`種麹 <b>${tn}</b>`:'', r['使用日']?`使う日 <b>${esc(rcMD(r['使用日']))}</b>${r['順号']?` ${esc(String(r['順号']))}号${esc(r['区分']||'')}`:''}`:''].filter(Boolean).join('　');
+    const ps=(RC.pser||{})[r['麹ID']]; let now='';
+    if(ps&&ps.length){ const L=ps[ps.length-1]; if(L&&proV(L.v)) now=`<span class="emb-now">${proF1(L.v)}<small>℃ 品温計</small></span>`; }
+    const x=document.createElement('span'); x.className='emb-x'; x.innerHTML=`${kv?`<span class="emb-kv">${kv}</span>`:''}<span class="emb-s7">${cells}</span>`;
+    const mid=b.querySelector('.mid'); (mid||b).appendChild(x);
+    if(now){ const rr=b.querySelector('.r'); if(rr) rr.insertAdjacentHTML('afterbegin',now); }
+  });
 }
 
+/* ---- 本日の予定を枠に収める ---- */
+function proPlanFit(){ const pn=document.getElementById('proPlan'), box=document.getElementById('dpBox'); if(!pn||!box) return;
+  box.style.zoom=''; const ch=pn.clientHeight, sh=pn.scrollHeight; if(!(ch>0)||sh<=ch+1) return;
+  box.style.zoom=Math.max(0.55, Math.floor(ch/sh*100)/100); }
+let PRO_PF=null; function proPlanFitSoon(){ clearTimeout(PRO_PF); PRO_PF=setTimeout(proPlanFit,120); }
+/* ---- 麹の枠の日付をホームの日付に合わせる ---- */
+function proKdSync(){ try{ if(!PRO.kif||!document.body.classList.contains('pro')) return; const d=(typeof dpDate==='function')?dpDate():dtoday();
+  const w=PRO.kif.contentWindow; if(!w||typeof w.kojiScreen!=='function'||!w.RC||!w.nav) return;
+  if(PRO.kd===undefined) PRO.kd=dtoday();
+  if(d!==PRO.kd && w.nav.length<=1){ PRO.kd=d; w.RC.kday=d; w.kojiScreen(d); } }catch(e){} }
+setInterval(proKdSync, 1500);
+
 /* ---- 配置を作る ---- */
-function proSize(){ const g=document.querySelector('#app .pro-g'); if(!g) return; const t=g.getBoundingClientRect().top+window.scrollY; g.style.height=Math.max(560, window.innerHeight-t-10)+'px'; proKifPlace(); }
+function proSize(){ const g=document.querySelector('#app .pro-g'); if(!g) return; const t=g.getBoundingClientRect().top+window.scrollY; g.style.height=Math.max(520, window.innerHeight-t-10)+'px'; proKifPlace(); proPlanFitSoon(); }
 function proBuild(){
   const box=document.getElementById('dpBox'), ics=app.querySelector('.dp-ics'); if(!box||!ics) return;
   if(app.querySelector('.pro-g')) return;
@@ -19948,7 +19987,9 @@ function proBuild(){
   g.querySelector('.pro-nav').appendChild(ics);
   g.querySelector('#proPlan').appendChild(box);
   box.style.height=''; box.style.maxHeight='';
-  requestAnimationFrame(()=>{ box.style.height=''; box.style.maxHeight=''; proSize(); });
+  requestAnimationFrame(()=>{ box.style.height=''; box.style.maxHeight=''; proSize(); proPlanFit(); });
+  try{ if(PRO.mo) PRO.mo.disconnect(); PRO.mo=new MutationObserver(()=>proPlanFitSoon()); PRO.mo.observe(box,{childList:true,subtree:true,characterData:true}); }catch(e){}
+  g.querySelectorAll('.pro-nav .dp-ic .tg').forEach(t=>{ const b=t.closest('.dp-ic'); if(b&&t.textContent) b.title=t.textContent; });
   proKifShow(); proMorDraw(); proKjLoad();
   const myTop=nav[nav.length-1];
   (async()=>{ try{ await dpLoad(dtoday()); }catch(e){} if(nav[nav.length-1]!==myTop) return; if(!RC.state||!RC.state.master){ try{ await recState(false); }catch(e){} } if(nav[nav.length-1]===myTop&&!PRO.mor) proMorDraw(); })();
@@ -19977,16 +20018,16 @@ body.pro #kzBand{display:none}
 .pro-h small{font-weight:400;color:var(--sub,#6b7280);font-size:11px}.pro-h span{margin-left:auto;font-weight:400;font-size:11px;color:var(--sub,#6b7280)}
 .pro-b{flex:1;min-height:0;overflow:auto;padding:0 8px 8px}
 body.pro .pro-plan #dpBox{margin:0;border:0;box-shadow:none;padding:0;height:auto!important;max-height:none!important;overflow:visible}
-body.pro .pro-nav .dp-ics{display:flex;flex-direction:column;gap:2px;margin:0}
-body.pro .pro-nav .dp-ic{flex-direction:row;align-items:center;justify-content:flex-start;gap:6px;padding:4px 5px;border-radius:8px;color:#dfe6ef;width:100%}
+body.pro .pro-nav{display:flex;flex-direction:column;overflow:hidden;padding:5px 4px}
+body.pro .pro-nav .dp-ics{display:flex;flex-direction:column;gap:1px;margin:0;flex:1;min-height:0}
+body.pro .pro-nav .dp-ic{flex:1 1 0;min-height:0;max-height:40px;flex-direction:row;align-items:center;justify-content:flex-start;gap:6px;padding:0 5px;border-radius:7px;color:#dfe6ef;width:100%;position:relative;overflow:hidden}
 body.pro .pro-nav .dp-ic:hover{background:#3b5072}
-body.pro .pro-nav .dp-ic .ico{width:26px;height:26px;border-radius:7px;font-size:15px;flex:none;box-shadow:none}
-body.pro .pro-nav .dp-ic .ico img{width:20px;height:20px}
-body.pro .pro-nav .dp-ic .lb{font-size:12px;text-align:left;color:#eef2f7;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+body.pro .pro-nav .dp-ic .ico{width:22px;height:22px;border-radius:6px;font-size:13px;flex:none;box-shadow:none}
+body.pro .pro-nav .dp-ic .ico img{width:18px;height:18px}
+body.pro .pro-nav .dp-ic .lb{font-size:12px;text-align:left;color:#eef2f7;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;line-height:1.2}
 body.pro .pro-nav .dp-ic .lb small{display:inline;color:#a9b6c8;margin-left:2px}
-body.pro .pro-nav .dp-ic .n{position:static;margin-left:auto}
-body.pro .pro-nav .dp-ic .tg{position:absolute;right:2px;bottom:-2px;left:auto;top:auto;transform:none;font-size:8.5px;white-space:nowrap;padding:0 3px;line-height:1.4}
-body.pro .pro-nav .dp-ic{position:relative;min-height:32px}
+body.pro .pro-nav .dp-ic .n{position:static;margin-left:2px;flex:none;transform:scale(.85)}
+body.pro .pro-nav .dp-ic .tg{position:static;flex:none;font-size:0;width:8px;height:8px;padding:0;border-radius:50%;margin-left:2px;transform:none;line-height:0;min-width:0;border:0}
 .pro-kr{display:grid;grid-template-columns:150px minmax(0,1fr) 170px;gap:8px;align-items:center;width:100%;text-align:left;font:inherit;color:inherit;background:#fff;border:1px solid var(--line,#e4ded1);border-radius:10px;padding:5px 7px;margin:0 0 5px;cursor:pointer}
 .pro-kr.wn{border:2px solid #c9821b;background:#fffaf0}.pro-kr.done{opacity:.75}
 .pro-kr .l b{font-size:14px;color:#1b2a41}.pro-kr .l .lq{font-weight:800;font-size:12px}.pro-kr .l small{display:block;font-size:10.5px;color:#666;line-height:1.35}.pro-kr .l small.wt{color:#b8660b;font-weight:700}
@@ -20012,10 +20053,23 @@ body:not(.pro) #proKif{display:none!important}
 html.emb body.emb-root header{display:none}
 html.emb .wrap{max-width:none!important;padding-left:8px!important;padding-right:8px!important}
 html.emb #app{padding-top:4px}
-html.emb .rc-nav .rc-dbtn{flex:0 0 auto}
-.emb-cols{display:grid;grid-template-columns:minmax(300px,38%) 1fr;gap:10px;align-items:start}
-.emb-cols .emb-l .rc-h:first-child{margin-top:0}
-@media (max-width:760px){ .emb-cols{grid-template-columns:1fr} }
+.emb-cols{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:8px;align-items:start}
+.emb-l{zoom:.62}.emb-l .rc-h:first-child{margin-top:0}.emb-r>.rc-h:first-child{margin-top:0}
+@media (max-width:760px){ .emb-cols{grid-template-columns:minmax(0,1fr) 170px} .emb-l{zoom:.45} }
+html.emb #kDate, html.emb #kStrip{display:none!important}
+.emb-top{display:flex;align-items:center;gap:4px 10px;flex-wrap:wrap;margin:0 0 4px}
+.emb-top .rc-nav{zoom:.62;margin:0!important;flex:none}
+.emb-top .k-sum{margin:0!important;font-size:12px}
+.emb-top .kgm-ban,.emb-top .mhot-ban{zoom:.75;margin:0!important;display:flex;gap:4px}
+html.emb .emb-r .rc-h{margin:6px 0 3px}
+.emb-x{display:block;margin-top:3px}
+.emb-kv{display:block;font-size:11px;color:#444;line-height:1.4}.emb-kv b{color:#1b2a41}
+.emb-s7{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:2px}
+.emb-s7 span{border:1px solid #eee;border-radius:5px;text-align:center;line-height:1.15;padding:1px 0;font-size:10px;color:#555;background:#fff}
+.emb-s7 b{display:block;font-size:9.5px;color:#1b2a41}.emb-s7 i{display:block;font-style:normal;font-weight:800;font-size:12px;color:#22262b}
+.emb-s7 .dn{background:#e9f6ee;border-color:#bfe0cc}.emb-s7 .nx{background:#fff1dc;border:1.5px solid #d48a2a}.emb-s7 .fu{background:#f5f5f7;color:#9aa0aa}.emb-s7 .fu b,.emb-s7 .fu i{color:#9aa0aa;font-weight:400}
+.emb-s7 .w i{color:#c9821b}.emb-s7 .x i{color:#c62828}
+.emb-now{display:block;font-size:18px;font-weight:800;color:#c0392b;line-height:1.1}.emb-now small{font-size:10px;color:#666;font-weight:400}
 @media (max-width:1500px){ .pro-g{grid-template-columns:150px minmax(0,420px) minmax(0,1fr) minmax(0,420px)} }.emb-cols .emb-r>.rc-h:first-child{margin-top:0}
 .pro-kj{display:block;margin:5px 0 0;border:1px solid #d9cfee;background:#f6f2fc;border-radius:6px;padding:2px 5px;font-size:10.5px;line-height:1.4;color:#3d2a73;text-align:left;white-space:normal;font-weight:400}
 .pro-kj b{color:#5b3fa0;font-size:10.5px;display:inline}
